@@ -1,8 +1,8 @@
 # yt-space
 
-從任何 YouTube 影片挑出畫面，成為可依時間瀏覽、依標籤與語意檢索的個人圖庫（Android ＋ iOS 原生 app，Flutter）。
+從任何 YouTube 影片挑出畫面，成為可依時間瀏覽、依標籤與語意檢索的個人圖庫（Android 原生 app，Kotlin ＋ Jetpack Compose；iOS 暫不做）。
 
-**目前進度：尚未開始實作。** 2026-09-10 產品形態由 web（SvelteKit on Cloudflare）改為 Flutter 原生 app，
+**目前進度：尚未開始實作。** 2026-09-10 產品形態由 web（SvelteKit on Cloudflare）改為 Android 原生 app（Kotlin），
 **app 版實作計畫待產出**。計畫的第一步是截圖功能的 POC（規格第十二節）。
 
 ---
@@ -15,7 +15,7 @@
 | 2 | [`docs/superpowers/specs/2026-09-10-yt-space-app-design.md`](docs/superpowers/specs/2026-09-10-yt-space-app-design.md) | **規格**。技術事實（storyboard、watch page 欄位、trigram 限制）、架構與模組邊界、資料模型、備份／回填、POC | 動手寫某個模組前，讀對應章節 |
 | 3 | [`mockups/uiux-v2/驗收操作手冊.md`](mockups/uiux-v2/驗收操作手冊.md) | **UI 驗收標準**。§一 登入等條目已過期（見手冊開頭），會在實作計畫中改寫 | 做完一個任務要驗收時 |
 
-`mockups/uiux-v2/` 的 HTML 是 **UI 的視覺參考**（Flutter 重寫，程式碼不沿用），但它落後於驗收手冊（手冊是目標狀態）。
+`mockups/uiux-v2/` 的 HTML 是 **UI 的視覺參考**（以 Compose 重寫，程式碼不沿用），但它落後於驗收手冊（手冊是目標狀態）。
 兩者不一致時**以手冊為準**；手冊與規格不一致時**以規格為準**。
 
 ---
@@ -51,7 +51,7 @@
 - **`src/lib/storyboard.ts`** —— `mockups/server.mjs:42` **在執行期讀取它**並轉譯成
   `/shared/storyboard.js`。刪掉它 `pnpm mock` 就開不起來，UI 原型每一頁都會壞
   （原型是驗收基準）。清理階段要**先把它搬進 `mockups/`** 再刪 `src/`。
-  它連同 `storyboard.test.ts` 也是 Dart 版 `storyboard` 模組的移植來源。
+  它連同 `storyboard.test.ts` 也是 Kotlin 版 `storyboard`（`:core` 模組）的移植來源。
 
 `test-results/`、`tmp/`、`.svelte-kit/`、`.wrangler/` 都在 `.gitignore` 裡，隨時可刪。
 
@@ -78,7 +78,7 @@
 pnpm mock         # UI 原型（需要 src/lib/storyboard.ts 存在）
 ```
 
-Flutter 專案（`app/`）的指令待實作計畫階段 1 建立後補上。iOS 以 Codemagic 雲端建置（開發環境沒有 Mac）。
+Gradle 專案（`android/`）的指令待實作計畫階段 1 建立後補上。
 
 ---
 
@@ -93,4 +93,4 @@ Flutter 專案（`app/`）的指令待實作計畫階段 1 建立後補上。iOS
   - Google Drive 只在 **`backup`** 裡用。
 - **無法重建的在 `library.db`（要備份），DB 外面的都能重建**（`cache.db`、`thumbs/`、草稿都不備份）。
 - **DB 裡不存檔案路徑**：縮圖以邏輯識別碼 `{videoId}/L{level}/{frameIndex}` 定位，`library.db` 的 schema 是跨平台資料格式（規格第四節「跨平台的資料契約」）。
-- **重運算（裁切、dHash）放 isolate**，不卡 UI 執行緒。
+- **重運算（裁切、dHash）放背景執行緒**（`Dispatchers.Default`），不卡 UI 執行緒。純邏輯放 `:core`（不依賴 Android SDK）。

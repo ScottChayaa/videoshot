@@ -1,6 +1,6 @@
 # yt-space App 設計規格書
 
-> 從任何 YouTube 影片挑出畫面，成為可依時間瀏覽、依標籤與語意檢索的個人圖庫（Android ＋ iOS 原生 app）
+> 從任何 YouTube 影片挑出畫面，成為可依時間瀏覽、依標籤與語意檢索的個人圖庫（Android 原生 app，Kotlin）
 > 建立日期：2026-09-10
 > 狀態：**現行規格**（本文即現況，見第〇節「本文的維護方式」）
 
@@ -16,7 +16,7 @@
 
 | | web 版（2026-08-27，已取代） | 本文（2026-09-10） |
 |---|---|---|
-| 形態 | SvelteKit PWA ＋ Cloudflare Workers | **Flutter 原生 app**（Android ＋ iOS） |
+| 形態 | SvelteKit PWA ＋ Cloudflare Workers | **Android 原生 app**（Kotlin ＋ Jetpack Compose）；iOS 暫不做 |
 | 資料 | D1 ＋ R2（伺服器） | **本機 SQLite ＋ 檔案**，沒有自有後端 |
 | 認證 | Cloudflare Access ＋ Google | **不需要登入**；Google 帳號只用於 Drive 備份 |
 | 跨裝置 | 資料在伺服器，天然同步 | **Google Drive 整包備份／還原**（換機與災難復原） |
@@ -109,7 +109,7 @@ L3 範例：320#180#25#3#3#1000#M$M#rs$AOn4CL...
 - **縮圖牆的張數與影片長度無關**，永遠是一兩百張；**一支影片的 L3 sheet 最多約 18 張、約 1 MB**。
 
 定位取「最近的一格」而非「之前的一格」（對照 YouTube 播放器 hover 預覽驗證），誤差為 **±間隔/2**。
-解析與定位的參考實作是 `src/lib/storyboard.ts`（`parseStoryboardSpec`、`pickLevel`、`frameAt`、`sheetUrl`），連同其單元測試移植成 Dart。
+解析與定位的參考實作是 `src/lib/storyboard.ts`（`parseStoryboardSpec`、`pickLevel`、`frameAt`、`sheetUrl`），連同其單元測試移植成 Kotlin。
 
 ### 2. sprite 簽章的效期不可知
 
@@ -160,7 +160,7 @@ web 版：YouTube iframe 是跨來源內容，`canvas.drawImage()` 後 `toBlob()
 - **JS canvas**：WebView 直接載入 YouTube 頁面當**頂層文件**（不是 iframe），注入 JS 對 `<video>` 做 `drawImage`。
   YouTube 以 MSE 播放，`<video>` 的來源是頁面自建的 `blob:` URL，同源，canvas 不會被 taint。
   可拿到影片原始解析度、沒有任何 UI 疊加的畫面，秒數也取自同一個元素。
-- **原生截圖**：Android `PixelCopy`、iOS `WKWebView.takeSnapshot` / `drawHierarchy`，截下後依影片區域裁切。
+- **原生截圖**：Android `PixelCopy`，截下後依影片區域裁切。
   已知風險：影片常位於獨立的 surface／layer，截到黑畫面；YouTube 自己的控制列、字幕、廣告在影片區域**內**，裁切去不掉。
 
 ### 6. 縮圖的實測尺寸
@@ -175,7 +175,8 @@ web 版：YouTube iframe 是跨來源內容，`canvas.drawImage()` 後 `toBlob()
 ### 7. SQLite 版本
 
 FTS5 的 **trigram tokenizer 需要 SQLite 3.34 以上**，多數 Android 版本內建的 SQLite 比這舊 →
-**必須使用自帶 SQLite 的套件**（`sqlite3_flutter_libs`），不可依賴系統 SQLite。
+**必須使用自帶 SQLite 的驅動**（AndroidX 的 `BundledSQLiteDriver`，Room 2.7 起支援；⏳ 確認其編譯選項含 FTS5，
+否則改用 `requery/sqlite-android`），不可依賴系統 SQLite。
 `VACUUM INTO`（備份快照用）需要 3.27 以上，同一個套件已滿足。
 
 trigram 的另一個限制：**少於 3 個字元的查詢字串不會比對到任何列**（「大蝦」「露營」都是 2 個字）→ 處理方式見第八節。
@@ -195,20 +196,24 @@ v1 不直接使用（v1 的 Gemini 只做查詢解析），但決定了 v2 第�
 ## 三、整體架構
 
 ```
-Flutter app（Android + iOS）
-├─ screens/         首頁・查詢・取圖精靈・分類・詳情・帳號・Lightbox
-├─ services/
-│   ├─ storyboard   spec 解析、pickLevel、frameAt、sheetUrl（自 storyboard.ts 移植）
-│   ├─ youtube      watch page → ytInitialPlayerResponse → metadata ＋ spec ＋ 失敗分類
-│   ├─ thumbs       下載 sheet → 裁切 → WebP 編碼 → 存檔；thumbFor(shot) 單一讀取入口
-│   ├─ similarity   dHash（在 isolate 執行）
-│   ├─ capture      截圖介面：JS canvas 實作／原生實作／相簿選圖實作
-│   ├─ query        規則式解析器 ＋ Gemini 解析器（可選，失敗退回規則式）
-│   ├─ backup       VACUUM INTO → Drive appDataFolder；保留 3 份；還原
-│   └─ backfill     還原後的縮圖回填（Android: WorkManager；iOS: 前景）
-├─ data/            repo 介面 → drift（library.db ＋ cache.db）
-└─ platform         WebView（YouTube）、安全儲存、Google Sign-In
+Android app（Kotlin ＋ Jetpack Compose）
+├─ :app
+│   ├─ ui/          首頁・查詢・取圖精靈・分類・詳情・帳號・Lightbox（Compose）
+│   ├─ youtube/     watch page → ytInitialPlayerResponse → metadata ＋ spec ＋ 失敗分類
+│   ├─ thumbs/      下載 sheet → 裁切 → WebP 編碼 → 存檔；thumbFor(shot) 單一讀取入口
+│   ├─ capture/     截圖介面：JS canvas 實作／PixelCopy 實作／相簿選圖實作
+│   ├─ query/       Gemini 解析器（可選，失敗退回 :core 的規則式解析器）
+│   ├─ backup/      VACUUM INTO → Drive appDataFolder；保留 3 份；還原
+│   ├─ backfill/    還原後的縮圖回填（WorkManager）
+│   └─ data/        repo 介面 → Room（library.db ＋ cache.db）
+└─ :core（純 Kotlin，不依賴 Android SDK）
+    ├─ storyboard   spec 解析、pickLevel、frameAt、sheetUrl（自 storyboard.ts 移植）
+    ├─ similarity   dHash（輸入灰階像素陣列）
+    └─ queryparse   規則式查詢解析
 ```
+
+`:core` 獨立成純 Kotlin 模組的理由：這些是整個系統最需要測試的純邏輯，放在不依賴 Android SDK 的模組裡，
+單元測試直接在 JVM 上跑，不需要模擬器或 Robolectric。
 
 ### 核心設計原則
 
@@ -216,7 +221,7 @@ Flutter app（Android + iOS）
 2. **單一入庫路徑。** 只有取圖精靈一個入口。
 3. **不下載影片。** 所有畫面來自 storyboard 或使用者在播放器上截的圖。不碰 yt-dlp。
 4. **無法重建的在 `library.db`，DB 外面的都能重建。** 這條決定了備份範圍（第十節）與檔案佈局（第四節）。
-5. **影像處理在 app 內，重運算放 isolate。** 裁切、縮圖、dHash 不卡 UI 執行緒。
+5. **影像處理在 app 內，重運算放背景執行緒**（coroutines 的 `Dispatchers.Default`）。裁切、縮圖、dHash 不卡 UI 執行緒。
 6. **功能降級，絕不當機。** storyboard 與 watch page 是非官方介面，必須假設它們終將改版失效。
 
 ### 模組邊界（實作時不得違反）
@@ -231,20 +236,18 @@ Flutter app（Android + iOS）
 
 ### 專案結構
 
-Flutter 專案放在根目錄的 **`app/`**。
+Gradle 專案放在根目錄的 **`android/`**（預留日後 `ios/` 並列的位置）。
 
 ```
 yt-space/
-├── app/                      # Flutter app（本規格的實作）
-│   ├── lib/
-│   │   ├── screens/
-│   │   ├── services/
-│   │   ├── data/             # repo、drift schema、migrations
-│   │   └── platform/
-│   ├── test/                 # 單元測試
-│   ├── integration_test/     # 整合測試（假播放器、錄製的 watch page）
-│   ├── android/  ios/
-│   └── codemagic.yaml
+├── android/                  # Gradle 專案（本規格的實作）
+│   ├── app/                  # :app 模組
+│   │   └── src/
+│   │       ├── main/
+│   │       ├── test/         # 本機單元測試
+│   │       └── androidTest/  # 儀器測試（假播放器、錄製的 watch page、Compose UI 測試）
+│   ├── core/                 # :core 模組（純 Kotlin）＋ 其 JVM 單元測試
+│   └── settings.gradle.kts
 ├── mockups/                  # UI 原型（驗收基準），pnpm mock
 └── docs/superpowers/
 ```
@@ -256,19 +259,23 @@ web 版程式碼（`src/`、`tests/`、`static/` 與 SvelteKit／Vite／Playwrig
 
 | 模組 | 技術 | 說明 |
 |---|---|---|
-| 框架 | Flutter（stable） | 選型理由見附錄 A-2 |
-| 狀態管理 | ⏳ 實作計畫階段 1 選定（Riverpod 為預設候選） | — |
-| 資料庫 | drift ＋ `sqlite3_flutter_libs` | 自帶 SQLite，含 FTS5 trigram（第二節第 7 點） |
-| WebView | `flutter_inappwebview` | 需要：頂層載入 YouTube、注入 JS／CSS、自訂 header；⏳ POC 驗證 |
-| 背景作業 | `workmanager`（僅 Android） | iOS 背景執行不可靠，回填在前景做 |
-| Google 登入／Drive | `google_sign_in` ＋ `googleapis`（Drive v3） | scope 只要 `drive.appdata` |
-| 金鑰儲存 | `flutter_secure_storage` | Android Keystore／iOS Keychain |
-| WebP 編碼 | `flutter_image_compress` | Flutter 本身沒有 WebP 編碼器；⏳ POC P-3 驗證，不可行則改存 JPEG |
-| 相簿選圖 | `image_picker` | 截圖失敗時的退路 |
-| 分享 | `share_plus` | 系統原生分享面板 |
-| 設定值 | `shared_preferences` | 裝置本地，不進備份 |
-| 測試 | `flutter_test`、`integration_test` | 見第十三節 |
-| iOS 建置 | **Codemagic**（雲端 macOS） | 開發環境是 Windows，沒有 Mac；見第十四節 |
+| 語言與 UI | Kotlin ＋ Jetpack Compose（Material 3） | 選型理由見附錄 A-12 |
+| 最低版本 | minSdk 26（Android 8.0） | `PixelCopy` 的視窗 API 從 26 開始 |
+| 非同步 | Kotlin coroutines ＋ Flow | 重運算在 `Dispatchers.Default` |
+| 資料庫 | Room 2.7+ ＋ `BundledSQLiteDriver` | 自帶 SQLite（第二節第 7 點）；FTS5 表以原生 SQL 建立（Room 的 `@Fts4` 不支援 FTS5）；⏳ 確認 bundled 版含 FTS5 |
+| 依賴注入 | ⏳ 實作計畫階段 1 選定（Hilt 或手動注入） | — |
+| WebView | Android System WebView | `evaluateJavascript`、自訂 header、注入 CSS；⏳ POC 驗證 |
+| 背景作業 | WorkManager | 自動備份與縮圖回填 |
+| HTTP | OkHttp | watch page、sheet、Drive REST、Gemini |
+| Google 授權／Drive | Google Identity Services 的 `AuthorizationClient` ＋ Drive REST v3 | scope 只要 `drive.appdata` |
+| 金鑰儲存 | Android Keystore ＋ DataStore | Gemini 金鑰加密後存放 |
+| 圖片解碼／編碼 | `BitmapFactory`、`Bitmap.compress(WEBP_LOSSY)` | 平台內建 WebP 編碼器，不引入影像處理套件 |
+| 縮圖顯示 | Coil | 本機檔案與 BLOB 的延遲載入與記憶體快取 |
+| 相簿選圖 | Photo Picker（`PickVisualMedia`） | 截圖失敗時的退路；不需要儲存權限 |
+| 分享 | `Intent.ACTION_SEND` | 系統分享面板 |
+| 設定值 | DataStore（Preferences） | 裝置本地，不進備份 |
+| 測試 | JUnit（`:core`）、androidx.test ＋ Compose UI Test | 見第十三節 |
+| 建置 | Gradle（Android Studio，Windows 可直接建置與安裝） | 不需要雲端建置服務 |
 | 圖表 | Mermaid | 版控友善 |
 
 ---
@@ -372,9 +379,8 @@ draft ── 取圖精靈草稿（只有一列：最近一支）
 ### 檔案佈局
 
 ```
-<app 正式資料目錄>/          # Flutter: getApplicationSupportDirectory()
-                              # Android: /data/user/0/<套件名稱>/files（app 私有，相簿與檔案管理員看不到）
-                              # iOS: 沙盒內 Library/Application Support
+<app 正式資料目錄>/          # Context.filesDir = /data/user/0/<套件名稱>/files
+                              # app 私有，相簿與檔案管理員看不到
                               # 不可用系統快取目錄；解除安裝 app 時一併刪除
 ├── library.db
 ├── cache.db
@@ -384,19 +390,19 @@ draft ── 取圖精靈草稿（只有一列：最近一支）
     └── manual/{uuid}.webp                          # 尚未完成入庫的手動補圖
 ```
 
-- **不可放在系統快取目錄**：iOS 的 Caches 與 Android 的 `cacheDir` 可能被系統或使用者的「清除快取」清空，一清就要重新回填。
+- **不可放在系統快取目錄**：Android 的 `cacheDir` 可能被系統或使用者的「清除快取」清空，一清就要重新回填。
 - **已收藏的縮圖永遠不淘汰** —— 它們就是圖庫本身，不是快取。10,000 張約 60 MB（第二節第 6 點），沒有設容量上限的必要（附錄 A-8）。
 - **sheet 綁在草稿上**：精靈完成或捨棄草稿時整個 `drafts/{videoId}/` 一起刪；回填時每支影片裁完即刪。任何時刻最多約 1 MB（附錄 A-7）。
-- **系統備份一律排除**：Android 設 `android:allowBackup="false"`；iOS 對整個資料目錄（含 `library.db`）設 `isExcludedFromBackup`。
+- **系統備份一律排除**：設 `android:allowBackup="false"`。
   備份機制只有一套（Drive），避免系統自動還原出一份與 Drive 不一致的資料。
 
 ### 跨平台的資料契約
 
-app 的程式碼（Dart）綁定平台，但**資料格式不綁定**。以下兩條是日後移植到其他平台（例如 Chrome 擴充功能）時唯一需要沿用的東西，
+app 的程式碼（Kotlin）綁定平台，但**資料格式不綁定**。以下兩條是日後移植到其他平台（例如 iOS 以 Swift 開發、或 Chrome 擴充功能）時唯一需要沿用的東西，
 實作時不得破壞：
 
 1. **縮圖識別碼是邏輯 key，不是檔案路徑。** 識別碼為 `{videoId}/L{level}/{frameIndex}`，由 `shot` 的 `video_id`、`sb_level`、`frame_index` 推導。
-   **DB 裡不得存任何絕對或相對檔案路徑**；識別碼對應到哪種儲存（Android／iOS 為檔案、瀏覽器為 OPFS 或 IndexedDB）只在 `thumbs` 模組內決定。
+   **DB 裡不得存任何絕對或相對檔案路徑**；識別碼對應到哪種儲存（Android 為檔案、日後的 iOS 同樣可用檔案、瀏覽器為 OPFS 或 IndexedDB）只在 `thumbs` 模組內決定。
    上方檔案佈局裡的 `thumbs/…webp` 是行動平台的對應方式，不是資料的一部分。
 2. **`library.db` 的 schema 是跨平台的資料格式。** 任何平台只要能開 SQLite（瀏覽器可用官方 SQLite WASM 版，含 FTS5），
    就能直接還原同一份備份檔 —— 手機的備份可以還原到另一個平台，反之亦然。因此：
@@ -411,11 +417,11 @@ app 的程式碼（Dart）綁定平台，但**資料格式不綁定**。以下�
 
 | 項目 | 存放 |
 |---|---|
-| 過濾相似強度（高／中／低） | `shared_preferences` |
-| AI 分析區間（往前 N 秒／往後 M 秒；v2 生效） | `shared_preferences` |
+| 過濾相似強度（高／中／低） | DataStore |
+| AI 分析區間（往前 N 秒／往後 M 秒；v2 生效） | DataStore |
 | 回填是否允許行動網路（單次授權，見第十一節） | 不存，每次詢問 |
-| 上次變更時間、上次備份時間 | `shared_preferences` |
-| Gemini 金鑰 | `flutter_secure_storage` |
+| 上次變更時間、上次備份時間 | DataStore |
+| Gemini 金鑰 | 以 Android Keystore 的金鑰加密後存 DataStore |
 
 換一台裝置，設定值回到預設、Gemini 金鑰需重新輸入 —— 對單人工具可接受，且金鑰不應出現在備份檔裡。
 
@@ -437,7 +443,7 @@ app 的程式碼（Dart）綁定平台，但**資料格式不綁定**。以下�
 
 ### schema 版本
 
-以 drift migrations 管理（`PRAGMA user_version`）。還原舊版備份時自動跑遷移；**備份的 schema 比 app 新則拒絕還原**，提示先更新 app。
+以 Room migrations 管理（`PRAGMA user_version`）。還原舊版備份時自動跑遷移；**備份的 schema 比 app 新則拒絕還原**，提示先更新 app。
 
 ### 相對 web 版的變動
 
@@ -544,7 +550,7 @@ flowchart TD
 #### 載入
 
 - **sheet 由 app 直接下載**（同時 4 張），存進 `drafts/{videoId}/sheets/`。縮圖牆**收到一張就畫一張**，
-  同一份檔案同時交給 isolate 算 dHash。web 版「顯示直連 `i.ytimg.com`、計算另走代理」的雙路徑在原生 app 沒有必要。
+  同一份檔案同時交給背景執行緒算 dHash。web 版「顯示直連 `i.ytimg.com`、計算另走代理」的雙路徑在原生 app 沒有必要。
 - 定位公式（`storyboard` 模組）：
 
 ```
@@ -584,7 +590,7 @@ row = floor(posInSheet / cols),  col = posInSheet % cols
 - 在收斂算完之前，縮圖牆已經先畫出來、可以捲動與點選；狀態列顯示「正在過濾相似畫面…」。
 
 > **效能閘門（沿用 web 版的 R-1，但風險已大幅降低）**：web 版最慢的是每張 sheet 都要繞經 Worker 代理，
-> 原生 app 沒有這一跳；總量約 1 MB，148 次 dHash 在 isolate 裡是毫秒級。
+> 原生 app 沒有這一跳；總量約 1 MB，148 次 dHash 在背景執行緒是毫秒級。
 > 仍以 Android 中階實機 ＋ 4G 節流實測「進入第二步 → 收斂完成」的 p75：
 > **超過 5 秒就退回按鈕觸發式**（【過濾相似】按鈕、只比對已勾選的）。
 
@@ -611,7 +617,7 @@ flowchart LR
   - **黑畫面**：原生截圖失敗時常靜悄悄回一張全黑的圖。像素幾乎全黑、或亮度變異極低，即判定失敗（⏳ 門檻於 POC 期間訂定）。
   - **廣告播放中**：偵測得到時停用【截圖】並說明原因。
 - **相簿選圖（退路）**：時間點取播放器當下秒數，**可 ±1 秒微調**（因為秒數不是從圖來的）。
-  選到的圖同樣縮成 320×180 WebP。POC 判定某平台截圖不可行時，該平台的【截圖】按鈕直接換成【從相簿選】，並說明「系統無法從播放器截圖，請提供你自己的截圖」。
+  選到的圖同樣縮成 320×180 WebP。POC 判定截圖不可行時，【截圖】按鈕直接換成【從相簿選】，並說明「系統無法從播放器截圖，請提供你自己的截圖」。
 - `capture` 介面的實作由 POC 決定（第十二節）。
 
 **【只看已選】** —— 篩選顯示，方便確認最終結果。
@@ -820,7 +826,7 @@ v1 不實作。第三步的【完成】在 v2 會變成【下一步】，資料�
 1. 已有第二步下載好的 sheet（drafts/{videoId}/sheets/）
 2. 以 pickLevel() 取最高可用層級，frameAt() 算出每張勾選格的 sheetIndex 與位置
 3. 若 thumbs/{videoId}/L{level}/{frameIndex}.webp 已存在 → 跳過
-4. 裁出該格 → WebP q75（⏳ POC P-3：不可行則 JPEG）
+4. 裁出該格 → `Bitmap.compress(WEBP_LOSSY, 75)`（API 29 以下用已棄用但仍可用的 `WEBP`）
 5. 寫檔；sheet 本身不留存（隨草稿刪除）
 ```
 
@@ -897,7 +903,7 @@ storyboard 與 watch page **沒有任何官方文件或相容性承諾**。設�
 
 ### Gemini 的呼叫
 
-- 金鑰由使用者在帳號頁輸入，存 `flutter_secure_storage`；app 直接呼叫 `generativelanguage.googleapis.com`，模型 `gemini-flash-latest`。
+- 金鑰由使用者在帳號頁輸入，以 Android Keystore 的金鑰加密後存放；app 直接呼叫 `generativelanguage.googleapis.com`，模型 `gemini-flash-latest`。
 - 帳號頁說明：金鑰只用於查詢解析、只存在這台裝置、建議在 Google Cloud 把該金鑰限縮為只能呼叫 Generative Language API。
 - ⏳ 解析 prompt 需實際迭代（如何穩定區分地點與標籤）。
 
@@ -945,7 +951,7 @@ storyboard 縮圖、`cache.db`、草稿、設定值、Gemini 金鑰都不備份�
 
 ### Google 帳號與 Drive 權限
 
-- Google Sign-In，只要求 **`drive.appdata`**：只能存取 app 自己在 Drive 上的**隱藏資料夾**（appDataFolder），看不到使用者其他任何檔案。
+- 以 Google Identity Services 的 `AuthorizationClient` 取得授權，只要求 **`drive.appdata`**：只能存取 app 自己在 Drive 上的**隱藏資料夾**（appDataFolder），看不到使用者其他任何檔案。
   ⏳ 確認它屬於免安全審查的非敏感 scope。
 - 取捨：隱藏資料夾讓使用者不會誤刪誤改備份檔，代價是在 Drive 網頁上看不到它。
 - OAuth 同意畫面**必須發佈到 Production** —— 停在 Testing 狀態的 refresh token 7 天就失效，自動備份會悄悄停掉。
@@ -964,8 +970,7 @@ repo 每次寫入 `library.db` 都更新「上次變更時間」。
 
 | 觸發 | 條件 |
 |---|---|
-| **自動（Android）** | WorkManager 每日排程；約束：不計費網路、電量不低。有變更且距上次備份 > 24 小時才執行 |
-| **自動（iOS）** | 背景排程不可靠 → app 回到前景時檢查、精靈【完成】後檢查；條件同上 ＋ 目前在 Wi-Fi |
+| **自動** | WorkManager 每日排程；約束：不計費網路、電量不低。有變更且距上次備份 > 24 小時才執行 |
 | **手動** | 帳號頁【立即備份】；不受 Wi-Fi 與 24 小時限制 |
 
 ### 還原
@@ -1017,14 +1022,11 @@ flowchart TD
 
 - watch page 經 gzip 約 250 KB／支（⏳ 估計值，POC 期間實測），加上所需的少數 sheet；500 支影片約 150 MB。
 - **預設只在 Wi-Fi 下回填**。進度卡片上有【用行動網路繼續】—— 單次授權，下次再問。
-- ⏳ POC P-4：若 `youtubei/v1/player` 的 JSON 回應也帶 storyboard spec，改用它可省下大部分流量。
+- ⏳ POC P-3：若 `youtubei/v1/player` 的 JSON 回應也帶 storyboard spec，改用它可省下大部分流量。
 
-### 平台差異
+### 執行方式
 
-| 平台 | 執行方式 |
-|---|---|
-| Android | WorkManager 一次性作業鏈，約束「有網路（預設不計費網路）」；app 關閉後仍會繼續 |
-| iOS | 只在 app 開著時於前景執行 |
+WorkManager 一次性作業鏈，約束「有網路（預設不計費網路）」；app 關閉後仍會繼續。
 
 ### 狀態與失敗
 
@@ -1044,33 +1046,35 @@ flowchart TD
 
 ## 十二、截圖 POC
 
-**整個實作計畫的第一步**，只為了回答「做不做得到」。POC 程式碼驗證完即丟棄，不進 `app/`。
+**整個實作計畫的第一步**，只為了回答「做不做得到」。POC 程式碼驗證完即丟棄，不進 `android/`。
 
 ### 要回答的問題
 
 | # | 問題 | 驗證方式 |
 |---|---|---|
 | **P-1** | **JS canvas 截圖**：WebView 載入 YouTube 頁面當頂層文件，注入 `drawImage(video)`，能否拿到非黑、無任何 UI 疊加的畫面？ | 兩種載入方式：embed 頁面 ＋ 正確的 referer；`m.youtube.com` ＋ 注入 CSS 隱藏介面 |
-| **P-2** | **原生截圖**（P-1 的退路）：Android `PixelCopy`、iOS `takeSnapshot` / `drawHierarchy`，是否黑畫面？YouTube 自己的控制列能否排除？ | 同一組影片 |
-| **P-3** | Flutter 在兩平台能否**編碼 WebP**？320×180 實際大小？ | `flutter_image_compress` |
-| **P-4** | `youtubei/v1/player` 的回應是否帶 storyboard spec？流量比 watch page 省多少？ | 回填流量的依據 |
+| **P-2** | **原生截圖**（P-1 的退路）：`PixelCopy` 截 WebView 所在視窗，影片區域是否黑畫面？YouTube 自己的控制列能否排除？ | 同一組影片 |
+| **P-3** | `youtubei/v1/player` 的回應是否帶 storyboard spec？流量比 watch page 省多少？ | 回填流量的依據 |
 
-附帶確認：watch page 的 `publishDate` / `isUnlisted` 欄位位置（第二節第 4 點）、watch page 的實際 gzip 傳輸量、黑畫面判定門檻。
+附帶確認：watch page 的 `publishDate` / `isUnlisted` 欄位位置（第二節第 4 點）、watch page 的實際 gzip 傳輸量、黑畫面判定門檻、
+`BundledSQLiteDriver` 是否含 FTS5 trigram（第二節第 7 點）。
+
+WebP 編碼不需要驗證：Android 的 `Bitmap.compress` 內建 WebP 編碼器。
 
 ### 測試矩陣
 
-- **實機**：Android 一台、iPhone 一台（經 Codemagic 建置）。模擬器的影片解碼管線與實機不同，結果不算數。
+- **實機**：Android 一台。模擬器的影片解碼管線與實機不同，結果不算數。
 - **影片**：一般公開、不公開（unlisted）、禁止嵌入、有廣告、Shorts。
 
 ### 通過標準與後續
 
-以**平台為單位**判定：一般公開與不公開影片都截得到畫面、無 UI 疊加、暫停後秒數誤差 ≤ 0.1 秒。
+一般公開與不公開影片都截得到畫面、無 UI 疊加、暫停後秒數誤差 ≤ 0.1 秒，即為通過。
 
 | 結果 | `capture` 的實作 |
 |---|---|
 | P-1 通過 | JS canvas |
-| P-1 不通過、P-2 通過 | 原生截圖 ＋ 依影片區域裁切 |
-| 兩者都不通過 | 該平台只提供相簿選圖 |
+| P-1 不通過、P-2 通過 | `PixelCopy` ＋ 依影片區域裁切 |
+| 兩者都不通過 | 只提供相簿選圖 |
 
 結果寫回本文（第二節第 5 點、第五節【截圖】、本節），並依結果決定 `capture` 介面後面接的實作。
 POC 的結論**不承諾所有影片、所有播放情境 100% 可截**；截圖失敗時的退路（相簿選圖）永遠存在。
@@ -1079,9 +1083,9 @@ POC 的結論**不承諾所有影片、所有播放情境 100% 可截**；截圖
 
 ## 十三、測試策略
 
-- **單元測試**（`flutter_test`）：storyboard（移植 `src/lib/storyboard.test.ts` 的案例）、dHash、規則式查詢解析、repo（in-memory SQLite）、
-  備份快照與還原驗證、回填的失敗分類。
-- **整合測試**（`integration_test`，Android 模擬器）：
+- **`:core` 的 JVM 單元測試**（JUnit）：storyboard（移植 `src/lib/storyboard.test.ts` 的案例）、dHash、規則式查詢解析。
+- **`:app` 的單元測試**：repo（in-memory 資料庫）、備份快照與還原驗證、回填的失敗分類、watch page 解析（錄製的頁面）。
+- **儀器測試**（androidx.test ＋ Compose UI Test，Android 模擬器）：
   - **假播放器**：可控的 `currentTime` 與截圖結果（含黑畫面），對應 web 版的 `PUBLIC_PLAYER_MODE=fake`，讓測試離線且穩定。
   - **`youtube` 模組吃錄製的 watch page 與 sheet**，不打真的 YouTube。
   - **假的 `BackupStore`** 取代 Drive。
@@ -1126,17 +1130,16 @@ POC 的結論**不承諾所有影片、所有播放情境 100% 可截**；截圖
 
 | 項目 | 用途 | 費用 |
 |---|---|---|
-| **Apple Developer Program** | iPhone 長期安裝（免費帳號簽的 app 7 天過期）、TestFlight | **US$99／年** |
-| Codemagic | iOS 雲端建置（沒有 Mac） | $0（⏳ 確認免費額度，記得為每月 500 分鐘） |
-| Google Play 開發者帳號 | 選用；Android 可直接安裝 APK | US$25 一次（選用） |
-| Google Cloud 專案 | OAuth client、Drive API | $0 |
+| Android Studio ＋ Gradle | 在 Windows 上直接建置、以 USB 或 APK 安裝到手機 | $0 |
+| Google Play 開發者帳號 | 選用；個人使用直接安裝 APK 即可 | US$25 一次（選用） |
+| Google Cloud 專案 | OAuth client（需登記簽章憑證的 SHA-1）、Drive API | $0 |
 | Google Drive | 備份空間，使用者自己的 15 GB | $0 |
 | Gemini | 使用者自帶金鑰 | 使用者自己的免費額度 |
 
-**v1 總計：US$99／年（全部來自 iOS）。** web 版的「全程 $0」在 iOS 上不成立。
+**v1 總計：$0**（上架 Google Play 才需要一次性的 US$25）。
 
-**發佈節奏的限制**：iPhone 經 TestFlight 安裝，**TestFlight 版本 90 天過期** → 至少每 90 天要經 Codemagic 重新建置一次。
-解析器因 YouTube 改版失效時，修復也是走「改 `youtube` 模組 → 建置 → 發佈」這條路。
+解析器因 YouTube 改版失效時，修復走「改 `youtube` 模組 → 建置 → 安裝新版」這條路。
+OAuth client 綁定 APK 的簽章憑證，**debug 與 release 用不同的憑證時兩者都要登記**，否則 Drive 授權會失敗。
 
 ---
 
@@ -1144,7 +1147,7 @@ POC 的結論**不承諾所有影片、所有播放情境 100% 可截**；截圖
 
 ### v1（本規格範圍）
 
-- Flutter 原生 app，Android ＋ iOS；手機直式為主，平板加欄
+- Android 原生 app（Kotlin ＋ Jetpack Compose）；手機直式為主，平板加欄
 - 取圖精靈三步：網址、縮圖牆挑圖（含進場收斂、截圖、相簿退路）、批次定義圖資；草稿續做
 - 首頁年月縮圖牆、Lightbox、標籤／地點／文字三種查詢（Gemini 可選）
 - 分類資料夾（樹狀、深度 5、預覽拼貼、篩選與排序）
@@ -1159,6 +1162,7 @@ POC 的結論**不承諾所有影片、所有播放情境 100% 可截**；截圖
 | 項目 | 排入 | 理由 |
 |---|---|---|
 | **第四步 AI 補充圖資** | **v2（確定要做）** | 資料表欄位已預留，見第十七節 |
+| **iOS** | 未排入 | 需要時另行評估，預定以 Swift 開發；沿用第四節「跨平台的資料契約」，同一份備份可跨平台還原 |
 | 兩台裝置雙向合併同步 | ❌ | 同步模型選了換機與災難復原（附錄 A-4） |
 | 桌機版面 | ❌ | 手機優先 |
 | Chrome 擴充功能 | 未排入 | 資料格式已預留可移植性（第四節「跨平台的資料契約」）；移植前須先重新評估同步模型 |
@@ -1178,13 +1182,12 @@ POC 的結論**不承諾所有影片、所有播放情境 100% 可截**；截圖
 
 | 項目 | 位置 | 何時確認 |
 |---|---|---|
-| POC P-1～P-4 的結果 | 第十二節 | 計畫的第一個階段 |
+| POC P-1～P-3 的結果 | 第十二節 | 計畫的第一個階段 |
 | watch page 的 `publishDate` / `isUnlisted` 欄位位置 | 第二節第 4 點 | POC 期間 |
-| WebP 編碼是否可行（否則 JPEG） | 第三節、第七節 | POC P-3 |
+| `BundledSQLiteDriver` 是否含 FTS5 trigram（否則 `requery/sqlite-android`） | 第二節第 7 點、第三節 | POC 期間 |
 | 截圖黑畫面判定門檻 | 第五節 | POC 期間 |
 | `drive.appdata` 是否屬於非敏感 scope | 第十節 | 備份階段開工前 |
-| Codemagic 免費額度 | 第十四節 | POC 開工前（POC 就需要 iOS 建置） |
-| 狀態管理套件 | 第三節 | 實作計畫階段 1 |
+| 依賴注入方式（Hilt 或手動） | 第三節 | 實作計畫階段 1 |
 | dHash 三檔門檻值 | 第五節 | 收斂功能實作時以真實影片調校 |
 | 回填節流參數、watch page 實際流量 | 第十一節 | 回填階段 |
 | Gemini 查詢解析的 prompt | 第八節 | 查詢階段 |
@@ -1310,3 +1313,13 @@ Drive 無並發控制；縮圖放 Drive 無法用原生圖片載入。
 
 金鑰放在 app 內會被拆出來；而 app 本來就要抓 watch page，其中已有標題、頻道、片長、上傳日期。
 失去的是 `recordingDetails.recordingDate`（拍攝日期）—— 上傳者選填、多數為空，`event_date` 因此一律預設上傳日。
+
+### A-12 Flutter（Android ＋ iOS 共用一份程式碼）—— 改用 Kotlin 原生
+
+2026-09-10 最初選 Flutter，2026-09-11 改為 **Kotlin 原生、只做 Android**，iOS 需要時再以 Swift 另外開發。
+
+- **只做一個平台時，跨平台框架的主要好處不存在**，只剩代價：WebView、`PixelCopy`、WorkManager、WebP 編碼都要經過外掛層；
+  Flutter 的 platform view 合成模式（Hybrid Composition／Texture Layer）還會直接影響截圖能不能截到影片，是 POC 的額外變數。
+- Kotlin 原生直接使用平台 API：`Bitmap.compress` 內建 WebP 編碼（原本的 POC P-3 因此取消）、WorkManager 與 `PixelCopy` 無中介層。
+- **開發環境是 Windows、沒有 Mac**：只做 Android 即可在本機完成建置與安裝，不需要雲端建置服務與 Apple Developer 年費。
+- 日後的 iOS 版不共用程式碼，而是共用**資料格式**（第四節「跨平台的資料契約」）：同一份 Drive 備份可在兩個平台間還原。
