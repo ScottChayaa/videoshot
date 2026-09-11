@@ -1,4 +1,4 @@
-// yt-space mockup 假資料
+// videoshot mockup 假資料
 // 3 個真實頻道，各 5 筆 clip，時間錯開不同月份（測時間軸）。
 // videoId / 標題 為真實抓取；縮圖用 img.youtube.com。clip 細節為造假展示用。
 

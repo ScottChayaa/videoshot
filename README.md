@@ -1,4 +1,4 @@
-# yt-space
+# videoshot
 
 從任何 YouTube 影片挑出畫面，成為可依時間瀏覽、依標籤與語意檢索的個人圖庫（Android 原生 app，Kotlin）。
 
@@ -21,8 +21,8 @@
 
 | 文件 | 角色 |
 |---|---|
-| [設計規格](docs/superpowers/specs/2026-09-10-yt-space-app-design.md) | 唯一的現行規格：技術事實、架構、資料模型、備份與回填、POC |
-| [實作計畫](docs/superpowers/plans/2026-09-11-yt-space-android-實作計畫.md) | 路線圖：15 個階段、依賴、驗收條件、風險；連到各階段的細節計畫 |
+| [設計規格](docs/superpowers/specs/2026-09-10-videoshot-app-design.md) | 唯一的現行規格：技術事實、架構、資料模型、備份與回填、POC |
+| [實作計畫](docs/superpowers/plans/2026-09-11-videoshot-android-實作計畫.md) | 路線圖：15 個階段、依賴、驗收條件、風險；連到各階段的細節計畫 |
 | [驗收操作手冊](mockups/uiux-v2/驗收操作手冊.md) | UI 驗收標準；標〔app〕的條目只在 app 上驗 |
 
 較舊的規格與計畫已從 `docs/` 移除，內容留在 git 歷史；仍有效的結論已併入現行規格。

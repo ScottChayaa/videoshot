@@ -1,4 +1,4 @@
-// yt-space mockup — 共用互動 + SVG icon 系統
+// videoshot mockup — 共用互動 + SVG icon 系統
 const M = window.MOCK;
 
 /* ───────── SVG icon（Lucide 風格，無 emoji）───────── */

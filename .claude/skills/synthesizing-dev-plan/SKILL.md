@@ -1,6 +1,6 @@
 ---
 name: synthesizing-dev-plan
-description: Use when yt-space needs a development plan that spans both the backend/planning spec in docs/superpowers/ and the UI/UX mockup in mockups/uiux-v2/ — when asked to turn the mockup into backend requirements, assess feasibility, find scope gaps, or produce an implementation plan covering both sources.
+description: Use when videoshot needs a development plan that spans both the backend/planning spec in docs/superpowers/ and the UI/UX mockup in mockups/uiux-v2/ — when asked to turn the mockup into backend requirements, assess feasibility, find scope gaps, or produce an implementation plan covering both sources.
 ---
 
 # 綜合 spec 與 mockup 產出開發計畫

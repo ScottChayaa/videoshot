@@ -1,4 +1,4 @@
-# yt-space App 設計規格書
+# videoshot App 設計規格書
 
 > 從任何 YouTube 影片挑出畫面，成為可依時間瀏覽、依標籤與語意檢索的個人圖庫（Android 原生 app，Kotlin）
 > 建立日期：2026-09-10
@@ -8,7 +8,7 @@
 
 ## 〇、本文件的定位
 
-本文是 yt-space **唯一的現行規格**，取代 2026-08-27 的 web 版規格（SvelteKit on Cloudflare）。
+本文是 videoshot **唯一的現行規格**，取代 2026-08-27 的 web 版規格（SvelteKit on Cloudflare）。
 那份規格、它的實作計畫（2026-09-01）與畫面契約附錄已從 `docs/` 移除，內容留在 git 歷史；
 其中仍然有效的結論 —— storyboard 技術事實、取圖精靈的互動規則、資料模型、2026-09-01 的 UI 決定 —— **已全部併入本文**。
 
@@ -239,7 +239,7 @@ Android app（Kotlin ＋ Jetpack Compose）
 Gradle 專案放在根目錄的 **`android/`**（預留日後 `ios/` 並列的位置）。
 
 ```
-yt-space/
+videoshot/
 ├── android/                  # Gradle 專案（本規格的實作）
 │   ├── app/                  # :app 模組
 │   │   └── src/
@@ -274,6 +274,7 @@ web 版程式碼（`src/`、`tests/`、`static/` 與 SvelteKit／Vite／Playwrig
 | 模組 | 技術 | 說明 |
 |---|---|---|
 | 語言與 UI | Kotlin ＋ Jetpack Compose（Material 3） | 選型理由見附錄 A-12 |
+| applicationId | `com.xenyaa.videoshot`（Kotlin 套件同名；POC 用 `com.xenyaa.videoshot.poc`） | OAuth client 綁定它與簽章憑證，**上線後不可改** |
 | 最低版本 | minSdk 26（Android 8.0） | `PixelCopy` 的視窗 API 從 26 開始 |
 | 非同步 | Kotlin coroutines ＋ Flow | 重運算在 `Dispatchers.Default` |
 | 資料庫 | Room 2.7+ ＋ `BundledSQLiteDriver` | 自帶 SQLite（第二節第 7 點）；FTS5 表以原生 SQL 建立（Room 的 `@Fts4` 不支援 FTS5）；⏳ 確認 bundled 版含 FTS5 |

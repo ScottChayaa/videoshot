@@ -1,24 +1,24 @@
-# yt-space Android · 實作計畫（路線圖）
+# videoshot Android · 實作計畫（路線圖）
 
 > **For agentic workers:** 本文是路線圖。實作某個階段時，先看該階段是否已有「細節計畫」連結；
 > 有的話用 superpowers:subagent-driven-development（推薦）或 superpowers:executing-plans 逐項執行；
 > 沒有的話，先用 superpowers:writing-plans 為該階段產出細節計畫再動工。
 
-**Goal:** 依規格做出 Android 原生版的 yt-space：批次取圖、年月圖庫、標籤／地點／文字檢索、Drive 備份與縮圖回填。
+**Goal:** 依規格做出 Android 原生版的 videoshot：批次取圖、年月圖庫、標籤／地點／文字檢索、Drive 備份與縮圖回填。
 
 **Architecture:** Kotlin ＋ Jetpack Compose 單一 app，Gradle 分 `:app`（Android 相關的一切）與 `:core`（純 Kotlin 邏輯）。
 資料存本機 SQLite：要備份的 `library.db` 與裝置本地的 `cache.db`；storyboard 縮圖是檔案，換機後從 YouTube 回填。沒有自有後端。
 
 **Tech Stack:** Kotlin、Jetpack Compose、Room ＋ 自帶 SQLite（FTS5 trigram）、Android WebView、WorkManager、OkHttp、Coil、DataStore、Google Identity Services ＋ Drive REST v3。
 
-**Spec:** [`../specs/2026-09-10-yt-space-app-design.md`](../specs/2026-09-10-yt-space-app-design.md)
+**Spec:** [`../specs/2026-09-10-videoshot-app-design.md`](../specs/2026-09-10-videoshot-app-design.md)
 **UI 驗收標準：** [`../../../mockups/uiux-v2/驗收操作手冊.md`](../../../mockups/uiux-v2/驗收操作手冊.md)（標〔app〕的條目只在 app 上驗）
 
 ## Global Constraints
 
 每個階段、每個任務都隱含遵守以下各條（值皆取自規格原文）：
 
-- **applicationId**：`com.scottchayaa.ytspace`（OAuth client 綁定它與簽章憑證，上線後不可改）
+- **applicationId**：`com.xenyaa.videoshot`（OAuth client 綁定它與簽章憑證，上線後不可改）
 - **minSdk 26**（Android 8.0）；語言 Kotlin；UI 一律 Jetpack Compose
 - **縮圖一律 320×180 WebP q75**（storyboard 格與截圖皆同）；編碼用 `Bitmap.compress(WEBP_LOSSY, 75)`，API 29 以下用 `WEBP`
 - **縮圖識別碼**：`{videoId}/L{level}/{frameIndex}`，**DB 裡不存任何檔案路徑**（規格第四節「跨平台的資料契約」）

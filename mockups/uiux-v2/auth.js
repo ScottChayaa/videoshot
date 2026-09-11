@@ -1,4 +1,4 @@
-// yt-space mockup — 登入閘門
+// videoshot mockup — 登入閘門
 //
 // 這個系統要求先完成 Google 第三方登入才能進入，所以閘門不能只是「首次登入畫面」，
 // 每一頁都得擋。放在 <head> 而不是併進 app.js：app.js 掛在 body 尾端，等它跑到時

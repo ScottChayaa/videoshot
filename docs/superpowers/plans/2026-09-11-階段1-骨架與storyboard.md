@@ -7,17 +7,17 @@
 **Goal:** 建立 `android/` Gradle 專案（`:app` ＋ `:core`），並把 `src/lib/storyboard.ts` 的解析與定位邏輯連同測試移植成 Kotlin。
 
 **Architecture:** `:app` 用 Android Studio 的 Compose 範本產生，本階段只確認能建置與安裝。`:core` 是純 Kotlin（JVM）模組，
-不依賴 Android SDK，單元測試直接在 JVM 上跑。storyboard 邏輯放在 `com.scottchayaa.ytspace.core.storyboard`。
+不依賴 Android SDK，單元測試直接在 JVM 上跑。storyboard 邏輯放在 `com.xenyaa.videoshot.core.storyboard`。
 
 **Tech Stack:** Kotlin、Gradle（Kotlin DSL、version catalog）、Jetpack Compose 範本、JUnit 4。
 
-**Spec:** [`../specs/2026-09-10-yt-space-app-design.md`](../specs/2026-09-10-yt-space-app-design.md) 第二節第 1 點（storyboard 格式與定位規則）、第三節（專案結構、工具鏈、`:core`）。
-**路線圖：** [`2026-09-11-yt-space-android-實作計畫.md`](2026-09-11-yt-space-android-實作計畫.md) 階段 1。
+**Spec:** [`../specs/2026-09-10-videoshot-app-design.md`](../specs/2026-09-10-videoshot-app-design.md) 第二節第 1 點（storyboard 格式與定位規則）、第三節（專案結構、工具鏈、`:core`）。
+**路線圖：** [`2026-09-11-videoshot-android-實作計畫.md`](2026-09-11-videoshot-android-實作計畫.md) 階段 1。
 **移植來源：** `src/lib/storyboard.ts`、`src/lib/storyboard.test.ts`、`src/lib/types.ts`（**只讀，不得修改或刪除** —— `mockups/server.mjs:42` 執行期讀取它）。
 
 ## Global Constraints
 
-- applicationId：`com.scottchayaa.ytspace`；minSdk 26；`android:allowBackup="false"`
+- applicationId：`com.xenyaa.videoshot`；minSdk 26；`android:allowBackup="false"`
 - `:core` 不得依賴 Android SDK
 - 定位規則：取**最近的一格**（`round`），不是之前的一格；誤差 ±間隔/2（規格第二節第 1 點）
 - commit message 用繁體中文，格式 `類型(範圍): 描述`，不加 AI 生成標記
@@ -44,10 +44,10 @@ android/
 └── core/
     ├── build.gradle.kts                 # 精靈產生；加 testImplementation(libs.junit)
     └── src/
-        ├── main/kotlin/com/scottchayaa/ytspace/core/storyboard/
+        ├── main/kotlin/com/xenyaa/videoshot/core/storyboard/
         │   ├── StoryboardModels.kt      # StoryboardLevel、StoryboardSpec、FramePos
         │   └── Storyboard.kt            # parse、pickLevel、frameIndexAt、framePosition、frameAt、frameTimeSec、sheetUrl
-        └── test/kotlin/com/scottchayaa/ytspace/core/storyboard/
+        └── test/kotlin/com/xenyaa/videoshot/core/storyboard/
             ├── RealSpec.kt              # 實測 spec 字串
             ├── StoryboardParseTest.kt
             └── StoryboardFrameTest.kt
@@ -64,15 +64,15 @@ android/
 - Modify: `CLAUDE.md`（「指令」一節）
 
 **Interfaces:**
-- Produces: 可建置的 `android/` Gradle 專案，`:app` 模組、namespace `com.scottchayaa.ytspace`
+- Produces: 可建置的 `android/` Gradle 專案，`:app` 模組、namespace `com.xenyaa.videoshot`
 
 前置：階段 0 的 Task 0.1（開發環境）已完成。
 
 - [ ] **Step 1: 👤 以範本建立專案**
 
   Android Studio → New Project → **Empty Activity**（Compose）：
-  - Name：`yt-space`
-  - Package name：`com.scottchayaa.ytspace`
+  - Name：`videoshot`
+  - Package name：`com.xenyaa.videoshot`
   - Save location：`<repo>\android`
   - Minimum SDK：API 26
   - Build configuration language：Kotlin DSL
@@ -94,7 +94,7 @@ android/
 - [ ] **Step 4: 👤 安裝到實機**
 
   Run: `cd android && ./gradlew installDebug`
-  Expected: 手機上出現 `yt-space`，開啟後顯示範本的「Hello Android!」。
+  Expected: 手機上出現 `videoshot`，開啟後顯示範本的「Hello Android!」。
 
 - [ ] **Step 5: CLAUDE.md 補上建置指令**
 
@@ -132,10 +132,10 @@ android/
 - Create: `android/core/`（Android Studio 精靈產生）
 - Modify: `android/core/build.gradle.kts`
 - Modify: `android/app/build.gradle.kts`
-- Create: `android/core/src/main/kotlin/com/scottchayaa/ytspace/core/storyboard/StoryboardModels.kt`
-- Create: `android/core/src/main/kotlin/com/scottchayaa/ytspace/core/storyboard/Storyboard.kt`
-- Test: `android/core/src/test/kotlin/com/scottchayaa/ytspace/core/storyboard/RealSpec.kt`
-- Test: `android/core/src/test/kotlin/com/scottchayaa/ytspace/core/storyboard/StoryboardParseTest.kt`
+- Create: `android/core/src/main/kotlin/com/xenyaa/videoshot/core/storyboard/StoryboardModels.kt`
+- Create: `android/core/src/main/kotlin/com/xenyaa/videoshot/core/storyboard/Storyboard.kt`
+- Test: `android/core/src/test/kotlin/com/xenyaa/videoshot/core/storyboard/RealSpec.kt`
+- Test: `android/core/src/test/kotlin/com/xenyaa/videoshot/core/storyboard/StoryboardParseTest.kt`
 
 **Interfaces:**
 - Produces:
@@ -149,7 +149,7 @@ android/
 
   Android Studio → File → New → New Module → **Java or Kotlin Library**：
   - Library name：`core`
-  - Package name：`com.scottchayaa.ytspace.core`
+  - Package name：`com.xenyaa.videoshot.core`
   - Class name：`Placeholder`
   - Language：Kotlin
 
@@ -157,7 +157,7 @@ android/
 
 - [ ] **Step 2: 移除精靈產生的佔位類別**
 
-  刪除精靈產生的 `Placeholder.kt`（位於 `android/core/src/main/java/com/scottchayaa/ytspace/core/`），並刪除空掉的 `android/core/src/main/java/` 目錄。
+  刪除精靈產生的 `Placeholder.kt`（位於 `android/core/src/main/java/com/xenyaa/videoshot/core/`），並刪除空掉的 `android/core/src/main/java/` 目錄。
   本模組的原始碼一律放 `src/main/kotlin/`，測試放 `src/test/kotlin/`（Kotlin JVM 外掛預設即包含這兩個目錄）。
 
 - [ ] **Step 3: 加測試相依、讓 `:app` 依賴 `:core`**
@@ -180,10 +180,10 @@ android/
 
 - [ ] **Step 4: 寫測試常數**
 
-  `android/core/src/test/kotlin/com/scottchayaa/ytspace/core/storyboard/RealSpec.kt`：
+  `android/core/src/test/kotlin/com/xenyaa/videoshot/core/storyboard/RealSpec.kt`：
 
 ```kotlin
-package com.scottchayaa.ytspace.core.storyboard
+package com.xenyaa.videoshot.core.storyboard
 
 // 實測擷取自 YouTube watch page（24 秒的 unlisted 影片）；移植自 src/lib/storyboard.test.ts。
 // 注意 Kotlin 字串裡的 $ 必須跳脫成 \$。
@@ -197,10 +197,10 @@ const val REAL_SPEC: String =
 
 - [ ] **Step 5: 寫失敗的解析測試**
 
-  `android/core/src/test/kotlin/com/scottchayaa/ytspace/core/storyboard/StoryboardParseTest.kt`：
+  `android/core/src/test/kotlin/com/xenyaa/videoshot/core/storyboard/StoryboardParseTest.kt`：
 
 ```kotlin
-package com.scottchayaa.ytspace.core.storyboard
+package com.xenyaa.videoshot.core.storyboard
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -268,10 +268,10 @@ class StoryboardParseTest {
 
 - [ ] **Step 7: 實作資料類別**
 
-  `android/core/src/main/kotlin/com/scottchayaa/ytspace/core/storyboard/StoryboardModels.kt`：
+  `android/core/src/main/kotlin/com/xenyaa/videoshot/core/storyboard/StoryboardModels.kt`：
 
 ```kotlin
-package com.scottchayaa.ytspace.core.storyboard
+package com.xenyaa.videoshot.core.storyboard
 
 /** YouTube storyboard 的一個畫質層級（L0～L3）。level 是它在 spec 字串裡的順位。 */
 data class StoryboardLevel(
@@ -308,10 +308,10 @@ data class FramePos(
 
 - [ ] **Step 8: 實作解析**
 
-  `android/core/src/main/kotlin/com/scottchayaa/ytspace/core/storyboard/Storyboard.kt`：
+  `android/core/src/main/kotlin/com/xenyaa/videoshot/core/storyboard/Storyboard.kt`：
 
 ```kotlin
-package com.scottchayaa.ytspace.core.storyboard
+package com.xenyaa.videoshot.core.storyboard
 
 /**
  * storyboard spec 的解析與定位。移植自 src/lib/storyboard.ts。
@@ -374,8 +374,8 @@ object Storyboard {
 ### Task 1.3: 層級挑選、定位與 sheet 網址
 
 **Files:**
-- Modify: `android/core/src/main/kotlin/com/scottchayaa/ytspace/core/storyboard/Storyboard.kt`
-- Test: `android/core/src/test/kotlin/com/scottchayaa/ytspace/core/storyboard/StoryboardFrameTest.kt`
+- Modify: `android/core/src/main/kotlin/com/xenyaa/videoshot/core/storyboard/Storyboard.kt`
+- Test: `android/core/src/test/kotlin/com/xenyaa/videoshot/core/storyboard/StoryboardFrameTest.kt`
 
 **Interfaces:**
 - Consumes: Task 1.2 的 `StoryboardLevel`、`StoryboardSpec`、`FramePos`、`Storyboard.parse`、`REAL_SPEC`
@@ -389,10 +389,10 @@ object Storyboard {
 
 - [ ] **Step 1: 寫失敗的測試**
 
-  `android/core/src/test/kotlin/com/scottchayaa/ytspace/core/storyboard/StoryboardFrameTest.kt`：
+  `android/core/src/test/kotlin/com/xenyaa/videoshot/core/storyboard/StoryboardFrameTest.kt`：
 
 ```kotlin
-package com.scottchayaa.ytspace.core.storyboard
+package com.xenyaa.videoshot.core.storyboard
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -614,9 +614,9 @@ import kotlin.math.roundToInt
 
 - [ ] **Step 6: 路線圖標記階段 1 完成**
 
-  在 `docs/superpowers/plans/2026-09-11-yt-space-android-實作計畫.md`「一、階段總覽」表的階段 1 那列，細節計畫欄改為 `✅ 完成`。
+  在 `docs/superpowers/plans/2026-09-11-videoshot-android-實作計畫.md`「一、階段總覽」表的階段 1 那列，細節計畫欄改為 `✅ 完成`。
 
   ```bash
-  git add docs/superpowers/plans/2026-09-11-yt-space-android-實作計畫.md
+  git add docs/superpowers/plans/2026-09-11-videoshot-android-實作計畫.md
   git commit -m "docs(plan): 階段 1 完成"
   ```

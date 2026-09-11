@@ -1,6 +1,10 @@
-# yt-space
+# videoshot
 
 從任何 YouTube 影片挑出畫面，成為可依時間瀏覽、依標籤與語意檢索的個人圖庫（Android 原生 app，Kotlin ＋ Jetpack Compose；iOS 暫不做）。
+
+- **applicationId／Kotlin 套件：`com.xenyaa.videoshot`**（上線後不可改）。
+- 舊名 **yt-space**（2026-09-11 改名）。舊名仍留在 `src/`、`static/`、`tests/`（web 版，清理階段整批刪除）
+  與原型的 localStorage key `ytspace2_*`，這些刻意不改。
 
 **目前進度：尚未開始實作。** 2026-09-10 產品形態由 web（SvelteKit on Cloudflare）改為 Android 原生 app（Kotlin），
 從**階段 0（截圖 POC）**與**階段 1（Gradle 骨架）**開始，兩者可平行。
@@ -12,8 +16,8 @@
 
 | # | 文件 | 角色 | 什麼時候看 |
 |---|---|---|---|
-| 1 | [`docs/superpowers/plans/2026-09-11-yt-space-android-實作計畫.md`](docs/superpowers/plans/2026-09-11-yt-space-android-實作計畫.md) | **主文件**（路線圖）。15 個階段、依賴、驗收條件、風險；各階段的細節計畫從這裡連出去 | 每次動工 |
-| 2 | [`docs/superpowers/specs/2026-09-10-yt-space-app-design.md`](docs/superpowers/specs/2026-09-10-yt-space-app-design.md) | **規格**。技術事實（storyboard、watch page 欄位、trigram 限制）、架構與模組邊界、資料模型、備份／回填、POC | 動手寫某個模組前，讀對應章節 |
+| 1 | [`docs/superpowers/plans/2026-09-11-videoshot-android-實作計畫.md`](docs/superpowers/plans/2026-09-11-videoshot-android-實作計畫.md) | **主文件**（路線圖）。15 個階段、依賴、驗收條件、風險；各階段的細節計畫從這裡連出去 | 每次動工 |
+| 2 | [`docs/superpowers/specs/2026-09-10-videoshot-app-design.md`](docs/superpowers/specs/2026-09-10-videoshot-app-design.md) | **規格**。技術事實（storyboard、watch page 欄位、trigram 限制）、架構與模組邊界、資料模型、備份／回填、POC | 動手寫某個模組前，讀對應章節 |
 | 3 | [`mockups/uiux-v2/驗收操作手冊.md`](mockups/uiux-v2/驗收操作手冊.md) | **UI 驗收標準**。計畫的驗收條件引用它的原文；標〔app〕的條目只在 app 上驗 | 做完一個任務要驗收時 |
 
 `mockups/uiux-v2/` 的 HTML 是 **UI 的視覺參考**（以 Compose 重寫，程式碼不沿用），但它落後於驗收手冊（手冊是目標狀態）。
