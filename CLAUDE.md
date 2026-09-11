@@ -92,4 +92,5 @@ Flutter 專案（`app/`）的指令待實作計畫階段 1 建立後補上。iOS
   - 截圖實作藏在 **`capture`** 介面後面。
   - Google Drive 只在 **`backup`** 裡用。
 - **無法重建的在 `library.db`（要備份），DB 外面的都能重建**（`cache.db`、`thumbs/`、草稿都不備份）。
+- **DB 裡不存檔案路徑**：縮圖以邏輯識別碼 `{videoId}/L{level}/{frameIndex}` 定位，`library.db` 的 schema 是跨平台資料格式（規格第四節「跨平台的資料契約」）。
 - **重運算（裁切、dHash）放 isolate**，不卡 UI 執行緒。

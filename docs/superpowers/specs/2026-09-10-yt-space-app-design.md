@@ -372,7 +372,10 @@ draft ── 取圖精靈草稿（只有一列：最近一支）
 ### 檔案佈局
 
 ```
-<app 正式資料目錄>/          # Android: filesDir；iOS: Application Support —— 不可用系統快取目錄
+<app 正式資料目錄>/          # Flutter: getApplicationSupportDirectory()
+                              # Android: /data/user/0/<套件名稱>/files（app 私有，相簿與檔案管理員看不到）
+                              # iOS: 沙盒內 Library/Application Support
+                              # 不可用系統快取目錄；解除安裝 app 時一併刪除
 ├── library.db
 ├── cache.db
 ├── thumbs/{videoId}/L{level}/{frameIndex}.webp    # storyboard 縮圖；永不淘汰
@@ -386,6 +389,23 @@ draft ── 取圖精靈草稿（只有一列：最近一支）
 - **sheet 綁在草稿上**：精靈完成或捨棄草稿時整個 `drafts/{videoId}/` 一起刪；回填時每支影片裁完即刪。任何時刻最多約 1 MB（附錄 A-7）。
 - **系統備份一律排除**：Android 設 `android:allowBackup="false"`；iOS 對整個資料目錄（含 `library.db`）設 `isExcludedFromBackup`。
   備份機制只有一套（Drive），避免系統自動還原出一份與 Drive 不一致的資料。
+
+### 跨平台的資料契約
+
+app 的程式碼（Dart）綁定平台，但**資料格式不綁定**。以下兩條是日後移植到其他平台（例如 Chrome 擴充功能）時唯一需要沿用的東西，
+實作時不得破壞：
+
+1. **縮圖識別碼是邏輯 key，不是檔案路徑。** 識別碼為 `{videoId}/L{level}/{frameIndex}`，由 `shot` 的 `video_id`、`sb_level`、`frame_index` 推導。
+   **DB 裡不得存任何絕對或相對檔案路徑**；識別碼對應到哪種儲存（Android／iOS 為檔案、瀏覽器為 OPFS 或 IndexedDB）只在 `thumbs` 模組內決定。
+   上方檔案佈局裡的 `thumbs/…webp` 是行動平台的對應方式，不是資料的一部分。
+2. **`library.db` 的 schema 是跨平台的資料格式。** 任何平台只要能開 SQLite（瀏覽器可用官方 SQLite WASM 版，含 FTS5），
+   就能直接還原同一份備份檔 —— 手機的備份可以還原到另一個平台，反之亦然。因此：
+   - schema 變動一律走 migrations，不做平台特有的欄位或型別；
+   - BLOB 只放與平台無關的內容（`shot_image.webp` 是標準 WebP 位元組）；
+   - 時間欄位用 ISO 8601 字串或 Unix 秒，不用平台特有的日期格式。
+
+> 移植時真正需要重新評估的不是資料格式，而是**同步模型**：手機與其他平台若要同時使用，
+> 就超出「換機與災難復原」的範圍，進入附錄 A-4 的模型 C（雙向合併）。
 
 ### 設定值（裝置本地，不進備份）
 
@@ -1141,6 +1161,7 @@ POC 的結論**不承諾所有影片、所有播放情境 100% 可截**；截圖
 | **第四步 AI 補充圖資** | **v2（確定要做）** | 資料表欄位已預留，見第十七節 |
 | 兩台裝置雙向合併同步 | ❌ | 同步模型選了換機與災難復原（附錄 A-4） |
 | 桌機版面 | ❌ | 手機優先 |
+| Chrome 擴充功能 | 未排入 | 資料格式已預留可移植性（第四節「跨平台的資料契約」）；移植前須先重新評估同步模型 |
 | 從 YouTube app 分享接收 | v2 | v1 收斂為單一入口。原生 app 以 Android intent 實作成本很低，v2 優先考慮；行為應為直接跳進精靈第二步 |
 | 上傳非影片畫面的實體照片 | v2 | 範圍限定為 YouTube 影片畫面；相簿選圖是例外，因為它綁定影片時間點 |
 | 資料夾搬移（換父層）與手動排序 | v2 | 低頻操作 |
