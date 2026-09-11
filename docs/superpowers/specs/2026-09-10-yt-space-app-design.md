@@ -252,6 +252,20 @@ yt-space/
 └── docs/superpowers/
 ```
 
+### 工具鏈
+
+這是一個多語言 repo，**各目錄由各自的工具鏈管理**：
+
+| 目錄 | 語言 | 建置與套件管理 |
+|---|---|---|
+| `android/` | Kotlin | Gradle（附 wrapper，Windows 用 `gradlew.bat`）；Android Studio |
+| `mockups/` | JavaScript（Node） | pnpm |
+| `extension/`（未來，第十八節） | TypeScript | pnpm workspace 成員 |
+| `ios/`（未來） | Swift | Xcode／SwiftPM（需要 macOS 或雲端建置） |
+
+pnpm 只管 JS／TS 的部分，不參與 Kotlin 與 Swift 的建置。**根目錄不設統一的建置協調器**（Turborepo 等）——
+各目錄之間沒有建置相依，共用的只有本規格定義的資料格式（第四節「跨平台的資料契約」）。
+
 web 版程式碼（`src/`、`tests/`、`static/` 與 SvelteKit／Vite／Playwright 設定）在實作計畫的清理階段**一次刪除**。
 刪除前必須先把 `src/lib/storyboard.ts` 搬進 `mockups/` —— `mockups/server.mjs:42` 在執行期讀取它，刪了 `pnpm mock` 就開不起來。
 
@@ -955,6 +969,8 @@ storyboard 縮圖、`cache.db`、草稿、設定值、Gemini 金鑰都不備份�
   ⏳ 確認它屬於免安全審查的非敏感 scope。
 - 取捨：隱藏資料夾讓使用者不會誤刪誤改備份檔，代價是在 Drive 網頁上看不到它。
 - OAuth 同意畫面**必須發佈到 Production** —— 停在 Testing 狀態的 refresh token 7 天就失效，自動備份會悄悄停掉。
+- **OAuth client 所屬的 Google Cloud 專案要長期沿用。** appDataFolder 以 Cloud 專案為界，日後的 iOS 版或 Chrome 擴充功能
+  必須是**同一個專案**底下的另一個 OAuth client，才看得到這台手機的備份（⏳ 實作備份時確認；見第十八節）。
 - **Google 連結是選用的**：不連結 app 也完整可用，只是沒有備份。
 
 ### 備份
@@ -1165,7 +1181,7 @@ OAuth client 綁定 APK 的簽章憑證，**debug 與 release 用不同的憑證
 | **iOS** | 未排入 | 需要時另行評估，預定以 Swift 開發；沿用第四節「跨平台的資料契約」，同一份備份可跨平台還原 |
 | 兩台裝置雙向合併同步 | ❌ | 同步模型選了換機與災難復原（附錄 A-4） |
 | 桌機版面 | ❌ | 手機優先 |
-| Chrome 擴充功能 | 未排入 | 資料格式已預留可移植性（第四節「跨平台的資料契約」）；移植前須先重新評估同步模型 |
+| Chrome 擴充功能 | 未排入 | 已預留彈性，見第十八節；動工前須先決定定位與同步模型 |
 | 從 YouTube app 分享接收 | v2 | v1 收斂為單一入口。原生 app 以 Android intent 實作成本很低，v2 優先考慮；行為應為直接跳進精靈第二步 |
 | 上傳非影片畫面的實體照片 | v2 | 範圍限定為 YouTube 影片畫面；相簿選圖是例外，因為它綁定影片時間點 |
 | 資料夾搬移（換父層）與手動排序 | v2 | 低頻操作 |
@@ -1188,6 +1204,7 @@ OAuth client 綁定 APK 的簽章憑證，**debug 與 release 用不同的憑證
 | 截圖黑畫面判定門檻 | 第五節 | POC 期間 |
 | `drive.appdata` 是否屬於非敏感 scope | 第十節 | 備份階段開工前 |
 | 依賴注入方式（Hilt 或手動） | 第三節 | 實作計畫階段 1 |
+| 同一 Cloud 專案的不同 OAuth client 是否共用 appDataFolder | 第十節、第十八節 | 備份階段 |
 | dHash 三檔門檻值 | 第五節 | 收斂功能實作時以真實影片調校 |
 | 回填節流參數、watch page 實際流量 | 第十一節 | 回填階段 |
 | Gemini 查詢解析的 prompt | 第八節 | 查詢階段 |
@@ -1243,6 +1260,37 @@ OAuth client 綁定 APK 的簽章憑證，**debug 與 release 用不同的憑證
 - **UI 絕不假設分析會成功**：失敗時顯示具體原因，該 shot 一樣留在圖庫，只是沒有 AI 欄位。
 - **重疊區間複用**：同一支影片重疊度高的區間提示「與 01:10 那張重疊 90%，直接複用？」
 - **app 驅動的循序分析**，顯示進度；分析結果寫入 `library.db`，隨備份保存。
+
+---
+
+## 十八、未來藍圖：Chrome 擴充功能
+
+記錄於此，只為**預留彈性** —— 避免 v1 做出擋住它的設計。**不在任何版本的確定範圍內**，動工前另開規格詳述。
+
+### 定位（動工前決定）
+
+定位決定了它需要什麼程度的同步，而同步模型是它唯一的硬問題：
+
+| 定位 | 內容 | 與現行同步模型（附錄 A-4 的 A） |
+|---|---|---|
+| 唯讀檢視 | 還原手機的備份，在 PC 上瀏覽與查詢 | ✅ 相容（單向還原） |
+| 桌機取圖端 | 在 PC 看 YouTube 時取圖，收進同一個圖庫 | ❌ 需要把 PC 新增的 shot 送回手機 |
+| 完整的第二個圖庫 | 兩端都能取圖、編輯 | ❌ 需要模型 C（雙向合併） |
+
+### 它比 web 版容易的地方
+
+- 有 `host_permissions` 的擴充功能不受 CORS 限制，watch page 與 sprite 可直接取得 —— 與 Android 版相同，不需要代理。
+- content script 跑在 youtube.com 頁面內，可直接對 `<video>` 做 `drawImage` 截圖（與 POC P-1 同一個手法，且沒有 WebView 的變數）。
+- 官方 SQLite WASM 版含 FTS5，可直接開啟同一份 `library.db`；縮圖以同一套識別碼存於 OPFS 或 IndexedDB。
+- Drive 授權可用 `chrome.identity`。
+- `src/lib/storyboard.ts` 本來就是 TypeScript，屆時抽成 pnpm workspace 套件，由 `mockups/` 與擴充功能共用。
+
+### v1 現在就要守住的
+
+1. **跨平台的資料契約**（第四節）：DB 不存檔案路徑、schema 不含平台特有的欄位與型別。
+2. **備份檔格式也是契約**（第十節）：`library-*.db.gz`、`appProperties` 的欄位（schema 版本、張數、裝置名稱、SHA-256）。改動視同 schema 變動。
+3. **OAuth client 的 Google Cloud 專案長期沿用**（第十節）：擴充功能要看得到手機的備份，必須在同一個專案底下。
+4. **watch page 的解析規則與失敗分類以本規格為準**（第二節第 4 點），不以 Kotlin 程式碼為準 —— 擴充功能是照規格另外實作，不是移植程式碼。
 
 ---
 

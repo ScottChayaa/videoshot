@@ -80,6 +80,9 @@ pnpm mock         # UI 原型（需要 src/lib/storyboard.ts 存在）
 
 Gradle 專案（`android/`）的指令待實作計畫階段 1 建立後補上。
 
+**pnpm 只管 JS／TS**（`mockups/`、未來的 `extension/`）；Kotlin 用 Gradle、未來的 Swift 用 Xcode／SwiftPM。
+各目錄各自建置，根目錄不設統一的建置協調器（規格第三節「工具鏈」）。
+
 ---
 
 ## 慣例
