@@ -8,7 +8,7 @@
 ## 目前進度
 
 **尚未開始實作。** 2026-09-10 產品形態由 web（SvelteKit on Cloudflare）改為 Android 原生 app（Kotlin ＋ Jetpack Compose；iOS 暫不做），
-app 版實作計畫待產出；計畫的第一步是截圖功能的可行性 POC。
+實作計畫的第一步是截圖功能的可行性 POC（階段 0），可與 Gradle 骨架（階段 1）平行。
 
 `src/` 是 2026-08-07 clip 版的 web 實作，不再是實作的輸入（只有 storyboard 解析演算法要移植成 Kotlin），
 會在計畫的清理階段一次刪除。
@@ -22,8 +22,8 @@ app 版實作計畫待產出；計畫的第一步是截圖功能的可行性 POC
 | 文件 | 角色 |
 |---|---|
 | [設計規格](docs/superpowers/specs/2026-09-10-yt-space-app-design.md) | 唯一的現行規格：技術事實、架構、資料模型、備份與回填、POC |
-| 實作計畫 | 待產出 |
-| [驗收操作手冊](mockups/uiux-v2/驗收操作手冊.md) | UI 驗收標準（登入章節已過期，見手冊開頭說明） |
+| [實作計畫](docs/superpowers/plans/2026-09-11-yt-space-android-實作計畫.md) | 路線圖：15 個階段、依賴、驗收條件、風險；連到各階段的細節計畫 |
+| [驗收操作手冊](mockups/uiux-v2/驗收操作手冊.md) | UI 驗收標準；標〔app〕的條目只在 app 上驗 |
 
 較舊的規格與計畫已從 `docs/` 移除，內容留在 git 歷史；仍有效的結論已併入現行規格。
 

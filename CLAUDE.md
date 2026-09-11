@@ -3,7 +3,8 @@
 從任何 YouTube 影片挑出畫面，成為可依時間瀏覽、依標籤與語意檢索的個人圖庫（Android 原生 app，Kotlin ＋ Jetpack Compose；iOS 暫不做）。
 
 **目前進度：尚未開始實作。** 2026-09-10 產品形態由 web（SvelteKit on Cloudflare）改為 Android 原生 app（Kotlin），
-**app 版實作計畫待產出**。計畫的第一步是截圖功能的 POC（規格第十二節）。
+從**階段 0（截圖 POC）**與**階段 1（Gradle 骨架）**開始，兩者可平行。
+細節計畫只為即將動工的階段撰寫；沒有細節計畫的階段，先用 superpowers:writing-plans 產出再動工。
 
 ---
 
@@ -11,9 +12,9 @@
 
 | # | 文件 | 角色 | 什麼時候看 |
 |---|---|---|---|
-| 1 | 實作計畫（待產出，放在 `docs/superpowers/plans/`） | **主文件**。階段、任務、依賴、驗收條件 | 每次動工 |
+| 1 | [`docs/superpowers/plans/2026-09-11-yt-space-android-實作計畫.md`](docs/superpowers/plans/2026-09-11-yt-space-android-實作計畫.md) | **主文件**（路線圖）。15 個階段、依賴、驗收條件、風險；各階段的細節計畫從這裡連出去 | 每次動工 |
 | 2 | [`docs/superpowers/specs/2026-09-10-yt-space-app-design.md`](docs/superpowers/specs/2026-09-10-yt-space-app-design.md) | **規格**。技術事實（storyboard、watch page 欄位、trigram 限制）、架構與模組邊界、資料模型、備份／回填、POC | 動手寫某個模組前，讀對應章節 |
-| 3 | [`mockups/uiux-v2/驗收操作手冊.md`](mockups/uiux-v2/驗收操作手冊.md) | **UI 驗收標準**。§一 登入等條目已過期（見手冊開頭），會在實作計畫中改寫 | 做完一個任務要驗收時 |
+| 3 | [`mockups/uiux-v2/驗收操作手冊.md`](mockups/uiux-v2/驗收操作手冊.md) | **UI 驗收標準**。計畫的驗收條件引用它的原文；標〔app〕的條目只在 app 上驗 | 做完一個任務要驗收時 |
 
 `mockups/uiux-v2/` 的 HTML 是 **UI 的視覺參考**（以 Compose 重寫，程式碼不沿用），但它落後於驗收手冊（手冊是目標狀態）。
 兩者不一致時**以手冊為準**；手冊與規格不一致時**以規格為準**。
