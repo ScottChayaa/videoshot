@@ -11,4 +11,7 @@ interface VideoDao {
 
     @Query("SELECT * FROM video WHERE id = :id")
     suspend fun byId(id: String): VideoEntity?
+
+    @Query("DELETE FROM video WHERE id = :id")
+    suspend fun deleteById(id: String)
 }

@@ -8,6 +8,7 @@ import com.xenyaa.videoshot.data.library.LibraryDatabase
 import com.xenyaa.videoshot.data.library.LibrarySchemaCallback
 import com.xenyaa.videoshot.data.repo.LibraryRepo
 import com.xenyaa.videoshot.data.repo.RoomLibraryRepo
+import com.xenyaa.videoshot.data.settings.AppSettings
 import kotlinx.coroutines.Dispatchers
 import java.io.File
 
@@ -40,5 +41,9 @@ class AppContainer(context: Context) {
             .build()
     }
 
-    val libraryRepo: LibraryRepo by lazy { RoomLibraryRepo(libraryDb, Dispatchers.IO) }
+    val settings: AppSettings by lazy { AppSettings(appContext) }
+
+    val libraryRepo: LibraryRepo by lazy {
+        RoomLibraryRepo(libraryDb, Dispatchers.IO) { settings.markChanged() }
+    }
 }

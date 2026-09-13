@@ -26,6 +26,18 @@ interface ShotDao {
     @Query("UPDATE shot SET description = :description, place = :place WHERE id = :id")
     suspend fun updateDescriptionAndPlace(id: Long, description: String?, place: String?)
 
+    @Query("UPDATE shot SET event_date = :eventDate WHERE id = :id")
+    suspend fun updateEventDate(id: Long, eventDate: String)
+
+    @Query("UPDATE shot SET place = :place WHERE id = :id")
+    suspend fun updatePlace(id: Long, place: String?)
+
+    @Query("UPDATE shot SET description = :description WHERE id = :id")
+    suspend fun updateDescription(id: Long, description: String?)
+
+    @Query("DELETE FROM shot WHERE video_id = :videoId")
+    suspend fun deleteOfVideo(videoId: String)
+
     /**
      * 首頁時間軸的第一頁。由新到舊：event_date 遞減，同一天內 id 遞減。走 index_shot_event_date_id。
      */

@@ -47,7 +47,6 @@ ksp {
 dependencies {
     implementation(project(":core"))
     implementation(libs.room.runtime)
-    implementation(libs.room.ktx)
     implementation(libs.sqlite.bundled)
     implementation(libs.androidx.datastore.preferences)
     ksp(libs.room.compiler)

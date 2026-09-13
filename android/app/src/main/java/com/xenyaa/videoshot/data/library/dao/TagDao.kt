@@ -17,4 +17,7 @@ interface TagDao {
 
     @Query("SELECT COUNT(*) FROM shot_tag WHERE shot_id = :shotId")
     suspend fun linkCountOfShot(shotId: Long): Int
+
+    @Query("DELETE FROM shot_tag WHERE shot_id = :shotId")
+    suspend fun unlinkAllOfShot(shotId: Long)
 }

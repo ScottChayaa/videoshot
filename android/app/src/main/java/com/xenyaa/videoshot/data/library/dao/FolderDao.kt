@@ -20,4 +20,10 @@ interface FolderDao {
 
     @Query("SELECT COUNT(*) FROM shot_folder WHERE shot_id = :shotId")
     suspend fun linkCountOfShot(shotId: Long): Int
+
+    @Query("SELECT COUNT(*) FROM folder WHERE name = :name AND parent_id IS :parentId")
+    suspend fun countSameNameInLayer(parentId: Long?, name: String): Int
+
+    @Query("SELECT parent_id FROM folder WHERE id = :id")
+    suspend fun parentOf(id: Long): Long?
 }
