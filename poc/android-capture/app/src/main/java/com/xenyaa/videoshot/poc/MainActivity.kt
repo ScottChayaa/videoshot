@@ -141,9 +141,10 @@ class MainActivity : AppCompatActivity() {
           c.width = v.videoWidth; c.height = v.videoHeight;
           try {
             c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
-            return JSON.stringify({t: v.currentTime, ad: ad, data: c.toDataURL('image/jpeg', 0.92)});
+            return JSON.stringify({t: v.currentTime, ad: ad, w: c.width, h: c.height,
+              data: c.toDataURL('image/jpeg', 0.92)});
           } catch (e) {
-            return JSON.stringify({error: String(e), t: v.currentTime, ad: ad});
+            return JSON.stringify({error: String(e), t: v.currentTime, ad: ad, w: c.width, h: c.height});
           }
         })()
     """.trimIndent()
@@ -162,8 +163,18 @@ class MainActivity : AppCompatActivity() {
                 log("JS截圖失敗：$json")
                 return@evaluateJavascript
             }
-            val bytes = Base64.decode(json.getString("data").substringAfter(","), Base64.DEFAULT)
+            val data = json.getString("data")
+            val bytes = Base64.decode(data.substringAfter(","), Base64.DEFAULT)
             val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            if (bmp == null) {
+                // toDataURL 失敗時 Chromium 會回 "data:," 之類解不開的內容，不走 catch。照實記錄，不要當機。
+                log(
+                    "JS截圖：dataURL 解不出 bitmap —— 影片 ${json.optInt("w")}x${json.optInt("h")} " +
+                        "dataURL 長度=${data.length} 前綴=${data.take(30)} base64 位元組=${bytes.size} " +
+                        "t=${"%.3f".format(json.getDouble("t"))} 耗時=${ms}ms"
+                )
+                return@evaluateJavascript
+            }
             report("JS", bmp, json.getDouble("t"), json.getBoolean("ad"), ms)
         }
     }
