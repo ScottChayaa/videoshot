@@ -12,6 +12,9 @@ import com.xenyaa.videoshot.data.repo.LibraryRepo
 import com.xenyaa.videoshot.data.repo.RoomCacheRepo
 import com.xenyaa.videoshot.data.repo.RoomLibraryRepo
 import com.xenyaa.videoshot.data.settings.AppSettings
+import com.xenyaa.videoshot.youtube.OkHttpYoutube
+import com.xenyaa.videoshot.youtube.Youtube
+import okhttp3.OkHttpClient
 import kotlinx.coroutines.Dispatchers
 import java.io.File
 
@@ -52,4 +55,9 @@ class AppContainer(context: Context) {
     }
 
     val cacheRepo: CacheRepo by lazy { RoomCacheRepo(cacheDb, Dispatchers.IO) }
+
+    /** 整個 app 共用一個 OkHttpClient —— 它自帶連線池與執行緒池，每次 new 一個會把資源用光。 */
+    private val httpClient: OkHttpClient by lazy { OkHttpClient() }
+
+    val youtube: Youtube by lazy { OkHttpYoutube(httpClient, Dispatchers.IO) }
 }

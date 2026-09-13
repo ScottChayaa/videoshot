@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+      MockWebServer 只能跑明文 HTTP，而 Android 9+ 預設禁止明文。
+      這份設定**只在 debug 建置生效、只對 localhost 開放** ——
+      release 仍然全面禁止明文（app 跟 YouTube、Drive、Gemini 一律走 HTTPS）。
+    -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>

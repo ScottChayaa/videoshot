@@ -7,7 +7,12 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-private const val MARKER = "ytInitialPlayerResponse = "
+/**
+ * 只比對變數名，不含 `=` 與兩側空白 —— extractJsonObject 會接著找下一個 `{`。
+ * 真實頁面是 `var ytInitialPlayerResponse = {`，但只要 YouTube 改動一個空白字元
+ * 就讓整個解析器失效，這個脆弱度不值得。
+ */
+private const val MARKER = "ytInitialPlayerResponse"
 
 private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
