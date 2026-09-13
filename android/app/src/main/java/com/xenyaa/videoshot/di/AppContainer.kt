@@ -3,6 +3,7 @@ package com.xenyaa.videoshot.di
 import android.content.Context
 import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import com.xenyaa.videoshot.data.cache.CacheDatabase
 import com.xenyaa.videoshot.data.library.LibraryDatabase
 import com.xenyaa.videoshot.data.library.LibrarySchemaCallback
 import java.io.File
@@ -23,6 +24,16 @@ class AppContainer(context: Context) {
         )
             .setDriver(BundledSQLiteDriver())
             .addCallback(LibrarySchemaCallback)
+            .build()
+    }
+
+    val cacheDb: CacheDatabase by lazy {
+        Room.databaseBuilder(
+            appContext,
+            CacheDatabase::class.java,
+            File(appContext.filesDir, "cache.db").path,
+        )
+            .setDriver(BundledSQLiteDriver())
             .build()
     }
 }

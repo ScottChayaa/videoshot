@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.room.useReaderConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.test.platform.app.InstrumentationRegistry
+import com.xenyaa.videoshot.data.cache.CacheDatabase
 import com.xenyaa.videoshot.data.library.LibraryDatabase
 import com.xenyaa.videoshot.data.library.LibrarySchemaCallback
 
@@ -34,3 +35,11 @@ suspend fun LibraryDatabase.readAllText(sql: String): List<String> =
             buildList { while (stmt.step()) add(stmt.getText(0)) }
         }
     }
+
+fun inMemoryCacheDb(): CacheDatabase =
+    Room.inMemoryDatabaseBuilder(
+        InstrumentationRegistry.getInstrumentation().targetContext,
+        CacheDatabase::class.java,
+    )
+        .setDriver(BundledSQLiteDriver())
+        .build()
