@@ -6,7 +6,15 @@
 - 舊名 **yt-space**（2026-09-11 改名）。舊名仍留在 `src/`、`static/`、`tests/`（web 版，清理階段整批刪除）
   與原型的 localStorage key `ytspace2_*`，這些刻意不改。
 
-**目前進度：階段 0～3 已完成（2026-09-13）。**
+**目前進度：階段 0～3 完成，階段 4a（精靈外殼與第一步）完成（2026-09-14）。共 169 個測試。**
+
+**測試怎麼跑**（三套，環境限制見規格第十三節）：
+`./gradlew :core:test`（JVM 純邏輯）、`./gradlew :app:testDebugUnitTest`（**Compose UI 走 Robolectric，跑在 JVM**）、
+`./gradlew :app:connectedDebugAndroidTest`（資料庫與網路，實機）。
+儀器測試要注意 MIUI 的「USB 安裝」開關會自己關掉 —— 安裝失敗時 Gradle 仍回報 BUILD SUCCESSFUL 但**測試數是 0**，
+每次都要確認數字不是 0。
+
+**舊的進度描述（階段 0～3）：**
 `android/` 有可建置的 `:app` 與 `:core`，共 **133 個測試**。
 資料層（`library.db`／`cache.db`／FTS5／`LibraryRepo`）、`youtube`（watch page 解析與五種失敗分類、OkHttp 抓取）、
 `thumbs`（`thumbFor` 單一讀取入口、sheet 下載裁切成 WebP）、dHash 與收斂演算法都已就緒。

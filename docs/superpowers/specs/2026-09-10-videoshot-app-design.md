@@ -308,6 +308,7 @@ web 版程式碼（`src/`、`tests/`、`static/` 與 SvelteKit／Vite／Playwrig
 | 設定值 | DataStore（Preferences） | 裝置本地，不進備份 |
 | 測試 | JUnit（`:core`）、androidx.test ＋ Compose UI Test | 見第十三節 |
 | 建置 | Gradle（Android Studio，Windows 可直接建置與安裝） | 不需要雲端建置服務 |
+| 精靈的步驟導覽 | `WizardStep` 狀態 ＋ `BackHandler`，**不引入 Navigation Compose** | 三個步驟、單一進入點，路由／深連結／回退堆疊都用不到；階段 7 做底部導覽時再評估 |
 | 圖表 | Mermaid | 版控友善 |
 
 ---
@@ -1136,7 +1137,15 @@ POC 的結論**不承諾所有影片、所有播放情境 100% 可截**；截圖
 
 - **`:core` 的 JVM 單元測試**（JUnit）：storyboard（移植 `src/lib/storyboard.test.ts` 的案例）、dHash、規則式查詢解析。
 - **`:app` 的單元測試**：repo（in-memory 資料庫）、備份快照與還原驗證、回填的失敗分類、watch page 解析（錄製的頁面）。
-- **儀器測試**（androidx.test ＋ Compose UI Test，Android 模擬器）：
+- **Compose UI 測試跑在 JVM（Robolectric）**，不是實機也不是模擬器。
+  2026-09-14 實測：這台開發用實機上**連只有 `Text("嗨")` 的最小 Compose 儀器測試都會無限卡住**
+  （測試 Activity 從沒被帶到前景），而同樣走實機的非 UI 儀器測試 21 秒就跑完。
+  可用的配方三個條件缺一不可：`testOptions { unitTests { isIncludeAndroidResources = true } }`、
+  **單元測試跑 JDK 21**（Robolectric 在 JDK 25 上會丟 `Failed to interact with raw FileDescriptor internals`，
+  而它模擬 Android SDK 37 又要求至少 Java 21）、每個測試加
+  `@RunWith(RobolectricTestRunner::class)` ＋ `@GraphicsMode(NATIVE)` ＋ **`@Config(sdk = [35])`**
+  （Android 16 起的 `ApplicationSharedMemory` 會讓 Robolectric 去戳 FileDescriptor 內部欄位）。
+- **儀器測試**（androidx.test，實機）——**資料庫與網路**用，不含 UI：
   - **假播放器**：可控的 `currentTime` 與截圖結果（含黑畫面），對應 web 版的 `PUBLIC_PLAYER_MODE=fake`，讓測試離線且穩定。
   - **`youtube` 模組吃錄製的 watch page 與 sheet**，不打真的 YouTube。
   - **假的 `BackupStore`** 取代 Drive。
