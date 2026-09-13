@@ -40,4 +40,5 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
+    implementation("androidx.sqlite:sqlite-bundled:2.7.0")
 }
