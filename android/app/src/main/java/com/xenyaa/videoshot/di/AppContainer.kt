@@ -6,6 +6,9 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.xenyaa.videoshot.data.cache.CacheDatabase
 import com.xenyaa.videoshot.data.library.LibraryDatabase
 import com.xenyaa.videoshot.data.library.LibrarySchemaCallback
+import com.xenyaa.videoshot.data.repo.LibraryRepo
+import com.xenyaa.videoshot.data.repo.RoomLibraryRepo
+import kotlinx.coroutines.Dispatchers
 import java.io.File
 
 /**
@@ -36,4 +39,6 @@ class AppContainer(context: Context) {
             .setDriver(BundledSQLiteDriver())
             .build()
     }
+
+    val libraryRepo: LibraryRepo by lazy { RoomLibraryRepo(libraryDb, Dispatchers.IO) }
 }
