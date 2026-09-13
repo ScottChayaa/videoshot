@@ -6,9 +6,15 @@
 - 舊名 **yt-space**（2026-09-11 改名）。舊名仍留在 `src/`、`static/`、`tests/`（web 版，清理階段整批刪除）
   與原型的 localStorage key `ytspace2_*`，這些刻意不改。
 
-**目前進度：尚未開始實作。** 2026-09-10 產品形態由 web（SvelteKit on Cloudflare）改為 Android 原生 app（Kotlin），
-從**階段 0（截圖 POC）**與**階段 1（Gradle 骨架）**開始，兩者可平行。
+**目前進度：階段 0（截圖 POC）與階段 1（Gradle 骨架 ＋ storyboard 移植）已完成（2026-09-13）。**
+`android/` 有可建置的 `:app`（Compose 範本）與 `:core`（storyboard，24 個測試）。下一步是**階段 2（資料層）**，
+出口閘門已解除 —— 階段 2、3、5、13 的細節計畫可以開始寫了。
 細節計畫只為即將動工的階段撰寫；沒有細節計畫的階段，先用 superpowers:writing-plans 產出再動工。
+
+階段 0 的結論已寫回規格（第二節第 5、7 點、第五節、第十一節、第十二節），POC 程式碼已刪除、內容留在 git 歷史。
+三個對實作有直接影響的結論：**截圖用 JS canvas**（不是 PixelCopy）、
+**播放器依 `playabilityStatus.playableInEmbed` 決定載入方式且 embed 必須模擬點擊才會播**、
+**InnerTube 不帶 storyboard spec，回填只能走 watch page**。
 
 ---
 
