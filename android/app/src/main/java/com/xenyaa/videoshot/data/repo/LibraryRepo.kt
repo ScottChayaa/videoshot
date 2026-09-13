@@ -3,6 +3,7 @@ package com.xenyaa.videoshot.data.repo
 import com.xenyaa.videoshot.core.paging.ShotCursor
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.MonthCount
+import com.xenyaa.videoshot.data.repo.model.RecentVideo
 import com.xenyaa.videoshot.data.repo.model.NewShot
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.Page
@@ -38,4 +39,10 @@ interface LibraryRepo {
 
     /** 手動補圖的 WebP 位元組；不是手動圖或圖不見了就回 null。 */
     suspend fun shotImage(shotId: Long): ByteArray?
+
+    /** 最近取過圖的影片，附各片的收藏張數。 */
+    suspend fun recentVideos(limit: Int): List<RecentVideo>
+
+    /** 這支影片已經收藏的 storyboard 格號 —— 第二步據此標示鎖定格。 */
+    suspend fun takenFrameIndexes(videoId: String): Set<Int>
 }

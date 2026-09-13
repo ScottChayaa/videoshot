@@ -71,7 +71,16 @@ fun WizardScreen(vm: WizardViewModel, onExit: () -> Unit) {
     ) { inner ->
         Box(Modifier.padding(inner).fillMaxSize()) {
             when (step) {
-                WizardStep.URL -> Text("第一步在 Task 4a.3 實作")
+                WizardStep.URL -> {
+                    val status by vm.status.collectAsStateWithLifecycle()
+                    val recent by vm.recent.collectAsStateWithLifecycle()
+                    Step1UrlScreen(
+                        status = status,
+                        recent = recent,
+                        onSubmit = { vm.submit(it) },
+                        onOpenRecent = { vm.openRecent(it) },
+                    )
+                }
                 // 階段 4b 的縮圖牆、階段 6 的第三步會取代這兩個佔位畫面
                 WizardStep.PICK -> Text("第二步（挑畫面）在階段 4b 實作")
                 WizardStep.DETAILS -> Text("第三步（填資料）在階段 6 實作")

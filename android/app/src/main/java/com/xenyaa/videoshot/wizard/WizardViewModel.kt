@@ -1,9 +1,14 @@
 package com.xenyaa.videoshot.wizard
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.xenyaa.videoshot.core.url.parseVideoId
+import com.xenyaa.videoshot.core.youtube.FetchResult
+import com.xenyaa.videoshot.data.repo.model.RecentVideo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 /**
  * 精靈的流程狀態。放在 ViewModel 是為了**轉螢幕不丟東西** ——
@@ -49,4 +54,59 @@ class WizardViewModel(
     fun keepDraft() { _hasDraft.value = true }
 
     fun discardDraft() { _hasDraft.value = false }
+
+    // ---- 第一步 ----
+
+    private val _status = MutableStateFlow<Step1Status>(Step1Status.Idle)
+    val status: StateFlow<Step1Status> = _status.asStateFlow()
+
+    private val _recent = MutableStateFlow<List<RecentVideo>>(emptyList())
+    val recent: StateFlow<List<RecentVideo>> = _recent.asStateFlow()
+
+    /** 抓好的 watch page 與已收藏格號，交給第二步用。 */
+    private val _loaded = MutableStateFlow<LoadedVideo?>(null)
+    val loaded: StateFlow<LoadedVideo?> = _loaded.asStateFlow()
+
+    init {
+        viewModelScope.launch { _recent.value = data.recentVideos(20) }
+    }
+
+    fun submit(input: String) {
+        val videoId = parseVideoId(input)
+        if (videoId == null) {
+            _status.value = Step1Status.Error(
+                "看不懂這個網址。可以貼 youtu.be/…、watch?v=…、shorts/… 或直接貼 11 碼影片 ID。"
+            )
+            return
+        }
+        openRecent(videoId)
+    }
+
+    fun openRecent(videoId: String) {
+        _status.value = Step1Status.Loading
+        viewModelScope.launch {
+            val page = data.watchPage(videoId)
+            when (page.result) {
+                FetchResult.FETCH_FAILED ->
+                    _status.value = Step1Status.Error("取圖需要網路。")
+
+                FetchResult.VIDEO_UNAVAILABLE ->
+                    _status.value = Step1Status.Error(
+                        "這支影片抓不到，可能是私人影片、已被刪除或需要登入。"
+                    )
+
+                // no_storyboard 與 parse_failed **仍然進第二步** —— 縮圖牆空白，但可以截圖補上
+                // （規格第五節第一步的表、第七節降級表）
+                FetchResult.OK, FetchResult.NO_STORYBOARD, FetchResult.PARSE_FAILED -> {
+                    _loaded.value = LoadedVideo(
+                        videoId = videoId,
+                        page = page,
+                        takenFrameIndexes = data.takenFrameIndexes(videoId),
+                    )
+                    _status.value = Step1Status.Idle
+                    goTo(WizardStep.PICK)
+                }
+            }
+        }
+    }
 }

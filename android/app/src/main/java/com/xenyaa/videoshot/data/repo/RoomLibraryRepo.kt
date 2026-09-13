@@ -11,6 +11,7 @@ import com.xenyaa.videoshot.data.library.entity.ShotImageEntity
 import com.xenyaa.videoshot.data.library.entity.ShotTagEntity
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.MonthCount
+import com.xenyaa.videoshot.data.repo.model.RecentVideo
 import com.xenyaa.videoshot.data.repo.model.NewShot
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.Page
@@ -50,6 +51,14 @@ class RoomLibraryRepo(
 
     override suspend fun shotImage(shotId: Long): ByteArray? = withContext(io) {
         db.shotDao().imageOf(shotId)?.webp
+    }
+
+    override suspend fun recentVideos(limit: Int): List<RecentVideo> = withContext(io) {
+        db.videoDao().recent(limit).map { RecentVideo(it.videoId, it.title, it.addedAt, it.shotCount) }
+    }
+
+    override suspend fun takenFrameIndexes(videoId: String): Set<Int> = withContext(io) {
+        db.videoDao().takenFrameIndexes(videoId).toSet()
     }
 
     override suspend fun commitPicks(video: VideoEntity, picks: List<NewShot>): List<Long> = withContext(io) {
