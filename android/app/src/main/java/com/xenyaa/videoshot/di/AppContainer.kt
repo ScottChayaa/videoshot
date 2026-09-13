@@ -13,6 +13,7 @@ import com.xenyaa.videoshot.data.repo.RoomCacheRepo
 import com.xenyaa.videoshot.data.repo.RoomLibraryRepo
 import com.xenyaa.videoshot.data.settings.AppSettings
 import com.xenyaa.videoshot.thumbs.FileThumbs
+import com.xenyaa.videoshot.thumbs.SheetHarvester
 import com.xenyaa.videoshot.thumbs.Thumbs
 import com.xenyaa.videoshot.youtube.OkHttpYoutube
 import com.xenyaa.videoshot.youtube.Youtube
@@ -66,4 +67,6 @@ class AppContainer(context: Context) {
     val thumbs: Thumbs by lazy {
         FileThumbs(File(appContext.filesDir, "thumbs"), Dispatchers.IO) { libraryRepo.shotImage(it) }
     }
+
+    val sheetHarvester: SheetHarvester by lazy { SheetHarvester(youtube, thumbs, Dispatchers.Default) }
 }

@@ -215,7 +215,7 @@ v1 不直接使用（v1 的 Gemini 只做查詢解析），但決定了 v2 第�
 Android app（Kotlin ＋ Jetpack Compose）
 ├─ :app
 │   ├─ ui/          首頁・查詢・取圖精靈・分類・詳情・帳號・Lightbox（Compose）
-│   ├─ youtube/     watch page → ytInitialPlayerResponse → metadata ＋ spec ＋ 失敗分類
+│   ├─ youtube/     OkHttp 抓 watch page 與 sheet；**解析與失敗分類在 :core/youtube**（純邏輯，JVM 測試）
 │   ├─ thumbs/      下載 sheet → 裁切 → WebP 編碼 → 存檔；thumbFor(shot) 單一讀取入口
 │   ├─ capture/     截圖介面：JS canvas 實作／PixelCopy 實作／相簿選圖實作
 │   ├─ query/       Gemini 解析器（可選，失敗退回 :core 的規則式解析器）
@@ -224,7 +224,8 @@ Android app（Kotlin ＋ Jetpack Compose）
 │   └─ data/        repo 介面 → Room（library.db ＋ cache.db）
 └─ :core（純 Kotlin，不依賴 Android SDK）
     ├─ storyboard   spec 解析、pickLevel、frameAt、sheetUrl（自 storyboard.ts 移植）
-    ├─ similarity   dHash（輸入灰階像素陣列）
+    ├─ similarity   dHash（輸入灰階像素陣列）＋ 相似畫面收斂
+    ├─ youtube      watch page 解析、欄位對應、五種失敗分類（吃錄製的頁面）
     └─ queryparse   規則式查詢解析
 ```
 
@@ -622,8 +623,10 @@ row = floor(posInSheet / cols),  col = posInSheet % cols
 - 頂部狀態列：「已收斂成 50 張候選，隱藏了 98 張相似畫面」＋【顯示全部】。
   按下後 148 張全部出現，按鈕變成【重新過濾】，可以來回切。
 - **強度沿用帳號頁的「取圖 › 過濾相似強度」**（高／中／低，預設中）。切換設定後，以新門檻**對原始 148 格重算**，不是在已過濾的結果上疊加。
-- 演算法：每格縮到 9×8 灰階，算 **dHash**（64-bit 指紋），漢明距離小於門檻視為相似。依時間順序掃描，每組保留最早的一張。
-  ⏳ 暫定門檻：高 ≤ 10、中 ≤ 6、低 ≤ 3，待實測調校。
+- 演算法：每格縮到 9×8 灰階，算 **dHash**（64-bit 指紋），漢明距離 **≤ 門檻**視為相似。
+  依時間順序掃描，每組保留最早的一張 —— 比較的對象是「最近一張**被保留的**」，不是「前一張」
+  （跟前一張比的話，畫面緩慢變化時會一路藏到底，只剩第一張）。
+  ⏳ 暫定門檻：高 ≤ 10、中 ≤ 6、低 ≤ 3，待以真實影片調校（`:core` 的 `FilterStrength`）。
 - 在收斂算完之前，縮圖牆已經先畫出來、可以捲動與點選；狀態列顯示「正在過濾相似畫面…」。
 
 > **效能閘門（沿用 web 版的 R-1，但風險已大幅降低）**：web 版最慢的是每張 sheet 都要繞經 Worker 代理，
@@ -1232,7 +1235,7 @@ OAuth client 綁定 APK 的簽章憑證，**debug 與 release 用不同的憑證
 |---|---|---|
 | `drive.appdata` 是否屬於非敏感 scope | 第十節 | 備份階段開工前 |
 | 同一 Cloud 專案的不同 OAuth client 是否共用 appDataFolder | 第十節、第十八節 | 備份階段 |
-| dHash 三檔門檻值 | 第五節 | 收斂功能實作時以真實影片調校 |
+| dHash 三檔門檻值 | 第五節、`:core` 的 `FilterStrength` | 收斂功能實作時以真實影片調校 |
 | 回填節流參數 | 第十一節 | 回填階段 |
 | **廣告偵測 `.ad-showing` 是否有效** | 第五節、第十二節 | POC 未能觸發廣告；實作階段 5 時確認，並備妥不依賴它的退路 |
 | Gemini 查詢解析的 prompt | 第八節 | 查詢階段 |

@@ -40,7 +40,7 @@
 | **0** | **截圖 POC** ＋ 開發環境 ＋ 其他待實測項目 ⚠️ 出口閘門 | M | ✅ 完成（2026-09-13） |
 | **1** | Gradle 骨架（`:app` ＋ `:core`）＋ storyboard 移植 | M | ✅ 完成 |
 | **2** | 資料層：Room、`library.db`、`cache.db`、FTS5、repo | L | ✅ 完成 |
-| **3** | `youtube` 模組、`thumbs` 模組、dHash | L | [階段 3](2026-09-13-階段3-youtube-thumbs-dhash.md) |
+| **3** | `youtube` 模組、`thumbs` 模組、dHash | L | ✅ 完成 |
 | 4 | 取圖精靈第一、二步（含播放器、收斂） | L | 待產出 |
 | 5 | 截圖與相簿選圖 | M | 待產出（依 POC 結果） |
 | 6 | 取圖精靈第三步、完成、草稿 | L | 待產出 |
