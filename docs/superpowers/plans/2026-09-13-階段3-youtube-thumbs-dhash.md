@@ -96,7 +96,11 @@ cd android
 export JAVA_HOME=/snap/android-studio/current/jbr
 export ANDROID_HOME=$HOME/Android/Sdk
 ./gradlew :core:test                     # JVM 單元測試（Task 3.1～3.4 只需要這個）
-./gradlew :app:connectedDebugAndroidTest # 儀器測試（Task 3.6／3.7，需要 adb devices 看得到裝置）
+./gradlew :app:connectedDebugAndroidTest # 儀器測試（需要 adb devices 看得到裝置）
+
+# 只跑單一測試類別 —— AGP 9 的 connectedAndroidTest **不吃 `--tests`**，要用 runner 參數：
+./gradlew :app:connectedDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=com.xenyaa.videoshot.youtube.OkHttpYoutubeTest
 ```
 
 ---
@@ -738,7 +742,12 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-private const val MARKER = "ytInitialPlayerResponse = "
+/**
+ * 只比對變數名，不含 `=` 與兩側空白 —— extractJsonObject 會接著找下一個 `{`。
+ * 真實頁面是 `var ytInitialPlayerResponse = {`，但只要 YouTube 改動一個空白字元
+ * 就讓整個解析器失效，這個脆弱度不值得。
+ */
+private const val MARKER = "ytInitialPlayerResponse"
 
 private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
@@ -1020,6 +1029,32 @@ mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver3", versi
     <uses-permission android:name="android.permission.INTERNET" />
 ```
 
+  **MockWebServer 只能跑明文 HTTP，而 Android 9+ 預設禁止明文** ——
+  不加下面兩個檔案，所有走 MockWebServer 的測試都會死在
+  `UnknownServiceException: CLEARTEXT communication to localhost not permitted`。
+  只放在 `debug` source set，release 仍然全面禁止明文。
+
+  `android/app/src/debug/res/xml/network_security_config.xml`：
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>
+```
+
+  `android/app/src/debug/AndroidManifest.xml`：
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:networkSecurityConfig="@xml/network_security_config" />
+</manifest>
+```
+
 - [ ] **Step 2: 寫失敗的測試**
 
   用 `MockWebServer` 而不是打真的 YouTube：測試要離線、穩定、可重現（規格第十三節）。
@@ -1044,6 +1079,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.concurrent.TimeUnit
 
 @RunWith(AndroidJUnit4::class)
 class OkHttpYoutubeTest {
@@ -1055,7 +1091,12 @@ class OkHttpYoutubeTest {
         server = MockWebServer()
         server.start()
         youtube = OkHttpYoutube(
-            client = OkHttpClient(),
+            // 明確給短逾時：連不上的案例要快速失敗，不要等網路層的預設 10 秒
+            client = OkHttpClient.Builder()
+                .connectTimeout(2, TimeUnit.SECONDS)
+                .readTimeout(2, TimeUnit.SECONDS)
+                .callTimeout(5, TimeUnit.SECONDS)
+                .build(),
             io = Dispatchers.IO,
             watchUrl = { id -> server.url("/watch?v=$id").toString() },
         )
@@ -1084,7 +1125,8 @@ class OkHttpYoutubeTest {
     fun 帶了桌機版的_User_Agent() = runTest {
         server.enqueue(MockResponse(code = 200, body = okBody))
         youtube.watchPage("v1")
-        val ua = server.takeRequest().headers["User-Agent"]
+        // takeRequest() 沒有逾時參數時會**無限期阻塞** —— 請求沒到就整個測試掛住（實測卡了 10 分鐘）
+        val ua = server.takeRequest(5, TimeUnit.SECONDS)!!.headers["User-Agent"]
         assertTrue("UA=$ua", ua!!.contains("Mozilla/5.0"))
     }
 
@@ -1126,7 +1168,7 @@ class OkHttpYoutubeTest {
 
 - [ ] **Step 3: 執行測試，確認失敗**
 
-  Run: `cd android && ./gradlew :app:connectedDebugAndroidTest --tests '*OkHttpYoutubeTest*'`
+  Run: `cd android && ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.xenyaa.videoshot.youtube.OkHttpYoutubeTest`
   Expected: 編譯失敗，`Unresolved reference 'OkHttpYoutube'`。
 
 - [ ] **Step 4: 介面**
@@ -1233,7 +1275,7 @@ class OkHttpYoutube(
 
 - [ ] **Step 7: 執行測試，確認通過**
 
-  Run: `cd android && ./gradlew :app:connectedDebugAndroidTest --tests '*OkHttpYoutubeTest*'`
+  Run: `cd android && ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.xenyaa.videoshot.youtube.OkHttpYoutubeTest`
   Expected: `BUILD SUCCESSFUL`，7 個測試通過。
 
 - [ ] **Step 8: Commit**
@@ -1368,7 +1410,7 @@ class ThumbsTest {
 
 - [ ] **Step 2: 執行測試，確認失敗**
 
-  Run: `cd android && ./gradlew :app:connectedDebugAndroidTest --tests '*ThumbsTest*'`
+  Run: `cd android && ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.xenyaa.videoshot.thumbs.ThumbsTest`
   Expected: 編譯失敗，`Unresolved reference 'ThumbKey'`、`'FileThumbs'`。
 
 - [ ] **Step 3: 識別碼**
@@ -1733,7 +1775,7 @@ class SheetHarvesterTest {
 
 - [ ] **Step 2: 執行測試，確認失敗**
 
-  Run: `cd android && ./gradlew :app:connectedDebugAndroidTest --tests '*SheetHarvesterTest*'`
+  Run: `cd android && ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.xenyaa.videoshot.thumbs.SheetHarvesterTest`
   Expected: 編譯失敗，`Unresolved reference 'SheetHarvester'`、`'grayscale9x8'`。
 
 - [ ] **Step 3: 實作**
