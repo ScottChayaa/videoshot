@@ -6,9 +6,10 @@
 - 舊名 **yt-space**（2026-09-11 改名）。舊名仍留在 `src/`、`static/`、`tests/`（web 版，清理階段整批刪除）
   與原型的 localStorage key `ytspace2_*`，這些刻意不改。
 
-**目前進度：階段 0（截圖 POC）與階段 1（Gradle 骨架 ＋ storyboard 移植）已完成（2026-09-13）。**
-`android/` 有可建置的 `:app`（Compose 範本）與 `:core`（storyboard，24 個測試）。下一步是**階段 2（資料層）**，
-出口閘門已解除 —— 階段 2、3、5、13 的細節計畫可以開始寫了。
+**目前進度：階段 0（截圖 POC）、階段 1（骨架 ＋ storyboard）、階段 2（資料層）已完成（2026-09-13）。**
+`android/` 有可建置的 `:app` 與 `:core`；`library.db`／`cache.db` 兩個 Room 資料庫、FTS5 trigram 全文索引、
+以及唯一的 DB 入口 `LibraryRepo` 都已就緒。下一步是**階段 3**（`youtube`、`thumbs`、dHash）或**階段 7**（外殼、首頁），
+兩者都只等資料層；**階段 14**（清理 web 程式碼）也隨時可做。
 細節計畫只為即將動工的階段撰寫；沒有細節計畫的階段，先用 superpowers:writing-plans 產出再動工。
 
 階段 0 的結論已寫回規格（第二節第 5、7 點、第五節、第十一節、第十二節），POC 程式碼已刪除、內容留在 git 歷史。
