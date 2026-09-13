@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.xenyaa.videoshot.data.library.LibraryDatabase
+import com.xenyaa.videoshot.data.library.LibrarySchemaCallback
 import java.io.File
 
 /**
@@ -21,6 +22,7 @@ class AppContainer(context: Context) {
             File(appContext.filesDir, "library.db").path,
         )
             .setDriver(BundledSQLiteDriver())
+            .addCallback(LibrarySchemaCallback)
             .build()
     }
 }
