@@ -37,6 +37,24 @@ android {
     buildFeatures {
         compose = true
     }
+    testOptions {
+        unitTests {
+            // Robolectric 要讀 app 的資源（主題、字串），沒有這一行 Compose 起不來
+            isIncludeAndroidResources = true
+        }
+    }
+}
+
+/**
+ * 單元測試（Robolectric）跑在 JDK 21，不跟著 daemon 的 JDK 25 走。
+ * Robolectric 的 FileDescriptor 攔截器在 JDK 25 上會丟
+ * `Failed to interact with raw FileDescriptor internals`；官方支援到 JDK 21；而 Robolectric 模擬 Android SDK 37 又要求至少 Java 21，所以只有 21 這個選擇。
+ * JDK 由 settings.gradle.kts 的 foojay resolver 自動下載。
+ */
+tasks.withType<Test>().configureEach {
+    javaLauncher.set(
+        javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(21)) }
+    )
 }
 
 ksp {
@@ -59,7 +77,18 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    // collectAsStateWithLifecycle 在 runtime-compose，不在 viewmodel-compose —— 兩個都要
+    implementation(libs.androidx.lifecycle.runtime.compose)
     testImplementation(libs.junit)
+    // Compose UI 測試改跑在 JVM（Robolectric）—— 這台實機的儀器化 UI 測試會無限卡住，
+    // 最小的 Text("嗨") 測試也一樣，對照組的非 UI 儀器測試則正常。
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.junit)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

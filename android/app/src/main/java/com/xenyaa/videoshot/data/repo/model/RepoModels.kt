@@ -56,3 +56,11 @@ data class ShotPatch(
     val description: String?,
     val tagIds: List<Long>?,
 )
+
+/** 「最近取過的影片」清單的一列。資料直接查 video 表，不另存一份歷史（規格第五節第一步）。 */
+data class RecentVideo(
+    val videoId: String,
+    val title: String,
+    val addedAt: Long,
+    val shotCount: Int,
+)
