@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "videoshot"
 include(":app")
+include(":lib")
