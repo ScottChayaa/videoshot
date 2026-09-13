@@ -39,7 +39,7 @@
 |---|---|---|---|
 | **0** | **截圖 POC** ＋ 開發環境 ＋ 其他待實測項目 ⚠️ 出口閘門 | M | ✅ 完成（2026-09-13） |
 | **1** | Gradle 骨架（`:app` ＋ `:core`）＋ storyboard 移植 | M | ✅ 完成 |
-| 2 | 資料層：Room、`library.db`、`cache.db`、FTS5、repo | L | 待產出 |
+| **2** | 資料層：Room、`library.db`、`cache.db`、FTS5、repo | L | [階段 2](2026-09-13-階段2-資料層.md) |
 | 3 | `youtube` 模組、`thumbs` 模組、dHash | L | 待產出 |
 | 4 | 取圖精靈第一、二步（含播放器、收斂） | L | 待產出 |
 | 5 | 截圖與相簿選圖 | M | 待產出（依 POC 結果） |
@@ -88,6 +88,8 @@
 | T1.3 | `pickLevel`、`frameIndexAt`、`framePosition`、`frameAt`、`frameTimeSec`、`sheetUrl` | `:core:test` 通過 |
 
 ### 階段 2 —— 資料層
+
+細節見 [階段 2 計畫](2026-09-13-階段2-資料層.md)。該計畫把 T2.5 拆成讀取與寫入兩個任務，原 T2.6 順延為 T2.7。
 
 | # | 任務 | 規模 | 驗收 |
 |---|---|---|---|
