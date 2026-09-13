@@ -40,7 +40,7 @@
 | **0** | **截圖 POC** ＋ 開發環境 ＋ 其他待實測項目 ⚠️ 出口閘門 | M | ✅ 完成（2026-09-13） |
 | **1** | Gradle 骨架（`:app` ＋ `:core`）＋ storyboard 移植 | M | ✅ 完成 |
 | **2** | 資料層：Room、`library.db`、`cache.db`、FTS5、repo | L | ✅ 完成 |
-| 3 | `youtube` 模組、`thumbs` 模組、dHash | L | 待產出 |
+| **3** | `youtube` 模組、`thumbs` 模組、dHash | L | [階段 3](2026-09-13-階段3-youtube-thumbs-dhash.md) |
 | 4 | 取圖精靈第一、二步（含播放器、收斂） | L | 待產出 |
 | 5 | 截圖與相簿選圖 | M | 待產出（依 POC 結果） |
 | 6 | 取圖精靈第三步、完成、草稿 | L | 待產出 |
@@ -101,6 +101,8 @@
 | T2.6 | migrations 基礎：schema 匯出、版本號、`PRAGMA user_version` 讀取 | S | 可偵測「備份 schema 比 app 新」 |
 
 ### 階段 3 —— `youtube`、`thumbs`、dHash
+
+細節見 [階段 3 計畫](2026-09-13-階段3-youtube-thumbs-dhash.md)。**T3.3（InnerTube 用戶端）依 POC P-3 的否定結果刪除**；T3.1 拆成 `:core` 解析與 `:app` HTTP，T3.4 拆成讀取端與寫入端。
 
 | # | 任務 | 規模 | 驗收 |
 |---|---|---|---|
