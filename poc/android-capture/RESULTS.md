@@ -74,6 +74,11 @@
 
 **六支影片（含 Big Buck Bunny）的 embed 全部可播，沒有任何一支被擋。** R-5 的負面情境還沒被觸發過。
 
+**可以事先判定，不必等 embed 失敗**：watch page 的 `microformat.playerMicroformatRenderer.playableInEmbed`
+就是這個旗標。上面四支實測都是 `true`，與 embed 全部可播一致。
+→ 階段 4 的 T4.4 可以**讀這個欄位決定載入方式**（`true` 走 embed、`false` 直接走 `m.youtube.com`），
+不需要靠「載入失敗再退回」的猜測式流程。這一項要寫回規格。
+
 ## FTS5
 
 - sqlite 版本：**3.50.1**（`androidx.sqlite:sqlite-bundled:2.7.0`）
