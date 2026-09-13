@@ -65,3 +65,54 @@ class CacheDbTest {
         assertNull(db.draftDao().current())
     }
 }
+
+@RunWith(AndroidJUnit4::class)
+class CacheRepoTest {
+
+    private lateinit var db: CacheDatabase
+    private lateinit var repo: com.xenyaa.videoshot.data.repo.CacheRepo
+
+    @Before fun setUp() {
+        db = inMemoryCacheDb()
+        repo = com.xenyaa.videoshot.data.repo.RoomCacheRepo(db, kotlinx.coroutines.Dispatchers.IO)
+    }
+
+    @After fun tearDown() { db.close() }
+
+    @Test
+    fun 批次寫入縮圖狀態並撈出該重試的() = runTest {
+        repo.putThumbStates(
+            listOf(
+                ThumbStateEntity("v1", 3, 0, "missing", 0, 100L, null),
+                ThumbStateEntity("v1", 3, 1, "missing", 0, 900L, null),
+                ThumbStateEntity("v1", 3, 2, "ok", 0, 0L, null),
+            )
+        )
+        assertEquals(listOf(0), repo.thumbsDueForRetry(now = 500L, limit = 10).map { it.frameIndex })
+        assertEquals("ok", repo.thumbState("v1", 3, 2)!!.state)
+    }
+
+    @Test
+    fun 刪掉一支影片的縮圖狀態() = runTest {
+        repo.putThumbStates(listOf(ThumbStateEntity("v1", 3, 0, "missing", 0, 0L, null)))
+        repo.forgetVideoThumbs("v1")
+        assertNull(repo.thumbState("v1", 3, 0))
+    }
+
+    @Test
+    fun 草稿存取與清除() = runTest {
+        repo.saveDraft(DraftEntity("v1", 2, """{"picked":[1]}""", 1L))
+        assertEquals(2, repo.currentDraft()!!.step)
+        repo.clearDraft()
+        assertNull(repo.currentDraft())
+    }
+
+    @Test
+    fun 還原備份後整個清空() = runTest {
+        repo.putThumbStates(listOf(ThumbStateEntity("v1", 3, 0, "missing", 0, 0L, null)))
+        repo.saveDraft(DraftEntity("v1", 1, "{}", 1L))
+        repo.clearAll()
+        assertNull(repo.thumbState("v1", 3, 0))
+        assertNull(repo.currentDraft())
+    }
+}

@@ -7,7 +7,9 @@ import com.xenyaa.videoshot.data.cache.CacheDatabase
 import com.xenyaa.videoshot.data.library.LibraryDatabase
 import com.xenyaa.videoshot.data.library.LIBRARY_MIGRATIONS
 import com.xenyaa.videoshot.data.library.LibrarySchemaCallback
+import com.xenyaa.videoshot.data.repo.CacheRepo
 import com.xenyaa.videoshot.data.repo.LibraryRepo
+import com.xenyaa.videoshot.data.repo.RoomCacheRepo
 import com.xenyaa.videoshot.data.repo.RoomLibraryRepo
 import com.xenyaa.videoshot.data.settings.AppSettings
 import kotlinx.coroutines.Dispatchers
@@ -48,4 +50,6 @@ class AppContainer(context: Context) {
     val libraryRepo: LibraryRepo by lazy {
         RoomLibraryRepo(libraryDb, Dispatchers.IO) { settings.markChanged() }
     }
+
+    val cacheRepo: CacheRepo by lazy { RoomCacheRepo(cacheDb, Dispatchers.IO) }
 }
