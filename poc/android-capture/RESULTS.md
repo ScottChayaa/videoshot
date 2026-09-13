@@ -9,9 +9,15 @@
 |---|---|---|
 | 一般公開 | aqz-KE-bpKQ | |
 | 不公開 | KUdmrPVssFA | |
-| 禁止嵌入 | | 待挑選 |
-| 有廣告 | | 待挑選 |
-| Shorts | | 待挑選 |
+| 禁止嵌入 | —— | **還沒有樣本**（見下方說明） |
+| 有廣告 | —— | **還沒有樣本** |
+| Shorts | —— | **還沒有樣本** |
+| 追加公開影片 1 | 70MRQLlBv8I | 29 分（1739s）潛水長片。實測可嵌入、未出現廣告 |
+| 追加公開影片 2 | B-9lkAZXjto | 14 分（824s）潛水長片。實測可嵌入、未出現廣告 |
+| 追加公開影片 3 | fpzeoSqzfOg | 39 分（2350s）旅遊長片。實測可嵌入、未出現廣告 |
+
+> 使用者提供的這三支都是**可嵌入、未出現廣告的一般公開長片**，不涵蓋「禁止嵌入」「有廣告」「Shorts」三種情境，
+> 這三格仍待補樣本。
 
 ## watch page 與 InnerTube（P-3）
 
@@ -32,12 +38,19 @@
 | 一般公開 | Embed | PixelCopy | 1080×607 | 198.0／61.2 | false | 否 | false | —（與 JS 同一暫停點，亮度 198.0 vs 198.2） | **10.000** | 28 | 8518 |
 | 一般公開 | Mobile | JS canvas | **640×360** | 88.0／43.0 | false | 否 | false | — | — | 30 | 14522 |
 | 一般公開 | Mobile | PixelCopy | 610×343 | 86.9／42.7 | false | 否 | false | — | — | 8 | 14140 |
+| 追加 1 `70MRQLlBv8I` | Embed | JS canvas | 854×480 | 104.0／71.4 | false | 否 | false | — | 9.510 | 84 | 6304 |
+| 追加 1 `70MRQLlBv8I` | Embed | PixelCopy | 1080×607 | 103.8／72.1 | false | 否 | false | — | 9.510 | 26 | 6624 |
+| 追加 2 `B-9lkAZXjto` | Embed | JS canvas | 1280×720 | 97.3／53.2 | false | 否 | false | — | 9.596 | 86 | 20252 |
+| 追加 2 `B-9lkAZXjto` | Embed | PixelCopy | 1080×607 | 95.8／51.2 | false | 否 | false | — | 9.596 | 16 | 19946 |
+| 追加 3 `fpzeoSqzfOg` | Embed | JS canvas | 1280×720 | 121.2／62.8 | false | 否 | false | — | 9.509 | 40 | 13820 |
+| 追加 3 `fpzeoSqzfOg` | Embed | PixelCopy | 1080×607 | 120.5／63.4 | false | 否 | false | — | 9.509 | 16 | 13692 |
 
 - **canvas 沒有被 taint** —— `drawImage` ＋ `toDataURL` 都沒有 `SecurityError`，兩種載入方式皆然。
 - **暫停點精準**：`跳到10s` 之後兩種方法都讀到 `t=10.000`（要求是 ≤ 0.1 秒誤差）。同一暫停點重截，`t` 與亮度統計逐位元相同。
 - **都沒有 UI 疊加**：embed 的 `controls=0` 畫面全乾淨；`m.youtube.com` 雖然頁面上有 YouTube 頂列與靜音鈕，
   但靜音鈕落在影片元素**左側的黑邊區**，`v.getBoundingClientRect()` 不含它，PixelCopy 的預覽一樣乾淨。
-- **解析度差很多**：embed 播 720p、`m.youtube.com` 只播 360p。JS canvas 拿到的是**影片原始解析度**，
+- **解析度會變動**：embed 多半播 720p，但追加影片 1 只拿到 854×480（自適應串流當下的選擇）；`m.youtube.com` 只播 360p。
+  PixelCopy 固定是 1080×607（WebView 寬度決定），所以**串流降到 480p 時 PixelCopy 反而比 JS canvas 大**。JS canvas 拿到的是**影片原始解析度**，
   PixelCopy 拿到的是**螢幕上的像素**（受 WebView 寬度限制）。縮圖目標是 320×180，兩者都夠，但 embed ＋ JS 的餘裕最大。
 - **PixelCopy 明顯較快**（8～28ms vs 30～111ms），因為不必做 JPEG 編碼與 base64 往返。
 - `v.play()` **不足以啟動 embed 播放器** —— 必須點畫面上的播放鍵。`m.youtube.com` 則會自動播放（靜音）。
@@ -55,6 +68,11 @@
 | 類型 | embed 能播？錯誤訊息 | m.youtube.com 能播？ |
 |---|---|---|
 | 一般公開 `aqz-KE-bpKQ` | ✅ 能播，無錯誤訊息；`controls=0` 畫面無控制列。需點畫面上的播放鍵才會開始 | ✅ 能播，且自動播放（靜音） |
+| 追加 1 `70MRQLlBv8I` | ✅ 能播，無錯誤訊息 | 未測 |
+| 追加 2 `B-9lkAZXjto` | ✅ 能播，無錯誤訊息 | 未測 |
+| 追加 3 `fpzeoSqzfOg` | ✅ 能播，無錯誤訊息 | 未測 |
+
+**六支影片（含 Big Buck Bunny）的 embed 全部可播，沒有任何一支被擋。** R-5 的負面情境還沒被觸發過。
 
 ## FTS5
 
