@@ -12,6 +12,8 @@ import com.xenyaa.videoshot.data.repo.LibraryRepo
 import com.xenyaa.videoshot.data.repo.RoomCacheRepo
 import com.xenyaa.videoshot.data.repo.RoomLibraryRepo
 import com.xenyaa.videoshot.data.settings.AppSettings
+import com.xenyaa.videoshot.thumbs.FileThumbs
+import com.xenyaa.videoshot.thumbs.Thumbs
 import com.xenyaa.videoshot.youtube.OkHttpYoutube
 import com.xenyaa.videoshot.youtube.Youtube
 import okhttp3.OkHttpClient
@@ -60,4 +62,8 @@ class AppContainer(context: Context) {
     private val httpClient: OkHttpClient by lazy { OkHttpClient() }
 
     val youtube: Youtube by lazy { OkHttpYoutube(httpClient, Dispatchers.IO) }
+
+    val thumbs: Thumbs by lazy {
+        FileThumbs(File(appContext.filesDir, "thumbs"), Dispatchers.IO) { libraryRepo.shotImage(it) }
+    }
 }

@@ -48,6 +48,10 @@ class RoomLibraryRepo(
         db.shotDao().rowById(id)?.toRow()
     }
 
+    override suspend fun shotImage(shotId: Long): ByteArray? = withContext(io) {
+        db.shotDao().imageOf(shotId)?.webp
+    }
+
     override suspend fun commitPicks(video: VideoEntity, picks: List<NewShot>): List<Long> = withContext(io) {
         val ids = db.inWriteTransaction {
             db.videoDao().upsert(video)

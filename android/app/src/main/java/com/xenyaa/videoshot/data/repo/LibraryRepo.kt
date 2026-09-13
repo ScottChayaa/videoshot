@@ -35,4 +35,7 @@ interface LibraryRepo {
 
     /** 建資料夾。同層不重名、深度上限 5、名稱上限 50 —— 違反時丟 IllegalArgumentException。 */
     suspend fun createFolder(parentId: Long?, name: String): Long
+
+    /** 手動補圖的 WebP 位元組；不是手動圖或圖不見了就回 null。 */
+    suspend fun shotImage(shotId: Long): ByteArray?
 }
