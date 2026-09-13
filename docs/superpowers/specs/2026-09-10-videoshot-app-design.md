@@ -132,7 +132,8 @@ watch page 內嵌的 `ytInitialPlayerResponse` 一次提供取圖所需的全部
 |---|---|
 | 可否播放 | `playabilityStatus.status`（`OK` / `UNPLAYABLE` / `LOGIN_REQUIRED` / `ERROR`…）與 `reason` |
 | 標題、頻道、片長 | `videoDetails.title` / `author` / `lengthSeconds` |
-| 上傳日期、是否不公開 | `microformat.playerMicroformatRenderer.publishDate` / `isUnlisted` ⏳ 欄位位置於 POC 期間以真實頁面確認 |
+| 上傳日期、是否不公開 | `microformat.playerMicroformatRenderer.publishDate` / `isUnlisted`（2026-09-13 實機確認；`uploadDate` 為同值，取其一即可） |
+| **可否嵌入播放** | `playabilityStatus.playableInEmbed` —— **掛在 `playabilityStatus` 底下，不是 `microformat`**。決定播放器的載入方式，見第二節第 5 點 |
 | storyboard spec | `storyboards.playerStoryboardSpecRenderer.spec` |
 | **拍攝日期** | ❌ **沒有**。原本來自 Data API 的 `recordingDetails.recordingDate`（上傳者選填、多數為空），本版放棄 |
 
@@ -155,13 +156,27 @@ app 內的播放器同樣播不了，進第二步沒有意義。
 
 web 版：YouTube iframe 是跨來源內容，`canvas.drawImage()` 後 `toBlob()` 必定拋 `SecurityError`，**完全沒有繞法** —— 所以圖只能由使用者自己提供。
 
-原生 app 有兩條候選路徑，**是否可行必須以實機 POC 判定**（第十二節）：
+原生 app 有兩條候選路徑，**2026-09-13 已在實機（Xiaomi 2107113SG／Android 12／WebView 151）判定**（第十二節）：
 
-- **JS canvas**：WebView 直接載入 YouTube 頁面當**頂層文件**（不是 iframe），注入 JS 對 `<video>` 做 `drawImage`。
-  YouTube 以 MSE 播放，`<video>` 的來源是頁面自建的 `blob:` URL，同源，canvas 不會被 taint。
-  可拿到影片原始解析度、沒有任何 UI 疊加的畫面，秒數也取自同一個元素。
-- **原生截圖**：Android `PixelCopy`，截下後依影片區域裁切。
-  已知風險：影片常位於獨立的 surface／layer，截到黑畫面；YouTube 自己的控制列、字幕、廣告在影片區域**內**，裁切去不掉。
+- **JS canvas —— 採用。** WebView 直接載入 YouTube 頁面當**頂層文件**（不是 iframe），注入 JS 對 `<video>` 做 `drawImage`。
+  YouTube 以 MSE 播放，`<video>` 的來源是頁面自建的 `blob:` URL，同源，**實測 canvas 不會被 taint**。
+  拿到的是影片原始解析度（實測 360×640～1280×720）、沒有任何 UI 疊加的畫面，秒數取自同一個元素且精準（`t=10.000`）。
+  耗時 23～111ms。**不受版面、捲動、播放器收合影響。**
+- **原生截圖（`PixelCopy`）—— 可行但不採用，留作備案。** 速度快 3～4 倍（8～34ms），
+  但它截的是**螢幕上的像素**，依賴 `getBoundingClientRect()` ＋ `getLocationInWindow()` 的座標換算：
+  實測在 `m.youtube.com` 上播放器收合後**截到了 YouTube 的頁首黑條而不是影片，而且不會報錯**，
+  只會安靜地存下一張錯的圖；直式影片也只拿得到 192×343（低於縮圖目標寬度）。
+  日後若 JS canvas 被擋才切換過去，屆時**必須加上截後驗證**。
+
+**截得到不等於解得出**：`toDataURL` 在影片尚未載入（`videoWidth=0`）時會回傳 `"data:,"` 而**不拋例外**，
+解出來的 bitmap 是 null。`capture` 必須把這種情形當成一種失敗型態處理。
+
+**載入方式依 `playabilityStatus.playableInEmbed` 決定**（第二節第 4 點）：
+
+| 值 | 載入 | 實測 |
+|---|---|---|
+| `true` | `https://www.youtube.com/embed/{id}?playsinline=1&controls=0&cc_load_policy=0&rel=0` | 畫面全乾淨、多為 720p。**不會自動播放，且 `v.play()` 無效 —— 必須模擬點擊播放鍵** |
+| `false` | `https://m.youtube.com/watch?v={id}` | 實測播得出被擋的影片，但只有 360p，且頁面帶 YouTube 頂列與靜音鈕（JS canvas 不受影響） |
 
 ### 6. 縮圖的實測尺寸
 
@@ -175,9 +190,10 @@ web 版：YouTube iframe 是跨來源內容，`canvas.drawImage()` 後 `toBlob()
 ### 7. SQLite 版本
 
 FTS5 的 **trigram tokenizer 需要 SQLite 3.34 以上**，多數 Android 版本內建的 SQLite 比這舊 →
-**必須使用自帶 SQLite 的驅動**（AndroidX 的 `BundledSQLiteDriver`，Room 2.7 起支援；⏳ 確認其編譯選項含 FTS5，
-否則改用 `requery/sqlite-android`），不可依賴系統 SQLite。
-`VACUUM INTO`（備份快照用）需要 3.27 以上，同一個套件已滿足。
+**必須使用自帶 SQLite 的驅動**，不可依賴系統 SQLite。
+**2026-09-13 實機確認**：`androidx.sqlite:sqlite-bundled:2.7.0` 的 `BundledSQLiteDriver` 自帶 **SQLite 3.50.1**，
+含 FTS5 trigram（3 字查詢命中、2 字不命中，與下述限制一致），`VACUUM INTO`（備份快照用）亦可用。
+不需要改用 `requery/sqlite-android`。
 
 trigram 的另一個限制：**少於 3 個字元的查詢字串不會比對到任何列**（「大蝦」「露營」都是 2 個字）→ 處理方式見第八節。
 
@@ -277,9 +293,9 @@ web 版程式碼（`src/`、`tests/`、`static/` 與 SvelteKit／Vite／Playwrig
 | applicationId | `com.xenyaa.videoshot`（Kotlin 套件同名；POC 用 `com.xenyaa.videoshot.poc`） | OAuth client 綁定它與簽章憑證，**上線後不可改** |
 | 最低版本 | minSdk 26（Android 8.0） | `PixelCopy` 的視窗 API 從 26 開始 |
 | 非同步 | Kotlin coroutines ＋ Flow | 重運算在 `Dispatchers.Default` |
-| 資料庫 | Room 2.7+ ＋ `BundledSQLiteDriver` | 自帶 SQLite（第二節第 7 點）；FTS5 表以原生 SQL 建立（Room 的 `@Fts4` 不支援 FTS5）；⏳ 確認 bundled 版含 FTS5 |
-| 依賴注入 | ⏳ 實作計畫階段 1 選定（Hilt 或手動注入） | — |
-| WebView | Android System WebView | `evaluateJavascript`、自訂 header、注入 CSS；⏳ POC 驗證 |
+| 資料庫 | Room 2.7+ ＋ `BundledSQLiteDriver` | 自帶 SQLite 3.50.1，已確認含 FTS5 trigram（第二節第 7 點）；FTS5 表以原生 SQL 建立（Room 的 `@Fts4` 不支援 FTS5） |
+| 依賴注入 | ⏳ 實作計畫階段 2 的 T2.1 選定（Hilt 或手動注入） | — |
+| WebView | Android System WebView | `evaluateJavascript`、自訂 header、注入 CSS；截圖與播放皆已實機驗證（第二節第 5 點） |
 | 背景作業 | WorkManager | 自動備份與縮圖回填 |
 | HTTP | OkHttp | watch page、sheet、Drive REST、Gemini |
 | Google 授權／Drive | Google Identity Services 的 `AuthorizationClient` ＋ Drive REST v3 | scope 只要 `drive.appdata` |
@@ -629,11 +645,14 @@ flowchart LR
 
 - 圖與秒數在同一瞬間取得（先暫停），因此**不提供 ±1 秒微調** —— 一調就對不上了。
 - **失敗判定**：
-  - **黑畫面**：原生截圖失敗時常靜悄悄回一張全黑的圖。像素幾乎全黑、或亮度變異極低，即判定失敗（⏳ 門檻於 POC 期間訂定）。
-  - **廣告播放中**：偵測得到時停用【截圖】並說明原因。
+  - **黑畫面**：截圖失敗時常靜悄悄回一張全黑的圖。判定門檻（2026-09-13 實機校準）：
+    **取樣像素的亮度平均 < 16 「且」標準差 < 8**，兩個條件同時成立才算黑畫面。
+    **標準差這一項不能省略** —— 實測真黑畫面的亮度平均是 3.0（標準差 2.1），
+    而電影的深色開場（黑底白字）平均只有 2.2（標準差 13.7），**比黑畫面還暗**。只看平均會把有效畫面誤判掉。
+  - **廣告播放中**：偵測得到時停用【截圖】並說明原因。⏳ POC 八支影片都沒觸發過廣告，`.ad-showing` 這個選擇器在 app 的 WebView 裡**尚未驗證有效**（第十二節）；實作時必須有不依賴它的退路，偵測不到也不能擋住流程。
 - **相簿選圖（退路）**：時間點取播放器當下秒數，**可 ±1 秒微調**（因為秒數不是從圖來的）。
   選到的圖同樣縮成 320×180 WebP。POC 判定截圖不可行時，【截圖】按鈕直接換成【從相簿選】，並說明「系統無法從播放器截圖，請提供你自己的截圖」。
-- `capture` 介面的實作由 POC 決定（第十二節）。
+- `capture` 介面的實作為 **JS canvas**（第二節第 5 點、第十二節）。`toDataURL` 成功但解不出 bitmap 時，比照黑畫面走失敗路徑。
 
 **【只看已選】** —— 篩選顯示，方便確認最終結果。
 
@@ -1032,14 +1051,17 @@ flowchart TD
 
 ### 節流
 
-- 影片與影片之間間隔數秒（⏳ 參數實測訂定）。
+- 影片與影片之間間隔數秒（⏳ 參數待回填階段以 50 支以上真實回填量測訂定）。
 - 遇到 429 或「確認你不是機器人」頁面：**整批暫停**，以逐次拉長的退避稍後再試。
 
 ### 流量與網路
 
-- watch page 經 gzip 約 250 KB／支（⏳ 估計值，POC 期間實測），加上所需的少數 sheet；500 支影片約 150 MB。
+- watch page 經 gzip **實測 250～315 KB／支**（2026-09-13，六支影片），加上所需的少數 sheet；500 支影片約 150 MB。
 - **預設只在 Wi-Fi 下回填**。進度卡片上有【用行動網路繼續】—— 單次授權，下次再問。
-- ⏳ POC P-3：若 `youtubei/v1/player` 的 JSON 回應也帶 storyboard spec，改用它可省下大部分流量。
+- **P-3 已否決**：`youtubei/v1/player`（`WEB` client ＋ watch page 取得的 `clientVersion`／`INNERTUBE_API_KEY`）
+  只要約 4 KB（watch page 的 1/75）且 metadata 完整，但回應 `playabilityStatus=UNPLAYABLE` 且**不含 `storyboards`**（五支影片一致）。
+  回填只能走 watch page，流量無法靠這條路省下來 —— 必須靠節流與退避。
+  （只測了 `WEB` client，`ANDROID`／`TVHTML5` 等變體未測；若回填被限流嚴重可再評估。）
 
 ### 執行方式
 
@@ -1061,39 +1083,42 @@ WorkManager 一次性作業鏈，約束「有網路（預設不計費網路）�
 
 ---
 
-## 十二、截圖 POC
+## 十二、截圖 POC（已完成，2026-09-13）
 
-**整個實作計畫的第一步**，只為了回答「做不做得到」。POC 程式碼驗證完即丟棄，不進 `android/`。
+實作計畫的階段 0，只為了回答「做不做得到」。POC 程式碼已驗證完並刪除，內容留在 git 歷史
+（`poc/android-capture/`，含逐項數據的 `RESULTS.md`）。
 
-### 要回答的問題
+**實測環境**：Xiaomi 2107113SG（11T Pro）／Android 12（API 31）／Android System WebView 151.0.7922.202。
+八支影片、十七次截圖。模擬器不算數，全部在實機上完成。
 
-| # | 問題 | 驗證方式 |
+### 結果
+
+| # | 問題 | 結果 |
 |---|---|---|
-| **P-1** | **JS canvas 截圖**：WebView 載入 YouTube 頁面當頂層文件，注入 `drawImage(video)`，能否拿到非黑、無任何 UI 疊加的畫面？ | 兩種載入方式：embed 頁面 ＋ 正確的 referer；`m.youtube.com` ＋ 注入 CSS 隱藏介面 |
-| **P-2** | **原生截圖**（P-1 的退路）：`PixelCopy` 截 WebView 所在視窗，影片區域是否黑畫面？YouTube 自己的控制列能否排除？ | 同一組影片 |
-| **P-3** | `youtubei/v1/player` 的回應是否帶 storyboard spec？流量比 watch page 省多少？ | 回填流量的依據 |
+| **P-1** | JS canvas 截圖能否拿到非黑、無 UI 疊加的畫面？ | ✅ **通過，採用**。canvas 未被 taint；影片原始解析度；暫停點 `t=10.000`；同一暫停點重截逐位元相同 |
+| **P-2** | `PixelCopy` 是否可行？ | ⚠️ **可行但不採用**。快 3～4 倍，但會**安靜地截錯區域**（實測截到 YouTube 頁首），直式影片僅 192×343 |
+| **P-3** | `youtubei/v1/player` 是否帶 storyboard spec？ | ❌ **不帶**。流量只要 1/75 但沒有 `storyboards`，回填只能走 watch page |
 
-附帶確認：watch page 的 `publishDate` / `isUnlisted` 欄位位置（第二節第 4 點）、watch page 的實際 gzip 傳輸量、黑畫面判定門檻、
-`BundledSQLiteDriver` 是否含 FTS5 trigram（第二節第 7 點）。
+附帶確認的項目：
 
-WebP 編碼不需要驗證：Android 的 `Bitmap.compress` 內建 WebP 編碼器。
-
-### 測試矩陣
-
-- **實機**：Android 一台。模擬器的影片解碼管線與實機不同，結果不算數。
-- **影片**：一般公開、不公開（unlisted）、禁止嵌入、有廣告、Shorts。
-
-### 通過標準與後續
-
-一般公開與不公開影片都截得到畫面、無 UI 疊加、暫停後秒數誤差 ≤ 0.1 秒，即為通過。
-
-| 結果 | `capture` 的實作 |
+| 項目 | 結果 |
 |---|---|
-| P-1 通過 | JS canvas |
-| P-1 不通過、P-2 通過 | `PixelCopy` ＋ 依影片區域裁切 |
-| 兩者都不通過 | 只提供相簿選圖 |
+| watch page 的 `publishDate` / `isUnlisted` 欄位位置 | 確認為 `microformat.playerMicroformatRenderer` 底下（第二節第 4 點） |
+| watch page 實際 gzip 傳輸量 | 250～315 KB／支（第十一節） |
+| 黑畫面判定門檻 | 亮度平均 < 16 **且** 標準差 < 8（第五節） |
+| `BundledSQLiteDriver` 是否含 FTS5 trigram | ✅ 含，SQLite 3.50.1，`VACUUM INTO` 亦可用（第二節第 7 點） |
+| embed 限制 | 由 `playabilityStatus.playableInEmbed` 事先判定；`false` 時 `m.youtube.com` 播得出來（第二節第 5 點） |
 
-結果寫回本文（第二節第 5 點、第五節【截圖】、本節），並依結果決定 `capture` 介面後面接的實作。
+細節（含每一次截圖的解析度、亮度、耗時、WebP 大小）見上述各節；原始逐筆紀錄在 git 歷史的 `RESULTS.md`。
+
+### 未能驗證的一項
+
+**廣告偵測**（`document.querySelector('.ad-showing')`）**從未正向觸發** —— 八支影片、十七次截圖全部 `ad=false`，
+包含一支 3 小時的完整電影。無法斷定這個選擇器在 app 的 WebView 裡是否有效。
+
+→ 第五節「廣告播放中停用【截圖】」是一個**未驗證的假設**。實作時必須有不依賴它的退路：
+以黑畫面判定 ＋ 使用者自行判斷「這格截不對」為主，`.ad-showing` 只當加分項，偵測不到也不能擋住流程。
+
 POC 的結論**不承諾所有影片、所有播放情境 100% 可截**；截圖失敗時的退路（相簿選圖）永遠存在。
 
 ---
@@ -1199,17 +1224,17 @@ OAuth client 綁定 APK 的簽章憑證，**debug 與 release 用不同的憑證
 
 | 項目 | 位置 | 何時確認 |
 |---|---|---|
-| POC P-1～P-3 的結果 | 第十二節 | 計畫的第一個階段 |
-| watch page 的 `publishDate` / `isUnlisted` 欄位位置 | 第二節第 4 點 | POC 期間 |
-| `BundledSQLiteDriver` 是否含 FTS5 trigram（否則 `requery/sqlite-android`） | 第二節第 7 點、第三節 | POC 期間 |
-| 截圖黑畫面判定門檻 | 第五節 | POC 期間 |
 | `drive.appdata` 是否屬於非敏感 scope | 第十節 | 備份階段開工前 |
-| 依賴注入方式（Hilt 或手動） | 第三節 | 實作計畫階段 1 |
+| 依賴注入方式（Hilt 或手動） | 第三節 | 實作計畫階段 2 |
 | 同一 Cloud 專案的不同 OAuth client 是否共用 appDataFolder | 第十節、第十八節 | 備份階段 |
 | dHash 三檔門檻值 | 第五節 | 收斂功能實作時以真實影片調校 |
-| 回填節流參數、watch page 實際流量 | 第十一節 | 回填階段 |
+| 回填節流參數 | 第十一節 | 回填階段 |
+| **廣告偵測 `.ad-showing` 是否有效** | 第五節、第十二節 | POC 未能觸發廣告；實作階段 5 時確認，並備妥不依賴它的退路 |
 | Gemini 查詢解析的 prompt | 第八節 | 查詢階段 |
 | 首頁月份標籤：換行 vs 橫向捲動 | 第六節 | 暫定橫向捲動（沿用原型） |
+
+2026-09-13 由階段 0 的實機 POC 解決並移出本表：POC P-1～P-3、watch page 欄位位置與實際流量、
+`BundledSQLiteDriver` 的 FTS5 trigram、截圖黑畫面判定門檻。
 
 ---
 
