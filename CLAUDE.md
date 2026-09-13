@@ -83,7 +83,20 @@
 pnpm mock         # UI 原型（需要 src/lib/storyboard.ts 存在）
 ```
 
-Gradle 專案（`android/`）的指令待實作計畫階段 1 建立後補上。
+```bash
+cd android
+./gradlew :core:test        # :core 的 JVM 單元測試
+./gradlew assembleDebug     # 建置 debug APK
+./gradlew installDebug      # 安裝到 USB 連接的手機
+```
+
+這台開發機**系統 PATH 上沒有 java**，直接跑 `./gradlew` 會失敗。用 Android Studio 內建的 JDK：
+
+```bash
+export JAVA_HOME=/snap/android-studio/current/jbr
+export ANDROID_HOME=$HOME/Android/Sdk
+export PATH=$PATH:$ANDROID_HOME/platform-tools   # adb
+```
 
 **pnpm 只管 JS／TS**（`mockups/`、未來的 `extension/`）；Kotlin 用 Gradle、未來的 Swift 用 Xcode／SwiftPM。
 各目錄各自建置，根目錄不設統一的建置協調器（規格第三節「工具鏈」）。
