@@ -1,6 +1,7 @@
 package com.xenyaa.videoshot.data.library
 
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
 
@@ -64,3 +65,12 @@ object LibrarySchemaCallback : RoomDatabase.Callback() {
         connection.execSQL("PRAGMA foreign_keys = ON")
     }
 }
+
+/**
+ * library.db 的遷移清單。版本 1 是起點，所以現在是空的 —— 但接線先做好：
+ * 日後改 schema 時把版本 +1、在這裡補上該階遷移，MigrationTest 會盯著兩者對得上。
+ *
+ * 遷移裡若動到 shot 的 description／place，記得 FTS_SETUP_SQL 的觸發器是掛在 shot 上的，
+ * 重建 shot 表時要一併重建觸發器與 shot_fts。
+ */
+val LIBRARY_MIGRATIONS: Array<Migration> = emptyArray()

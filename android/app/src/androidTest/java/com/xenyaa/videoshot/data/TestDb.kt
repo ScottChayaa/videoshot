@@ -6,6 +6,7 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.test.platform.app.InstrumentationRegistry
 import com.xenyaa.videoshot.data.cache.CacheDatabase
 import com.xenyaa.videoshot.data.library.LibraryDatabase
+import com.xenyaa.videoshot.data.library.LIBRARY_MIGRATIONS
 import com.xenyaa.videoshot.data.library.LibrarySchemaCallback
 
 /** 每個測試自己開一個 in-memory 的 library.db，彼此不互相污染。 */
@@ -16,6 +17,7 @@ fun inMemoryLibraryDb(): LibraryDatabase =
     )
         .setDriver(BundledSQLiteDriver())
         .addCallback(LibrarySchemaCallback)
+        .addMigrations(*LIBRARY_MIGRATIONS)
         .build()
 
 // usePrepared 是 androidx.room.PooledConnection 的成員（Transactor 繼承它），不必 import。

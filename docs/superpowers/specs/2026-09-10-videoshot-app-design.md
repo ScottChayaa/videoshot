@@ -293,8 +293,8 @@ web 版程式碼（`src/`、`tests/`、`static/` 與 SvelteKit／Vite／Playwrig
 | applicationId | `com.xenyaa.videoshot`（Kotlin 套件同名；POC 用 `com.xenyaa.videoshot.poc`） | OAuth client 綁定它與簽章憑證，**上線後不可改** |
 | 最低版本 | minSdk 26（Android 8.0） | `PixelCopy` 的視窗 API 從 26 開始 |
 | 非同步 | Kotlin coroutines ＋ Flow | 重運算在 `Dispatchers.Default` |
-| 資料庫 | Room 2.7+ ＋ `BundledSQLiteDriver` | 自帶 SQLite 3.50.1，已確認含 FTS5 trigram（第二節第 7 點）；FTS5 表以原生 SQL 建立（Room 的 `@Fts4` 不支援 FTS5） |
-| 依賴注入 | ⏳ 實作計畫階段 2 的 T2.1 選定（Hilt 或手動注入） | — |
+| 資料庫 | Room 2.8 ＋ `BundledSQLiteDriver` | 自帶 SQLite 3.50.1，已確認含 FTS5 trigram（第二節第 7 點）；FTS5 表以原生 SQL 在 `RoomDatabase.Callback` 的 `onCreate` 建立（Room 的 `@Fts4` 不支援 FTS5），查詢該表的 DAO 方法要加 `@SkipQueryVerification`；**交易一律用 driver API 的 `useWriterConnection` ＋ `Transactor.withTransaction`**，`room-ktx` 的 `RoomDatabase.withTransaction` 走舊的 `SupportSQLiteOpenHelper` 路徑，設了 `setDriver` 之後不可用 |
+| 依賴注入 | 手動注入（`VideoshotApp` 持有 `AppContainer`，建構子注入） | 單人專案、模組數量不多；不引入額外建置負擔，測試直接 new 假實作。WorkManager 自寫 `WorkerFactory` |
 | WebView | Android System WebView | `evaluateJavascript`、自訂 header、注入 CSS；截圖與播放皆已實機驗證（第二節第 5 點） |
 | 背景作業 | WorkManager | 自動備份與縮圖回填 |
 | HTTP | OkHttp | watch page、sheet、Drive REST、Gemini |
@@ -407,6 +407,8 @@ draft ── 取圖精靈草稿（只有一列：最近一支）
   └─ updated_at
 ```
 
+實作上 `draft` 用固定主鍵只留一列，存新的直接覆蓋舊的。
+
 ### 檔案佈局
 
 ```
@@ -475,6 +477,10 @@ app 的程式碼（Kotlin）綁定平台，但**資料格式不綁定**。以下
 ### schema 版本
 
 以 Room migrations 管理（`PRAGMA user_version`）。還原舊版備份時自動跑遷移；**備份的 schema 比 app 新則拒絕還原**，提示先更新 app。
+
+實作上：`LIBRARY_SCHEMA_VERSION` 是唯一的版本來源，`LIBRARY_MIGRATIONS` 必須涵蓋從 1 到現行版本的每一階
+（`MigrationTest` 盯著兩者對得上）；備份相容性由 `checkBackupSchema()` 判定為 `OK`／`NEEDS_MIGRATION`／`TOO_NEW`。
+遷移若重建 `shot` 表，必須一併重建 `shot_fts` 與它的三個觸發器。
 
 ### 相對 web 版的變動
 
@@ -1225,7 +1231,6 @@ OAuth client 綁定 APK 的簽章憑證，**debug 與 release 用不同的憑證
 | 項目 | 位置 | 何時確認 |
 |---|---|---|
 | `drive.appdata` 是否屬於非敏感 scope | 第十節 | 備份階段開工前 |
-| 依賴注入方式（Hilt 或手動） | 第三節 | 實作計畫階段 2 |
 | 同一 Cloud 專案的不同 OAuth client 是否共用 appDataFolder | 第十節、第十八節 | 備份階段 |
 | dHash 三檔門檻值 | 第五節 | 收斂功能實作時以真實影片調校 |
 | 回填節流參數 | 第十一節 | 回填階段 |
@@ -1235,6 +1240,7 @@ OAuth client 綁定 APK 的簽章憑證，**debug 與 release 用不同的憑證
 
 2026-09-13 由階段 0 的實機 POC 解決並移出本表：POC P-1～P-3、watch page 欄位位置與實際流量、
 `BundledSQLiteDriver` 的 FTS5 trigram、截圖黑畫面判定門檻。
+同日由階段 2 解決：依賴注入方式（手動注入）。
 
 ---
 

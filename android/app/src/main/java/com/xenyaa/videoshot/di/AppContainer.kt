@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.xenyaa.videoshot.data.cache.CacheDatabase
 import com.xenyaa.videoshot.data.library.LibraryDatabase
+import com.xenyaa.videoshot.data.library.LIBRARY_MIGRATIONS
 import com.xenyaa.videoshot.data.library.LibrarySchemaCallback
 import com.xenyaa.videoshot.data.repo.LibraryRepo
 import com.xenyaa.videoshot.data.repo.RoomLibraryRepo
@@ -28,6 +29,7 @@ class AppContainer(context: Context) {
         )
             .setDriver(BundledSQLiteDriver())
             .addCallback(LibrarySchemaCallback)
+            .addMigrations(*LIBRARY_MIGRATIONS)
             .build()
     }
 
