@@ -3,13 +3,13 @@ plugins {
 }
 
 android {
-    namespace = "com.xenyaa.videoshot_poc"
+    namespace = "com.xenyaa.videoshot.poc"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.xenyaa.videoshot_poc"
+        applicationId = "com.xenyaa.videoshot.poc"
         minSdk = 26
         targetSdk = 37
         versionCode = 1

@@ -1,4 +1,4 @@
-package com.xenyaa.videoshot_poc
+package com.xenyaa.videoshot.poc
 
 import org.junit.Test
 
