@@ -21,4 +21,7 @@ interface ShotDao {
 
     @Query("SELECT * FROM shot_image WHERE shot_id = :shotId")
     suspend fun imageOf(shotId: Long): ShotImageEntity?
+
+    @Query("UPDATE shot SET description = :description, place = :place WHERE id = :id")
+    suspend fun updateDescriptionAndPlace(id: Long, description: String?, place: String?)
 }
