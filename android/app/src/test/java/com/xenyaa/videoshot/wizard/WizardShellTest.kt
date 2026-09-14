@@ -31,7 +31,7 @@ class WizardShellTest {
     private class FakeData : WizardData {
         override suspend fun watchPage(videoId: String) = WatchPage(FetchResult.OK, null, null)
         override suspend fun recentVideos(limit: Int): List<RecentVideo> = emptyList()
-        override suspend fun takenFrameIndexes(videoId: String): Set<Int> = emptySet()
+        override suspend fun takenFrameIndexes(videoId: String, level: Int): Set<Int> = emptySet()
     }
 
     private fun newVm() = WizardViewModel(

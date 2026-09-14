@@ -26,12 +26,14 @@ sealed interface Step1Status {
     data class Error(val message: String) : Step1Status
 }
 
-/** 第一步抓到的東西，交給第二步用。 */
+/**
+ * 第一步抓到的東西，交給第二步用。
+ *
+ * **不含已收藏的格號** —— 那要等 storyboard 解析出層級之後才問得出來（見 [WizardData.takenFrameIndexes]）。
+ */
 data class LoadedVideo(
     val videoId: String,
     val page: WatchPage,
-    /** 已經收藏過的格號；第二步標示為鎖定，點下去提示「這一格已經收藏過了」 */
-    val takenFrameIndexes: Set<Int>,
 )
 
 /**
@@ -44,5 +46,9 @@ data class LoadedVideo(
 interface WizardData {
     suspend fun watchPage(videoId: String): WatchPage
     suspend fun recentVideos(limit: Int): List<RecentVideo>
-    suspend fun takenFrameIndexes(videoId: String): Set<Int>
+    /**
+     * 這支影片在**這個 storyboard 層級**已經收藏過的格號。
+     * 層級不能省：frameIndex 只在某個層級之內有意義（規格第四節 `{videoId}/L{level}/{frameIndex}`）。
+     */
+    suspend fun takenFrameIndexes(videoId: String, level: Int): Set<Int>
 }

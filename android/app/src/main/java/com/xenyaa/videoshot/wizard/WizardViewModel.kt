@@ -108,13 +108,11 @@ class WizardViewModel(
                 // no_storyboard 與 parse_failed **仍然進第二步** —— 縮圖牆空白，但可以截圖補上
                 // （規格第五節第一步的表、第七節降級表）
                 FetchResult.OK, FetchResult.NO_STORYBOARD, FetchResult.PARSE_FAILED -> {
-                    _loaded.value = LoadedVideo(
-                        videoId = videoId,
-                        page = page,
-                        takenFrameIndexes = data.takenFrameIndexes(videoId),
-                    )
+                    val video = LoadedVideo(videoId = videoId, page = page)
+                    _loaded.value = video
+                    // 建狀態機要先問一次 DB（已收藏的格號），所以**轉圈圈留到這之後才收掉**
+                    openStep2(video)
                     _status.value = Step1Status.Idle
-                    openStep2(_loaded.value!!)
                     goTo(WizardStep.PICK)
                 }
             }
@@ -131,6 +129,12 @@ class WizardViewModel(
 
     fun attachPlayer(p: Player) { player = p }
 
+    /**
+     * WebView 被釋放了就**不可以再握著它**。ViewModel 活得比畫面久（轉螢幕、離開第二步都還在），
+     * 留著的話 [playFrame] 會對一個已經 destroy 的 WebView 呼叫 `evaluateJavascript`。
+     */
+    fun detachPlayer() { player = null }
+
     /** 跟著 [_step2] 換掉的收集器。舊的 store close 了，訂閱它的收集器也要跟著取消 —— 否則每次
      *  「回第一步→再進第二步」都會多兩個永遠不結束的 `collect`，一路累積到離開精靈。 */
     private var step2Jobs: List<Job> = emptyList()
@@ -139,12 +143,19 @@ class WizardViewModel(
      * 進第二步時建立狀態機。**舊的要先 close** ——
      * 它握著磁碟上的 sheet 與 bitmap 快取，不放掉會一路累積到離開精靈。
      */
-    private fun openStep2(video: LoadedVideo) {
+    private suspend fun openStep2(video: LoadedVideo) {
         _step2.value?.close()
         step2Jobs.forEach { it.cancel() }
+        // 上一支影片的 WebView 已經隨著離開第二步被釋放了，這裡再保險一次 ——
+        // 新影片絕不能對著舊播放器下 seek
+        player = null
+        val source = frameSourceFactory(video)
         val store = Step2Store(
-            source = frameSourceFactory(video),
-            taken = video.takenFrameIndexes,
+            source = source,
+            // 鎖定格要**同一個層級才算數**：frameIndex 只在某個層級之內有意義
+            // （規格第四節把縮圖鍵為 {videoId}/L{level}/{frameIndex}）。先前在 L2 取過圖、
+            // 現在解析到 L3 的話，不過濾就會把不相干的格子畫成灰＋鎖，使用者選不了
+            taken = data.takenFrameIndexes(video.videoId, source.plan.level),
             scope = viewModelScope,
             compute = Dispatchers.Default,
         )
@@ -174,6 +185,7 @@ class WizardViewModel(
     override fun onCleared() {
         _step2.value?.close()
         step2Jobs.forEach { it.cancel() }
+        player = null
         super.onCleared()
     }
 }

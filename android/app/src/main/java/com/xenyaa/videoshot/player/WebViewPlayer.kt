@@ -5,9 +5,13 @@ import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -57,7 +61,7 @@ class WebViewPlayer(private val webView: WebView) : Player {
     }
 
     override suspend fun pause() {
-        eval("(function(){var v=document.querySelector('video'); if(v) v.pause(); return 'ok';})()")
+        eval(PAUSE_VIDEO_JS)
     }
 
     override suspend fun seekTo(sec: Double) {
@@ -75,7 +79,23 @@ class WebViewPlayer(private val webView: WebView) : Player {
     }
 }
 
-/** 把播放器放進 Compose。`onPlayerReady` 在頁面載完時回呼，呼叫端拿到的是 [Player] 介面。 */
+/**
+ * 讓 `<video>` 停下來。`WebView.onPause()` 對 HTML5 播放**不保證停得住**
+ * （文件只承諾盡力停掉動畫之類的處理），所以背景化時除了 `onPause()` 還要補這一刀。
+ */
+internal const val PAUSE_VIDEO_JS =
+    "(function(){var v=document.querySelector('video'); if(v) v.pause(); return 'ok';})()"
+
+/**
+ * 把播放器放進 Compose。`onPlayerReady` 在頁面載完時回呼，呼叫端拿到的是 [Player] 介面。
+ *
+ * **WebView 一定要釋放**：`AndroidView` 不會自己 destroy 它。沒有 `onRelease` 的話，
+ * 預覽播到一半離開第二步（返回鍵、【✕】）之後，那個已經脫離畫面的 WebView 會繼續播 YouTube 的聲音，
+ * 而且每重進一次第二步就多一個。切到背景不會離開組合，所以另外掛生命週期觀察者處理。
+ *
+ * @param onPlayerReleased WebView 沒了要講一聲 —— 呼叫端（`WizardViewModel`）握著的 [Player]
+ *        指向的就是這個 WebView，不放掉的話轉螢幕之後還會對一個已經 destroy 的 WebView 下指令
+ */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun PlayerSurface(
@@ -83,8 +103,27 @@ fun PlayerSurface(
     playableInEmbed: Boolean,
     onPlayerReady: (Player) -> Unit,
     modifier: Modifier = Modifier,
+    onPlayerReleased: () -> Unit = {},
 ) {
     val url = remember(videoId, playableInEmbed) { playerUrl(videoId, playableInEmbed) }
+
+    // 生命週期觀察者要摸得到 WebView，而 WebView 是 factory 造的 —— 用一格陣列接住它。
+    // 不用 mutableStateOf：這不是畫面狀態，寫進去只會多一次重組
+    val holder = remember { arrayOfNulls<WebView>(1) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                // 切到背景時聲音要停 —— 這條路徑不會離開組合，onRelease 接不到
+                Lifecycle.Event.ON_PAUSE -> holder[0]?.let { it.evaluateJavascript(PAUSE_VIDEO_JS, null); it.onPause() }
+                Lifecycle.Event.ON_RESUME -> holder[0]?.onResume()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     AndroidView(
         modifier = modifier,
@@ -101,9 +140,19 @@ fun PlayerSurface(
                         onPlayerReady(player)
                     }
                 }
+                holder[0] = this
                 // embed 需要 referer，否則部分影片會拒絕播放
                 loadUrl(url, mapOf("Referer" to "https://${context.packageName}"))
             }
+        },
+        onRelease = { webView ->
+            holder[0] = null
+            onPlayerReleased()
+            // 先卸掉頁面再 destroy：about:blank 會把 <video> 一起帶走，聲音當場停
+            webView.stopLoading()
+            webView.loadUrl("about:blank")
+            webView.onPause()
+            webView.destroy()
         },
     )
 }

@@ -84,18 +84,28 @@ class StoryboardFrameSource(
     /** 重抓 spec 只能有一個人做 —— 4 張同時 403 時不該打四次 watch page。 */
     private val refreshLock = Mutex()
 
-    /** 全部降級成封面圖時，封面只解一次、所有格共用。 */
+    /** 全部降級成封面圖時，封面只解一次、所有格共用。[close] 會在別的執行緒上清掉它，所以是 volatile。 */
+    @Volatile
     private var cover: ImageBitmap? = null
 
-    /** 封面試過一次就不再試 —— 失敗也算「試過」，否則每一個降級批次都會再打一次網路。 */
+    /** 封面試過一次就不再試 —— 失敗也算「試過」，否則每一個降級批次都會再打一次網路。只在 [coverLock] 裡動。 */
     private var coverAttempted = false
+
+    /** [close] 之後就不要再做白工，也不要再把東西放回已經清空的快取。 */
+    @Volatile
+    private var closed = false
 
     /**
      * 保護 [cache]：縮圖牆用 `produceState` 對每個可見格子各跑一個協程呼叫 [bitmapOf] ——
      * `LinkedHashMap(accessOrder = true)` 連 `get()` 都會動內部順序，不鎖起來就是真的資料競爭，
      * 不是風格問題。**只圈 map 存取**，解圖裁圖與封面的網路請求都不包在裡面。
+     *
+     * 用 `synchronized` 而不是 `Mutex`：[close] 不是 suspend（它由 `Step2Store.close()`
+     * 在主執行緒上直接呼叫），拿不到 `Mutex`；先前 `cache.clear()` 就是在**沒有持鎖**的情況下
+     * 動一個 access-ordered 的 `LinkedHashMap`，跟併發中的 [bitmapOf] 撞在一起就是
+     * `ConcurrentModificationException`。圈住的只有 map 存取，裡面不會阻塞。
      */
-    private val cacheLock = Mutex()
+    private val cacheGuard = Any()
 
     /**
      * 封面自己一把鎖，**不跟 [cache] 共用**。共用的話，一次封面的網路請求在飛的期間，
@@ -104,7 +114,7 @@ class StoryboardFrameSource(
      */
     private val coverLock = Mutex()
 
-    /** 最近用過的幾格。捲動時上下來回，留一點就省掉重複解 sheet。 */
+    /** 最近用過的幾格。捲動時上下來回，留一點就省掉重複解 sheet。只在 [cacheGuard] 裡動。 */
     private val cache = object : LinkedHashMap<Int, ImageBitmap>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, ImageBitmap>) = size > 24
     }
@@ -117,9 +127,28 @@ class StoryboardFrameSource(
      */
     private val parallelism = 4
 
+    /**
+     * 把一段可能失敗的處理圈起來：**失敗只降級這一張 sheet，不炸掉整條 flow**
+     * （規格第三節設計原則第 6 條：功能降級，絕不當機）。
+     *
+     * `OutOfMemoryError` 也要接 —— sheet 解圖是整條管線最可能 OOM 的地方，而它不是 `Exception`。
+     * `CancellationException` 照樣往上丟，否則 [close] 取消不掉還在跑的下載。
+     */
+    private inline fun <T> degrading(block: () -> T): T? = try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        null
+    } catch (e: OutOfMemoryError) {
+        null
+    }
+
     override fun load(): Flow<SheetReady> = flow {
         if (plan.frameCount == 0) return@flow
-        withContext(io) { sheetsDir.mkdirs() }
+        // 建不出草稿目錄（儲存空間滿、路徑被佔住）不是當機的理由 —— 待會兒寫檔會失敗，
+        // 那幾張就照 403 的路徑退回封面圖
+        degrading { withContext(io) { sheetsDir.mkdirs() } }
 
         val sheetCount = (plan.frameCount + perSheet - 1) / perSheet
         for (group in (0 until sheetCount).chunked(parallelism)) {
@@ -132,29 +161,38 @@ class StoryboardFrameSource(
                 val frames =
                     (sheetIndex * perSheet until minOf((sheetIndex + 1) * perSheet, plan.frameCount)).toList()
 
-                if (bytes == null) {
+                // 寫不進草稿目錄跟拿不到 sheet 是同一種下場：磁碟上沒有這張圖，bitmapOf() 只能給封面。
+                // 指紋就算算得出來也不發 —— 牆上那幾格畫的都是同一張封面，
+                // 照指紋收斂等於藏掉使用者根本分辨不出差別的格子
+                val stored = bytes != null && degrading {
+                    withContext(io) { File(sheetsDir, "M$sheetIndex.jpg").writeBytes(bytes); true }
+                } == true
+
+                if (bytes == null || !stored) {
                     // 重抓 spec 後仍 403 → 退回封面圖（規格第七節）。時間標籤照舊，使用者仍挑得動。
                     // 這裡先把封面抓好、快取起來，使用者捲到這幾格時 bitmapOf() 才不必再等一次網路
-                    loadCover()
+                    degrading { loadCover() }
                     emit(SheetReady(frames, emptyList(), degradedToCover = true))
                     continue
                 }
 
-                withContext(io) { File(sheetsDir, "M$sheetIndex.jpg").writeBytes(bytes) }
-
-                val fingerprints = withContext(compute) {
-                    val sheet = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                        // 下載成功卻解不出圖是一種失敗型態，不是例外（SheetHarvester 的同一個教訓）
-                        ?: return@withContext emptyList<Fingerprint>()
-                    val out = frames.map { frameIndex ->
-                        Fingerprint(
-                            frameIndex,
-                            dHash(grayscale9x8(sheet, Storyboard.framePosition(level, frameIndex))),
-                        )
+                // 算不出指紋不影響看圖：sheet 已經在磁碟上，那幾格照樣裁得出來。
+                // 沒有指紋的格子由 Step2Store 當成「永遠保留」，不會從牆上消失
+                val fingerprints = degrading {
+                    withContext(compute) {
+                        val sheet = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                            // 下載成功卻解不出圖是一種失敗型態，不是例外（SheetHarvester 的同一個教訓）
+                            ?: return@withContext emptyList<Fingerprint>()
+                        val out = frames.map { frameIndex ->
+                            Fingerprint(
+                                frameIndex,
+                                dHash(grayscale9x8(sheet, Storyboard.framePosition(level, frameIndex))),
+                            )
+                        }
+                        sheet.recycle()   // 指紋算完立刻放掉 —— 這一行就是記憶體壓得住的原因
+                        out
                     }
-                    sheet.recycle()   // 指紋算完立刻放掉 —— 這一行就是記憶體壓得住的原因
-                    out
-                }
+                } ?: emptyList()
                 emit(SheetReady(frames, fingerprints))
             }
         }
@@ -203,27 +241,32 @@ class StoryboardFrameSource(
     }
 
     override suspend fun bitmapOf(frameIndex: Int): ImageBitmap? {
+        if (closed) return null
         if (frameIndex !in 0 until plan.frameCount) return null
-        cacheLock.withLock { cache[frameIndex] }?.let { return it }
+        synchronized(cacheGuard) { cache[frameIndex] }?.let { return it }
 
         val pos = Storyboard.framePosition(level, frameIndex)
         val file = File(sheetsDir, "M${pos.sheetIndex}.jpg")
-        val bitmap = if (file.exists()) {
-            withContext(compute) {
-                val sheet = BitmapFactory.decodeFile(file.path) ?: return@withContext null
-                val frame = if (pos.x + pos.width <= sheet.width && pos.y + pos.height <= sheet.height) {
-                    Bitmap.createBitmap(sheet, pos.x, pos.y, pos.width, pos.height)
-                } else {
-                    null
+        // 解圖與裁圖同樣是「拿不到就回 null，不丟例外」（FrameSource 的契約）——
+        // 檔案被清掉、內容壞掉、格子解到一半 OOM，都只該讓這一格空著
+        val bitmap = degrading {
+            if (file.exists()) {
+                withContext(compute) {
+                    val sheet = BitmapFactory.decodeFile(file.path) ?: return@withContext null
+                    val frame = if (pos.x + pos.width <= sheet.width && pos.y + pos.height <= sheet.height) {
+                        Bitmap.createBitmap(sheet, pos.x, pos.y, pos.width, pos.height)
+                    } else {
+                        null
+                    }
+                    sheet.recycle()
+                    frame?.asImageBitmap()
                 }
-                sheet.recycle()
-                frame?.asImageBitmap()
+            } else {
+                loadCover()
             }
-        } else {
-            loadCover()
         }
         // 只鎖 map 的存取 —— 解圖裁圖不包在鎖裡，格子之間仍然並行
-        bitmap?.let { b -> cacheLock.withLock { cache[frameIndex] = b } }
+        bitmap?.let { b -> synchronized(cacheGuard) { if (!closed) cache[frameIndex] = b } }
         return bitmap
     }
 
@@ -233,25 +276,36 @@ class StoryboardFrameSource(
      * 成功與失敗都只試一次（[coverAttempted]）——不然封面端點連不上時，
      * 每一個降級批次、之後每一次 [bitmapOf] 都會再打一次網路，比不快取更糟。
      */
-    private suspend fun loadCover(): ImageBitmap? = coverLock.withLock {
-        if (coverAttempted) return@withLock cover
-        coverAttempted = true
-        cover = try {
-            val bytes = youtube.sheet(coverUrl(videoId))
-            withContext(compute) { BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap() }
-        } catch (e: CancellationException) {
-            coverAttempted = false   // 取消不算「試過了」
-            throw e
-        } catch (e: Exception) {
-            null
+    private suspend fun loadCover(): ImageBitmap? {
+        if (closed) return null
+        return coverLock.withLock {
+            if (coverAttempted) return@withLock cover
+            coverAttempted = true
+            val loaded = try {
+                val bytes = youtube.sheet(coverUrl(videoId))
+                withContext(compute) { BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap() }
+            } catch (e: CancellationException) {
+                coverAttempted = false   // 取消不算「試過了」
+                throw e
+            } catch (e: Exception) {
+                null
+            } catch (e: OutOfMemoryError) {
+                null
+            }
+            // 網路在飛的期間可能已經被 close 掉了 —— 那就不要把圖再放回來（[close] 的用意是放掉記憶體）
+            if (closed) null else { cover = loaded; loaded }
         }
-        cover
     }
 
-    /** **不刪 sheet** —— 它綁在草稿上，由精靈完成或捨棄草稿時整個 `drafts/{videoId}/` 一起刪（規格第四節）。 */
+    /**
+     * **不刪 sheet** —— 它綁在草稿上，由精靈完成或捨棄草稿時整個 `drafts/{videoId}/` 一起刪（規格第四節）。
+     *
+     * 不是 suspend（呼叫端 `Step2Store.close()` 也不是），所以**不能等 [coverLock]**：
+     * 改成先立旗標再清快取 —— 併發中的 [bitmapOf]／[loadCover] 看到 `closed` 就不再把東西放回來。
+     */
     override fun close() {
-        cache.clear()
+        closed = true
+        synchronized(cacheGuard) { cache.clear() }
         cover = null
-        coverAttempted = false
     }
 }

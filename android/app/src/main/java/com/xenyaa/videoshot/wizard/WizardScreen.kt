@@ -101,6 +101,8 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                                     playableInEmbed = meta.playableInEmbed,
                                     onPlayerReady = { vm.attachPlayer(it) },
                                     modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+                                    // WebView 被釋放了 ViewModel 就不能再握著它
+                                    onPlayerReleased = { vm.detachPlayer() },
                                 )
                             }
                             Step2GridScreen(

@@ -25,8 +25,13 @@ interface VideoDao {
     )
     suspend fun recent(limit: Int): List<RecentVideoProjection>
 
-    @Query("SELECT frame_index FROM shot WHERE video_id = :videoId AND frame_index IS NOT NULL")
-    suspend fun takenFrameIndexes(videoId: String): List<Int>
+    @Query(
+        """
+        SELECT frame_index FROM shot
+        WHERE video_id = :videoId AND frame_index IS NOT NULL AND sb_level = :level
+        """
+    )
+    suspend fun takenFrameIndexes(videoId: String, level: Int): List<Int>
 }
 
 data class RecentVideoProjection(

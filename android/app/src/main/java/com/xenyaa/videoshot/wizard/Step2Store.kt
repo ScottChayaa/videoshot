@@ -5,8 +5,10 @@ import com.xenyaa.videoshot.core.similarity.Fingerprint
 import com.xenyaa.videoshot.core.similarity.converge
 import com.xenyaa.videoshot.wizard.frames.FramePlan
 import com.xenyaa.videoshot.wizard.frames.FrameSource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,6 +35,8 @@ data class Step2State(
     val taken: Set<Int> = emptySet(),
     val playingFrame: Int? = null,
     val degradedToCover: Boolean = false,
+    /** 載入中途整條 flow 掛掉（磁碟滿、OOM…）。**畫得出來**才叫降級，不然使用者只看到卡住的進度文案。 */
+    val loadFailed: Boolean = false,
     val hintSeen: Boolean = true,
 ) {
     val selectedCount: Int get() = selected.size
@@ -54,6 +58,8 @@ data class Step2State(
         get() = when {
             plan.frameCount == 0 -> "無法取得逐段縮圖，可以截圖補上"
             converging -> "正在過濾相似畫面…"
+            loadFailed && ready.isEmpty() -> "縮圖載入失敗，可以截圖補上"
+            loadFailed -> "只載入了 ${ready.size} 張縮圖就失敗了，其餘可以截圖補上"
             showAll -> "顯示全部 ${plan.frameCount} 張"
             hiddenCount > 0 -> "已收斂成 ${kept.size} 張候選，隱藏了 $hiddenCount 張相似畫面"
             else -> "${kept.size} 張候選"
@@ -80,37 +86,83 @@ class Step2Store(
     /** 收斂的輸入。換強度時對它整個重算，不是在已過濾的結果上疊加（規格第五節）。 */
     private val fingerprints = mutableListOf<Fingerprint>()
 
+    /** 有指紋的格號。沒有指紋的格子是 [keptWith] 要補回來的那一批。 */
+    private val fingerprinted = mutableSetOf<Int>()
+
     /**
      * 收斂是**時間順序**的前向掃描，所以送進 `converge` 之前一定要照格號排好。
      * sheet 是同時下載 4 張的，抵達順序不保證是時間順序 ——
      * 沒有這一行，先回來的後段 sheet 會把收斂的比較基準弄亂。
+     *
+     * 排序產生的是一份複本，而且**一定在 scope 的執行緒上取**（不是在 `compute` 裡面）——
+     * 送進背景的必須是複本，否則重算收斂的期間 load 又 append 進來就是 `ConcurrentModificationException`。
      */
     private fun ordered(): List<Fingerprint> = fingerprints.sortedBy { it.frameIndex }
 
+    /**
+     * 收斂結果**加上沒有指紋的格子**。
+     *
+     * 降級成封面圖的批次（重抓 spec 後仍 403）發的是空指紋，`converge` 從來沒看過那些格號，
+     * 不補回來的話它們會在 `converging` 翻成 false 的那一刻整批從牆上消失 ——
+     * 使用者看著格子出現、然後不見；全部 sheet 都 403 時更是整面空牆，
+     * 而【顯示全部】這個逃生口的顯示條件是 `hiddenCount > 0`，也一起被藏起來。
+     * 規格第五節要求降級後「使用者仍能靠時間標籤與播放器挑格」，所以**沒有比較依據的一律保留**。
+     */
+    private fun keptWith(kept: List<Int>, ready: Set<Int>): List<Int> =
+        (kept + (ready - fingerprinted)).sorted()
+
     private var strength: FilterStrength = FilterStrength.MEDIUM
 
-    init {
-        scope.launch {
+    /**
+     * 下載與收斂的工作。**握在手上是為了 [close] 取消得掉** ——
+     * 它是 launch 進共用的 `viewModelScope` 的，不取消的話「回第一步 → 貼另一支網址」之後，
+     * 前一支影片整套 sheet 下載會繼續跑：跟新的那一套一起就是 8 個並行請求（真實作限制同時 4 張），
+     * 還會繼續寫進舊影片的 `drafts/`，並碰一個 `close()` 已經跑過的 [FrameSource]。
+     */
+    private val loadJob: Job = scope.launch {
+        try {
             source.load().collect { batch ->
                 fingerprints += batch.fingerprints
-                val result = withContext(compute) { converge(ordered(), strength) }
+                batch.fingerprints.forEach { fingerprinted += it.frameIndex }
+                val snapshot = ordered()
+                val result = withContext(compute) { converge(snapshot, strength) }
+                val ready = _state.value.ready + batch.frameIndexes
                 _state.value = _state.value.copy(
-                    ready = _state.value.ready + batch.frameIndexes,
-                    kept = result.kept,
+                    ready = ready,
+                    kept = keptWith(result.kept, ready),
                     hiddenCount = result.hiddenCount,
                     degradedToCover = _state.value.degradedToCover || batch.degradedToCover,
                 )
             }
-            _state.value = _state.value.copy(converging = false)
+        } catch (e: CancellationException) {
+            throw e      // close() 取消的，不是失敗
+        } catch (e: Exception) {
+            // 功能降級，絕不當機（規格第三節設計原則第 6 條）：終端失敗就停在已經拿到的那幾張，
+            // 讓狀態列講得出來。這裡不接的話例外會從 viewModelScope 傳出去、把 process 殺掉
+            _state.value = _state.value.copy(loadFailed = true)
+        } catch (e: OutOfMemoryError) {
+            // sheet 解圖是整條管線最可能 OOM 的地方，而 OOM 不是 Exception
+            _state.value = _state.value.copy(loadFailed = true)
         }
+        // 不論成功或失敗都要翻掉，否則狀態列永遠卡在「正在過濾相似畫面…」
+        _state.value = _state.value.copy(converging = false)
     }
+
+    /** 換強度的重算。只留最後一次 —— 兩次重算並行時誰後貼上誰贏，結果可能不是最新的強度。 */
+    private var strengthJob: Job? = null
 
     fun setStrength(value: FilterStrength) {
         if (value == strength) return
         strength = value
-        scope.launch {
-            val result = withContext(compute) { converge(ordered(), value) }
-            _state.value = _state.value.copy(kept = result.kept, hiddenCount = result.hiddenCount)
+        strengthJob?.cancel()
+        strengthJob = scope.launch {
+            val snapshot = ordered()
+            val result = withContext(compute) { converge(snapshot, value) }
+            val current = _state.value
+            _state.value = current.copy(
+                kept = keptWith(result.kept, current.ready),
+                hiddenCount = result.hiddenCount,
+            )
         }
     }
 
@@ -158,5 +210,13 @@ class Step2Store(
         _state.value = _state.value.copy(playingFrame = frameIndex)
     }
 
-    fun close() = source.close()
+    /**
+     * 離開這一步。**先取消工作再放快取** —— 還在跑的下載不收掉的話，
+     * 它會繼續碰一個已經放掉快取的 [FrameSource]（見 [loadJob]）。
+     */
+    fun close() {
+        loadJob.cancel()
+        strengthJob?.cancel()
+        source.close()
+    }
 }

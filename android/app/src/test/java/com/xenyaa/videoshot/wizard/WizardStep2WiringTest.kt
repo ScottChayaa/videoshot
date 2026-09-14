@@ -40,18 +40,29 @@ class WizardStep2WiringTest {
 
     @get:Rule val compose = createComposeRule()
 
-    private class FakeData(private val taken: Set<Int>) : WizardData {
+    /**
+     * @param takenByLevel 已收藏的格號**依層級分開放** —— frameIndex 只在某個層級之內有意義
+     *        （規格第四節 `{videoId}/L{level}/{frameIndex}`），所以精靈要帶著層級來問
+     */
+    private class FakeData(private val takenByLevel: Map<Int, Set<Int>> = emptyMap()) : WizardData {
+        /** 問過哪些層級。驗「有沒有把解析出來的層級傳進去」。 */
+        val askedLevels = mutableListOf<Int>()
+
         override suspend fun watchPage(videoId: String) =
             WatchPage(FetchResult.OK, null, "spec")
         override suspend fun recentVideos(limit: Int): List<RecentVideo> = emptyList()
-        override suspend fun takenFrameIndexes(videoId: String): Set<Int> = taken
+        override suspend fun takenFrameIndexes(videoId: String, level: Int): Set<Int> {
+            askedLevels += level
+            return takenByLevel[level].orEmpty()
+        }
     }
 
     private fun newVm(
         taken: Set<Int> = emptySet(),
         source: FakeFrameSource = FakeFrameSource.of(frameCount = 3, intervalSec = 10.0),
     ) = WizardViewModel(
-        data = FakeData(taken),
+        // FakeFrameSource.of 的 plan 是 L3
+        data = FakeData(mapOf(3 to taken)),
         frameSourceFactory = { source },
         strength = flowOf(FilterStrength.MEDIUM),
         hintSeen = flowOf(true),
@@ -108,11 +119,13 @@ class WizardStep2WiringTest {
     @Test
     fun 長按會叫播放器跳到那一格的秒數() {
         val vm = newVm()
-        val player = FakePlayer()
-        vm.attachPlayer(player)
         vm.openRecent("vid")
         show(vm)
         compose.waitForIdle()
+        // **進第二步之後才接上播放器** —— 正式路徑也是這個順序（WebView 的 onPageFinished 才回呼），
+        // 而 openStep2 會把舊的播放器放掉，新影片絕不對著舊 WebView 下 seek
+        val player = FakePlayer()
+        vm.attachPlayer(player)
 
         compose.onNodeWithContentDescription("第 3 格 00:20").performTouchInput { longClick() }
         compose.waitForIdle()
@@ -182,7 +195,7 @@ class WizardStep2WiringTest {
         val secondSource = FakeFrameSource(plan = plan, perSheet = 2, hashes = listOf(0x00L, 0xFFL))
         var calls = 0
         val vm = WizardViewModel(
-            data = FakeData(emptySet()),
+            data = FakeData(),
             frameSourceFactory = { if (calls++ == 0) firstSource else secondSource },
             strength = strengthFlow,
             hintSeen = flowOf(true),
@@ -207,5 +220,26 @@ class WizardStep2WiringTest {
 
         assertEquals("新 store 該用新強度重新收斂", listOf(0), newStore.state.value.kept)
         assertEquals("舊 store 已經 close，不該再被更新", listOf(0, 1), oldStore.state.value.kept)
+    }
+
+    /**
+     * 鎖定格只認**同一個層級**的格號。這支影片先前是在 L2 取過圖（當時沒有 L3），
+     * 這次解析到 L3 —— 兩邊的格號互不相干，不過濾就會把不相干的格子畫成灰＋鎖，使用者選不了。
+     */
+    @Test
+    fun 鎖定格要帶著解析出來的層級去問() {
+        val data = FakeData(mapOf(2 to setOf(0, 1)))
+        val vm = WizardViewModel(
+            data = data,
+            frameSourceFactory = { FakeFrameSource.of(frameCount = 3) },   // L3
+            strength = flowOf(FilterStrength.MEDIUM),
+            hintSeen = flowOf(true),
+            onHintSeen = {},
+        )
+        vm.openRecent("vid")
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals("要問的是解析出來的那個層級", listOf(3), data.askedLevels)
+        assertEquals("L2 的格號不該鎖住 L3 的格子", emptySet<Int>(), vm.step2.value!!.state.value.taken)
     }
 }

@@ -43,6 +43,12 @@ interface LibraryRepo {
     /** 最近取過圖的影片，附各片的收藏張數。 */
     suspend fun recentVideos(limit: Int): List<RecentVideo>
 
-    /** 這支影片已經收藏的 storyboard 格號 —— 第二步據此標示鎖定格。 */
-    suspend fun takenFrameIndexes(videoId: String): Set<Int>
+    /**
+     * 這支影片在**某個 storyboard 層級**已經收藏的格號 —— 第二步據此標示鎖定格。
+     *
+     * 層級是查詢條件的一部分：frameIndex 只在該層級之內有意義
+     * （規格第四節把縮圖鍵為 `{videoId}/L{level}/{frameIndex}`）。先前在 L2 取過圖、
+     * 這次解析到 L3 的話，兩邊的格號互不相干，不能混在一起。
+     */
+    suspend fun takenFrameIndexes(videoId: String, level: Int): Set<Int>
 }

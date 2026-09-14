@@ -102,4 +102,23 @@ class LibraryRepoReadTest {
     fun 取不到的_shot_回傳_null() = runTest {
         assertNull(repo.shotById(9999L))
     }
+
+    /**
+     * `frameIndex` 只在某個 storyboard 層級之內有意義（規格第四節 `{videoId}/L{level}/{frameIndex}`）。
+     * 不照層級過濾的話，先前在 L2 取過的格號會把這次 L3 牆上不相干的格子畫成灰＋鎖。
+     */
+    @Test
+    fun 已收藏的格號只算同一個層級的() = runTest {
+        db.videoDao().upsert(VideoEntity("v7", "t", "c", "2026-01-01T00:00:00Z", 600, "public", null, 1L))
+        db.shotDao().insert(
+            ShotEntity(0, "v7", 10.0, "storyboard", 5, 3, "2026-01-01", null, null, null, null, null, 1L)
+        )
+        db.shotDao().insert(
+            ShotEntity(0, "v7", 20.0, "storyboard", 7, 2, "2026-01-01", null, null, null, null, null, 1L)
+        )
+
+        assertEquals(setOf(5), repo.takenFrameIndexes("v7", 3))
+        assertEquals(setOf(7), repo.takenFrameIndexes("v7", 2))
+        assertEquals(emptySet<Int>(), repo.takenFrameIndexes("v7", 1))
+    }
 }

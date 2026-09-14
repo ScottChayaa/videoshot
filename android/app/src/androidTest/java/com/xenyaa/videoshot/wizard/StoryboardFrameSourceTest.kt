@@ -204,4 +204,35 @@ class StoryboardFrameSourceTest {
         assertTrue("sheet 綁在草稿上，由精靈完成或捨棄時才刪（規格第四節）",
             File(sheetsDir, "M0.jpg").exists())
     }
+
+    /**
+     * 功能降級，絕不當機（規格第三節設計原則第 6 條）。
+     * `sheetsDir` 的位置放一個普通檔案 —— `mkdirs()` 與 `writeBytes()` 都會失敗，
+     * 等同「儲存空間滿了／草稿目錄不可寫」。先前這兩行都沒有保護，一個 IOException
+     * 就會從 `viewModelScope.launch` 傳出去、把 process 殺掉。
+     */
+    @Test
+    fun 草稿目錄寫不進去時退回封面圖而不是丟例外() = runBlocking {
+        sheetsDir.parentFile!!.mkdirs()
+        sheetsDir.writeText("我不是目錄")
+
+        val youtube = FakeYoutube { fakeSheet(0) }   // sheet 抓得到，壞的是寫檔
+        val s = source(youtube)
+        val batches = s.load().toList()
+
+        assertEquals(2, batches.size)
+        assertTrue("磁碟上沒有圖，跟 403 是同一種下場", batches.all { it.degradedToCover })
+        assertTrue("看不到的圖不該拿去收斂", batches.all { it.fingerprints.isEmpty() })
+        assertNotNull("封面圖頂著，牆上照樣有東西可看", s.bitmapOf(0))
+    }
+
+    @Test
+    fun close之後bitmapOf回null而不是丟例外() = runBlocking {
+        val s = source(FakeYoutube { fakeSheet(0) })
+        s.load().toList()
+        assertNotNull(s.bitmapOf(0))
+
+        s.close()
+        assertEquals("close 之後不再做白工", null, s.bitmapOf(1))
+    }
 }

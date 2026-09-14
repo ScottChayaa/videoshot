@@ -84,8 +84,10 @@ class AppContainer(context: Context) {
         object : WizardData {
             override suspend fun watchPage(videoId: String) = youtube.watchPage(videoId)
             override suspend fun recentVideos(limit: Int) = libraryRepo.recentVideos(limit)
-            override suspend fun takenFrameIndexes(videoId: String) =
-                libraryRepo.shotsOfVideo(videoId).mapNotNull { it.frameIndex }.toSet()
+            // 直接用 repo 的查詢 —— 它把層級寫進 SQL。自己撈 shotsOfVideo 再 mapNotNull
+            // 會漏掉 sbLevel 這個條件，把別的層級的格號當成這一層的鎖定格
+            override suspend fun takenFrameIndexes(videoId: String, level: Int) =
+                libraryRepo.takenFrameIndexes(videoId, level)
         }
     }
 

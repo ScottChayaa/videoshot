@@ -256,10 +256,16 @@ private fun FrameCell(
     }
 }
 
-/** 圖是**要畫的時候才去拿**（規格第二節第 6 點：148 格全部留在記憶體要 34 MB）。 */
+/**
+ * 圖是**要畫的時候才去拿**（規格第二節第 6 點：148 格全部留在記憶體要 34 MB）。
+ *
+ * `source` 也是 key，**不能只用 frameIndex**：`LazyVerticalGrid` 的 item 同樣以 frameIndex 當 key，
+ * 所以換一支影片、`Step2Store` 被換掉之後，item 的槽位會存活下來；producer 只看 frameIndex
+ * 的話不會重跑，那些格子會繼續畫**前一支影片**的 bitmap，直到使用者把它們捲出畫面再捲回來。
+ */
 @Composable
 private fun FrameImage(source: FrameSource, frameIndex: Int, modifier: Modifier) {
-    val bitmap: ImageBitmap? by produceState<ImageBitmap?>(initialValue = null, frameIndex) {
+    val bitmap: ImageBitmap? by produceState<ImageBitmap?>(initialValue = null, source, frameIndex) {
         value = source.bitmapOf(frameIndex)
     }
     bitmap?.let {

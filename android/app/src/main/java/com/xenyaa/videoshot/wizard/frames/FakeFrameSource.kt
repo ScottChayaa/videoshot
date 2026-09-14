@@ -35,7 +35,11 @@ class FakeFrameSource(
             emit(
                 SheetReady(
                     frameIndexes = frames,
-                    fingerprints = frames.map { Fingerprint(it, hashes[it]) },
+                    // 降級成封面圖的批次**沒有指紋** —— 真實作
+                    // （[StoryboardFrameSource]）拿不到 sheet 就算不出 dHash，
+                    // 發的是 `emptyList()`。假實作照樣發滿指紋的話，
+                    // 「降級之後牆上還有東西可看」這件事在測試裡永遠驗不到。
+                    fingerprints = if (coverDegraded) emptyList() else frames.map { Fingerprint(it, hashes[it]) },
                     degradedToCover = coverDegraded,
                 )
             )
