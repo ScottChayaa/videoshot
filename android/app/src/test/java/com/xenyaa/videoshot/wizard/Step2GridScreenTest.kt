@@ -37,7 +37,9 @@ class Step2GridScreenTest {
             Step2GridScreen(
                 state = state,
                 source = source,
+                haptics = FakeHaptics(),
                 onToggle = onToggle,
+                onTakenTap = {},
                 onPlayFrame = {},
                 onSelectAll = onSelectAll,
                 onShowAll = onShowAll,

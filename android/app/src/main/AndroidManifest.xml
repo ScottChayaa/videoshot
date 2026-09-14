@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 第二步長按跳播的 15 ms 回饋（規格第五節）。一般權限，不需要執行期詢問 -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:name=".VideoshotApp"

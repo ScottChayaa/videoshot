@@ -1,8 +1,10 @@
 package com.xenyaa.videoshot.wizard
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +13,8 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -40,13 +44,15 @@ import com.xenyaa.videoshot.wizard.frames.FrameSource
  *
  * 這個 composable 只負責畫；規則全在 [Step2Store]，互動一律往上回報。
  */
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@OptIn(ExperimentalFoundationApi::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun Step2GridScreen(
     state: Step2State,
     source: FrameSource,
+    haptics: Haptics,
     onToggle: (Int) -> Unit,
     onPlayFrame: (Int) -> Unit,
+    onTakenTap: (Int) -> Unit,
     onSelectAll: () -> Unit,
     onShowAll: (Boolean) -> Unit,
     onOnlySelected: (Boolean) -> Unit,
@@ -104,7 +110,9 @@ fun Step2GridScreen(
                     taken = frameIndex in state.taken,
                     playing = state.playingFrame == frameIndex,
                     source = source,
+                    haptics = haptics,
                     onToggle = { onToggle(frameIndex) },
+                    onTakenTap = { onTakenTap(frameIndex) },
                     onPlay = { onPlayFrame(frameIndex) },
                     onHintDismiss = onDismissHint,
                 )
@@ -151,9 +159,12 @@ private fun BottomBar(state: Step2State, onNext: () -> Unit) {
 }
 
 /**
- * 一格。整格都是點擊區（規格第五節：挑圖是主要動作，必須拿到最順的手勢）。
- * 長按與右上 ▶ 的手勢在 Task 4b.5 接上。
+ * 一格。**整格都是點擊區**，點＝勾選、長按 0.5 秒＝跳播（規格第五節互動表）。
+ *
+ * 「點＝播放、小圓圈＝勾選」曾評估並否決：96px 寬的格子上小圓圈只有約 20px，
+ * 選 30 張要精準點 30 次。挑圖是主要動作，它該拿到最順、不需要瞄準的手勢。
  */
+@OptIn(ExperimentalFoundationApi::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun FrameCell(
     frameIndex: Int,
@@ -162,45 +173,77 @@ private fun FrameCell(
     taken: Boolean,
     playing: Boolean,
     source: FrameSource,
+    haptics: Haptics,
     onToggle: () -> Unit,
+    onTakenTap: () -> Unit,
     onPlay: () -> Unit,
     onHintDismiss: () -> Unit,
 ) {
+    val clock = formatClock(atSec)
     val borderColor = when {
         selected -> MaterialTheme.colorScheme.error      // 紅框＝已選
         playing -> MaterialTheme.colorScheme.primary     // 藍框＝播放器停在這格
         else -> Color.Transparent
     }
 
+    // 外層 Box **不掛點擊語意**，只負責邊框／背景／排版。
+    // ▶ 按鈕不能是「整格點擊區」那個語意節點的子孫 —— combinedClickable 會把子孫
+    // 合併進自己（無障礙用途），子孫若也是可點擊節點，合併時它的 OnClick 會蓋掉
+    // 整格自己的 OnClick，點下去就變成播放而不是勾選。讓 ▶ 當外層 Box 的手足、
+    // 不落在「整格」的合併子樹裡，兩個語意節點才不會互相吃掉。
     Box(
         Modifier
             .aspectRatio(16f / 9f)
             .border(2.dp, borderColor)
             .background(MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        FrameImage(source, frameIndex, Modifier.fillMaxSize())
+        Box(
+            Modifier
+                .fillMaxSize()
+                .combinedClickable(
+                    onClick = {
+                        onHintDismiss()
+                        // 已收藏的格子點下去**明確提示**，不是靜靜沒反應（規格第五節）
+                        if (taken) onTakenTap() else onToggle()
+                    },
+                    onLongClick = {
+                        onHintDismiss()
+                        haptics.tick()
+                        onPlay()
+                    },
+                )
+                // 一格一個語意節點，測試與輔助技術都靠它定位
+                .semantics { contentDescription = "第 ${frameIndex + 1} 格 $clock" }
+        ) {
+            FrameImage(source, frameIndex, Modifier.fillMaxSize())
 
-        if (taken) {
-            // 灰＋鎖：先前已收藏過（規格第五節互動表）
-            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)))
-            Text("🔒", modifier = Modifier.align(Alignment.Center))
+            if (taken) {
+                // 灰＋鎖：先前已收藏過（規格第五節互動表）
+                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)))
+                Text("🔒", modifier = Modifier.align(Alignment.Center))
+            }
+
+            Text(
+                clock,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .padding(horizontal = 4.dp),
+            )
         }
 
-        Text(
-            formatClock(atSec),
-            style = MaterialTheme.typography.labelSmall,
-            color = Color.White,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .background(Color.Black.copy(alpha = 0.5f))
-                .padding(horizontal = 4.dp),
-        )
-
+        // ▶ 與長按是同一件事。**長按不是唯一入口** —— 鍵盤與輔助技術到不了長按（規格第五節）
+        // .size(32.dp)：TextButton 預設的無障礙最小點擊區（Material3 ButtonDefaults）
+        // 比 96px 寬的格子還寬，沒圈住的話它的點擊區會蓋過格子中心，整格點擊反而點到播放鈕。
         TextButton(
-            onClick = onPlay,
+            onClick = { onHintDismiss(); onPlay() },
             modifier = Modifier
                 .align(Alignment.TopEnd)
+                .size(32.dp)
                 .semantics { contentDescription = "跳到這一段" },
+            contentPadding = PaddingValues(0.dp),
         ) {
             Text("▶", color = Color.White)
         }
