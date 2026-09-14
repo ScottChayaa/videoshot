@@ -9,12 +9,13 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.longClick
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.youtube.FetchResult
-import com.xenyaa.videoshot.core.youtube.VideoMeta
 import com.xenyaa.videoshot.core.youtube.WatchPage
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
 import com.xenyaa.videoshot.player.FakePlayer
 import com.xenyaa.videoshot.wizard.frames.FakeFrameSource
+import com.xenyaa.videoshot.wizard.frames.FramePlan
 import android.os.Looper
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -39,12 +40,6 @@ class WizardStep2WiringTest {
 
     @get:Rule val compose = createComposeRule()
 
-    private val meta = VideoMeta(
-        videoId = "vid", title = "宜蘭兩天一夜", channelTitle = "某人",
-        publishedAt = "2026-07-12T10:00:00Z", durationSec = 300,
-        privacy = "public", playableInEmbed = true,
-    )
-
     private class FakeData(private val taken: Set<Int>) : WizardData {
         override suspend fun watchPage(videoId: String) =
             WatchPage(FetchResult.OK, null, "spec")
@@ -66,6 +61,20 @@ class WizardStep2WiringTest {
     private fun show(vm: WizardViewModel) {
         compose.setContent {
             WizardScreen(vm = vm, haptics = FakeHaptics(), onExit = {})
+        }
+    }
+
+    /**
+     * `WizardViewModel` 的 `openStep2` 把 `compute` 定死成 `Dispatchers.Default`（規格第三節設計
+     * 原則第 5 條要求重運算不在主執行緒）—— 那是**真的背景執行緒**，`shadowOf(...).idle()` 只推得動
+     * 主 looper 的訊息佇列，推不動背景執行緒本身做完了沒。檢查 `kept`／`hiddenCount` 這類要等收斂算完
+     * 才穩定的欄位前，得輪詢等背景執行緒把結果貼回主執行緒，不能只 `idle()` 一次就假設穩定。
+     */
+    private fun awaitMain(timeoutMs: Long = 2_000, condition: () -> Boolean) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (!condition() && System.currentTimeMillis() < deadline) {
+            Thread.sleep(5)
+            shadowOf(Looper.getMainLooper()).idle()
         }
     }
 
@@ -109,6 +118,7 @@ class WizardStep2WiringTest {
         compose.waitForIdle()
 
         assertEquals(listOf(20.0), player.seeks)
+        assertEquals(true, player.playing)
         assertEquals(2, vm.step2.value!!.state.value.playingFrame)
     }
 
@@ -138,5 +148,64 @@ class WizardStep2WiringTest {
 
         assertEquals("舊的要關掉，磁碟快取才放得掉", true, first.closed)
         assert(before !== vm.step2.value)
+    }
+
+    @Test
+    fun 點已收藏的格子會出現提示點知道了會關掉() {
+        val vm = newVm(taken = setOf(0))
+        vm.openRecent("vid")
+        show(vm)
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("第 1 格 00:00").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("這一格已經收藏過了").assertIsDisplayed()
+
+        compose.onNodeWithText("知道了").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("這一格已經收藏過了").assertDoesNotExist()
+    }
+
+    /**
+     * 「回第一步再進第二步」不只要換掉 `step2.value`，還要把舊 store 綁的 `strength`／`hintSeen`
+     * 收集器一起取消 —— 否則它們會一路累積，而且舊 store 明明已經 close 了卻還在被更新。
+     *
+     * 驗法：兩格的指紋漢明距離設成 8，MEDIUM(6) 不收斂、HIGH(10) 會收斂成 1 張。
+     * 進第二步兩次後往 `strength` 推一個新值，**只有新的 store** 該有反應。
+     */
+    @Test
+    fun 回第一步再進第二步後舊的strength收集器已經停止收集() {
+        val strengthFlow = MutableStateFlow(FilterStrength.MEDIUM)
+        val plan = FramePlan("vid", level = 3, atSec = listOf(0.0, 1.0), lowQuality = false)
+        // 0x00 與 0xFF 的漢明距離是 8：MEDIUM(閾值 6) 不收斂、HIGH(閾值 10) 會收斂成 1 張。
+        val firstSource = FakeFrameSource(plan = plan, perSheet = 2, hashes = listOf(0x00L, 0xFFL))
+        val secondSource = FakeFrameSource(plan = plan, perSheet = 2, hashes = listOf(0x00L, 0xFFL))
+        var calls = 0
+        val vm = WizardViewModel(
+            data = FakeData(emptySet()),
+            frameSourceFactory = { if (calls++ == 0) firstSource else secondSource },
+            strength = strengthFlow,
+            hintSeen = flowOf(true),
+            onHintSeen = {},
+        )
+
+        vm.openRecent("vid")
+        shadowOf(Looper.getMainLooper()).idle()
+        val oldStore = vm.step2.value!!
+        awaitMain { !oldStore.state.value.converging }
+        assertEquals(listOf(0, 1), oldStore.state.value.kept)
+
+        vm.back()
+        vm.openRecent("vid")
+        shadowOf(Looper.getMainLooper()).idle()
+        val newStore = vm.step2.value!!
+        awaitMain { !newStore.state.value.converging }
+        assert(oldStore !== newStore)
+
+        strengthFlow.value = FilterStrength.HIGH
+        awaitMain { newStore.state.value.kept.size == 1 }
+
+        assertEquals("新 store 該用新強度重新收斂", listOf(0), newStore.state.value.kept)
+        assertEquals("舊 store 已經 close，不該再被更新", listOf(0, 1), oldStore.state.value.kept)
     }
 }

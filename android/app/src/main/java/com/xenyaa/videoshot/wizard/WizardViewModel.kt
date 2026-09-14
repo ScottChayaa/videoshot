@@ -9,6 +9,7 @@ import com.xenyaa.videoshot.data.repo.model.RecentVideo
 import com.xenyaa.videoshot.player.Player
 import com.xenyaa.videoshot.wizard.frames.FrameSource
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -130,12 +131,17 @@ class WizardViewModel(
 
     fun attachPlayer(p: Player) { player = p }
 
+    /** 跟著 [_step2] 換掉的收集器。舊的 store close 了，訂閱它的收集器也要跟著取消 —— 否則每次
+     *  「回第一步→再進第二步」都會多兩個永遠不結束的 `collect`，一路累積到離開精靈。 */
+    private var step2Jobs: List<Job> = emptyList()
+
     /**
      * 進第二步時建立狀態機。**舊的要先 close** ——
      * 它握著磁碟上的 sheet 與 bitmap 快取，不放掉會一路累積到離開精靈。
      */
     private fun openStep2(video: LoadedVideo) {
         _step2.value?.close()
+        step2Jobs.forEach { it.cancel() }
         val store = Step2Store(
             source = frameSourceFactory(video),
             taken = video.takenFrameIndexes,
@@ -143,8 +149,10 @@ class WizardViewModel(
             compute = Dispatchers.Default,
         )
         _step2.value = store
-        viewModelScope.launch { strength.collect { store.setStrength(it) } }
-        viewModelScope.launch { hintSeen.collect { store.setHintSeen(it) } }
+        step2Jobs = listOf(
+            viewModelScope.launch { strength.collect { store.setStrength(it) } },
+            viewModelScope.launch { hintSeen.collect { store.setHintSeen(it) } },
+        )
     }
 
     /** 長按或按 ▶：播放器跳到該格的時間點並播放，該格顯示藍框（規格第五節互動表）。 */
@@ -165,6 +173,7 @@ class WizardViewModel(
 
     override fun onCleared() {
         _step2.value?.close()
+        step2Jobs.forEach { it.cancel() }
         super.onCleared()
     }
 }
