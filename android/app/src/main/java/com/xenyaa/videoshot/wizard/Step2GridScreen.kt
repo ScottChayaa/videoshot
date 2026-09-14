@@ -235,13 +235,15 @@ private fun FrameCell(
         }
 
         // ▶ 與長按是同一件事。**長按不是唯一入口** —— 鍵盤與輔助技術到不了長按（規格第五節）
-        // .size(32.dp)：TextButton 預設的無障礙最小點擊區（Material3 ButtonDefaults）
-        // 比 96px 寬的格子還寬，沒圈住的話它的點擊區會蓋過格子中心，整格點擊反而點到播放鈕。
+        // .size(40.dp)：`ButtonDefaults.MinHeight` 是 40dp（`MinWidth` 是 58dp，這裡用不到）。
+        // 不圈住的話，這個預設點擊區會比 96px 寬的格子還寬，蓋過格子中心，
+        // 整格點擊反而點到播放鈕。40dp 錨在 TopEnd 時橫向落在 [格寬-40, 格寬]，
+        // 格寬（96px）> 80dp 時中心（格寬/2）不落在這個範圍內，仍保住無障礙最小觸控區。
         TextButton(
             onClick = { onHintDismiss(); onPlay() },
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .size(32.dp)
+                .size(40.dp)
                 .semantics { contentDescription = "跳到這一段" },
             contentPadding = PaddingValues(0.dp),
         ) {
