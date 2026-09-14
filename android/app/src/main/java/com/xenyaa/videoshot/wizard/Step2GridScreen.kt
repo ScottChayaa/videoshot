@@ -236,9 +236,13 @@ private fun FrameCell(
 
         // ▶ 與長按是同一件事。**長按不是唯一入口** —— 鍵盤與輔助技術到不了長按（規格第五節）
         // .size(40.dp)：`ButtonDefaults.MinHeight` 是 40dp（`MinWidth` 是 58dp，這裡用不到）。
-        // 不圈住的話，這個預設點擊區會比 96px 寬的格子還寬，蓋過格子中心，
-        // 整格點擊反而點到播放鈕。40dp 錨在 TopEnd 時橫向落在 [格寬-40, 格寬]，
-        // 格寬（96px）> 80dp 時中心（格寬/2）不落在這個範圍內，仍保住無障礙最小觸控區。
+        // 不圈住的話，TextButton 預設點擊區（58dp 寬）會逼近格子中心，蓋過整格點擊。
+        // 40dp 錨在 TopEnd 時佔據 [格寬-40dp, 格寬] 的水平範圍。格寬實測 99dp
+        // （Step2InteractionTest 量出來的，LazyVerticalGrid 三欄＋8dp 左右 padding＋
+        // 4dp 欄距），格子中心（49.5dp）不落在 [59dp, 99dp] 內，所以整格點擊仍然
+        // 命中內層 Box 的 combinedClickable，同時保住 40dp 的無障礙最小觸控區。
+        // （若換成 `ButtonDefaults.MinWidth` 58dp，範圍會是 [41dp, 99dp]，
+        // 反而蓋住中心 —— 這正是原本沒設 .size() 時會撞到的情況。）
         TextButton(
             onClick = { onHintDismiss(); onPlay() },
             modifier = Modifier
