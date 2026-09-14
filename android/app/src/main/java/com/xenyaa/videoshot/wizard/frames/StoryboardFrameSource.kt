@@ -91,11 +91,18 @@ class StoryboardFrameSource(
     private var coverAttempted = false
 
     /**
-     * 保護 [cache] 與 [cover]：縮圖牆用 `produceState` 對每個可見格子各跑一個協程呼叫
-     * [bitmapOf]，[load] 同時也在寫 [cover] —— `LinkedHashMap(accessOrder = true)` 連
-     * `get()` 都會動內部順序，不鎖起來就是真的資料競爭，不是風格問題。
+     * 保護 [cache]：縮圖牆用 `produceState` 對每個可見格子各跑一個協程呼叫 [bitmapOf] ——
+     * `LinkedHashMap(accessOrder = true)` 連 `get()` 都會動內部順序，不鎖起來就是真的資料競爭，
+     * 不是風格問題。**只圈 map 存取**，解圖裁圖與封面的網路請求都不包在裡面。
      */
     private val cacheLock = Mutex()
+
+    /**
+     * 封面自己一把鎖，**不跟 [cache] 共用**。共用的話，一次封面的網路請求在飛的期間，
+     * 任何一格「已經在快取裡」的查詢都要排隊等它 —— 而封面只在降級時才抓，
+     * 那正是牆上最需要快速給圖的時候。兩把鎖從不巢狀取得，所以沒有死結風險。
+     */
+    private val coverLock = Mutex()
 
     /** 最近用過的幾格。捲動時上下來回，留一點就省掉重複解 sheet。 */
     private val cache = object : LinkedHashMap<Int, ImageBitmap>(16, 0.75f, true) {
@@ -226,7 +233,7 @@ class StoryboardFrameSource(
      * 成功與失敗都只試一次（[coverAttempted]）——不然封面端點連不上時，
      * 每一個降級批次、之後每一次 [bitmapOf] 都會再打一次網路，比不快取更糟。
      */
-    private suspend fun loadCover(): ImageBitmap? = cacheLock.withLock {
+    private suspend fun loadCover(): ImageBitmap? = coverLock.withLock {
         if (coverAttempted) return@withLock cover
         coverAttempted = true
         cover = try {
