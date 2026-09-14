@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -27,6 +28,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.xenyaa.videoshot.player.PlayerSurface
 
 /**
  * 取圖精靈的外殼：三段進度、【✕】、返回鍵、離開確認。
@@ -35,10 +37,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
  * 而精靈是一條有終點的流程，不該讓使用者中途跳去別的分頁。
  */
 @Composable
-fun WizardScreen(vm: WizardViewModel, onExit: () -> Unit) {
+fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
     val step by vm.step.collectAsStateWithLifecycle()
     val furthest by vm.furthest.collectAsStateWithLifecycle()
     var askExit by remember { mutableStateOf(false) }
+    var takenTapped by remember { mutableStateOf<Int?>(null) }
 
     // 返回鍵先給精靈消化；在第一步才讓系統關掉整個流程
     BackHandler { if (!vm.back()) onExit() }
@@ -81,8 +84,42 @@ fun WizardScreen(vm: WizardViewModel, onExit: () -> Unit) {
                         onOpenRecent = { vm.openRecent(it) },
                     )
                 }
-                // 階段 4b 的縮圖牆、階段 6 的第三步會取代這兩個佔位畫面
-                WizardStep.PICK -> Text("第二步（挑畫面）在階段 4b 實作")
+                WizardStep.PICK -> {
+                    val store by vm.step2.collectAsStateWithLifecycle()
+                    val loaded by vm.loaded.collectAsStateWithLifecycle()
+                    val current = store
+                    if (current == null) {
+                        Text("正在載入縮圖…")
+                    } else {
+                        val state by current.state.collectAsStateWithLifecycle()
+                        Column(Modifier.fillMaxSize()) {
+                            // 播放器**釘在頂部**（規格第五節第二步的線框）
+                            loaded?.page?.meta?.let { meta ->
+                                PlayerSurface(
+                                    videoId = meta.videoId,
+                                    playableInEmbed = meta.playableInEmbed,
+                                    onPlayerReady = { vm.attachPlayer(it) },
+                                    modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+                                )
+                            }
+                            Step2GridScreen(
+                                state = state,
+                                source = current.source,
+                                haptics = haptics,
+                                onToggle = { current.toggle(it) },
+                                onTakenTap = { takenTapped = it },
+                                onPlayFrame = { vm.playFrame(it) },
+                                onSelectAll = { current.selectAll() },
+                                onShowAll = { current.setShowAll(it) },
+                                onOnlySelected = { current.setOnlySelected(it) },
+                                onDismissHint = { vm.dismissHint() },
+                                onNext = { vm.goTo(WizardStep.DETAILS) },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                }
+                // 階段 6 的第三步會取代這個佔位畫面
                 WizardStep.DETAILS -> Text("第三步（填資料）在階段 6 實作")
             }
         }
@@ -93,6 +130,15 @@ fun WizardScreen(vm: WizardViewModel, onExit: () -> Unit) {
             onKeep = { askExit = false; vm.keepDraft(); onExit() },
             onDiscard = { askExit = false; vm.discardDraft(); onExit() },
             onDismiss = { askExit = false },
+        )
+    }
+
+    takenTapped?.let {
+        AlertDialog(
+            onDismissRequest = { takenTapped = null },
+            title = { Text("這一格已經收藏過了") },
+            text = { Text("長按或按 ▶ 仍然可以跳到那一段看看。") },
+            confirmButton = { TextButton(onClick = { takenTapped = null }) { Text("知道了") } },
         )
     }
 }

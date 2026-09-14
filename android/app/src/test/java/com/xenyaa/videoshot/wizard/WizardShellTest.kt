@@ -34,10 +34,16 @@ class WizardShellTest {
         override suspend fun takenFrameIndexes(videoId: String): Set<Int> = emptySet()
     }
 
-    private fun newVm() = WizardViewModel(FakeData())
+    private fun newVm() = WizardViewModel(
+        data = FakeData(),
+        frameSourceFactory = { com.xenyaa.videoshot.wizard.frames.FakeFrameSource.of(frameCount = 0) },
+        strength = kotlinx.coroutines.flow.flowOf(com.xenyaa.videoshot.core.similarity.FilterStrength.MEDIUM),
+        hintSeen = kotlinx.coroutines.flow.flowOf(true),
+        onHintSeen = {},
+    )
 
     private fun show(vm: WizardViewModel = newVm()) {
-        compose.setContent { WizardScreen(vm = vm, onExit = { exits++ }) }
+        compose.setContent { WizardScreen(vm = vm, haptics = FakeHaptics(), onExit = { exits++ }) }
     }
 
     @Test

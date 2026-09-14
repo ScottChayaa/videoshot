@@ -2,9 +2,14 @@ package com.xenyaa.videoshot.wizard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.url.parseVideoId
 import com.xenyaa.videoshot.core.youtube.FetchResult
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
+import com.xenyaa.videoshot.player.Player
+import com.xenyaa.videoshot.wizard.frames.FrameSource
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,6 +21,10 @@ import kotlinx.coroutines.launch
  */
 class WizardViewModel(
     private val data: WizardData,
+    private val frameSourceFactory: (LoadedVideo) -> FrameSource,
+    private val strength: Flow<FilterStrength>,
+    private val hintSeen: Flow<Boolean>,
+    private val onHintSeen: suspend () -> Unit,
 ) : ViewModel() {
 
     private val _step = MutableStateFlow(WizardStep.URL)
@@ -104,9 +113,58 @@ class WizardViewModel(
                         takenFrameIndexes = data.takenFrameIndexes(videoId),
                     )
                     _status.value = Step1Status.Idle
+                    openStep2(_loaded.value!!)
                     goTo(WizardStep.PICK)
                 }
             }
         }
+    }
+
+    // ---- 第二步 ----
+
+    private val _step2 = MutableStateFlow<Step2Store?>(null)
+    val step2: StateFlow<Step2Store?> = _step2.asStateFlow()
+
+    /** 播放器在 WebView 載完後才有；在那之前長按只會更新藍框，不跳播。 */
+    private var player: Player? = null
+
+    fun attachPlayer(p: Player) { player = p }
+
+    /**
+     * 進第二步時建立狀態機。**舊的要先 close** ——
+     * 它握著磁碟上的 sheet 與 bitmap 快取，不放掉會一路累積到離開精靈。
+     */
+    private fun openStep2(video: LoadedVideo) {
+        _step2.value?.close()
+        val store = Step2Store(
+            source = frameSourceFactory(video),
+            taken = video.takenFrameIndexes,
+            scope = viewModelScope,
+            compute = Dispatchers.Default,
+        )
+        _step2.value = store
+        viewModelScope.launch { strength.collect { store.setStrength(it) } }
+        viewModelScope.launch { hintSeen.collect { store.setHintSeen(it) } }
+    }
+
+    /** 長按或按 ▶：播放器跳到該格的時間點並播放，該格顯示藍框（規格第五節互動表）。 */
+    fun playFrame(frameIndex: Int) {
+        val store = _step2.value ?: return
+        val sec = store.state.value.plan.atSec.getOrNull(frameIndex) ?: return
+        store.markPlaying(frameIndex)
+        viewModelScope.launch {
+            player?.seekTo(sec)
+            player?.play()
+        }
+    }
+
+    fun dismissHint() {
+        _step2.value?.setHintSeen(true)
+        viewModelScope.launch { onHintSeen() }
+    }
+
+    override fun onCleared() {
+        _step2.value?.close()
+        super.onCleared()
     }
 }
