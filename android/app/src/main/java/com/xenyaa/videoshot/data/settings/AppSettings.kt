@@ -1,9 +1,12 @@
 package com.xenyaa.videoshot.data.settings
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.xenyaa.videoshot.core.similarity.FilterStrength
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -29,8 +32,31 @@ class AppSettings(context: Context) {
         store.edit { it[LAST_BACKUP_AT] = nowSec }
     }
 
+    /**
+     * 取圖第二步的「過濾相似強度」（規格第五節、帳號頁的設定項）。
+     * 存字串而不是 ordinal —— enum 之後若調整順序，ordinal 會讓舊值指到別的強度。
+     */
+    val filterStrength: Flow<FilterStrength> = store.data.map { prefs ->
+        prefs[FILTER_STRENGTH]
+            ?.let { name -> FilterStrength.entries.firstOrNull { it.name == name } }
+            ?: FilterStrength.MEDIUM
+    }
+
+    suspend fun setFilterStrength(value: FilterStrength) {
+        store.edit { it[FILTER_STRENGTH] = value.name }
+    }
+
+    /** 第二步「點一下收藏・長按看看那一段」這個一次性提示看過了沒（規格第五節）。 */
+    val gridHintSeen: Flow<Boolean> = store.data.map { it[GRID_HINT_SEEN] ?: false }
+
+    suspend fun markGridHintSeen() {
+        store.edit { it[GRID_HINT_SEEN] = true }
+    }
+
     private companion object {
         val LAST_CHANGED_AT = longPreferencesKey("last_changed_at")
         val LAST_BACKUP_AT = longPreferencesKey("last_backup_at")
+        val FILTER_STRENGTH = stringPreferencesKey("filter_strength")
+        val GRID_HINT_SEEN = booleanPreferencesKey("grid_hint_seen")
     }
 }
