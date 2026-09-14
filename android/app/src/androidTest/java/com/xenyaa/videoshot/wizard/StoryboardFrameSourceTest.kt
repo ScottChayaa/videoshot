@@ -181,6 +181,22 @@ class StoryboardFrameSourceTest {
     }
 
     @Test
+    fun 封面圖也拿不到時只試一次不會每批重試() = runBlocking {
+        val youtube = FakeYoutube { url ->
+            if (url.contains("hqdefault")) throw RuntimeException("cover 端點也掛了")
+            throw SheetForbidden(url)
+        }
+        val s = source(youtube, refreshSpec = { spec })
+        val batches = s.load().toList()
+
+        assertTrue("每一批都要標記得出來", batches.all { it.degradedToCover })
+        assertEquals(
+            "封面失敗也只該試一次，不是每個降級批次都重打（12 格 / 9 = 2 批，不能是 2）",
+            1, youtube.requested.count { it.contains("hqdefault") },
+        )
+    }
+
+    @Test
     fun close之後drafts裡的sheet還在_草稿要留著() = runBlocking {
         val s = source(FakeYoutube { fakeSheet(0) })
         s.load().toList()

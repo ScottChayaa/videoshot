@@ -14,6 +14,7 @@ import com.xenyaa.videoshot.thumbs.coverUrl
 import com.xenyaa.videoshot.thumbs.grayscale9x8
 import com.xenyaa.videoshot.youtube.SheetForbidden
 import com.xenyaa.videoshot.youtube.Youtube
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -85,6 +86,16 @@ class StoryboardFrameSource(
 
     /** 全部降級成封面圖時，封面只解一次、所有格共用。 */
     private var cover: ImageBitmap? = null
+
+    /** 封面試過一次就不再試 —— 失敗也算「試過」，否則每一個降級批次都會再打一次網路。 */
+    private var coverAttempted = false
+
+    /**
+     * 保護 [cache] 與 [cover]：縮圖牆用 `produceState` 對每個可見格子各跑一個協程呼叫
+     * [bitmapOf]，[load] 同時也在寫 [cover] —— `LinkedHashMap(accessOrder = true)` 連
+     * `get()` 都會動內部順序，不鎖起來就是真的資料競爭，不是風格問題。
+     */
+    private val cacheLock = Mutex()
 
     /** 最近用過的幾格。捲動時上下來回，留一點就省掉重複解 sheet。 */
     private val cache = object : LinkedHashMap<Int, ImageBitmap>(16, 0.75f, true) {
@@ -175,6 +186,8 @@ class StoryboardFrameSource(
                     }
                 }
                 if (!advanced) return null
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 return null
             }
@@ -184,7 +197,7 @@ class StoryboardFrameSource(
 
     override suspend fun bitmapOf(frameIndex: Int): ImageBitmap? {
         if (frameIndex !in 0 until plan.frameCount) return null
-        cache[frameIndex]?.let { return it }
+        cacheLock.withLock { cache[frameIndex] }?.let { return it }
 
         val pos = Storyboard.framePosition(level, frameIndex)
         val file = File(sheetsDir, "M${pos.sheetIndex}.jpg")
@@ -202,26 +215,36 @@ class StoryboardFrameSource(
         } else {
             loadCover()
         }
-        bitmap?.let { cache[frameIndex] = it }
+        // 只鎖 map 的存取 —— 解圖裁圖不包在鎖裡，格子之間仍然並行
+        bitmap?.let { b -> cacheLock.withLock { cache[frameIndex] = b } }
         return bitmap
     }
 
-    /** 封面無簽章、不會過期，所以缺圖時拿它頂著是安全的（規格第五節、第七節）。 */
-    private suspend fun loadCover(): ImageBitmap? {
-        cover?.let { return it }
-        return try {
+    /**
+     * 封面無簽章、不會過期，所以缺圖時拿它頂著是安全的（規格第五節、第七節）。
+     *
+     * 成功與失敗都只試一次（[coverAttempted]）——不然封面端點連不上時，
+     * 每一個降級批次、之後每一次 [bitmapOf] 都會再打一次網路，比不快取更糟。
+     */
+    private suspend fun loadCover(): ImageBitmap? = cacheLock.withLock {
+        if (coverAttempted) return@withLock cover
+        coverAttempted = true
+        cover = try {
             val bytes = youtube.sheet(coverUrl(videoId))
-            withContext(compute) {
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-            }?.also { cover = it }
+            withContext(compute) { BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap() }
+        } catch (e: CancellationException) {
+            coverAttempted = false   // 取消不算「試過了」
+            throw e
         } catch (e: Exception) {
             null
         }
+        cover
     }
 
     /** **不刪 sheet** —— 它綁在草稿上，由精靈完成或捨棄草稿時整個 `drafts/{videoId}/` 一起刪（規格第四節）。 */
     override fun close() {
         cache.clear()
         cover = null
+        coverAttempted = false
     }
 }
