@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,7 +50,7 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            Column {
+            Column(Modifier.statusBarsPadding()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     // 用文字的 ✕ 而不是 material-icons 的向量圖：少一個相依。
                     // IconButton 沒有 contentDescription 參數，改由 semantics 提供。
