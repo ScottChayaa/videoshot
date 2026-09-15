@@ -538,4 +538,35 @@ class Step2StoreTest {
         assertTrue(s.state.value.visible.contains(cell))
         s.close()
     }
+
+    @Test
+    fun 手動格要算進候選張數() = runTest(dispatcher) {
+        // 它就在牆上、也選得到，不算進去的話底部會寫「127 張候選」但牆上有 128 格
+        val source = FakeFrameSource(
+            plan = FramePlan("v", 3, List(4) { it * 10.0 }, lowQuality = false),
+            perSheet = 4,
+            // 彼此的漢明距離都遠大於中強度門檻 6 → 一張都不該被藏起來
+            hashes = listOf(0L, 0xFFFFFL, 0xFFFFF00000000L, -1L),
+        )
+        val s = store(source, scope = this)
+        advanceUntilIdle()
+        assertEquals(4, s.state.value.candidateCount)
+        s.addManual(atSec = 15.0, file = File("/tmp/a.webp"))
+        assertEquals(5, s.state.value.candidateCount)
+        s.close()
+    }
+
+    @Test
+    fun 狀態列的候選張數也含手動格() = runTest(dispatcher) {
+        val source = FakeFrameSource(
+            plan = FramePlan("v", 3, List(4) { it * 10.0 }, lowQuality = false),
+            perSheet = 4,
+            hashes = listOf(0L, 0L, 0L, 0L),   // 全部一樣 → 只留 1 格、藏 3 格
+        )
+        val s = store(source, scope = this)
+        advanceUntilIdle()
+        s.addManual(atSec = 15.0, file = File("/tmp/a.webp"))
+        assertEquals("已收斂成 2 張候選，隱藏了 3 張相似畫面", s.state.value.statusText)
+        s.close()
+    }
 }

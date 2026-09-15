@@ -215,7 +215,7 @@ private fun BottomBar(state: Step2State, onNext: () -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(
-            "${state.kept.size} 張候選 · 已選 ${state.selectedCount}",
+            "${state.candidateCount} 張候選 · 已選 ${state.selectedCount}",
             style = MaterialTheme.typography.bodySmall,
         )
         Button(onClick = onNext, enabled = state.selectedCount > 0) {

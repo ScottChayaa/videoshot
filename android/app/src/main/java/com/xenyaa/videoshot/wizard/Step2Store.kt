@@ -67,6 +67,14 @@ data class Step2State(
 ) {
     val selectedCount: Int get() = selected.size
 
+    /**
+     * 牆上可以挑的總格數 = 收斂後保留的 ＋ 手動補上的。
+     *
+     * **手動格一定要算進去** —— 它就在牆上、也選得到；只數 [kept] 的話，
+     * 截一張圖之後底部會寫「127 張候選」但牆上其實有 128 格。
+     */
+    val candidateCount: Int get() = kept.size + manual.size
+
     /** 格號 ≥ storyboard 的格數就是手動補圖。 */
     fun isManual(cell: Int): Boolean = cell >= plan.frameCount
 
@@ -105,8 +113,8 @@ data class Step2State(
             loadFailed && ready.isEmpty() -> "縮圖載入失敗，可以截圖補上"
             loadFailed -> "只載入了 ${ready.size} 張縮圖就失敗了，其餘可以截圖補上"
             showAll -> "顯示全部 ${plan.frameCount} 張"
-            hiddenCount > 0 -> "已收斂成 ${kept.size} 張候選，隱藏了 $hiddenCount 張相似畫面"
-            else -> "${kept.size} 張候選"
+            hiddenCount > 0 -> "已收斂成 $candidateCount 張候選，隱藏了 $hiddenCount 張相似畫面"
+            else -> "$candidateCount 張候選"
         }
 }
 
