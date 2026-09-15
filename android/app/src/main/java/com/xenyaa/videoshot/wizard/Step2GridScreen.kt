@@ -63,6 +63,10 @@ fun Step2GridScreen(
     onOnlySelected: (Boolean) -> Unit,
     onDismissHint: () -> Unit,
     onNext: () -> Unit,
+    /** 上一次【截圖】的失敗原因；null 代表沒有要說的。 */
+    captureError: CaptureError? = null,
+    onPickFromGallery: () -> Unit = {},
+    onDismissCaptureError: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxSize()) {
@@ -89,6 +93,10 @@ fun Step2GridScreen(
             TextButton(onClick = { onOnlySelected(!state.onlySelected) }) {
                 Text(if (state.onlySelected) "看全部" else "只看已選")
             }
+        }
+
+        captureError?.let {
+            CaptureErrorBar(it, onPickFromGallery, onDismissCaptureError)
         }
 
         if (!state.hintSeen) {
@@ -128,6 +136,51 @@ fun Step2GridScreen(
         }
 
         BottomBar(state, onNext)
+    }
+}
+
+/**
+ * 截不到時的提示（規格第五節、手冊 §四第二步）。
+ *
+ * **廣告與黑畫面分開講。** 廣告是暫時的（等廣告播完再截一次就好），
+ * 黑畫面與解不出圖則是這一格真的拿不到，只能從相簿補。講成同一句話會讓使用者
+ * 對廣告那種情況做錯處置 —— 跑去翻相簿找一張根本不存在的截圖。
+ *
+ * 存檔失敗也不給相簿退路：存不進去的話，從相簿選一張同樣存不進去。
+ */
+@Composable
+private fun CaptureErrorBar(
+    error: CaptureError,
+    onPickFromGallery: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val message = when (error) {
+        CaptureError.AD_PLAYING -> "廣告播放中，等廣告結束再截一次"
+        CaptureError.NOT_READY -> "播放器還沒準備好，稍等一下再截"
+        CaptureError.SAVE_FAILED -> "存不進手機，請確認儲存空間還夠"
+        CaptureError.BLACK_FRAME, CaptureError.NOT_DECODABLE -> "這一格截不到"
+    }
+    val offerGallery = error == CaptureError.BLACK_FRAME || error == CaptureError.NOT_DECODABLE
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.errorContainer)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            message,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onErrorContainer,
+            modifier = Modifier.weight(1f),
+        )
+        if (offerGallery) {
+            TextButton(onClick = onPickFromGallery) { Text("從相簿選") }
+        }
+        // 用文字而不是 material-icons：專案沒有引那個依賴，既有的鎖頭也是 emoji
+        TextButton(onClick = onDismiss) {
+            Text("✕", modifier = Modifier.semantics { contentDescription = "關閉" })
+        }
     }
 }
 

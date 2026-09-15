@@ -20,6 +20,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -41,6 +44,16 @@ import com.xenyaa.videoshot.player.PlayerSurface
 fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
     val step by vm.step.collectAsStateWithLifecycle()
     val furthest by vm.furthest.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    /**
+     * 相簿選圖（規格第五節的退路）。用 Photo Picker —— 它不需要讀取儲存空間的權限，
+     * 使用者只交出他挑的那一張。
+     */
+    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        // 按取消就是 null —— 什麼都不做，不要冒出一句錯誤訊息
+        if (uri != null) vm.addFromGalleryUri(context.contentResolver, uri)
+    }
+
     var askExit by remember { mutableStateOf(false) }
     var takenTapped by remember { mutableStateOf<Int?>(null) }
 
@@ -93,6 +106,7 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                         Text("正在載入縮圖…")
                     } else {
                         val state by current.state.collectAsStateWithLifecycle()
+                        val captureError by vm.captureError.collectAsStateWithLifecycle()
                         Column(Modifier.fillMaxSize()) {
                             // 播放器**釘在頂部**（規格第五節第二步的線框）
                             loaded?.page?.meta?.let { meta ->
@@ -122,6 +136,11 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                                 onOnlySelected = { current.setOnlySelected(it) },
                                 onDismissHint = { vm.dismissHint() },
                                 onNext = { vm.goTo(WizardStep.DETAILS) },
+                                captureError = captureError,
+                                onPickFromGallery = { pickImage.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                                ) },
+                                onDismissCaptureError = { vm.dismissCaptureError() },
                                 modifier = Modifier.weight(1f),
                             )
                         }

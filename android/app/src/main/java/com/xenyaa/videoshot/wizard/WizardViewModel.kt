@@ -1,5 +1,8 @@
 package com.xenyaa.videoshot.wizard
 
+import android.content.ContentResolver
+import android.graphics.ImageDecoder
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xenyaa.videoshot.core.similarity.FilterStrength
@@ -9,6 +12,7 @@ import com.xenyaa.videoshot.data.repo.model.RecentVideo
 import com.xenyaa.videoshot.capture.Capture
 import com.xenyaa.videoshot.capture.CaptureResult
 import com.xenyaa.videoshot.capture.ManualImageStore
+import com.xenyaa.videoshot.capture.encodeManualWebp
 import com.xenyaa.videoshot.player.Player
 import com.xenyaa.videoshot.wizard.frames.FrameSource
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * 精靈的流程狀態。放在 ViewModel 是為了**轉螢幕不丟東西** ——
@@ -237,6 +242,58 @@ class WizardViewModel(
                 player?.play()
             }
         }
+    }
+
+    /**
+     * 相簿選來的圖：秒數取播放器**當下**的位置。
+     *
+     * 那是近似值（圖跟播放器沒有關係），所以之後可以用 [nudgeManual] ±1 秒微調 ——
+     * 這正是它與【截圖】不同的地方：截圖的秒數與圖是同一瞬間取的，調了就對不上。
+     */
+    fun addFromGallery(webp: ByteArray) {
+        val store = _step2.value ?: return
+        val videoId = _loaded.value?.videoId ?: return
+        viewModelScope.launch {
+            val atSec = (player?.currentTime() ?: 0.0).coerceAtLeast(0.0)
+            val file = runCatching { manualImages(videoId).save(webp) }.getOrNull()
+            if (file == null) {
+                _captureError.value = CaptureError.SAVE_FAILED
+            } else {
+                store.addManual(atSec, file)
+                _captureError.value = null
+            }
+        }
+    }
+
+    /**
+     * 從 Photo Picker 的 uri 解圖、縮成 320×180 WebP，再交給 [addFromGallery]。
+     *
+     * **只有這一段碰得到 Android 的影像 API**；秒數與插入牆上的規則留在 [addFromGallery]，
+     * 那一段才測得動（`Bitmap` 在純 JVM 測試裡是 not mocked）。
+     * 解不出來、編不出來都當成一種失敗型態，不當機。
+     */
+    fun addFromGalleryUri(resolver: ContentResolver, uri: Uri) {
+        viewModelScope.launch {
+            val webp = withContext(Dispatchers.IO) {
+                runCatching {
+                    val bitmap = ImageDecoder.decodeBitmap(ImageDecoder.createSource(resolver, uri)) { d, _, _ ->
+                        // 要能讀 pixel（縮圖用得到），所以不能是 HARDWARE bitmap
+                        d.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                    }
+                    encodeManualWebp(bitmap)
+                }.getOrNull()
+            }
+            if (webp == null) _captureError.value = CaptureError.NOT_DECODABLE else addFromGallery(webp)
+        }
+    }
+
+    /**
+     * ±1 秒微調。**只有相簿選來的圖該用它**（規格第五節、手冊第 93 行）——
+     * 截圖的秒數與圖是同一瞬間取的，調了就對不上。這條規則由畫面把關：
+     * 只對相簿來的格子顯示微調鈕。
+     */
+    fun nudgeManual(cell: Int, deltaSec: Double) {
+        _step2.value?.nudgeManual(cell, deltaSec)
     }
 
     fun dismissHint() {

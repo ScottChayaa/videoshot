@@ -181,4 +181,61 @@ class WizardCaptureTest {
         assertEquals(CaptureError.NOT_READY, vm.captureError.value)
         assertEquals(0, vm.step2.value!!.state.value.manual.size)
     }
+
+    // ---- 相簿選圖（任務 9）----
+
+    @Test
+    fun 相簿選的圖以播放器當下秒數插進來() = runTest(dispatcher) {
+        val vm = readyViewModel(player = FakePlayer(initialTime = 77.0))
+        vm.addFromGallery(byteArrayOf(1, 2, 3))
+        advanceUntilIdle()
+        val manual = vm.step2.value!!.state.value.manual
+        assertEquals(1, manual.size)
+        assertEquals(77.0, manual.first().atSec, 0.0)
+    }
+
+    @Test
+    fun 相簿的圖可以微調秒數() = runTest(dispatcher) {
+        // 秒數不是從圖來的，只是「使用者當下停在哪」的近似值，所以**必須**可調
+        val vm = readyViewModel(player = FakePlayer(initialTime = 77.0))
+        vm.addFromGallery(byteArrayOf(1, 2, 3))
+        advanceUntilIdle()
+        val cell = vm.step2.value!!.state.value.manual.first().cellIndex
+        vm.nudgeManual(cell, 1.0)
+        assertEquals(78.0, vm.step2.value!!.state.value.atSecOf(cell), 0.0)
+    }
+
+    @Test
+    fun 微調不會把秒數推到負數() = runTest(dispatcher) {
+        val vm = readyViewModel(player = FakePlayer(initialTime = 0.5))
+        vm.addFromGallery(byteArrayOf(1, 2, 3))
+        advanceUntilIdle()
+        val cell = vm.step2.value!!.state.value.manual.first().cellIndex
+        vm.nudgeManual(cell, -1.0)
+        assertEquals(0.0, vm.step2.value!!.state.value.atSecOf(cell), 0.0)
+    }
+
+    @Test
+    fun 微調之後牆上的位置跟著變() = runTest(dispatcher) {
+        // 10 秒一格的牆上，5 秒的圖排在第 1 格之後；調到 15 秒要跳到第 2 格之後
+        val vm = readyViewModel(player = FakePlayer(initialTime = 5.0), frameCount = 4)
+        vm.addFromGallery(byteArrayOf(1, 2, 3))
+        advanceUntilIdle()
+        val store = vm.step2.value!!
+        store.setShowAll(true)
+        val cell = store.state.value.manual.first().cellIndex
+        assertEquals(1, store.state.value.visible.indexOf(cell))
+        vm.nudgeManual(cell, 10.0)
+        assertEquals(2, store.state.value.visible.indexOf(cell))
+    }
+
+    @Test
+    fun 相簿的圖存不進去時回報而不是當機() = runTest(dispatcher) {
+        val blocked = tempDir().resolve("blocked")
+        blocked.writeText("我是檔案不是目錄")
+        val vm = readyViewModel(manualDir = blocked.resolve("manual"))
+        vm.addFromGallery(byteArrayOf(1, 2, 3))
+        advanceUntilIdle()
+        assertEquals(CaptureError.SAVE_FAILED, vm.captureError.value)
+    }
 }
