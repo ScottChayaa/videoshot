@@ -362,4 +362,36 @@ class WizardDraftTest {
         // 使用者打過的字要跟著搬家，不能因為鍵換了就靜靜不見
         assertEquals("冬山河", vm.step3.value!!.state.value.details[6]!!.place)
     }
+
+    @Test
+    fun 續做時層級變了_沒勾的手動圖不會自己被勾回來() = runTest(dispatcher) {
+        val dir = File(tmp.root, "v1").apply { mkdirs() }
+        File(dir, "a.webp").writeBytes(byteArrayOf(1))
+        File(dir, "b.webp").writeBytes(byteArrayOf(2))
+        val payload = DraftPayload(
+            "v1", step = 2, level = 3, frameCount = 4,
+            // 兩張手動圖，使用者離開前只留下第 5 格 —— 第 4 格是他刻意取消掉的
+            selected = listOf(5),
+            manual = listOf(
+                DraftManual(cell = 4, atSec = 10.0, fileName = "a.webp", fromGallery = false),
+                DraftManual(cell = 5, atSec = 20.0, fileName = "b.webp", fromGallery = true),
+            ),
+        )
+        val vm = vmWith(
+            DraftData(DraftCodec.encode(payload)),
+            frameSource = {
+                FakeFrameSource(
+                    plan = FramePlan("v1", level = 2, atSec = List(6) { it * 5.0 }, lowQuality = true),
+                    perSheet = 6,
+                )
+            },
+        )
+        advanceUntilIdle()
+        vm.resumeDraft(); advanceUntilIdle()
+        val state = vm.step2.value!!.state.value
+        // 兩張都還在牆上（換層級不影響手動圖本身），但格號整批往後搬
+        assertEquals(listOf(6, 7), state.manual.map { it.cellIndex })
+        // **勾選狀態要跟著搬** —— 一律勾上的話，使用者刻意取消的那張會被寫進 library.db
+        assertEquals(setOf(7), state.selected)
+    }
 }

@@ -163,7 +163,10 @@ class WizardViewModel(
             }
             val renumbered = survivors.map { it.cellIndex }.zip(restored.map { it.cellIndex }).toMap()
             val selected = if (levelChanged) {
-                restored.map { it.cellIndex }.toSet()
+                // 層級換了只留手動圖，但**勾選狀態要跟著搬，不是一律勾上** ——
+                // 使用者刻意取消勾選的截圖不該因為續做就自己回來，那會把他沒要的圖寫進 library.db。
+                // renumbered 裡只有活著的手動格，所以 storyboard 的勾選自己就落空了，不必再過濾
+                payload.selected.mapNotNull { renumbered[it] }.toSet()
             } else {
                 payload.selected.toSet()
             }
