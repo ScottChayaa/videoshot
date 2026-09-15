@@ -171,7 +171,7 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                             onEditPlace = { current.editPlace(it) },
                             onEditDescription = { current.editDescription(it) },
                             onEditTags = { current.editTags(it) },
-                            onApply = { current.applyPatch() },
+                            onApply = { vm.applyDetails() },
                             onFinish = { vm.finish() },
                             placeSuggestions = suggestions.places,
                             tagSuggestions = suggestions.tags,
@@ -187,6 +187,19 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
             onKeep = { askExit = false; vm.keepDraft(); onExit() },
             onDiscard = { askExit = false; vm.discardDraft(); onExit() },
             onDismiss = { askExit = false },
+        )
+    }
+
+    val draftPrompt by vm.draftPrompt.collectAsStateWithLifecycle()
+    draftPrompt?.let { prompt ->
+        val stepName = WizardStep.entries.firstOrNull { it.order == prompt.step }?.label ?: "挑畫面"
+        AlertDialog(
+            // 點外面不算回答 —— 兩個選項的後果差很多（其中一個會刪掉手動補圖）
+            onDismissRequest = {},
+            title = { Text("上次做到「$stepName」，要繼續嗎？") },
+            text = { Text("選【重新開始】會把上次的選擇與補圖一起清掉。") },
+            confirmButton = { TextButton(onClick = { vm.resumeDraft() }) { Text("繼續") } },
+            dismissButton = { TextButton(onClick = { vm.startOver() }) { Text("重新開始") } },
         )
     }
 

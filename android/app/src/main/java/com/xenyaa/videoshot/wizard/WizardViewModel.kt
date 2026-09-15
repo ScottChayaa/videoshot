@@ -7,6 +7,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xenyaa.videoshot.core.details.ShotDetails
 import com.xenyaa.videoshot.core.details.eventDateOf
+import com.xenyaa.videoshot.core.draft.DraftCodec
+import com.xenyaa.videoshot.core.draft.DraftManual
+import com.xenyaa.videoshot.core.draft.DraftPayload
+import com.xenyaa.videoshot.core.draft.toDraftDetails
+import com.xenyaa.videoshot.core.draft.toShotDetails
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.url.parseVideoId
 import com.xenyaa.videoshot.core.youtube.FetchResult
@@ -75,6 +80,8 @@ class WizardViewModel(
         if (target != WizardStep.URL) _hasDraft.value = true
         // 每次進第三步都重建 —— 使用者可能回第二步改了勾選，舊的格子清單已經不對了
         if (target == WizardStep.DETAILS) openStep3()
+        // 存檔時機之一：步驟變了。openStep3() 已經跑過，_step3 才有值
+        if (target != WizardStep.URL) saveDraft()
     }
 
     /** 點進度列上的某一段。只有已完成的步驟能點回去。 */
@@ -93,9 +100,111 @@ class WizardViewModel(
         return true
     }
 
-    fun keepDraft() { _hasDraft.value = true }
+    fun keepDraft() {
+        _hasDraft.value = true
+        saveDraft()
+    }
 
-    fun discardDraft() { _hasDraft.value = false }
+    /** 捨棄草稿**就是刪目錄** —— 手動圖在完成前都在那裡，不刪就會留下孤兒資料（規格第五節）。 */
+    fun discardDraft() {
+        _hasDraft.value = false
+        val videoId = _loaded.value?.videoId ?: return
+        viewModelScope.launch { runCatching { data.clearDraft(videoId) } }
+    }
+
+    // ---- 草稿 ----
+
+    /** 「上次《…》做到第幾步，要繼續嗎？」正在問。null 代表沒有草稿或已經回答過了。 */
+    private val _draftPrompt = MutableStateFlow<DraftPrompt?>(null)
+    val draftPrompt: StateFlow<DraftPrompt?> = _draftPrompt.asStateFlow()
+
+    /** 目前這一份草稿。續做時要靠它把勾選與圖資還原回去。 */
+    private var pendingDraft: DraftPayload? = null
+
+    private fun loadDraft() {
+        viewModelScope.launch {
+            val text = runCatching { data.currentDraft() }.getOrNull() ?: return@launch
+            // 解不出來就當作沒有草稿 —— 壞掉的草稿只該讓問句不出現，不該讓 app 開不起來
+            val payload = DraftCodec.decode(text) ?: return@launch
+            pendingDraft = payload
+            _draftPrompt.value = DraftPrompt(payload.videoId, payload.step)
+        }
+    }
+
+    /**
+     * 【繼續】。**先重抓 watch page**（規格第五節）—— sprite 的簽章可能已經過期。
+     * sheet 若還在本機就不會重新下載（見 `StoryboardFrameSource.fetchSheet`）。
+     */
+    fun resumeDraft() {
+        val payload = pendingDraft ?: return
+        _draftPrompt.value = null
+        viewModelScope.launch {
+            openRecentAndAwait(payload.videoId) ?: return@launch
+            val store2 = _step2.value ?: return@launch
+            payload.manual.forEach { m ->
+                // 檔案不見了（使用者清了資料）就跳過這一張，其餘照常還原
+                val file = manualImages(payload.videoId).fileNamed(m.fileName) ?: return@forEach
+                store2.addManual(m.atSec, file, m.fromGallery)
+            }
+            // 還原勾選：預設是沒有任何勾選，逐格 toggle 回去
+            payload.selected.forEach { store2.toggle(it) }
+            if (payload.step >= 3) {
+                goTo(WizardStep.DETAILS)
+                _step3.value?.restore(
+                    details = payload.details.mapNotNull { (key, value) ->
+                        key.toIntOrNull()?.let { it to value.toShotDetails() }
+                    }.toMap(),
+                    selected = payload.selected.toSet(),
+                )
+                // goTo 那一步存過一次草稿，但當時 restore 還沒跑，存進去的 details 是空的。
+                // 這裡再存一次，讓磁碟上的草稿不依賴協程排程的巧合
+                saveDraft()
+            }
+        }
+    }
+
+    /** 【重新開始】。草稿目錄一起刪 —— 手動圖在完成前都在那裡，不刪就是孤兒檔案（規格第五節）。 */
+    fun startOver() {
+        val payload = pendingDraft ?: return
+        pendingDraft = null
+        _draftPrompt.value = null
+        viewModelScope.launch { runCatching { data.clearDraft(payload.videoId) } }
+    }
+
+    /**
+     * 把目前的狀態寫成草稿。
+     *
+     * **只在三個時機呼叫**：步驟變了、套用過一輪圖資、使用者選【保留草稿並離開】。
+     * 不是每次勾選都存 —— 一次取圖會勾上百次，而勾選丟掉的代價（重點幾下）
+     * 遠小於圖資丟掉的代價（重打一輪字）。
+     */
+    private fun saveDraft() {
+        val video = _loaded.value ?: return
+        val state2 = _step2.value?.state?.value ?: return
+        val state3 = _step3.value?.state?.value
+        viewModelScope.launch {
+            val payload = DraftPayload(
+                videoId = video.videoId,
+                step = _step.value.order,
+                level = state2.plan.level,
+                frameCount = state2.plan.frameCount,
+                selected = (state3?.selected ?: state2.selected).sorted(),
+                manual = state2.manual.map {
+                    DraftManual(it.cellIndex, it.atSec, it.file.name, it.fromGallery)
+                },
+                details = state3?.details.orEmpty()
+                    .mapKeys { it.key.toString() }
+                    .mapValues { it.value.toDraftDetails() },
+            )
+            runCatching { data.saveDraft(DraftCodec.encode(payload)) }
+        }
+    }
+
+    /** 第三步的【套用到 N 張】走這裡而不是直接呼叫 store —— 套完要順手存一次草稿。 */
+    fun applyDetails() {
+        _step3.value?.applyPatch()
+        saveDraft()
+    }
 
     // ---- 第一步 ----
 
@@ -123,6 +232,7 @@ class WizardViewModel(
                 tags = runCatching { data.allTagNames() }.getOrDefault(emptyList()),
             )
         }
+        loadDraft()
     }
 
     fun submit(input: String) {
@@ -137,28 +247,39 @@ class WizardViewModel(
     }
 
     fun openRecent(videoId: String) {
+        viewModelScope.launch { openRecentAndAwait(videoId) }
+    }
+
+    /**
+     * @return 成功載入的影片；失敗回 null（錯誤已經寫進 [_status]）。
+     *
+     * 拆成可以等的版本是給續做用的 —— [resumeDraft] 要等影片真的載完，
+     * 才能把勾選與圖資還原進剛建好的 [Step2Store]。
+     */
+    private suspend fun openRecentAndAwait(videoId: String): LoadedVideo? {
         _status.value = Step1Status.Loading
-        viewModelScope.launch {
-            val page = data.watchPage(videoId)
-            when (page.result) {
-                FetchResult.FETCH_FAILED ->
-                    _status.value = Step1Status.Error("取圖需要網路。")
+        val page = data.watchPage(videoId)
+        return when (page.result) {
+            FetchResult.FETCH_FAILED -> {
+                _status.value = Step1Status.Error("取圖需要網路。"); null
+            }
 
-                FetchResult.VIDEO_UNAVAILABLE ->
-                    _status.value = Step1Status.Error(
-                        "這支影片抓不到，可能是私人影片、已被刪除或需要登入。"
-                    )
+            FetchResult.VIDEO_UNAVAILABLE -> {
+                _status.value = Step1Status.Error(
+                    "這支影片抓不到，可能是私人影片、已被刪除或需要登入。"
+                ); null
+            }
 
-                // no_storyboard 與 parse_failed **仍然進第二步** —— 縮圖牆空白，但可以截圖補上
-                // （規格第五節第一步的表、第七節降級表）
-                FetchResult.OK, FetchResult.NO_STORYBOARD, FetchResult.PARSE_FAILED -> {
-                    val video = LoadedVideo(videoId = videoId, page = page)
-                    _loaded.value = video
-                    // 建狀態機要先問一次 DB（已收藏的格號），所以**轉圈圈留到這之後才收掉**
-                    openStep2(video)
-                    _status.value = Step1Status.Idle
-                    goTo(WizardStep.PICK)
-                }
+            // no_storyboard 與 parse_failed **仍然進第二步** —— 縮圖牆空白，但可以截圖補上
+            // （規格第五節第一步的表、第七節降級表）
+            FetchResult.OK, FetchResult.NO_STORYBOARD, FetchResult.PARSE_FAILED -> {
+                val video = LoadedVideo(videoId = videoId, page = page)
+                _loaded.value = video
+                // 建狀態機要先問一次 DB（已收藏的格號），所以**轉圈圈留到這之後才收掉**
+                openStep2(video)
+                _status.value = Step1Status.Idle
+                goTo(WizardStep.PICK)
+                video
             }
         }
     }

@@ -46,4 +46,7 @@ class ManualImageStore(private val dir: File) {
     fun clear() {
         dir.deleteRecursively()
     }
+
+    /** 還原草稿用：依檔名取回。檔案不在就回 null —— 少一張補圖不該讓整份草稿報廢。 */
+    fun fileNamed(name: String): File? = File(dir, name).takeIf { it.exists() }
 }
