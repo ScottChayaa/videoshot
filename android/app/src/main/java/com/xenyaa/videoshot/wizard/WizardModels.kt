@@ -52,3 +52,9 @@ interface WizardData {
      */
     suspend fun takenFrameIndexes(videoId: String, level: Int): Set<Int>
 }
+
+/**
+ * 截圖失敗的原因。**不是一個 boolean** —— 畫面要講得出為什麼：
+ * 廣告是「等一下再試」、黑畫面是「這一格截不到，改用相簿」，兩者的處置完全不同。
+ */
+enum class CaptureError { BLACK_FRAME, NOT_DECODABLE, AD_PLAYING, NOT_READY, SAVE_FAILED }

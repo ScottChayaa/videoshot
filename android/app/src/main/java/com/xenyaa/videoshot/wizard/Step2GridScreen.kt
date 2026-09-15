@@ -3,6 +3,7 @@ package com.xenyaa.videoshot.wizard
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -34,7 +35,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.xenyaa.videoshot.wizard.frames.FrameSource
 
 /**
  * 第二步：從縮圖牆挑圖。
@@ -48,16 +48,28 @@ import com.xenyaa.videoshot.wizard.frames.FrameSource
 @Composable
 fun Step2GridScreen(
     state: Step2State,
-    source: FrameSource,
+    /**
+     * 第 N 格的圖。**不收 `FrameSource`** —— 手動補圖來自 `drafts/…/manual/`，
+     * 不是 storyboard 的來源；畫面只需要「給我第 N 格的圖」，不必知道它從哪來
+     * （與 `thumbFor(shot)` 把兩種來源收斂在一處是同一個道理，規格第三節邊界 2）。
+     */
+    bitmapFor: suspend (Int) -> ImageBitmap?,
     haptics: Haptics,
     onToggle: (Int) -> Unit,
     onPlayFrame: (Int) -> Unit,
     onTakenTap: (Int) -> Unit,
     onSelectAll: () -> Unit,
+    onTakeShot: () -> Unit,
     onShowAll: (Boolean) -> Unit,
     onOnlySelected: (Boolean) -> Unit,
     onDismissHint: () -> Unit,
     onNext: () -> Unit,
+    /** 上一次【截圖】的失敗原因；null 代表沒有要說的。 */
+    captureError: CaptureError? = null,
+    onPickFromGallery: () -> Unit = {},
+    onDismissCaptureError: () -> Unit = {},
+    /** 微調某一格的秒數。**只有相簿來的格子會呼叫它**（規格第五節）。 */
+    onNudgeManual: (Int, Double) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxSize()) {
@@ -79,9 +91,15 @@ fun Step2GridScreen(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             TextButton(onClick = onSelectAll) { Text("全部選取") }
+            // 順序照規格第五節的線框：全部選取│截圖│只看已選
+            TextButton(onClick = onTakeShot) { Text("截圖") }
             TextButton(onClick = { onOnlySelected(!state.onlySelected) }) {
                 Text(if (state.onlySelected) "看全部" else "只看已選")
             }
+        }
+
+        captureError?.let {
+            CaptureErrorBar(it, onPickFromGallery, onDismissCaptureError)
         }
 
         if (!state.hintSeen) {
@@ -105,11 +123,14 @@ fun Step2GridScreen(
             items(state.visible, key = { it }) { frameIndex ->
                 FrameCell(
                     frameIndex = frameIndex,
-                    atSec = state.plan.atSec.getOrElse(frameIndex) { 0.0 },
+                    atSec = state.atSecOf(frameIndex),
+                    manual = state.isManual(frameIndex),
+                    nudgable = state.manual.firstOrNull { it.cellIndex == frameIndex }?.fromGallery == true,
+                    onNudge = { delta -> onNudgeManual(frameIndex, delta) },
                     selected = frameIndex in state.selected,
                     taken = frameIndex in state.taken,
                     playing = state.playingFrame == frameIndex,
-                    source = source,
+                    bitmapFor = bitmapFor,
                     haptics = haptics,
                     onToggle = { onToggle(frameIndex) },
                     onTakenTap = { onTakenTap(frameIndex) },
@@ -120,6 +141,51 @@ fun Step2GridScreen(
         }
 
         BottomBar(state, onNext)
+    }
+}
+
+/**
+ * 截不到時的提示（規格第五節、手冊 §四第二步）。
+ *
+ * **廣告與黑畫面分開講。** 廣告是暫時的（等廣告播完再截一次就好），
+ * 黑畫面與解不出圖則是這一格真的拿不到，只能從相簿補。講成同一句話會讓使用者
+ * 對廣告那種情況做錯處置 —— 跑去翻相簿找一張根本不存在的截圖。
+ *
+ * 存檔失敗也不給相簿退路：存不進去的話，從相簿選一張同樣存不進去。
+ */
+@Composable
+private fun CaptureErrorBar(
+    error: CaptureError,
+    onPickFromGallery: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val message = when (error) {
+        CaptureError.AD_PLAYING -> "廣告播放中，等廣告結束再截一次"
+        CaptureError.NOT_READY -> "播放器還沒準備好，稍等一下再截"
+        CaptureError.SAVE_FAILED -> "存不進手機，請確認儲存空間還夠"
+        CaptureError.BLACK_FRAME, CaptureError.NOT_DECODABLE -> "這一格截不到"
+    }
+    val offerGallery = error == CaptureError.BLACK_FRAME || error == CaptureError.NOT_DECODABLE
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.errorContainer)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            message,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onErrorContainer,
+            modifier = Modifier.weight(1f),
+        )
+        if (offerGallery) {
+            TextButton(onClick = onPickFromGallery) { Text("從相簿選") }
+        }
+        // 用文字而不是 material-icons：專案沒有引那個依賴，既有的鎖頭也是 emoji
+        TextButton(onClick = onDismiss) {
+            Text("✕", modifier = Modifier.semantics { contentDescription = "關閉" })
+        }
     }
 }
 
@@ -149,7 +215,7 @@ private fun BottomBar(state: Step2State, onNext: () -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(
-            "${state.kept.size} 張候選 · 已選 ${state.selectedCount}",
+            "${state.candidateCount} 張候選 · 已選 ${state.selectedCount}",
             style = MaterialTheme.typography.bodySmall,
         )
         Button(onClick = onNext, enabled = state.selectedCount > 0) {
@@ -169,10 +235,13 @@ private fun BottomBar(state: Step2State, onNext: () -> Unit) {
 private fun FrameCell(
     frameIndex: Int,
     atSec: Double,
+    manual: Boolean,
+    nudgable: Boolean,
+    onNudge: (Double) -> Unit,
     selected: Boolean,
     taken: Boolean,
     playing: Boolean,
-    source: FrameSource,
+    bitmapFor: suspend (Int) -> ImageBitmap?,
     haptics: Haptics,
     onToggle: () -> Unit,
     onTakenTap: () -> Unit,
@@ -215,7 +284,44 @@ private fun FrameCell(
                 // 一格一個語意節點，測試與輔助技術都靠它定位
                 .semantics { contentDescription = "第 ${frameIndex + 1} 格 $clock" }
         ) {
-            FrameImage(source, frameIndex, Modifier.fillMaxSize())
+            FrameImage(bitmapFor, frameIndex, Modifier.fillMaxSize())
+
+            if (manual) {
+                // 「截圖」標記：這一格是使用者自己補的，不是 YouTube 的 storyboard（規格第五節）。
+                // 放左上角 —— 右上角是 ▶，右下角是時間標籤
+                Text(
+                    "📷",
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(2.dp)
+                        .semantics { contentDescription = "截圖" },
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
+
+            if (nudgable) {
+                // ±1 秒微調：**只有相簿選來的圖有**。截圖的圖與秒數是同一瞬間取的，
+                // 給了微調鈕等於承諾一件做不到的事（規格第五節、手冊第 93 行）
+                Row(
+                    Modifier.align(Alignment.BottomStart).padding(2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "−",
+                        modifier = Modifier
+                            .clickable { onNudge(-1.0) }
+                            .padding(horizontal = 6.dp)
+                            .semantics { contentDescription = "往前 1 秒" },
+                    )
+                    Text(
+                        "＋",
+                        modifier = Modifier
+                            .clickable { onNudge(1.0) }
+                            .padding(horizontal = 6.dp)
+                            .semantics { contentDescription = "往後 1 秒" },
+                    )
+                }
+            }
 
             if (taken) {
                 // 灰＋鎖：先前已收藏過（規格第五節互動表）
@@ -259,14 +365,21 @@ private fun FrameCell(
 /**
  * 圖是**要畫的時候才去拿**（規格第二節第 6 點：148 格全部留在記憶體要 34 MB）。
  *
- * `source` 也是 key，**不能只用 frameIndex**：`LazyVerticalGrid` 的 item 同樣以 frameIndex 當 key，
+ * [bitmapFor] 也是 key，**不能只用 frameIndex**：`LazyVerticalGrid` 的 item 同樣以 frameIndex 當 key，
  * 所以換一支影片、`Step2Store` 被換掉之後，item 的槽位會存活下來；producer 只看 frameIndex
  * 的話不會重跑，那些格子會繼續畫**前一支影片**的 bitmap，直到使用者把它們捲出畫面再捲回來。
+ *
+ * 因此呼叫端**必須把 [bitmapFor] `remember` 起來、並以 `Step2Store` 當 key**：
+ * 每次重組都給一個新的 lambda 的話，這裡會每次重組都重新解一次圖。
  */
 @Composable
-private fun FrameImage(source: FrameSource, frameIndex: Int, modifier: Modifier) {
-    val bitmap: ImageBitmap? by produceState<ImageBitmap?>(initialValue = null, source, frameIndex) {
-        value = source.bitmapOf(frameIndex)
+private fun FrameImage(
+    bitmapFor: suspend (Int) -> ImageBitmap?,
+    frameIndex: Int,
+    modifier: Modifier,
+) {
+    val bitmap: ImageBitmap? by produceState<ImageBitmap?>(initialValue = null, bitmapFor, frameIndex) {
+        value = bitmapFor(frameIndex)
     }
     bitmap?.let {
         Image(bitmap = it, contentDescription = null, contentScale = ContentScale.Crop, modifier = modifier)

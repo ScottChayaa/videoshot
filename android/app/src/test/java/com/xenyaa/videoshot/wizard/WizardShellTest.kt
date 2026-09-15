@@ -40,6 +40,8 @@ class WizardShellTest {
         strength = kotlinx.coroutines.flow.flowOf(com.xenyaa.videoshot.core.similarity.FilterStrength.MEDIUM),
         hintSeen = kotlinx.coroutines.flow.flowOf(true),
         onHintSeen = {},
+        manualImages = { com.xenyaa.videoshot.capture.ManualImageStore(java.io.File("/tmp/unused")) },
+        captureFor = { null },
     )
 
     private fun show(vm: WizardViewModel = newVm()) {

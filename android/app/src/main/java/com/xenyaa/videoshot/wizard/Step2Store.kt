@@ -4,7 +4,11 @@ import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.similarity.Fingerprint
 import com.xenyaa.videoshot.core.similarity.converge
 import com.xenyaa.videoshot.wizard.frames.FramePlan
+import android.graphics.BitmapFactory
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import com.xenyaa.videoshot.wizard.frames.FrameSource
+import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -14,6 +18,26 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+/**
+ * 一張手動補圖（【截圖】或【從相簿選】產生的）。
+ *
+ * **格號接在 storyboard 的格數之後往上編**（`plan.frameCount`、`+1`、`+2`…）。
+ * 這樣 [Step2State] 的 `ready`／`kept`／`selected`／`taken` 全部維持 `Set<Int>`，
+ * 階段 4b 驗收過的收斂與勾選規則一行都不用動。代價是「格號 ≥ frameCount 就是手動圖」
+ * 這個約定是隱性的 —— 它只能出現在 [Step2State.isManual] 與 [Step2State.atSecOf] 裡，
+ * 不要讓這個比較散落到畫面程式碼。
+ *
+ * @param atSec 截圖來的是「與圖同一瞬間」的秒數；相簿來的是播放器當下的近似值
+ * @param fromGallery 從相簿選的。**只有它的時間可以 ±1 秒微調**（規格第五節、手冊第 93 行）——
+ *        截圖的圖與秒數是同一瞬間取的，一調就對不上了
+ */
+data class ManualCell(
+    val cellIndex: Int,
+    val atSec: Double,
+    val file: File,
+    val fromGallery: Boolean,
+)
 
 /**
  * 第二步的畫面狀態。
@@ -38,8 +62,32 @@ data class Step2State(
     /** 載入中途整條 flow 掛掉（磁碟滿、OOM…）。**畫得出來**才叫降級，不然使用者只看到卡住的進度文案。 */
     val loadFailed: Boolean = false,
     val hintSeen: Boolean = true,
+    /** 手動補圖，依加入順序。牆上的位置由 [atSecOf] 決定，不是這個順序。 */
+    val manual: List<ManualCell> = emptyList(),
 ) {
     val selectedCount: Int get() = selected.size
+
+    /**
+     * 牆上可以挑的總格數 = 收斂後保留的 ＋ 手動補上的。
+     *
+     * **手動格一定要算進去** —— 它就在牆上、也選得到；只數 [kept] 的話，
+     * 截一張圖之後底部會寫「127 張候選」但牆上其實有 128 格。
+     */
+    val candidateCount: Int get() = kept.size + manual.size
+
+    /** 格號 ≥ storyboard 的格數就是手動補圖。 */
+    fun isManual(cell: Int): Boolean = cell >= plan.frameCount
+
+    /**
+     * 這一格對應影片的第幾秒。手動格查表，storyboard 格直接取 [FramePlan.atSec]。
+     * 查不到的手動格回 0.0 —— 排序不該為了一筆髒資料而爆掉。
+     */
+    fun atSecOf(cell: Int): Double =
+        if (isManual(cell)) {
+            manual.firstOrNull { it.cellIndex == cell }?.atSec ?: 0.0
+        } else {
+            plan.atSec.getOrElse(cell) { 0.0 }
+        }
 
     /**
      * 目前牆上要畫哪些格。
@@ -50,7 +98,11 @@ data class Step2State(
     val visible: List<Int>
         get() {
             val base = if (converging || showAll) ready.sorted() else kept.filter { it in ready }
-            return if (onlySelected) base.filter { it in selected } else base
+            // 手動格永遠在牆上 —— 收斂不該把使用者自己剛補的圖藏掉
+            val all = base + manual.map { it.cellIndex }
+            val shown = if (onlySelected) all.filter { it in selected } else all
+            // 依時間排序：手動圖要插在「對應時間的位置」（規格第五節）
+            return shown.sortedBy { atSecOf(it) }
         }
 
     /** 頂部狀態列的文案。手冊 §四要求它講得出「收斂成幾張、藏了幾張」。 */
@@ -61,8 +113,8 @@ data class Step2State(
             loadFailed && ready.isEmpty() -> "縮圖載入失敗，可以截圖補上"
             loadFailed -> "只載入了 ${ready.size} 張縮圖就失敗了，其餘可以截圖補上"
             showAll -> "顯示全部 ${plan.frameCount} 張"
-            hiddenCount > 0 -> "已收斂成 ${kept.size} 張候選，隱藏了 $hiddenCount 張相似畫面"
-            else -> "${kept.size} 張候選"
+            hiddenCount > 0 -> "已收斂成 $candidateCount 張候選，隱藏了 $hiddenCount 張相似畫面"
+            else -> "$candidateCount 張候選"
         }
 }
 
@@ -204,6 +256,62 @@ class Step2Store(
             current.selected + selectable
         }
         _state.value = current.copy(selected = next)
+    }
+
+    /**
+     * 補一張手動圖進牆上，**預設已勾選**（規格第五節：「以已勾選狀態插入縮圖牆」）。
+     *
+     * @return 新格子的格號
+     */
+    fun addManual(atSec: Double, file: File, fromGallery: Boolean = false): Int {
+        val current = _state.value
+        val cell = current.plan.frameCount + current.manual.size
+        _state.value = current.copy(
+            manual = current.manual + ManualCell(cell, atSec, file, fromGallery),
+            selected = current.selected + cell,
+            ready = current.ready + cell,
+        )
+        return cell
+    }
+
+    /**
+     * ±1 秒微調。**只對相簿選來的圖有效**（規格第五節、手冊第 93 行）——
+     * 截圖的秒數與圖是同一瞬間取的，調了就對不上。
+     *
+     * 畫面上本來就只對相簿來的格子顯示微調鈕，這裡**再擋一次**：
+     * 規格明訂的規則不該只靠畫面把關。
+     */
+    fun nudgeManual(cell: Int, deltaSec: Double) {
+        val current = _state.value
+        _state.value = current.copy(
+            manual = current.manual.map {
+                if (it.cellIndex == cell && it.fromGallery) {
+                    it.copy(atSec = (it.atSec + deltaSec).coerceAtLeast(0.0))
+                } else {
+                    it
+                }
+            },
+        )
+    }
+
+    /**
+     * 第 N 格的圖，**storyboard 與手動補圖都走這裡**。
+     *
+     * 解不出來一律回 null、不丟例外（與 [FrameSource] 同契約）：檔案被清掉、
+     * 內容壞掉、解到一半 OOM，都只該讓這一格空著。
+     */
+    suspend fun bitmapOfCell(cell: Int): ImageBitmap? {
+        val entry = _state.value.manual.firstOrNull { it.cellIndex == cell }
+            ?: return source.bitmapOf(cell)
+        return withContext(compute) {
+            try {
+                BitmapFactory.decodeFile(entry.file.path)?.asImageBitmap()
+            } catch (e: OutOfMemoryError) {
+                null
+            } catch (e: Exception) {
+                null
+            }
+        }
     }
 
     fun markPlaying(frameIndex: Int?) {

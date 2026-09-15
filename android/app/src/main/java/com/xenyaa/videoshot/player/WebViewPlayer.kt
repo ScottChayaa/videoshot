@@ -64,6 +64,15 @@ class WebViewPlayer(private val webView: WebView) : Player {
         return raw.trim().removeSurrounding("\"").toDoubleOrNull() ?: -1.0
     }
 
+    /**
+     * 給 `capture` 用的執行入口。
+     *
+     * 交出去的是「在這個播放器上跑一段 JS」這個能力，**不是 WebView 本身** ——
+     * 截圖實作要藏在 `capture` 介面後面（規格第三節邊界 4），
+     * 把 WebView 交出去等於讓別的模組可以對播放器做任何事。
+     */
+    internal suspend fun evaluate(js: String): String = eval(js)
+
     /** evaluateJavascript 是回呼式的，包成 suspend 才能在流程裡照順序寫。 */
     private suspend fun eval(js: String): String = suspendCancellableCoroutine { cont ->
         webView.post { webView.evaluateJavascript(js) { cont.resume(it ?: "") } }

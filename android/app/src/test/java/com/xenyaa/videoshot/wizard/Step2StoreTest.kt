@@ -24,6 +24,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.io.File
 
 /**
  * 狀態機**不依賴 Android**，所以用普通 JUnit 跑，不進 Robolectric ——
@@ -442,5 +443,130 @@ class Step2StoreTest {
         advanceUntilIdle()
 
         assertEquals("縮圖載入失敗，可以截圖補上", s.state.value.statusText)
+    }
+
+    // ---- 手動補圖（階段 4c）----
+
+    private fun TestScope.storeOf(frameCount: Int, intervalSec: Double = 10.0): Step2Store {
+        val source = FakeFrameSource.of(frameCount = frameCount, intervalSec = intervalSec)
+        return store(source, scope = this)
+    }
+
+    @Test
+    fun 手動格的格號接在storyboard後面() = runTest(dispatcher) {
+        val s = storeOf(frameCount = 10)
+        advanceUntilIdle()
+        val cell = s.addManual(atSec = 15.0, file = File("/tmp/a.webp"))
+        assertEquals(10, cell)
+        assertTrue(s.state.value.isManual(cell))
+        assertFalse(s.state.value.isManual(9))
+        s.close()
+    }
+
+    @Test
+    fun 手動格一加進來就是已勾選的() = runTest(dispatcher) {
+        // 規格第五節：「以已勾選狀態插入縮圖牆」
+        val s = storeOf(frameCount = 10)
+        advanceUntilIdle()
+        val cell = s.addManual(atSec = 15.0, file = File("/tmp/a.webp"))
+        assertTrue(s.state.value.selected.contains(cell))
+        s.close()
+    }
+
+    @Test
+    fun 手動格依時間插在對的位置() = runTest(dispatcher) {
+        // 10 格、每 10 秒一格 → 0,10,20,…。15 秒的手動圖要落在 10 與 20 之間
+        val s = storeOf(frameCount = 10, intervalSec = 10.0)
+        advanceUntilIdle()
+        val cell = s.addManual(atSec = 15.0, file = File("/tmp/a.webp"))
+        s.setShowAll(true)
+        assertEquals(2, s.state.value.visible.indexOf(cell))
+        s.close()
+    }
+
+    @Test
+    fun 手動格不會被收斂藏掉() = runTest(dispatcher) {
+        // 它是使用者自己補的，藏掉等於把他剛做的事吃掉
+        val source = FakeFrameSource(
+            plan = FramePlan("v", 3, List(4) { it * 10.0 }, lowQuality = false),
+            perSheet = 4,
+            hashes = listOf(0L, 0L, 0L, 0L),   // 全部一樣 → 只留第 0 格
+        )
+        val s = store(source, scope = this)
+        advanceUntilIdle()
+        assertEquals(listOf(0), s.state.value.kept)
+        val cell = s.addManual(atSec = 15.0, file = File("/tmp/a.webp"))
+        assertTrue(s.state.value.visible.toString(), s.state.value.visible.contains(cell))
+        s.close()
+    }
+
+    @Test
+    fun 手動格可以取消勾選() = runTest(dispatcher) {
+        val s = storeOf(frameCount = 10)
+        advanceUntilIdle()
+        val cell = s.addManual(atSec = 15.0, file = File("/tmp/a.webp"))
+        s.toggle(cell)
+        assertFalse(s.state.value.selected.contains(cell))
+        s.close()
+    }
+
+    @Test
+    fun atSecOf分得出storyboard格與手動格() = runTest(dispatcher) {
+        val s = storeOf(frameCount = 10, intervalSec = 10.0)
+        advanceUntilIdle()
+        val cell = s.addManual(atSec = 15.5, file = File("/tmp/a.webp"))
+        assertEquals(20.0, s.state.value.atSecOf(2), 0.0)
+        assertEquals(15.5, s.state.value.atSecOf(cell), 0.0)
+        s.close()
+    }
+
+    @Test
+    fun 沒有storyboard時手動格從0號開始() = runTest(dispatcher) {
+        // 整支影片解不出 storyboard —— 空牆，全靠截圖補（規格第七節降級表）
+        val s = storeOf(frameCount = 0)
+        advanceUntilIdle()
+        assertEquals(0, s.addManual(atSec = 3.0, file = File("/tmp/a.webp")))
+        s.close()
+    }
+
+    @Test
+    fun 只看已選時手動格照樣在() = runTest(dispatcher) {
+        val s = storeOf(frameCount = 10)
+        advanceUntilIdle()
+        val cell = s.addManual(atSec = 15.0, file = File("/tmp/a.webp"))
+        s.setOnlySelected(true)
+        assertTrue(s.state.value.visible.contains(cell))
+        s.close()
+    }
+
+    @Test
+    fun 手動格要算進候選張數() = runTest(dispatcher) {
+        // 它就在牆上、也選得到，不算進去的話底部會寫「127 張候選」但牆上有 128 格
+        val source = FakeFrameSource(
+            plan = FramePlan("v", 3, List(4) { it * 10.0 }, lowQuality = false),
+            perSheet = 4,
+            // 彼此的漢明距離都遠大於中強度門檻 6 → 一張都不該被藏起來
+            hashes = listOf(0L, 0xFFFFFL, 0xFFFFF00000000L, -1L),
+        )
+        val s = store(source, scope = this)
+        advanceUntilIdle()
+        assertEquals(4, s.state.value.candidateCount)
+        s.addManual(atSec = 15.0, file = File("/tmp/a.webp"))
+        assertEquals(5, s.state.value.candidateCount)
+        s.close()
+    }
+
+    @Test
+    fun 狀態列的候選張數也含手動格() = runTest(dispatcher) {
+        val source = FakeFrameSource(
+            plan = FramePlan("v", 3, List(4) { it * 10.0 }, lowQuality = false),
+            perSheet = 4,
+            hashes = listOf(0L, 0L, 0L, 0L),   // 全部一樣 → 只留 1 格、藏 3 格
+        )
+        val s = store(source, scope = this)
+        advanceUntilIdle()
+        s.addManual(atSec = 15.0, file = File("/tmp/a.webp"))
+        assertEquals("已收斂成 2 張候選，隱藏了 3 張相似畫面", s.state.value.statusText)
+        s.close()
     }
 }

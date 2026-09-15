@@ -20,11 +20,18 @@ class FakePlayer(initialTime: Double = 0.0) : Player {
     var playing: Boolean = false
         private set
 
+    /** 暫停過幾次 —— 測試用它驗「截圖前有沒有先暫停」。 */
+    var pauses: Int = 0
+        private set
+
     private var time: Double = initialTime
 
     override suspend fun play() { playing = true }
 
-    override suspend fun pause() { playing = false }
+    override suspend fun pause() {
+        playing = false
+        pauses++
+    }
 
     override suspend fun seekTo(sec: Double) {
         seeks += sec

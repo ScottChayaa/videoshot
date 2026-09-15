@@ -10,6 +10,8 @@ import com.xenyaa.videoshot.wizard.frames.FakeFrameSource
 import com.xenyaa.videoshot.wizard.frames.FramePlan
 import org.junit.Assert.assertEquals
 import org.junit.Rule
+import androidx.compose.ui.test.assertCountEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -32,16 +34,19 @@ class Step2GridScreenTest {
         onShowAll: (Boolean) -> Unit = {},
         onOnlySelected: (Boolean) -> Unit = {},
         onNext: () -> Unit = {},
+        onTakeShot: () -> Unit = {},
+        bitmapFor: suspend (Int) -> androidx.compose.ui.graphics.ImageBitmap? = { source.bitmapOf(it) },
     ) {
         compose.setContent {
             Step2GridScreen(
                 state = state,
-                source = source,
+                bitmapFor = bitmapFor,
                 haptics = FakeHaptics(),
                 onToggle = onToggle,
                 onTakenTap = {},
                 onPlayFrame = {},
                 onSelectAll = onSelectAll,
+                onTakeShot = onTakeShot,
                 onShowAll = onShowAll,
                 onOnlySelected = onOnlySelected,
                 onDismissHint = {},
@@ -103,12 +108,21 @@ class Step2GridScreenTest {
     }
 
     @Test
-    fun 工具列有全部選取與只看已選但這一階段沒有截圖() {
+    fun 工具列三顆按鈕依規格的順序排列() {
+        // 規格第五節的線框：全部選取│截圖│只看已選。
+        // 階段 4b 時這條測試斷言「沒有截圖」—— 那是當時的範圍，階段 4c 把它補上了
         show(loaded())
         compose.onNodeWithText("全部選取").assertIsDisplayed()
+        compose.onNodeWithText("截圖").assertIsDisplayed()
         compose.onNodeWithText("只看已選").assertIsDisplayed()
-        // 【截圖】是階段 4c
-        compose.onNodeWithText("截圖").assertDoesNotExist()
+    }
+
+    @Test
+    fun 按截圖會回報() {
+        var called = 0
+        show(loaded(), onTakeShot = { called++ })
+        compose.onNodeWithText("截圖").performClick()
+        assertEquals(1, called)
     }
 
     @Test
@@ -196,5 +210,45 @@ class Step2GridScreenTest {
         assertEquals("00:09", formatClock(9.4))
         assertEquals("01:05", formatClock(65.0))
         assertEquals("61:01", formatClock(3661.0))
+    }
+
+    // ---- 手動補圖（階段 4c）----
+
+    @Test
+    fun 手動格帶截圖標記() {
+        val base = Step2State(plan = source.plan, converging = false)
+        show(
+            base.copy(
+                manual = listOf(ManualCell(base.plan.frameCount, 15.0, java.io.File("/tmp/a.webp"), fromGallery = false)),
+                ready = base.ready + base.plan.frameCount,
+                selected = base.selected + base.plan.frameCount,
+                kept = emptyList(),
+            ),
+        )
+        compose.onAllNodesWithContentDescription("截圖").assertCountEquals(1)
+    }
+
+    @Test
+    fun storyboard格沒有截圖標記() {
+        val base = Step2State(plan = source.plan, converging = false)
+        show(base.copy(ready = (0 until base.plan.frameCount).toSet(), kept = (0 until base.plan.frameCount).toList()))
+        compose.onAllNodesWithContentDescription("截圖").assertCountEquals(0)
+    }
+
+    @Test
+    fun 手動格的圖也向bitmapFor要() {
+        val asked = mutableListOf<Int>()
+        val base = Step2State(plan = source.plan, converging = false)
+        val cell = base.plan.frameCount
+        show(
+            base.copy(
+                manual = listOf(ManualCell(cell, 5.0, java.io.File("/tmp/a.webp"), fromGallery = false)),
+                ready = base.ready + cell,
+                kept = emptyList(),
+            ),
+            bitmapFor = { asked += it; null },
+        )
+        compose.waitForIdle()
+        assertTrue(asked.toString(), asked.contains(cell))
     }
 }
