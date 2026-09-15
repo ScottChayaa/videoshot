@@ -103,42 +103,34 @@ fun Step3DetailsScreen(
             TextButton(onClick = onSelectUnapplied) { Text("未填的") }
         }
 
-        // 縮圖牆與 dock 疊在同一個 Box：dock 貼底、縮圖牆鋪滿——**不讓 dock 用掉多少
-        // 縮圖牆就少多少**。兩者若照順序各佔 Column 一段，dock 內容一多（比如同時展開
-        // 四個欄位＋提示行）會把縮圖牆擠到只剩 0，矮螢幕上使用者連一張縮圖都點不到；
-        // 疊在一起後縮圖牆永遠拿滿剩餘空間，dock 需要多高就自己往上長，蓋住的那幾張
-        // 縮圖捲動一下就露出來，不是「消失」。
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(4),
-                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                items(state.cells, key = { it.cell }) { cell ->
-                    Step3Thumb(
-                        cell = cell,
-                        selected = cell.cell in state.selected,
-                        applied = state.details[cell.cell]?.applied == true,
-                        bitmapFor = bitmapFor,
-                        onToggle = { onToggle(cell.cell) },
-                    )
-                }
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(4),
+            modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            items(state.cells, key = { it.cell }) { cell ->
+                Step3Thumb(
+                    cell = cell,
+                    selected = cell.cell in state.selected,
+                    applied = state.details[cell.cell]?.applied == true,
+                    bitmapFor = bitmapFor,
+                    onToggle = { onToggle(cell.cell) },
+                )
             }
-
-            Step3Dock(
-                state = state,
-                onEditEventDate = onEditEventDate,
-                onEditPlace = onEditPlace,
-                onEditDescription = onEditDescription,
-                onEditTags = onEditTags,
-                onApply = onApply,
-                onFinish = onFinish,
-                placeSuggestions = placeSuggestions,
-                tagSuggestions = tagSuggestions,
-                modifier = Modifier.align(Alignment.BottomCenter),
-            )
         }
+
+        Step3Dock(
+            state = state,
+            onEditEventDate = onEditEventDate,
+            onEditPlace = onEditPlace,
+            onEditDescription = onEditDescription,
+            onEditTags = onEditTags,
+            onApply = onApply,
+            onFinish = onFinish,
+            placeSuggestions = placeSuggestions,
+            tagSuggestions = tagSuggestions,
+        )
     }
 }
 
@@ -223,10 +215,9 @@ private fun Step3Dock(
     onFinish: () -> Unit,
     placeSuggestions: List<String>,
     tagSuggestions: List<String>,
-    modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier
+        Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -305,7 +296,7 @@ private fun Step3Dock(
 @Composable
 private fun DrawerTextField(
     label: String,
-    field: Common<out Any?>,
+    field: Common<*>,
     edited: String?,
     /**
      * 欄位下方那一行說明。**不要用 `placeholder`** —— M3 的 placeholder 只在欄位聚焦且空白時出現，

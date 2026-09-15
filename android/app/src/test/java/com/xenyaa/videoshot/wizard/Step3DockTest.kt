@@ -20,7 +20,11 @@ import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [35])
+// Robolectric 預設視窗是 320×470dp——比這個 app 支援的任何裝置都小（minSdk 26，
+// 驗收手冊只把 ≥600dp 另外歸類成「平板」，470dp 高的手機不在支援範圍內）。不指定
+// qualifiers 的話，dock 與縮圖牆會在這個不存在的小螢幕上搶高度，擠壓出真實手機不會
+// 重現的排版問題。改用一支普通現代手機的尺寸（w411dp-h891dp）。
+@Config(sdk = [35], qualifiers = "w411dp-h891dp")
 class Step3DockTest {
 
     @get:Rule val compose = createComposeRule()

@@ -17,7 +17,9 @@ import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [35])
+// 跟 Step3DockTest 同一個理由：預設 320×470dp 視窗比任何支援的裝置都小，
+// 會讓縮圖牆在這個不存在的小螢幕上被 dock 擠壓到量不出高度。
+@Config(sdk = [35], qualifiers = "w411dp-h891dp")
 class Step3GridTest {
 
     @get:Rule val compose = createComposeRule()
