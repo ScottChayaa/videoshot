@@ -57,11 +57,17 @@ data class Step3State(
         }
 
     /**
+     * 主按鈕現在按下去是【完成】還是【套用】。**與 [mainButtonLabel] 同一個判斷**——
+     * 分成兩處寫的話，日後改了其中一個，按鈕的字就會與它真正做的事對不上。
+     */
+    val mainActionIsFinish: Boolean get() = patch.isEmpty
+
+    /**
      * 主按鈕。**沒動過欄位時是【完成】**；動了任一欄位就變成【套用到 N 張】
      * —— 流程終點永遠是最搶眼的那一顆（規格第五節、手冊 §四第三步）。
      */
     val mainButtonLabel: String
-        get() = if (patch.isEmpty) "完成" else "套用到 ${selected.size} 張"
+        get() = if (mainActionIsFinish) "完成" else "套用到 ${selected.size} 張"
 
     /** 「將更新：地點、標籤　其他欄位維持各張原值」。沒動過欄位時不顯示。 */
     val hintLine: String?

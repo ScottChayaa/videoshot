@@ -3,6 +3,7 @@ package com.xenyaa.videoshot.wizard
 import com.xenyaa.videoshot.core.details.Common
 import com.xenyaa.videoshot.core.details.DetailsPatch
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -112,6 +113,16 @@ class Step3StoreTest {
         s.editPlace("冬山河")
         assertEquals("套用到 4 張", s.state.value.mainButtonLabel)
         assertEquals("將更新：地點　其他欄位維持各張原值", s.state.value.hintLine)
+    }
+
+    @Test
+    fun 主按鈕的字與它真正做的事永遠一致() {
+        val s = store()
+        assertTrue(s.state.value.mainActionIsFinish)
+        assertEquals("完成", s.state.value.mainButtonLabel)
+        s.editPlace("冬山河")
+        assertFalse(s.state.value.mainActionIsFinish)
+        assertEquals("套用到 4 張", s.state.value.mainButtonLabel)
     }
 
     @Test
