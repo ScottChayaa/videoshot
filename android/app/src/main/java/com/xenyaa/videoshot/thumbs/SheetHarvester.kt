@@ -3,8 +3,7 @@ package com.xenyaa.videoshot.thumbs
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Build
-import com.xenyaa.videoshot.core.similarity.DHASH_HEIGHT
-import com.xenyaa.videoshot.core.similarity.DHASH_WIDTH
+import com.xenyaa.videoshot.core.similarity.grayscale9x8
 import com.xenyaa.videoshot.core.storyboard.FramePos
 import com.xenyaa.videoshot.core.storyboard.Storyboard
 import com.xenyaa.videoshot.core.storyboard.StoryboardLevel
@@ -122,18 +121,13 @@ class SheetHarvester(
 
 /**
  * 把 sheet 上的某一格取樣成 9×8 灰階，給 dHash 用（規格第五節第二步）。
- * 直接從 sheet 取樣，不先裁再縮 —— 少一次 Bitmap 配置，148 格會差很多。
+ *
+ * 取樣數學在 `:core`（純邏輯、JVM 就測得完）；這裡只負責把那一格的像素**一次**搬出來。
+ * 用 `getPixels` 整塊複製而不是逐點 `getPixel`：區域平均要掃過整格的像素，
+ * 一格 320×180 就是 5.7 萬個點，逐點跨 JNI 呼叫會慢到不能接受。
  */
 fun grayscale9x8(sheet: Bitmap, pos: FramePos): IntArray {
-    val out = IntArray(DHASH_WIDTH * DHASH_HEIGHT)
-    for (y in 0 until DHASH_HEIGHT) {
-        for (x in 0 until DHASH_WIDTH) {
-            val sx = (pos.x + pos.width * x / DHASH_WIDTH).coerceIn(0, sheet.width - 1)
-            val sy = (pos.y + pos.height * y / DHASH_HEIGHT).coerceIn(0, sheet.height - 1)
-            val p = sheet.getPixel(sx, sy)
-            out[y * DHASH_WIDTH + x] =
-                (0.299 * ((p shr 16) and 0xFF) + 0.587 * ((p shr 8) and 0xFF) + 0.114 * (p and 0xFF)).toInt()
-        }
-    }
-    return out
+    val pixels = IntArray(pos.width * pos.height)
+    sheet.getPixels(pixels, 0, pos.width, pos.x, pos.y, pos.width, pos.height)
+    return grayscale9x8(pixels, pos.width, pos.height)
 }
