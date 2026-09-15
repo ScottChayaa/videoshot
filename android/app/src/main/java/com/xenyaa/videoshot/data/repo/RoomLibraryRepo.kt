@@ -9,6 +9,7 @@ import com.xenyaa.videoshot.data.library.entity.FolderEntity
 import com.xenyaa.videoshot.data.library.entity.ShotEntity
 import com.xenyaa.videoshot.data.library.entity.ShotImageEntity
 import com.xenyaa.videoshot.data.library.entity.ShotTagEntity
+import com.xenyaa.videoshot.data.library.entity.TagEntity
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.MonthCount
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
@@ -64,6 +65,16 @@ class RoomLibraryRepo(
     override suspend fun commitPicks(video: VideoEntity, picks: List<NewShot>): List<Long> = withContext(io) {
         val ids = db.inWriteTransaction {
             db.videoDao().upsert(video)
+
+            // 先把這一批用到的標籤名解析成 id：同名只查一次、只建一次。
+            // **在交易內**——整批回滾時這些新標籤要跟著消失，否則標籤管理頁會列出一堆沒有圖的空標籤
+            val tagIds = mutableMapOf<String, Long>()
+            for (name in picks.flatMap { it.tagNames }.distinct()) {
+                tagIds[name] = db.tagDao().byName(name)?.id
+                    // 精靈沒有問使用者這是人還是主題，猜一個就是騙人；分類留給階段 11 的標籤管理
+                    ?: db.tagDao().insert(TagEntity(id = 0, name = name, kind = "other", aliases = "[]"))
+            }
+
             picks.map { pick ->
                 val id = db.shotDao().insert(
                     ShotEntity(
@@ -83,12 +94,19 @@ class RoomLibraryRepo(
                     )
                 )
                 pick.webp?.let { db.shotDao().putImage(ShotImageEntity(id, it)) }
+                pick.tagNames.forEach { name ->
+                    db.tagDao().link(ShotTagEntity(id, tagIds.getValue(name), "human"))
+                }
                 id
             }
         }
         onChanged()
         ids
     }
+
+    override suspend fun distinctPlaces(): List<String> = withContext(io) { db.shotDao().distinctPlaces() }
+
+    override suspend fun allTagNames(): List<String> = withContext(io) { db.tagDao().allNames() }
 
     override suspend fun patchShots(ids: List<Long>, patch: ShotPatch): Unit = withContext(io) {
         db.inWriteTransaction {

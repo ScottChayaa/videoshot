@@ -83,6 +83,10 @@ interface ShotDao {
         """
     )
     suspend fun rowById(id: Long): ShotRowProjection?
+
+    /** 抽屜的既有地點建議（規格第五節欄位表）。空字串在寫入時已轉成 null，這裡只要排除 null。 */
+    @Query("SELECT DISTINCT place FROM shot WHERE place IS NOT NULL ORDER BY place")
+    suspend fun distinctPlaces(): List<String>
 }
 
 /** Room 直接映射查詢結果用；欄位名對應 SQL 的輸出欄位。 */

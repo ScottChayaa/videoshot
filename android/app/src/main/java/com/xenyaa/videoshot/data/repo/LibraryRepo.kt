@@ -20,10 +20,17 @@ interface LibraryRepo {
     suspend fun shotById(id: Long): ShotRow?
 
     /**
-     * 取圖精靈完成入庫。整批在同一個交易裡：影片列 upsert、每張 shot、手動圖的 webp。
+     * 取圖精靈完成入庫。整批在同一個交易裡：影片列 upsert、每張 shot、手動圖的 webp、
+     * **以及標籤（名稱查不到就在交易內新建，`kind` 為 `'other'`）**。
      * 任何一張失敗（例如撞到已收藏的格子）就整批回滾，不留半套。回傳新建的 shot id（順序同輸入）。
      */
     suspend fun commitPicks(video: VideoEntity, picks: List<NewShot>): List<Long>
+
+    /** 抽屜的既有地點建議（規格第五節欄位表）。 */
+    suspend fun distinctPlaces(): List<String>
+
+    /** 抽屜的既有標籤建議。 */
+    suspend fun allTagNames(): List<String>
 
     /** 批次套用圖資。patch 裡為 null 的欄位代表沒動過，不覆蓋。 */
     suspend fun patchShots(ids: List<Long>, patch: ShotPatch)

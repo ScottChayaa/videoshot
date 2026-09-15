@@ -134,4 +134,59 @@ class LibraryRepoWriteTest {
         watched.patchShots(ids, ShotPatch(null, "宜蘭", null, null))
         assertEquals(2, changed)
     }
+
+    @Test
+    fun 標籤跟著整批入庫_同名只建一個() = runTest {
+        val ids = repo.commitPicks(
+            video,
+            listOf(
+                storyboardPick(0).copy(tagNames = listOf("玩水", "阿明")),
+                storyboardPick(1).copy(tagNames = listOf("玩水")),
+            ),
+        )
+        assertEquals(2, db.tagDao().count())
+        assertEquals(2, db.tagDao().linkCountOfShot(ids[0]))
+        assertEquals(1, db.tagDao().linkCountOfShot(ids[1]))
+    }
+
+    @Test
+    fun 已經存在的標籤沿用不重建() = runTest {
+        repo.commitPicks(video, listOf(storyboardPick(0).copy(tagNames = listOf("玩水"))))
+        repo.commitPicks(video, listOf(storyboardPick(1).copy(tagNames = listOf("玩水"))))
+        assertEquals(1, db.tagDao().count())
+    }
+
+    @Test
+    fun 精靈建的標籤kind是other() = runTest {
+        repo.commitPicks(video, listOf(storyboardPick(0).copy(tagNames = listOf("玩水"))))
+        assertEquals("other", db.tagDao().byName("玩水")!!.kind)
+    }
+
+    @Test
+    fun 整批回滾時標籤也不留() = runTest {
+        repo.commitPicks(video, listOf(storyboardPick(3)))
+        val failed = runCatching {
+            // 第二張撞到已收藏的格號 → 整批失敗
+            repo.commitPicks(
+                video,
+                listOf(storyboardPick(4).copy(tagNames = listOf("露營")), storyboardPick(3)),
+            )
+        }
+        assertTrue(failed.isFailure)
+        assertEquals(0, db.tagDao().count())
+    }
+
+    @Test
+    fun 既有地點與標籤查得出來供抽屜建議() = runTest {
+        repo.commitPicks(
+            video,
+            listOf(
+                storyboardPick(0).copy(place = "冬山河", tagNames = listOf("玩水")),
+                storyboardPick(1).copy(place = "冬山河", tagNames = listOf("阿明")),
+                storyboardPick(2).copy(place = null),
+            ),
+        )
+        assertEquals(listOf("冬山河"), repo.distinctPlaces())
+        assertEquals(listOf("玩水", "阿明"), repo.allTagNames())
+    }
 }

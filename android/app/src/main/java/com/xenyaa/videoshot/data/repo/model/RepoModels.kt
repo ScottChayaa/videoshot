@@ -32,16 +32,21 @@ data class NewShot(
     val place: String?,
     val description: String?,
     val webp: ByteArray?,
+    /**
+     * 標籤名。**repo 負責在同一個交易裡解析成 tag id，不存在就建**
+     * —— 在交易外先建好的話，整批回滾之後會留下沒有任何圖引用的空標籤。
+     */
+    val tagNames: List<String> = emptyList(),
 ) {
     override fun equals(other: Any?): Boolean = this === other || (
         other is NewShot && atSec == other.atSec && source == other.source &&
             frameIndex == other.frameIndex && sbLevel == other.sbLevel && eventDate == other.eventDate &&
-            place == other.place && description == other.description &&
+            place == other.place && description == other.description && tagNames == other.tagNames &&
             (if (webp == null) other.webp == null else webp.contentEquals(other.webp))
         )
 
     override fun hashCode(): Int =
-        listOf(atSec, source, frameIndex, sbLevel, eventDate, place, description).hashCode() * 31 +
+        listOf(atSec, source, frameIndex, sbLevel, eventDate, place, description, tagNames).hashCode() * 31 +
             (webp?.contentHashCode() ?: 0)
 }
 

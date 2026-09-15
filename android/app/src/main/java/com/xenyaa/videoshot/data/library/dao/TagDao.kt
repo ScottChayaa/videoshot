@@ -20,4 +20,10 @@ interface TagDao {
 
     @Query("DELETE FROM shot_tag WHERE shot_id = :shotId")
     suspend fun unlinkAllOfShot(shotId: Long)
+
+    @Query("SELECT * FROM tag WHERE name = :name")
+    suspend fun byName(name: String): TagEntity?
+
+    @Query("SELECT name FROM tag ORDER BY name")
+    suspend fun allNames(): List<String>
 }
