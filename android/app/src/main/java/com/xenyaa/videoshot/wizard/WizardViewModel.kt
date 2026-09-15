@@ -24,6 +24,7 @@ import com.xenyaa.videoshot.capture.ManualImageStore
 import com.xenyaa.videoshot.capture.encodeManualWebp
 import com.xenyaa.videoshot.player.Player
 import com.xenyaa.videoshot.wizard.frames.FrameSource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
@@ -86,7 +87,9 @@ class WizardViewModel(
 
     /** 點進度列上的某一段。只有已完成的步驟能點回去。 */
     fun jumpTo(target: WizardStep) {
-        if (target.order <= _furthest.value.order) _step.value = target
+        // 走 goTo 而不是直接設 _step —— 第三步每次進場都要重建格子清單，
+        // 而使用者很可能正是回第二步改了勾選、補了截圖才點回來的
+        if (target.order <= _furthest.value.order) goTo(target)
     }
 
     /**
@@ -142,26 +145,41 @@ class WizardViewModel(
         viewModelScope.launch {
             openRecentAndAwait(payload.videoId) ?: return@launch
             val store2 = _step2.value ?: return@launch
-            // **不能用 addManual 還原** —— 它會自己編號（`frameCount + manual.size`）並自動勾選。
-            // 自動編號會在中間有檔案不見時把後面每一張的格號往前擠，而 `details` 是用格號當鍵的；
-            // 自動勾選則會被下面的還原覆寫成相反的結果
-            val restored = payload.manual.mapNotNull { m ->
+            val survivors = payload.manual.mapNotNull { m ->
                 // 檔案不見了（使用者清了資料）就跳過這一張，其餘照常還原
                 manualImages(payload.videoId).fileNamed(m.fileName)
                     ?.let { ManualCell(m.cell, m.atSec, it, m.fromGallery) }
             }
-            store2.restoreManual(restored)
-            // 還原勾選：**整組設定，不是逐格 toggle**。檔案不見的那幾張也要從勾選裡拿掉 —— 它們不在牆上
-            val alive = restored.map { it.cellIndex }.toSet()
-            val frameCount = store2.state.value.plan.frameCount
-            store2.setSelection(payload.selected.filter { it < frameCount || it in alive }.toSet())
+            val plan = store2.state.value.plan
+            // 層級變了（續做要重抓 watch page，pickLevel 可能挑到別的層級）＝ **格號空間整個換了一套**：
+            // storyboard 的格號在新層級裡指的是別的時間點，留著就是把錯的 frame_index 與 at_sec
+            // 寫進 library.db —— 那是唯一推導不回來的東西，所以整批丟掉。
+            // 手動圖是使用者親手截的（也不屬於任何層級），重新編號搬進新空間裡
+            val levelChanged = payload.level != plan.level || payload.frameCount != plan.frameCount
+            val restored = if (levelChanged) {
+                survivors.mapIndexed { i, cell -> cell.copy(cellIndex = plan.frameCount + i) }
+            } else {
+                survivors
+            }
+            val renumbered = survivors.map { it.cellIndex }.zip(restored.map { it.cellIndex }).toMap()
+            val selected = if (levelChanged) {
+                restored.map { it.cellIndex }.toSet()
+            } else {
+                payload.selected.toSet()
+            }
+            store2.restoreFromDraft(restored, selected)
             if (payload.step >= 3) {
                 goTo(WizardStep.DETAILS)
                 _step3.value?.restore(
                     details = payload.details.mapNotNull { (key, value) ->
-                        key.toIntOrNull()?.let { it to value.toShotDetails() }
+                        val cell = key.toIntOrNull() ?: return@mapNotNull null
+                        // 搬過家的格子要**連圖資一起搬** —— 用舊格號當鍵會全部落空，
+                        // 使用者打過的字就這樣靜靜不見了。查不到新號的（storyboard 格、
+                        // 檔案不見的手動格）本來就已經不在牆上，丟掉是對的
+                        val target = if (levelChanged) renumbered[cell] else cell
+                        target?.let { it to value.toShotDetails() }
                     }.toMap(),
-                    selected = payload.selected.toSet(),
+                    selected = selected,
                 )
                 // goTo 那一步存過一次草稿，但當時 restore 還沒跑，存進去的 details 是空的。
                 // 這裡再存一次，讓磁碟上的草稿不依賴協程排程的巧合
@@ -195,7 +213,10 @@ class WizardViewModel(
                 step = _step.value.order,
                 level = state2.plan.level,
                 frameCount = state2.plan.frameCount,
-                selected = (state3?.selected ?: state2.selected).sorted(),
+                // **存第二步的勾選，不是第三步的** —— 兩個 store 的 `selected` 意思不同：
+                // 第二步的是「使用者挑了哪些」，第三步的是「抽屜正在編輯哪幾張」。
+                // 存錯的話，在第三步只挑 3 張套用過圖資再離開，續做回來就只剩那 3 張
+                selected = state2.selected.sorted(),
                 manual = state2.manual.map {
                     DraftManual(it.cellIndex, it.atSec, it.file.name, it.fromGallery)
                 },
@@ -483,17 +504,32 @@ class WizardViewModel(
             defaultEventDate = eventDateOf(video.page.meta?.publishedAt ?: "", fallback = today()),
         )
         _step3.value = store
-        viewModelScope.launch {
+        // 上一批裁圖要先收掉 —— 它寫的是共用的 [cropped]，留著的話「回第二步再進來」會有兩批
+        // 同時在跑，慢的那批後貼上；換了影片更糟：上一支的結果會被寫成這一支的 thumb_state
+        cropJob?.cancel()
+        cropJob = viewModelScope.launch {
             val storyboardCells = cells.filterNot { it.manual }.map { it.cell }
-            val outcome = runCatching {
+            val outcome = try {
                 data.cropThumbs(video.videoId, video.page.storyboardSpec, storyboardCells) { done, total ->
                     store.setCropProgress(done, total)
                 }
-            }.getOrDefault(CropOutcome(emptyList(), storyboardCells))
+            } catch (e: CancellationException) {
+                // **取消不是失敗**。用 runCatching 包 suspend 呼叫會把它一起吞掉，
+                // 接著就對一個已經被換掉的 store 寫結果 —— 正是上面要避免的那件事
+                throw e
+            } catch (e: OutOfMemoryError) {
+                // 裁圖是解 sheet，OOM 不是 Exception
+                CropOutcome(emptyList(), storyboardCells)
+            } catch (e: Exception) {
+                CropOutcome(emptyList(), storyboardCells)
+            }
             cropped = outcome
             store.finishCropping()
         }
     }
+
+    /** 進第三步的裁圖工作。握在手上是為了取消得掉 —— 理由見 [openStep3]。 */
+    private var cropJob: Job? = null
 
     /** 這一批裁圖的結果，完成時要拿來寫 `thumb_state`。 */
     private var cropped: CropOutcome = CropOutcome(emptyList(), emptyList())
@@ -542,6 +578,10 @@ class WizardViewModel(
                         tagNames = d.tags,
                     )
                 }
+                // 一張都沒有就沒有「完成」這件事：寫進去是一列沒有圖的影片，
+                // 而且下面的 picks.first() 會在協程裡丟 NoSuchElementException 把 process 帶走。
+                // committing 由 finally 收掉，使用者回頭挑了圖仍然按得動【完成】
+                if (picks.isEmpty()) return@launch
                 val videoRow = VideoEntity(
                     id = video.videoId,
                     title = meta?.title ?: video.videoId,
@@ -584,6 +624,10 @@ class WizardViewModel(
         _loaded.value = null
         player = null
         capture = null
+        // 還在飛的裁圖不收掉的話，它會在下一支影片進場之後才把結果寫進 [cropped] ——
+        // 於是下一支影片的 thumb_state 記的是上一支的格號
+        cropJob?.cancel()
+        cropJob = null
         cropped = CropOutcome(emptyList(), emptyList())
         _furthest.value = WizardStep.URL
         _step.value = WizardStep.URL

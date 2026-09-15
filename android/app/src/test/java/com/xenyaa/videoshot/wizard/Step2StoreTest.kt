@@ -569,4 +569,45 @@ class Step2StoreTest {
         assertEquals("已收斂成 2 張候選，隱藏了 3 張相似畫面", s.state.value.statusText)
         s.close()
     }
+
+    // ---- 最終複審 Finding 4：還原只開一個入口，過濾條件由它自己顧 ----
+
+    @Test
+    fun 還原時已收藏過的格子不會被勾回來() = runTest(dispatcher) {
+        // 勾回來的話入庫會撞 shot(video_id, frame_index) 的唯一索引，
+        // 而 toggle 對 taken 格不作用 —— 使用者在畫面上取消不掉，那份草稿就永遠完成不了
+        val s = store(FakeFrameSource.of(frameCount = 10), taken = setOf(2), scope = this)
+        advanceUntilIdle()
+        s.restoreFromDraft(manual = emptyList(), selected = setOf(1, 2, 3))
+        assertEquals(setOf(1, 3), s.state.value.selected)
+        s.close()
+    }
+
+    @Test
+    fun 還原時檔案不見的手動格不會留在勾選裡() = runTest(dispatcher) {
+        val s = store(FakeFrameSource.of(frameCount = 4), scope = this)
+        advanceUntilIdle()
+        // 第 4 格的檔案不見了，呼叫端只交得出第 5 格
+        s.restoreFromDraft(
+            manual = listOf(ManualCell(5, 20.0, File("/tmp/b.webp"), fromGallery = true)),
+            selected = setOf(1, 4, 5),
+        )
+        assertEquals(setOf(1, 5), s.state.value.selected)
+        assertEquals(listOf(5), s.state.value.manual.map { it.cellIndex })
+        s.close()
+    }
+
+    @Test
+    fun 還原留下的缺號不會被下一張手動圖撞到() = runTest(dispatcher) {
+        val s = store(FakeFrameSource.of(frameCount = 4), scope = this)
+        advanceUntilIdle()
+        s.restoreFromDraft(
+            manual = listOf(ManualCell(5, 20.0, File("/tmp/b.webp"), fromGallery = true)),
+            selected = setOf(5),
+        )
+        assertEquals(6, s.addManual(atSec = 30.0, file = File("/tmp/c.webp")))
+        // 牆上不能有同一個格號兩次 —— LazyVerticalGrid 的 key 就是格號
+        assertEquals(s.state.value.visible.distinct(), s.state.value.visible)
+        s.close()
+    }
 }

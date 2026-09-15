@@ -10,9 +10,11 @@ import com.xenyaa.videoshot.data.repo.model.RecentVideo
 import com.xenyaa.videoshot.wizard.frames.FakeFrameSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -50,6 +52,13 @@ class WizardStep3WiringTest {
         var cropped: List<Int> = emptyList()
         var commitCount = 0
 
+        /**
+         * 第幾次裁圖要花多久（毫秒）。驗「上一批裁圖有沒有被取消」時要讓兩批**倒過來完成** ——
+         * 沒有時間差的話，先發的那一批一定先回來，蓋不蓋得到後面的結果就看不出來。
+         */
+        var cropDelayMs: (Int) -> Long = { 0L }
+        var cropCalls = 0
+
         override suspend fun watchPage(videoId: String) = page
         override suspend fun recentVideos(limit: Int): List<RecentVideo> = emptyList()
         override suspend fun takenFrameIndexes(videoId: String, level: Int) = emptySet<Int>()
@@ -61,6 +70,7 @@ class WizardStep3WiringTest {
             frameIndexes: List<Int>,
             onProgress: (Int, Int) -> Unit,
         ): CropOutcome {
+            delay(cropDelayMs(cropCalls++))
             cropped = frameIndexes
             onProgress(frameIndexes.size, frameIndexes.size)
             return CropOutcome(written = frameIndexes.filter { it < 4 }, missing = emptyList())
@@ -241,5 +251,68 @@ class WizardStep3WiringTest {
         vm.finish(force = true)
         advanceUntilIdle()
         assertEquals(1, data.commitCount)
+    }
+
+    // ---- 最終複審 Finding 1B：空批次不能寫進圖庫 ----
+
+    @Test
+    fun 一張都沒挑就按完成_不寫進圖庫也不當掉() = runTest(dispatcher) {
+        val data = RecordingData(pageOf())
+        val vm = vmWith(data)
+        vm.openRecent("v1"); advanceUntilIdle()
+        // 一格都沒勾就進第三步（第三步按【全不選】再離開、續做回來也是這個狀態）
+        vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
+        vm.finish()
+        advanceUntilIdle()
+        // 沒有格子就沒有「還有 N 張沒填」，提醒不會擋下來 —— 擋不住就會一路做到 picks.first()
+        assertNull(vm.pendingFinish.value)
+        assertNull(data.committed)
+        // committing 不能卡在 true，否則使用者回頭挑了圖也按不動【完成】
+        vm.goTo(WizardStep.PICK)
+        vm.step2.value!!.toggle(0)
+        vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
+        vm.finish(force = true); advanceUntilIdle()
+        assertEquals(1, data.commitCount)
+    }
+
+    // ---- 最終複審 Finding 2：從進度列跳回第三步也要重建 ----
+
+    @Test
+    fun 從進度列點回第三步會重建格子清單() = runTest(dispatcher) {
+        val data = RecordingData(pageOf())
+        val vm = vmWith(data)
+        vm.openRecent("v1"); advanceUntilIdle()
+        vm.step2.value!!.toggle(0)
+        vm.step2.value!!.toggle(1)
+        vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
+        vm.back()
+        vm.step2.value!!.toggle(1)   // 回第二步取消一格
+        vm.jumpTo(WizardStep.DETAILS); advanceUntilIdle()
+        assertEquals(listOf(0), vm.step3.value!!.state.value.cells.map { it.cell })
+        vm.finish(force = true); advanceUntilIdle()
+        // 取消掉的那一格不能還是進了圖庫
+        assertEquals(listOf(0), data.committed!!.second.map { it.frameIndex })
+    }
+
+    // ---- 最終複審 Finding 6：上一批裁圖要取消得掉 ----
+
+    @Test
+    fun 回第二步再進第三步_上一批裁圖不會把結果蓋回來() = runTest(dispatcher) {
+        val data = RecordingData(pageOf())
+        // 第一批慢、第二批快：沒取消的話第一批會在第二批之後才把 cropped 貼上
+        data.cropDelayMs = { n -> if (n == 0) 1_000L else 10L }
+        val vm = vmWith(data)
+        vm.openRecent("v1"); advanceUntilIdle()
+        vm.step2.value!!.toggle(0)
+        vm.step2.value!!.toggle(1)
+        vm.goTo(WizardStep.DETAILS)
+        advanceTimeBy(1)             // 第一批裁圖已經起跑，但還沒回來
+        vm.goTo(WizardStep.PICK)
+        vm.step2.value!!.toggle(1)   // 取消第 1 格
+        vm.goTo(WizardStep.DETAILS)
+        advanceUntilIdle()
+        vm.finish(force = true); advanceUntilIdle()
+        // thumb_state 只該記這一批真的裁出來的那一格
+        assertEquals(listOf(0), data.thumbStatesOk)
     }
 }

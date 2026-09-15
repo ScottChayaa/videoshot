@@ -1,5 +1,7 @@
 package com.xenyaa.videoshot.wizard
 
+import com.xenyaa.videoshot.capture.Capture
+import com.xenyaa.videoshot.capture.FakeCapture
 import com.xenyaa.videoshot.capture.ManualImageStore
 import com.xenyaa.videoshot.core.draft.DraftCodec
 import com.xenyaa.videoshot.core.draft.DraftDetails
@@ -12,7 +14,10 @@ import com.xenyaa.videoshot.core.youtube.WatchPage
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.NewShot
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
+import com.xenyaa.videoshot.player.FakePlayer
 import com.xenyaa.videoshot.wizard.frames.FakeFrameSource
+import com.xenyaa.videoshot.wizard.frames.FramePlan
+import com.xenyaa.videoshot.wizard.frames.FrameSource
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -74,9 +79,18 @@ class WizardDraftTest {
         override suspend fun clearDraft(videoId: String) { clearedVideoId = videoId; stored = null }
     }
 
-    private fun vmWith(data: DraftData) = WizardViewModel(
+    /**
+     * @param frameSource 續做時重抓 watch page 可能挑到**別的層級** —— 驗那一段的測試
+     *        要能讓第二次建出來的來源與草稿裡記的不一樣
+     * @param capture 只有驗「截圖的格號」的測試需要它，其餘一律沒有截圖器
+     */
+    private fun vmWith(
+        data: DraftData,
+        frameSource: () -> FrameSource = { FakeFrameSource.of(frameCount = 4, intervalSec = 10.0) },
+        capture: Capture? = null,
+    ) = WizardViewModel(
         data = data,
-        frameSourceFactory = { FakeFrameSource.of(frameCount = 4, intervalSec = 10.0) },
+        frameSourceFactory = { frameSource() },
         strength = flowOf(FilterStrength.MEDIUM),
         hintSeen = flowOf(true),
         onHintSeen = {},
@@ -84,7 +98,7 @@ class WizardDraftTest {
         // 用 File(...) 而不是 tmp.newFolder(...) —— 還原多張手動圖時同一個 videoId 會被問好幾次，
         // newFolder 對已存在的目錄會丟例外
         manualImages = { videoId -> ManualImageStore(File(tmp.root, videoId)) },
-        captureFor = { null },
+        captureFor = { capture },
         today = { "2026-09-15" },
     )
 
@@ -265,5 +279,87 @@ class WizardDraftTest {
         assertEquals(listOf(5), state.manual.map { it.cellIndex })
         // 不見的那張不留在勾選裡
         assertEquals(setOf(5), state.selected)
+    }
+
+    // ---- 最終複審 Finding 1：草稿存的必須是「第二步挑了哪些」 ----
+
+    @Test
+    fun 在第三步只挑幾張套用圖資_草稿存的仍是第二步的全部勾選() = runTest(dispatcher) {
+        val data = DraftData(null)
+        val vm = vmWith(data)
+        vm.openRecent("v1"); advanceUntilIdle()
+        vm.step2.value!!.toggle(0)
+        vm.step2.value!!.toggle(1)
+        vm.step2.value!!.toggle(2)
+        vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
+        // 第三步把抽屜縮到只編輯其中一張，再【套用到 1 張】
+        val s3 = vm.step3.value!!
+        s3.selectNone()
+        s3.toggle(0)
+        s3.editPlace("冬山河")
+        vm.applyDetails()
+        advanceUntilIdle()
+        // 第三步的 selected 是「抽屜在編哪幾張」，存進草稿的話另外兩張會在續做時消失
+        assertEquals(listOf(0, 1, 2), DraftCodec.decode(data.stored!!)!!.selected)
+    }
+
+    // ---- 最終複審 Finding 3：還原留下的缺號不能讓新截圖撞號 ----
+
+    @Test
+    fun 還原後有缺號_再截一張不會撞到既有的手動格號() = runTest(dispatcher) {
+        val dir = File(tmp.root, "v1").apply { mkdirs() }
+        File(dir, "b.webp").writeBytes(byteArrayOf(2))
+        val payload = DraftPayload(
+            "v1", step = 2, level = 3, frameCount = 4,
+            selected = listOf(5),
+            manual = listOf(
+                // 第 4 格的檔案不見了 —— 還原後手動格只剩第 5 格，編號中間有一個洞
+                DraftManual(cell = 4, atSec = 10.0, fileName = "gone.webp", fromGallery = false),
+                DraftManual(cell = 5, atSec = 20.0, fileName = "b.webp", fromGallery = true),
+            ),
+        )
+        val vm = vmWith(DraftData(DraftCodec.encode(payload)), capture = FakeCapture(atSec = 30.0))
+        advanceUntilIdle()
+        vm.resumeDraft(); advanceUntilIdle()
+        // 播放器與截圖器要在 openStep2 之後才接得上（openStep2 會把上一支影片的清掉）
+        vm.attachPlayer(FakePlayer())
+        vm.takeShot(); advanceUntilIdle()
+        val state = vm.step2.value!!.state.value
+        assertEquals(listOf(5, 6), state.manual.map { it.cellIndex })
+        // 牆上同一個格號出現兩次，LazyVerticalGrid 的 key 會直接丟例外
+        assertEquals(state.visible.distinct(), state.visible)
+    }
+
+    // ---- 最終複審 Finding 5：續做時層級變了，格號空間整個換了一套 ----
+
+    @Test
+    fun 續做時層級變了_手動圖搬進新格號而storyboard的勾選整批丟掉() = runTest(dispatcher) {
+        val dir = File(tmp.root, "v1").apply { mkdirs() }
+        File(dir, "a.webp").writeBytes(byteArrayOf(1))
+        val payload = DraftPayload(
+            "v1", step = 3, level = 3, frameCount = 4,
+            selected = listOf(1, 4),
+            manual = listOf(DraftManual(cell = 4, atSec = 10.0, fileName = "a.webp", fromGallery = false)),
+            details = mapOf("4" to DraftDetails("2025-07-12", place = "冬山河", applied = true)),
+        )
+        val vm = vmWith(
+            DraftData(DraftCodec.encode(payload)),
+            // 重抓之後挑到 L2：格數從 4 變成 6，舊的格號在新層級裡指的是別的時間點
+            frameSource = {
+                FakeFrameSource(
+                    plan = FramePlan("v1", level = 2, atSec = List(6) { it * 5.0 }, lowQuality = true),
+                    perSheet = 6,
+                )
+            },
+        )
+        advanceUntilIdle()
+        vm.resumeDraft(); advanceUntilIdle()
+        val state = vm.step2.value!!.state.value
+        // 手動圖搬到新空間的第一格（frameCount = 6）
+        assertEquals(listOf(6), state.manual.map { it.cellIndex })
+        // storyboard 的第 1 格整批丟掉 —— 它在 L2 裡是別的畫面
+        assertEquals(setOf(6), state.selected)
+        // 使用者打過的字要跟著搬家，不能因為鍵換了就靜靜不見
+        assertEquals("冬山河", vm.step3.value!!.state.value.details[6]!!.place)
     }
 }

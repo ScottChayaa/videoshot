@@ -98,8 +98,11 @@ data class Step2State(
     val visible: List<Int>
         get() {
             val base = if (converging || showAll) ready.sorted() else kept.filter { it in ready }
-            // 手動格永遠在牆上 —— 收斂不該把使用者自己剛補的圖藏掉
-            val all = base + manual.map { it.cellIndex }
+            // 手動格永遠在牆上 —— 收斂不該把使用者自己剛補的圖藏掉。
+            // **一定要去重**：手動格也在 [ready] 裡，收斂比不到它，`keptWith` 會把它原封不動放進 kept
+            // （載入途中 converging 還是 true 時 base 直接就是 ready），於是同一格會出現兩次 ——
+            // 牆上的 key 就是格號，重複會讓 LazyVerticalGrid 直接丟例外
+            val all = (base + manual.map { it.cellIndex }).distinct()
             val shown = if (onlySelected) all.filter { it in selected } else all
             // 依時間排序：手動圖要插在「對應時間的位置」（規格第五節）
             return shown.sortedBy { atSecOf(it) }
@@ -265,7 +268,10 @@ class Step2Store(
      */
     fun addManual(atSec: Double, file: File, fromGallery: Boolean = false): Int {
         val current = _state.value
-        val cell = current.plan.frameCount + current.manual.size
+        // **不能用 manual.size 推算** —— 續做草稿時若有手動圖的檔案不見了，編號會留下一個洞，
+        // size 算出來的格號就會跟既有的那一格撞號；牆上兩格同鍵會讓 LazyVerticalGrid 直接丟例外，
+        // 入庫時 `manualWebpOf` 的 firstOrNull 也會挑到另一張圖
+        val cell = maxOf(current.plan.frameCount, (current.manual.maxOfOrNull { it.cellIndex } ?: -1) + 1)
         _state.value = current.copy(
             manual = current.manual + ManualCell(cell, atSec, file, fromGallery),
             selected = current.selected + cell,
@@ -275,24 +281,29 @@ class Step2Store(
     }
 
     /**
-     * 從草稿還原手動圖。**不沿用 [addManual]** —— 它會自己編號並自動勾選，還原時兩者都是錯的：
-     * 格號必須沿用草稿裡的原編號（第三步的 `details` 是用它當鍵的），
-     * 勾選狀態則由 [setSelection] 依草稿決定。
+     * 從草稿一次還原手動圖與勾選。**兩件事只開一個入口** ——
+     * 拆成兩個公開 setter 時，呼叫端得自己記得順序、自己補過濾條件，
+     * 而那正是它們被加進來那一輪漏掉的東西。
+     *
+     * 不沿用 [addManual]：它會自己編號並自動勾選，還原時兩者都是錯的 ——
+     * 格號必須沿用草稿裡的原編號（第三步的 `details` 是用它當鍵的）。
+     *
+     * @param manual 沿用草稿裡的原格號
+     * @param selected 草稿裡的勾選。**已收藏過的格子會被濾掉** —— 再選一次會在入庫時
+     *        撞上 `shot(video_id, frame_index)` 的唯一索引，而畫面上又取消不掉
+     *        （[toggle] 對 taken 格不作用），那份草稿就永遠完成不了
      */
-    fun restoreManual(cells: List<ManualCell>) {
+    fun restoreFromDraft(manual: List<ManualCell>, selected: Set<Int>) {
         val current = _state.value
+        val alive = manual.map { it.cellIndex }.toSet()
         _state.value = current.copy(
-            manual = cells,
-            ready = current.ready + cells.map { it.cellIndex },
+            manual = manual,
+            ready = current.ready + alive,
+            // 檔案不見的手動格也要濾掉 —— 它已經不在牆上了
+            selected = selected.filter {
+                it !in current.taken && (it < current.plan.frameCount || it in alive)
+            }.toSet(),
         )
-    }
-
-    /**
-     * 從草稿還原勾選。**整組設定，不是逐格 toggle** ——
-     * toggle 依賴「進場時沒有任何勾選」這個前提，而手動圖一還原就已經在牆上了。
-     */
-    fun setSelection(cells: Set<Int>) {
-        _state.value = _state.value.copy(selected = cells)
     }
 
     /**
