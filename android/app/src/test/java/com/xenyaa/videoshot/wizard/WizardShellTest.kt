@@ -27,11 +27,24 @@ class WizardShellTest {
 
     private var exits = 0
 
-    /** 外殼測試不碰網路與資料庫。WizardData 只有三個方法，假實作三行就寫完。 */
+    /** 外殼測試不碰網路與資料庫、也不碰第三步，補最短的版本就好。 */
     private class FakeData : WizardData {
         override suspend fun watchPage(videoId: String) = WatchPage(FetchResult.OK, null, null)
         override suspend fun recentVideos(limit: Int): List<RecentVideo> = emptyList()
         override suspend fun takenFrameIndexes(videoId: String, level: Int): Set<Int> = emptySet()
+        override suspend fun distinctPlaces() = emptyList<String>()
+        override suspend fun allTagNames() = emptyList<String>()
+        override suspend fun cropThumbs(
+            videoId: String, sbSpec: String?, frameIndexes: List<Int>, onProgress: (Int, Int) -> Unit,
+        ) = CropOutcome(frameIndexes, emptyList())
+        override suspend fun commit(
+            video: com.xenyaa.videoshot.data.library.entity.VideoEntity,
+            picks: List<com.xenyaa.videoshot.data.repo.model.NewShot>,
+        ) = picks.indices.map { it.toLong() }
+        override suspend fun markThumbStates(videoId: String, level: Int, ok: List<Int>, missing: List<Int>) = Unit
+        override suspend fun saveDraft(json: String) = Unit
+        override suspend fun currentDraft(): String? = null
+        override suspend fun clearDraft(videoId: String) = Unit
     }
 
     private fun newVm() = WizardViewModel(

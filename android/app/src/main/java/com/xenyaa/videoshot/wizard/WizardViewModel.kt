@@ -5,9 +5,13 @@ import android.graphics.ImageDecoder
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.xenyaa.videoshot.core.details.ShotDetails
+import com.xenyaa.videoshot.core.details.eventDateOf
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.url.parseVideoId
 import com.xenyaa.videoshot.core.youtube.FetchResult
+import com.xenyaa.videoshot.data.library.entity.VideoEntity
+import com.xenyaa.videoshot.data.repo.model.NewShot
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
 import com.xenyaa.videoshot.capture.Capture
 import com.xenyaa.videoshot.capture.CaptureResult
@@ -18,8 +22,11 @@ import com.xenyaa.videoshot.wizard.frames.FrameSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -42,6 +49,8 @@ class WizardViewModel(
      * 而 WebView 是畫面建的，ViewModel 建構時還不存在。
      */
     private val captureFor: (Player) -> Capture?,
+    /** 注入而不是直接呼叫 `LocalDate.now()` —— 測試要能確定地驗「上傳日期缺漏時用今天」。 */
+    private val today: () -> String = { java.time.LocalDate.now().toString() },
 ) : ViewModel() {
 
     private val _captureError = MutableStateFlow<CaptureError?>(null)
@@ -64,6 +73,8 @@ class WizardViewModel(
         if (target.order > _furthest.value.order) _furthest.value = target
         // 一離開第一步就有草稿可留 —— 使用者已經投入了選擇
         if (target != WizardStep.URL) _hasDraft.value = true
+        // 每次進第三步都重建 —— 使用者可能回第二步改了勾選，舊的格子清單已經不對了
+        if (target == WizardStep.DETAILS) openStep3()
     }
 
     /** 點進度列上的某一段。只有已完成的步驟能點回去。 */
@@ -98,8 +109,20 @@ class WizardViewModel(
     private val _loaded = MutableStateFlow<LoadedVideo?>(null)
     val loaded: StateFlow<LoadedVideo?> = _loaded.asStateFlow()
 
+    // `_suggestions` 要宣告在 `init` 之前 —— Kotlin 依文字順序初始化屬性，
+    // `init` 裡的協程一旦搶在建構子跑完前就同步執行（Robolectric 的 compose 測試環境會這樣），
+    // 引用一個宣告在後面、還沒跑到初始值的屬性就是 NPE。
+    private val _suggestions = MutableStateFlow(Suggestions())
+    val suggestions: StateFlow<Suggestions> = _suggestions.asStateFlow()
+
     init {
         viewModelScope.launch { _recent.value = data.recentVideos(20) }
+        viewModelScope.launch {
+            _suggestions.value = Suggestions(
+                places = runCatching { data.distinctPlaces() }.getOrDefault(emptyList()),
+                tags = runCatching { data.allTagNames() }.getOrDefault(emptyList()),
+            )
+        }
     }
 
     fun submit(input: String) {
@@ -299,6 +322,145 @@ class WizardViewModel(
     fun dismissHint() {
         _step2.value?.setHintSeen(true)
         viewModelScope.launch { onHintSeen() }
+    }
+
+    // ---- 第三步 ----
+
+    private val _step3 = MutableStateFlow<Step3Store?>(null)
+    val step3: StateFlow<Step3Store?> = _step3.asStateFlow()
+
+    /** 非 null 代表「還有 N 張沒填資料，仍要完成嗎？」正在問。**提醒但不阻擋**（規格第五節）。 */
+    private val _pendingFinish = MutableStateFlow<Int?>(null)
+    val pendingFinish: StateFlow<Int?> = _pendingFinish.asStateFlow()
+
+    /** 完成了。用 SharedFlow 而不是 StateFlow —— 這是一次性事件，重新訂閱不該再導一次首頁。 */
+    private val _finished = MutableSharedFlow<Finished>()
+    val finished: SharedFlow<Finished> = _finished.asSharedFlow()
+
+    /**
+     * 進第三步：把第二步勾選的格子接過來，並在背景把它們從本機 sheet 裁進 `thumbs/`。
+     *
+     * **裁圖不擋畫面** —— sheet 已經在本機，進度幾乎一閃而過（規格第五節），
+     * 但磁碟慢的時候使用者仍該看得到格子與抽屜。
+     */
+    private fun openStep3() {
+        val step2 = _step2.value ?: return
+        val video = _loaded.value ?: return
+        val state = step2.state.value
+        val cells = state.selected.sortedBy { state.atSecOf(it) }.map {
+            Step3Cell(cell = it, atSec = state.atSecOf(it), manual = state.isManual(it))
+        }
+        val store = Step3Store(
+            cells = cells,
+            defaultEventDate = eventDateOf(video.page.meta?.publishedAt ?: "", fallback = today()),
+        )
+        _step3.value = store
+        viewModelScope.launch {
+            val storyboardCells = cells.filterNot { it.manual }.map { it.cell }
+            val outcome = runCatching {
+                data.cropThumbs(video.videoId, video.page.storyboardSpec, storyboardCells) { done, total ->
+                    store.setCropProgress(done, total)
+                }
+            }.getOrDefault(CropOutcome(emptyList(), storyboardCells))
+            cropped = outcome
+            store.finishCropping()
+        }
+    }
+
+    /** 這一批裁圖的結果，完成時要拿來寫 `thumb_state`。 */
+    private var cropped: CropOutcome = CropOutcome(emptyList(), emptyList())
+
+    /**
+     * 【完成】。還有沒套用過圖資的就**先問一次**，但問完仍然做得下去（規格第五節）。
+     *
+     * @param force 使用者在提醒框按了「仍要完成」
+     */
+    fun finish(force: Boolean = false) {
+        val store = _step3.value ?: return
+        val video = _loaded.value ?: return
+        val meta = video.page.meta
+        val state = store.state.value
+        val unfilled = state.unappliedCells.size
+        if (!force && unfilled > 0) {
+            _pendingFinish.value = unfilled
+            return
+        }
+        _pendingFinish.value = null
+
+        val level = _step2.value?.state?.value?.plan?.level ?: 3
+        viewModelScope.launch {
+            val picks = state.cells.map { cell ->
+                val d = state.details[cell.cell] ?: ShotDetails(eventDate = today())
+                NewShot(
+                    atSec = cell.atSec,
+                    source = if (cell.manual) "manual" else "storyboard",
+                    // 手動圖沒有格號，也不屬於任何 storyboard 層級 —— 兩欄都是 null（規格第四節）
+                    frameIndex = if (cell.manual) null else cell.cell,
+                    sbLevel = if (cell.manual) null else level,
+                    eventDate = d.eventDate,
+                    place = d.place,
+                    description = d.description,
+                    webp = if (cell.manual) manualWebpOf(cell.cell) else null,
+                    tagNames = d.tags,
+                )
+            }
+            val videoRow = VideoEntity(
+                id = video.videoId,
+                title = meta?.title ?: video.videoId,
+                channelTitle = meta?.channelTitle ?: "",
+                publishedAt = meta?.publishedAt ?: "",
+                durationSec = meta?.durationSec ?: 0,
+                privacy = meta?.privacy ?: "unknown",
+                sbSpec = video.page.storyboardSpec,
+                addedAt = System.currentTimeMillis() / 1000,
+            )
+            // 第 1 步：唯一「失敗就是完成失敗」的一步
+            val ok = runCatching { data.commit(videoRow, picks) }.isSuccess
+            if (!ok) {
+                _commitFailed.value = true
+                return@launch
+            }
+            // 第 2、3 步：兩個 DB 無法共用交易（規格第五節）。這兩步沒做到也無妨 ——
+            // thumb_state 可由「縮圖檔在不在」重新推導，草稿目錄下次取同一支影片會覆蓋
+            runCatching { data.markThumbStates(video.videoId, level, cropped.written, cropped.missing) }
+            runCatching { data.clearDraft(video.videoId) }
+            _hasDraft.value = false
+            // 第 4 步的「標記有變更」由 repo 的 onChanged 做掉了，這裡不必再呼叫
+            _finished.emit(Finished(eventDate = picks.first().eventDate, count = picks.size))
+            // 回到第一步。**不做這件事的話使用者會停在一個已經入庫的第三步上**，
+            // 再按一次【完成】就是拿同樣的格號再寫一次 —— 撞 shot(video_id, frame_index) 的唯一索引。
+            // 階段 7 接上首頁後這裡會換成導頁，但「第三步不能重按」這條不變
+            resetToStart()
+        }
+    }
+
+    /** 完成或放棄之後把精靈清乾淨。第二步的狀態機握著磁碟快取，一定要 close。 */
+    private fun resetToStart() {
+        _step3.value = null
+        _step2.value?.close()
+        step2Jobs.forEach { it.cancel() }
+        _step2.value = null
+        _loaded.value = null
+        player = null
+        capture = null
+        cropped = CropOutcome(emptyList(), emptyList())
+        _furthest.value = WizardStep.URL
+        _step.value = WizardStep.URL
+        // 剛入庫的影片要出現在「最近取過的影片」清單最上面
+        viewModelScope.launch { _recent.value = runCatching { data.recentVideos(20) }.getOrDefault(emptyList()) }
+    }
+
+    fun dismissPendingFinish() { _pendingFinish.value = null }
+
+    private val _commitFailed = MutableStateFlow(false)
+    val commitFailed: StateFlow<Boolean> = _commitFailed.asStateFlow()
+
+    fun dismissCommitFailed() { _commitFailed.value = false }
+
+    /** 手動圖的 webp。讀不到就當成沒有圖，不擋住整批入庫 —— 其餘 17 張沒有理由陪葬。 */
+    private suspend fun manualWebpOf(cell: Int): ByteArray? {
+        val file = _step2.value?.state?.value?.manual?.firstOrNull { it.cellIndex == cell }?.file
+        return withContext(Dispatchers.IO) { runCatching { file?.readBytes() }.getOrNull() }
     }
 
     override fun onCleared() {

@@ -49,6 +49,19 @@ class WizardCaptureTest {
         )
         override suspend fun recentVideos(limit: Int): List<RecentVideo> = emptyList()
         override suspend fun takenFrameIndexes(videoId: String, level: Int): Set<Int> = emptySet()
+        override suspend fun distinctPlaces() = emptyList<String>()
+        override suspend fun allTagNames() = emptyList<String>()
+        override suspend fun cropThumbs(
+            videoId: String, sbSpec: String?, frameIndexes: List<Int>, onProgress: (Int, Int) -> Unit,
+        ) = CropOutcome(frameIndexes, emptyList())
+        override suspend fun commit(
+            video: com.xenyaa.videoshot.data.library.entity.VideoEntity,
+            picks: List<com.xenyaa.videoshot.data.repo.model.NewShot>,
+        ) = picks.indices.map { it.toLong() }
+        override suspend fun markThumbStates(videoId: String, level: Int, ok: List<Int>, missing: List<Int>) = Unit
+        override suspend fun saveDraft(json: String) = Unit
+        override suspend fun currentDraft(): String? = null
+        override suspend fun clearDraft(videoId: String) = Unit
     }
 
     private fun tempDir(): File = Files.createTempDirectory("manual").toFile()

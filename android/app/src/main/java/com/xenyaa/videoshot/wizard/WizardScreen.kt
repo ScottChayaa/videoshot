@@ -147,8 +147,37 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                         }
                     }
                 }
-                // 階段 6 的第三步會取代這個佔位畫面
-                WizardStep.DETAILS -> Text("第三步（填資料）在階段 6 實作")
+                WizardStep.DETAILS -> {
+                    val store by vm.step3.collectAsStateWithLifecycle()
+                    val step2 by vm.step2.collectAsStateWithLifecycle()
+                    val suggestions by vm.suggestions.collectAsStateWithLifecycle()
+                    val current = store
+                    if (current == null) {
+                        Text("正在準備縮圖…")
+                    } else {
+                        val state by current.state.collectAsStateWithLifecycle()
+                        // 圖仍然由第二步的狀態機供應 —— 它同時認得 storyboard 格與手動格
+                        val bitmapFor: suspend (Int) -> androidx.compose.ui.graphics.ImageBitmap? =
+                            remember(step2) { { cell -> step2?.bitmapOfCell(cell) } }
+                        Step3DetailsScreen(
+                            state = state,
+                            bitmapFor = bitmapFor,
+                            onToggle = { current.toggle(it) },
+                            onSelectAll = { current.selectAll() },
+                            onSelectNone = { current.selectNone() },
+                            onInvert = { current.invert() },
+                            onSelectUnapplied = { current.selectUnapplied() },
+                            onEditEventDate = { current.editEventDate(it) },
+                            onEditPlace = { current.editPlace(it) },
+                            onEditDescription = { current.editDescription(it) },
+                            onEditTags = { current.editTags(it) },
+                            onApply = { current.applyPatch() },
+                            onFinish = { vm.finish() },
+                            placeSuggestions = suggestions.places,
+                            tagSuggestions = suggestions.tags,
+                        )
+                    }
+                }
             }
         }
     }
@@ -167,6 +196,29 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
             title = { Text("這一格已經收藏過了") },
             text = { Text("長按或按 ▶ 仍然可以跳到那一段看看。") },
             confirmButton = { TextButton(onClick = { takenTapped = null }) { Text("知道了") } },
+        )
+    }
+
+    val pendingFinish by vm.pendingFinish.collectAsStateWithLifecycle()
+    pendingFinish?.let { count ->
+        AlertDialog(
+            onDismissRequest = { vm.dismissPendingFinish() },
+            title = { Text("還有 $count 張沒填資料，仍要完成嗎？") },
+            // 提醒但不阻擋（規格第五節「完成」）—— 圖本身已經有價值，圖資可以之後補
+            text = { Text("沒填的圖仍然會進圖庫，之後可以在詳情頁補上。") },
+            confirmButton = { TextButton(onClick = { vm.finish(force = true) }) { Text("仍要完成") } },
+            dismissButton = { TextButton(onClick = { vm.dismissPendingFinish() }) { Text("回去填") } },
+        )
+    }
+
+    val commitFailed by vm.commitFailed.collectAsStateWithLifecycle()
+    if (commitFailed) {
+        AlertDialog(
+            onDismissRequest = { vm.dismissCommitFailed() },
+            title = { Text("存不進圖庫") },
+            // 草稿還在 —— 這是使用者現在最需要知道的事
+            text = { Text("剛才的選擇都還留著，可以再試一次。") },
+            confirmButton = { TextButton(onClick = { vm.dismissCommitFailed() }) { Text("知道了") } },
         )
     }
 }
