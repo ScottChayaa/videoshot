@@ -64,7 +64,10 @@ class LocalSheetCropper(
                     .getOrNull()
             }
             if (sheet == null) {
-                missing += frames
+                // **只記 todo，不是整組 frames** —— 這一組裡可能有上一輪就已經裁好的格子，
+                // 它們的檔案好好地躺在 thumbs/ 裡。把它們也記成 missing，回填作業會為了
+                // 已經存在的縮圖再下載一次 sheet
+                missing += todo
                 done += frames.size
                 onProgress(done, total)
                 continue

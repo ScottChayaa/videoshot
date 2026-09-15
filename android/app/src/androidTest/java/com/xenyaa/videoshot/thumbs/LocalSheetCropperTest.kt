@@ -103,4 +103,16 @@ class LocalSheetCropperTest {
         assertEquals(1, result.written.size)
         assertEquals(emptyList<Int>(), result.missing)
     }
+
+    @Test
+    fun sheet不見了時已經裁好的格子不算missing() = runTest {
+        writeSheet("M0.jpg")
+        cropper.crop("v1", level, sheetsDir, listOf(0))
+        // sheet 被清掉（草稿過期、使用者清資料），但第 0 格的檔案還在
+        File(sheetsDir, "M0.jpg").delete()
+        val again = cropper.crop("v1", level, sheetsDir, listOf(0, 1))
+        assertEquals(emptyList<ThumbKey>(), again.written)
+        // 第 0 格已經有縮圖了，不該排進回填；只有第 1 格真的缺
+        assertEquals(listOf(1), again.missing)
+    }
 }
