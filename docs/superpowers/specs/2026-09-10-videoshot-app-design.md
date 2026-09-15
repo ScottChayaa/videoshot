@@ -199,6 +199,14 @@ web 版：YouTube iframe 是跨來源內容，`canvas.drawImage()` 後 `toBlob()
 跳播的順序不必特別處理：在 `readyState=0` 時設定 `currentTime`，
 依 HTML 規格會被當成「預設起播位置」保留，媒體接上後就從那裡開始（實測跳到 100 秒後從 100.06 秒起播）。
 
+**放進 Compose 時，WebView 的 `layoutParams` 必須自己指定 `MATCH_PARENT`。**
+`AndroidView` 預設塞給子 View 的是 `WRAP_CONTENT`；WebView 高度一旦是「包住內容」，
+Chromium 就以不確定的高度排版，YouTube 那條 `html` → `body` → `#player` → `<video>`
+的 `height:100%` **整條算成 0**。這個症狀很難認：影片真的在播（有聲音、`readyState=4`、
+`currentTime` 前進），Android 側的 `webView.height` 也正確，但 `<video>` 的版面高度是 0，
+**畫面上播放器整片空白**。補 CSS 無效（實測連 `html{height:100%!important}` 都算出 0px），
+重載也無效 —— 問題不在頁面樣式，在 WebView 的排版高度不確定。
+
 ### 6. 縮圖的實測尺寸
 
 | | 大小 |

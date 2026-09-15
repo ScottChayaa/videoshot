@@ -1,6 +1,7 @@
 package com.xenyaa.videoshot.player
 
 import android.annotation.SuppressLint
+import android.view.ViewGroup
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -111,6 +112,32 @@ internal const val PAUSE_VIDEO_JS =
     "(function(){var v=document.querySelector('video'); if(v) v.pause(); return 'ok';})()"
 
 /**
+ * 播放器 WebView 的初始設定。
+ *
+ * **`layoutParams` 一定要自己給 `MATCH_PARENT`。** `AndroidView` 預設塞給子 View 的是
+ * `WRAP_CONTENT`；WebView 的高度一旦是「包住內容」，Chromium 就用不確定的高度排版，
+ * 於是 YouTube embed 那條 `html` → `body` → `#player` → `<video>` 的 `height:100%`
+ * **整條算成 0**。症狀非常難認：影片確實在播（有聲音、`readyState=4`、`currentTime` 前進），
+ * Android 那一側的 `webView.height` 也是正確的 608px，但 `<video>` 的版面高度是 0，
+ * 畫面上播放器整片空白（2026-09-15 實機實測）。
+ *
+ * 補 CSS 沒有用 —— 實測連 `html{height:100%!important}` 都還是算出 0px，
+ * 因為問題出在 WebView 的排版高度不確定，不是頁面的樣式被誰蓋掉。重載也沒有用。
+ *
+ * `mediaPlaybackRequiresUserGesture = false` 不能拿掉：關掉的話連 cued 覆蓋層
+ * 點下去都不會播（見 [PLAY_VIDEO_JS]）。
+ */
+internal fun WebView.applyPlayerViewSettings() {
+    layoutParams = ViewGroup.LayoutParams(
+        ViewGroup.LayoutParams.MATCH_PARENT,
+        ViewGroup.LayoutParams.MATCH_PARENT,
+    )
+    settings.javaScriptEnabled = true
+    settings.domStorageEnabled = true
+    settings.mediaPlaybackRequiresUserGesture = false
+}
+
+/**
  * 把播放器放進 Compose。`onPlayerReady` 在頁面載完時回呼，呼叫端拿到的是 [Player] 介面。
  *
  * **WebView 一定要釋放**：`AndroidView` 不會自己 destroy 它。沒有 `onRelease` 的話，
@@ -153,9 +180,7 @@ fun PlayerSurface(
         modifier = modifier,
         factory = { context ->
             WebView(context).apply {
-                settings.javaScriptEnabled = true
-                settings.domStorageEnabled = true
-                settings.mediaPlaybackRequiresUserGesture = false
+                applyPlayerViewSettings()
                 webChromeClient = WebChromeClient()
                 val player = WebViewPlayer(this)
                 webViewClient = object : WebViewClient() {
