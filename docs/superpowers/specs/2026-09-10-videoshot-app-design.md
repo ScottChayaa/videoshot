@@ -179,8 +179,25 @@ web 版：YouTube iframe 是跨來源內容，`canvas.drawImage()` 後 `toBlob()
 
 | 值 | 載入 | 實測 |
 |---|---|---|
-| `true` | `https://www.youtube.com/embed/{id}?playsinline=1&controls=0&cc_load_policy=0&rel=0` | 畫面全乾淨、多為 720p。**不會自動播放，且 `v.play()` 無效 —— 必須模擬點擊播放鍵** |
+| `true` | `https://www.youtube.com/embed/{id}?playsinline=1&controls=0&cc_load_policy=0&rel=0` | 畫面全乾淨、多為 720p。**不會自動播放，且 `v.play()` 無效 —— 必須點掉封面覆蓋層的播放鍵**（見下） |
 | `false` | `https://m.youtube.com/watch?v={id}` | 實測播得出被擋的影片，但只有 360p，且頁面帶 YouTube 頂列與靜音鈕（JS canvas 不受影響） |
+
+**怎麼啟動播放**（2026-09-15 實機實測，Android WebView）：embed 載完（`onPageFinished`）時，
+`<video>` 已經存在，但播放器停在 `unstarted` 狀態 —— `readyState=0`、`networkState=0`（NETWORK_EMPTY）、
+`src` 是空字串，**還沒有任何媒體來源**。對這樣的 `<video>` 呼叫 `play()` 只會把 `paused` 翻成 `false`，
+不拋例外、畫面也不動。
+
+必須點掉畫面上那層封面（cued overlay）的播放鍵。**一次普通的 JS `.click()` 就夠了**，
+不需要合成 `MotionEvent`：點完之後 `readyState` 立刻變 4、`src` 拿到 blob URL、`currentTime` 開始前進。
+
+選擇器是 **`.ytmCuedOverlayPlayButton`** —— app 的 WebView 拿到的 embed 是**行動版**（`ytm*`）DOM，
+桌機版的 `.ytp-large-play-button` 在這裡**從來不存在**。頁面上沒有 iframe，全部在同一份文件裡。
+注意這是個混血 DOM：播放器容器仍帶 `ytp-*` 類名（`html5-video-player ytp-hide-controls … unstarted`），
+但覆蓋層與控制列是 `ytm*`／`ytPlayerControls*`。**不要把 `.ytp-play-button` 放進選擇器** ——
+那是控制列的播放／暫停鍵，正在播時點下去是暫停。
+
+跳播的順序不必特別處理：在 `readyState=0` 時設定 `currentTime`，
+依 HTML 規格會被當成「預設起播位置」保留，媒體接上後就從那裡開始（實測跳到 100 秒後從 100.06 秒起播）。
 
 ### 6. 縮圖的實測尺寸
 
@@ -1261,7 +1278,7 @@ OAuth client 綁定 APK 的簽章憑證，**debug 與 release 用不同的憑證
 | `drive.appdata` 是否屬於非敏感 scope | 第十節 | 備份階段開工前 |
 | 同一 Cloud 專案的不同 OAuth client 是否共用 appDataFolder | 第十節、第十八節 | 備份階段 |
 | 回填節流參數 | 第十一節 | 回填階段 |
-| **廣告偵測 `.ad-showing` 是否有效** | 第五節、第十二節 | POC 未能觸發廣告；實作階段 5 時確認，並備妥不依賴它的退路 |
+| **廣告偵測 `.ad-showing` 是否有效** | 第五節、第十二節 | POC 未能觸發廣告；實作階段 5 時確認，並備妥不依賴它的退路。2026-09-15 補充：embed 的 DOM 是行動版，但播放器容器**確實帶 `ytp-*` 類名**，所以 `.ad-showing` 仍有機會成立 —— 仍須實際觸發廣告才算數 |
 | Gemini 查詢解析的 prompt | 第八節 | 查詢階段 |
 | 首頁月份標籤：換行 vs 橫向捲動 | 第六節 | 暫定橫向捲動（沿用原型） |
 

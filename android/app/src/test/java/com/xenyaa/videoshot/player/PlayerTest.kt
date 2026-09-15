@@ -59,4 +59,30 @@ class PlayerTest {
             playerUrl("5QLiE08LO2M", playableInEmbed = false),
         )
     }
+
+    // ---- 啟動播放（規格第二節第 5 點）----
+
+    @Test
+    fun 播放先點封面覆蓋層的播放鍵() {
+        // 2026-09-15 實機實測：embed 載完時播放器停在 unstarted，<video> 存在但
+        // readyState=0、networkState=0、src 是空的 —— 根本還沒有媒體來源。
+        // 這時 v.play() 只會把 paused 翻成 false，畫面完全不動。
+        assertTrue(PLAY_VIDEO_JS, PLAY_VIDEO_JS.contains("CuedOverlayPlayButton"))
+    }
+
+    @Test
+    fun 覆蓋層要比_video_play_先試() {
+        // 順序反過來就等於沒修：unstarted 的 <video> 會把 v.play() 吃掉且不報錯
+        // 用 `in 0 until` 而不是單純比大小：找不到時 indexOf 回 -1，
+        // 「-1 < 正數」會讓這條測試在覆蓋層根本不存在時假性通過
+        val overlayAt = PLAY_VIDEO_JS.indexOf("CuedOverlayPlayButton")
+        val playAt = PLAY_VIDEO_JS.indexOf(".play()")
+        assertTrue(PLAY_VIDEO_JS, overlayAt in 0 until playAt)
+    }
+
+    @Test
+    fun 已經開始播之後仍然要能用_video_play_續播() {
+        // 覆蓋層點掉就不見了，之後的每一次跳播都只剩 <video> 這條路
+        assertTrue(PLAY_VIDEO_JS, PLAY_VIDEO_JS.contains(".play()"))
+    }
 }

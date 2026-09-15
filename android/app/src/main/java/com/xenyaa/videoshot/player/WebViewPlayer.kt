@@ -36,8 +36,8 @@ fun playerUrl(videoId: String, playableInEmbed: Boolean): String =
 /**
  * 用 WebView 驅動 YouTube 的 `<video>` 元素。
  *
- * **embed 不會自動播放，而且 `v.play()` 無效** —— POC 實測必須模擬點擊播放鍵
- * （規格第二節第 5 點）。所以 [play] 先試 `v.play()`，再點一次播放鍵。
+ * **embed 不會自動播放，而且 `v.play()` 無效** —— 播放器停在 `unstarted`、`<video>` 還沒有
+ * 媒體來源（規格第二節第 5 點）。[play] 因此先點封面覆蓋層的播放鍵，詳見 [PLAY_VIDEO_JS]。
  */
 class WebViewPlayer(private val webView: WebView) : Player {
 
@@ -47,17 +47,7 @@ class WebViewPlayer(private val webView: WebView) : Player {
     internal fun markReady() { _isReady.value = true }
 
     override suspend fun play() {
-        eval(
-            """
-            (function(){
-              var v = document.querySelector('video');
-              if (v) { v.play(); }
-              var btn = document.querySelector('.ytp-large-play-button, .ytp-play-button');
-              if (btn) { btn.click(); }
-              return 'ok';
-            })()
-            """.trimIndent()
-        )
+        eval(PLAY_VIDEO_JS)
     }
 
     override suspend fun pause() {
@@ -78,6 +68,40 @@ class WebViewPlayer(private val webView: WebView) : Player {
         webView.post { webView.evaluateJavascript(js) { cont.resume(it ?: "") } }
     }
 }
+
+/**
+ * 啟動播放。
+ *
+ * **只呼叫 `v.play()` 是沒有用的。** 2026-09-15 實機實測：embed 載完時 YouTube 的播放器
+ * 還停在 `unstarted`，`<video>` 雖然已經存在，但 `readyState=0`、`networkState=0`、
+ * `src` 是空字串 —— 根本還沒有媒體來源。對這樣的 `<video>` 呼叫 `play()` 只會把 `paused`
+ * 翻成 false，不報錯、畫面也不動（這就是「長按格子播放器沒反應」的真正原因）。
+ * 必須點掉畫面上那層封面（cued overlay）的播放鍵，播放器才會去接媒體 ——
+ * 點完之後 readyState 立刻變 4、`src` 拿到 blob URL、currentTime 開始前進。
+ *
+ * 選擇器涵蓋行動版與桌機版兩種 DOM：**app 的 WebView 拿到的 embed 是行動版**
+ * （`ytmCuedOverlayPlayButton`），而 `.ytp-large-play-button` 是桌機版的類名、在這裡從來不存在 ——
+ * 原本只寫桌機版的那一版等於一直在點空氣。`[class*=...]` 是類名被 YouTube 改掉時的緩衝。
+ *
+ * **不要把 `.ytp-play-button` 加回選擇器**：那是控制列上的播放／暫停鍵，
+ * 正在播的時候點下去是暫停。
+ *
+ * 覆蓋層點掉之後就不再出現，所以之後每一次跳播都走 `v.play()` 那條路。
+ *
+ * 跳播的順序不必改：在 `readyState=0` 時設定 `currentTime` 會被當成
+ * 「預設起播位置」保留下來，媒體接上後就從那裡開始（實測跳到 100 秒後確實從 100.06 秒起播）。
+ */
+internal val PLAY_VIDEO_JS =
+    """
+    (function(){
+      var overlay = document.querySelector(
+        '.ytmCuedOverlayPlayButton, [class*="CuedOverlayPlayButton"], .ytp-large-play-button');
+      if (overlay) { overlay.click(); return 'overlay'; }
+      var v = document.querySelector('video');
+      if (v) { v.play(); return 'video'; }
+      return 'none';
+    })()
+    """.trimIndent()
 
 /**
  * 讓 `<video>` 停下來。`WebView.onPause()` 對 HTML5 播放**不保證停得住**
