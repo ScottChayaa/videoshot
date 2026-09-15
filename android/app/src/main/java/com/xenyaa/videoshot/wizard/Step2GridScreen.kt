@@ -58,6 +58,7 @@ fun Step2GridScreen(
     onPlayFrame: (Int) -> Unit,
     onTakenTap: (Int) -> Unit,
     onSelectAll: () -> Unit,
+    onTakeShot: () -> Unit,
     onShowAll: (Boolean) -> Unit,
     onOnlySelected: (Boolean) -> Unit,
     onDismissHint: () -> Unit,
@@ -83,6 +84,8 @@ fun Step2GridScreen(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             TextButton(onClick = onSelectAll) { Text("全部選取") }
+            // 順序照規格第五節的線框：全部選取│截圖│只看已選
+            TextButton(onClick = onTakeShot) { Text("截圖") }
             TextButton(onClick = { onOnlySelected(!state.onlySelected) }) {
                 Text(if (state.onlySelected) "看全部" else "只看已選")
             }

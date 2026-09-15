@@ -67,6 +67,8 @@ class WizardStep2WiringTest {
         strength = flowOf(FilterStrength.MEDIUM),
         hintSeen = flowOf(true),
         onHintSeen = {},
+        manualImages = { com.xenyaa.videoshot.capture.ManualImageStore(java.io.File("/tmp/unused")) },
+        captureFor = { null },
     )
 
     private fun show(vm: WizardViewModel) {
@@ -200,6 +202,8 @@ class WizardStep2WiringTest {
             strength = strengthFlow,
             hintSeen = flowOf(true),
             onHintSeen = {},
+            manualImages = { com.xenyaa.videoshot.capture.ManualImageStore(java.io.File("/tmp/unused")) },
+            captureFor = { null },
         )
 
         vm.openRecent("vid")
@@ -235,6 +239,8 @@ class WizardStep2WiringTest {
             strength = flowOf(FilterStrength.MEDIUM),
             hintSeen = flowOf(true),
             onHintSeen = {},
+            manualImages = { com.xenyaa.videoshot.capture.ManualImageStore(java.io.File("/tmp/unused")) },
+            captureFor = { null },
         )
         vm.openRecent("vid")
         shadowOf(Looper.getMainLooper()).idle()

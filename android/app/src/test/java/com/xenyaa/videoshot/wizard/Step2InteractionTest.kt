@@ -58,6 +58,7 @@ class Step2InteractionTest {
                 onPlayFrame = { played += it },
                 onTakenTap = { takenTaps += it },
                 onSelectAll = {},
+                onTakeShot = {},
                 onShowAll = {},
                 onOnlySelected = {},
                 onDismissHint = { hintDismissed++ },

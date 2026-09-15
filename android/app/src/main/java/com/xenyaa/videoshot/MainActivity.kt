@@ -35,6 +35,8 @@ class MainActivity : ComponentActivity() {
                                 strength = app.container.settings.filterStrength,
                                 hintSeen = app.container.settings.gridHintSeen,
                                 onHintSeen = { app.container.settings.markGridHintSeen() },
+                                manualImages = { app.container.manualImagesFor(it) },
+                                captureFor = { app.container.captureFor(it) },
                             ) as T
                     }
                 }

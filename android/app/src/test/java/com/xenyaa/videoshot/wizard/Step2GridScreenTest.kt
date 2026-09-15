@@ -34,6 +34,7 @@ class Step2GridScreenTest {
         onShowAll: (Boolean) -> Unit = {},
         onOnlySelected: (Boolean) -> Unit = {},
         onNext: () -> Unit = {},
+        onTakeShot: () -> Unit = {},
         bitmapFor: suspend (Int) -> androidx.compose.ui.graphics.ImageBitmap? = { source.bitmapOf(it) },
     ) {
         compose.setContent {
@@ -45,6 +46,7 @@ class Step2GridScreenTest {
                 onTakenTap = {},
                 onPlayFrame = {},
                 onSelectAll = onSelectAll,
+                onTakeShot = onTakeShot,
                 onShowAll = onShowAll,
                 onOnlySelected = onOnlySelected,
                 onDismissHint = {},
@@ -106,12 +108,21 @@ class Step2GridScreenTest {
     }
 
     @Test
-    fun 工具列有全部選取與只看已選但這一階段沒有截圖() {
+    fun 工具列三顆按鈕依規格的順序排列() {
+        // 規格第五節的線框：全部選取│截圖│只看已選。
+        // 階段 4b 時這條測試斷言「沒有截圖」—— 那是當時的範圍，階段 4c 把它補上了
         show(loaded())
         compose.onNodeWithText("全部選取").assertIsDisplayed()
+        compose.onNodeWithText("截圖").assertIsDisplayed()
         compose.onNodeWithText("只看已選").assertIsDisplayed()
-        // 【截圖】是階段 4c
-        compose.onNodeWithText("截圖").assertDoesNotExist()
+    }
+
+    @Test
+    fun 按截圖會回報() {
+        var called = 0
+        show(loaded(), onTakeShot = { called++ })
+        compose.onNodeWithText("截圖").performClick()
+        assertEquals(1, called)
     }
 
     @Test

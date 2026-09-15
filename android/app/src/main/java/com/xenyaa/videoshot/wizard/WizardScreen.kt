@@ -117,6 +117,7 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                                 onTakenTap = { takenTapped = it },
                                 onPlayFrame = { vm.playFrame(it) },
                                 onSelectAll = { current.selectAll() },
+                                onTakeShot = { vm.takeShot() },
                                 onShowAll = { current.setShowAll(it) },
                                 onOnlySelected = { current.setOnlySelected(it) },
                                 onDismissHint = { vm.dismissHint() },

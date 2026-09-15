@@ -28,6 +28,12 @@ import com.xenyaa.videoshot.youtube.OkHttpYoutube
 import com.xenyaa.videoshot.youtube.Youtube
 import okhttp3.OkHttpClient
 import kotlinx.coroutines.Dispatchers
+import android.graphics.BitmapFactory
+import com.xenyaa.videoshot.capture.Capture
+import com.xenyaa.videoshot.capture.ManualImageStore
+import com.xenyaa.videoshot.capture.WebViewCapture
+import com.xenyaa.videoshot.player.Player
+import com.xenyaa.videoshot.player.WebViewPlayer
 import java.io.File
 
 /**
@@ -92,6 +98,27 @@ class AppContainer(context: Context) {
     }
 
     val haptics: Haptics by lazy { SystemHaptics(appContext) }
+
+    /**
+     * 這支影片的手動補圖存放處。與 sheet 同樣綁在草稿上：
+     * `drafts/{videoId}/manual/`，精靈完成或捨棄時整個 `drafts/{videoId}/` 一起刪（規格第四節）。
+     */
+    fun manualImagesFor(videoId: String): ManualImageStore =
+        ManualImageStore(File(appContext.filesDir, "drafts/$videoId/manual"))
+
+    /**
+     * 播放器接上之後建對應的截圖器。
+     *
+     * 只有 `WebViewPlayer` 截得到圖 —— 它握著那個 WebView 的 JS 執行入口。
+     * 其他實作（例如測試用的 `FakePlayer`）回 null，畫面上按【截圖】會得到「播放器還沒準備好」。
+     */
+    fun captureFor(player: Player): Capture? = when (player) {
+        is WebViewPlayer -> WebViewCapture(
+            eval = { player.evaluate(it) },
+            decode = { BitmapFactory.decodeByteArray(it, 0, it.size) },
+        )
+        else -> null
+    }
 
     /**
      * 第二步的縮圖來源。解不出 storyboard 時給一個空的來源 ——
