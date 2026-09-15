@@ -1,10 +1,13 @@
 package com.xenyaa.videoshot
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -37,11 +40,21 @@ class MainActivity : ComponentActivity() {
                                 onHintSeen = { app.container.settings.markGridHintSeen() },
                                 manualImages = { app.container.manualImagesFor(it) },
                                 captureFor = { app.container.captureFor(it) },
+                                today = { java.time.LocalDate.now().toString() },
                             ) as T
                     }
                 }
+                val context = LocalContext.current
+                val vm: WizardViewModel = viewModel(factory = factory)
+                LaunchedEffect(vm) {
+                    vm.finished.collect { done ->
+                        // 階段 7 的首頁做好之前，終點只能是一句話。
+                        // **不要順手做一個暫時的首頁** —— 那會變成兩份要維護的東西
+                        Toast.makeText(context, "已新增 ${done.count} 張", Toast.LENGTH_LONG).show()
+                    }
+                }
                 WizardScreen(
-                    vm = viewModel(factory = factory),
+                    vm = vm,
                     haptics = app.container.haptics,
                     // 階段 7 之前沒有別的地方可去，關掉精靈就是關掉 app
                     onExit = { finish() },

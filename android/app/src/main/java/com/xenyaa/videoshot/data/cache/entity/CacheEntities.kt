@@ -31,7 +31,7 @@ data class DraftEntity(
     @ColumnInfo(name = "video_id") val videoId: String,
     /** 1 | 2 | 3 */
     @ColumnInfo(name = "step") val step: Int,
-    /** JSON：已勾選的 frame_index、手動補圖清單、第三步已套用的圖資、每格的 dHash 指紋 */
+    /** JSON：已勾選的 frame_index、手動補圖清單、第三步已套用的圖資（不存 dHash 指紋，見 `DraftPayload` 的註解） */
     @ColumnInfo(name = "payload") val payload: String,
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
 ) {
