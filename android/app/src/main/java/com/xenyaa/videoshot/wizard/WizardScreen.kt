@@ -141,6 +141,7 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
                                 ) },
                                 onDismissCaptureError = { vm.dismissCaptureError() },
+                                onNudgeManual = { cell, delta -> vm.nudgeManual(cell, delta) },
                                 modifier = Modifier.weight(1f),
                             )
                         }

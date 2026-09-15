@@ -28,9 +28,16 @@ import kotlinx.coroutines.withContext
  * 這個約定是隱性的 —— 它只能出現在 [Step2State.isManual] 與 [Step2State.atSecOf] 裡，
  * 不要讓這個比較散落到畫面程式碼。
  *
- * @param atSec 截圖來的是「與圖同一瞬間」的秒數（不可改）；相簿來的是播放器當下的近似值（可微調）
+ * @param atSec 截圖來的是「與圖同一瞬間」的秒數；相簿來的是播放器當下的近似值
+ * @param fromGallery 從相簿選的。**只有它的時間可以 ±1 秒微調**（規格第五節、手冊第 93 行）——
+ *        截圖的圖與秒數是同一瞬間取的，一調就對不上了
  */
-data class ManualCell(val cellIndex: Int, val atSec: Double, val file: File)
+data class ManualCell(
+    val cellIndex: Int,
+    val atSec: Double,
+    val file: File,
+    val fromGallery: Boolean,
+)
 
 /**
  * 第二步的畫面狀態。
@@ -248,11 +255,11 @@ class Step2Store(
      *
      * @return 新格子的格號
      */
-    fun addManual(atSec: Double, file: File): Int {
+    fun addManual(atSec: Double, file: File, fromGallery: Boolean = false): Int {
         val current = _state.value
         val cell = current.plan.frameCount + current.manual.size
         _state.value = current.copy(
-            manual = current.manual + ManualCell(cell, atSec, file),
+            manual = current.manual + ManualCell(cell, atSec, file, fromGallery),
             selected = current.selected + cell,
             ready = current.ready + cell,
         )
@@ -260,14 +267,21 @@ class Step2Store(
     }
 
     /**
-     * ±1 秒微調。**只有相簿選來的圖該用它** —— 截圖的秒數與圖是同一瞬間取的，調了就對不上。
-     * 這條規則由呼叫端把關（畫面上只對相簿來的格子顯示微調鈕）。
+     * ±1 秒微調。**只對相簿選來的圖有效**（規格第五節、手冊第 93 行）——
+     * 截圖的秒數與圖是同一瞬間取的，調了就對不上。
+     *
+     * 畫面上本來就只對相簿來的格子顯示微調鈕，這裡**再擋一次**：
+     * 規格明訂的規則不該只靠畫面把關。
      */
     fun nudgeManual(cell: Int, deltaSec: Double) {
         val current = _state.value
         _state.value = current.copy(
             manual = current.manual.map {
-                if (it.cellIndex == cell) it.copy(atSec = (it.atSec + deltaSec).coerceAtLeast(0.0)) else it
+                if (it.cellIndex == cell && it.fromGallery) {
+                    it.copy(atSec = (it.atSec + deltaSec).coerceAtLeast(0.0))
+                } else {
+                    it
+                }
             },
         )
     }

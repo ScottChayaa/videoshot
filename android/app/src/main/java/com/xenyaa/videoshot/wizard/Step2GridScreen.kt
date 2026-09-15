@@ -3,6 +3,7 @@ package com.xenyaa.videoshot.wizard
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -67,6 +68,8 @@ fun Step2GridScreen(
     captureError: CaptureError? = null,
     onPickFromGallery: () -> Unit = {},
     onDismissCaptureError: () -> Unit = {},
+    /** 微調某一格的秒數。**只有相簿來的格子會呼叫它**（規格第五節）。 */
+    onNudgeManual: (Int, Double) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxSize()) {
@@ -122,6 +125,8 @@ fun Step2GridScreen(
                     frameIndex = frameIndex,
                     atSec = state.atSecOf(frameIndex),
                     manual = state.isManual(frameIndex),
+                    nudgable = state.manual.firstOrNull { it.cellIndex == frameIndex }?.fromGallery == true,
+                    onNudge = { delta -> onNudgeManual(frameIndex, delta) },
                     selected = frameIndex in state.selected,
                     taken = frameIndex in state.taken,
                     playing = state.playingFrame == frameIndex,
@@ -231,6 +236,8 @@ private fun FrameCell(
     frameIndex: Int,
     atSec: Double,
     manual: Boolean,
+    nudgable: Boolean,
+    onNudge: (Double) -> Unit,
     selected: Boolean,
     taken: Boolean,
     playing: Boolean,
@@ -290,6 +297,30 @@ private fun FrameCell(
                         .semantics { contentDescription = "截圖" },
                     style = MaterialTheme.typography.labelSmall,
                 )
+            }
+
+            if (nudgable) {
+                // ±1 秒微調：**只有相簿選來的圖有**。截圖的圖與秒數是同一瞬間取的，
+                // 給了微調鈕等於承諾一件做不到的事（規格第五節、手冊第 93 行）
+                Row(
+                    Modifier.align(Alignment.BottomStart).padding(2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "−",
+                        modifier = Modifier
+                            .clickable { onNudge(-1.0) }
+                            .padding(horizontal = 6.dp)
+                            .semantics { contentDescription = "往前 1 秒" },
+                    )
+                    Text(
+                        "＋",
+                        modifier = Modifier
+                            .clickable { onNudge(1.0) }
+                            .padding(horizontal = 6.dp)
+                            .semantics { contentDescription = "往後 1 秒" },
+                    )
+                }
             }
 
             if (taken) {

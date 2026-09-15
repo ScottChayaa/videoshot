@@ -228,7 +228,7 @@ class WizardViewModel(
                         if (file == null) {
                             _captureError.value = CaptureError.SAVE_FAILED
                         } else {
-                            store.addManual(result.atSec, file)
+                            store.addManual(result.atSec, file, fromGallery = false)
                             // 成功了就把上一次的失敗訊息收掉，否則畫面會留著一句過期的話
                             _captureError.value = null
                         }
@@ -259,7 +259,7 @@ class WizardViewModel(
             if (file == null) {
                 _captureError.value = CaptureError.SAVE_FAILED
             } else {
-                store.addManual(atSec, file)
+                store.addManual(atSec, file, fromGallery = true)
                 _captureError.value = null
             }
         }

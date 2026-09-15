@@ -3,11 +3,13 @@ package com.xenyaa.videoshot.wizard
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.xenyaa.videoshot.wizard.frames.FakeFrameSource
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -53,6 +55,57 @@ class Step2CaptureUiTest {
                 onDismissCaptureError = onDismissCaptureError,
             )
         }
+    }
+
+    private fun showCell(fromGallery: Boolean, onNudge: (Int, Double) -> Unit = { _, _ -> }) {
+        val plan = source.plan
+        val cell = plan.frameCount
+        compose.setContent {
+            Step2GridScreen(
+                state = Step2State(
+                    plan = plan,
+                    converging = false,
+                    hintSeen = true,
+                    ready = setOf(cell),
+                    manual = listOf(ManualCell(cell, 20.0, java.io.File("/tmp/a.webp"), fromGallery)),
+                ),
+                bitmapFor = { null },
+                haptics = FakeHaptics(),
+                onToggle = {},
+                onTakenTap = {},
+                onPlayFrame = {},
+                onSelectAll = {},
+                onTakeShot = {},
+                onShowAll = {},
+                onOnlySelected = {},
+                onDismissHint = {},
+                onNext = {},
+                onNudgeManual = onNudge,
+            )
+        }
+    }
+
+    @Test
+    fun 相簿來的格子有正負1秒的微調鈕() {
+        showCell(fromGallery = true)
+        compose.onNodeWithContentDescription("往前 1 秒").assertIsDisplayed()
+        compose.onNodeWithContentDescription("往後 1 秒").assertIsDisplayed()
+    }
+
+    @Test
+    fun 截圖來的格子沒有微調鈕() {
+        // 圖與秒數同一瞬間取的，給了微調鈕就是給錯誤的承諾（規格第五節）
+        showCell(fromGallery = false)
+        compose.onAllNodesWithContentDescription("往前 1 秒").assertCountEquals(0)
+        compose.onAllNodesWithContentDescription("往後 1 秒").assertCountEquals(0)
+    }
+
+    @Test
+    fun 按微調鈕會帶著格號與秒數回報() {
+        var got: Pair<Int, Double>? = null
+        showCell(fromGallery = true, onNudge = { c, d -> got = c to d })
+        compose.onNodeWithContentDescription("往後 1 秒").performClick()
+        assertEquals(source.plan.frameCount to 1.0, got)
     }
 
     @Test

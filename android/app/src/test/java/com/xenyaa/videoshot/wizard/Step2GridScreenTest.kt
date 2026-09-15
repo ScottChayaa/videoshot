@@ -219,7 +219,7 @@ class Step2GridScreenTest {
         val base = Step2State(plan = source.plan, converging = false)
         show(
             base.copy(
-                manual = listOf(ManualCell(base.plan.frameCount, 15.0, java.io.File("/tmp/a.webp"))),
+                manual = listOf(ManualCell(base.plan.frameCount, 15.0, java.io.File("/tmp/a.webp"), fromGallery = false)),
                 ready = base.ready + base.plan.frameCount,
                 selected = base.selected + base.plan.frameCount,
                 kept = emptyList(),
@@ -242,7 +242,7 @@ class Step2GridScreenTest {
         val cell = base.plan.frameCount
         show(
             base.copy(
-                manual = listOf(ManualCell(cell, 5.0, java.io.File("/tmp/a.webp"))),
+                manual = listOf(ManualCell(cell, 5.0, java.io.File("/tmp/a.webp"), fromGallery = false)),
                 ready = base.ready + cell,
                 kept = emptyList(),
             ),

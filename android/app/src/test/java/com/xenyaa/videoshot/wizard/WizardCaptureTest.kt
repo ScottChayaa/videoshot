@@ -21,6 +21,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -237,5 +238,41 @@ class WizardCaptureTest {
         vm.addFromGallery(byteArrayOf(1, 2, 3))
         advanceUntilIdle()
         assertEquals(CaptureError.SAVE_FAILED, vm.captureError.value)
+    }
+
+    // ---- 哪些格子的時間可以調（規格第五節、手冊第 93 行）----
+
+    @Test
+    fun 截圖來的格子不可微調() {
+        // 圖與秒數是同一瞬間取的，調了就對不上 —— 這是規格明訂的
+        runTest(dispatcher) {
+            val vm = readyViewModel(capture = FakeCapture(atSec = 30.0))
+            vm.takeShot()
+            advanceUntilIdle()
+            assertFalse(vm.step2.value!!.state.value.manual.first().fromGallery)
+        }
+    }
+
+    @Test
+    fun 相簿來的格子可微調() {
+        runTest(dispatcher) {
+            val vm = readyViewModel(player = FakePlayer(initialTime = 10.0))
+            vm.addFromGallery(byteArrayOf(1))
+            advanceUntilIdle()
+            assertTrue(vm.step2.value!!.state.value.manual.first().fromGallery)
+        }
+    }
+
+    @Test
+    fun 截圖來的格子就算被要求微調也不動() {
+        // 畫面上不該給它微調鈕，但狀態機自己也要守住這條規則
+        runTest(dispatcher) {
+            val vm = readyViewModel(capture = FakeCapture(atSec = 30.0))
+            vm.takeShot()
+            advanceUntilIdle()
+            val cell = vm.step2.value!!.state.value.manual.first().cellIndex
+            vm.nudgeManual(cell, 1.0)
+            assertEquals(30.0, vm.step2.value!!.state.value.atSecOf(cell), 0.0)
+        }
     }
 }
