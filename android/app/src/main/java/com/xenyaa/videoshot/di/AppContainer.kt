@@ -135,7 +135,9 @@ class AppContainer(context: Context) {
             videoId = video.videoId,
             spec = spec,
             level = level,
-            sheetsDir = File(appContext.filesDir, "drafts/${video.videoId}/sheets"),
+            // 加一層 L{level}：續做時重抓 spec 可能換到別的層級，而 M{n}.jpg 的檔名裡沒有層級 ——
+            // 沿用舊檔就是拿 L2 的 sheet 去裁 L3 的座標，裁出來的是別的畫面而且看起來完全正常
+            sheetsDir = File(appContext.filesDir, "drafts/${video.videoId}/sheets/L${level.level}"),
             youtube = youtube,
             refreshSpec = { youtube.watchPage(video.videoId).storyboardSpec?.let { Storyboard.parse(it) } },
             io = Dispatchers.IO,

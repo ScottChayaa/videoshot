@@ -208,6 +208,13 @@ class StoryboardFrameSource(
      * @return null 代表重抓之後仍然拿不到
      */
     private suspend fun fetchSheet(sheetIndex: Int): ByteArray? {
+        // 續做草稿時 sheet 往往還在本機 —— 重抓一次只是白花流量。
+        // 讀壞了（檔案被截斷）就當作沒有，照常走下載
+        val local = withContext(io) {
+            runCatching { File(sheetsDir, "M$sheetIndex.jpg").takeIf { it.exists() }?.readBytes() }.getOrNull()
+        }
+        if (local != null && local.isNotEmpty()) return local
+
         repeat(2) {
             val (spec, gen) = refreshLock.withLock { currentSpec to specGeneration }
             try {

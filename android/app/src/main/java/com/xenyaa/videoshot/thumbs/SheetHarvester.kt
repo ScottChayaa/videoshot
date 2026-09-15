@@ -2,7 +2,6 @@ package com.xenyaa.videoshot.thumbs
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.os.Build
 import com.xenyaa.videoshot.core.similarity.grayscale9x8
 import com.xenyaa.videoshot.core.storyboard.FramePos
 import com.xenyaa.videoshot.core.storyboard.Storyboard
@@ -12,7 +11,6 @@ import com.xenyaa.videoshot.youtube.SheetForbidden
 import com.xenyaa.videoshot.youtube.Youtube
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 
 /**
  * @param written 這次真的寫進 thumbs/ 的格子（已存在而跳過的不算）
@@ -92,30 +90,15 @@ class SheetHarvester(
             for (frameIndex in frames) {
                 val key = ThumbKey(videoId, level.level, frameIndex)
                 val ok = withContext(default) {
-                    runCatching { writeFrame(sheet, Storyboard.framePosition(level, frameIndex), key) }
-                        .getOrDefault(false)
+                    runCatching {
+                        writeFrameToThumbs(sheet, Storyboard.framePosition(level, frameIndex), key, thumbs)
+                    }.getOrDefault(false)
                 }
                 if (ok) written += key else failed += frameIndex
             }
             sheet.recycle()
         }
         return HarvestResult(written, failed, degraded)
-    }
-
-    private fun writeFrame(sheet: Bitmap, pos: FramePos, key: ThumbKey): Boolean {
-        if (pos.x + pos.width > sheet.width || pos.y + pos.height > sheet.height) return false
-        val frame = Bitmap.createBitmap(sheet, pos.x, pos.y, pos.width, pos.height)
-        val out = ByteArrayOutputStream()
-        @Suppress("DEPRECATION")
-        val format =
-            if (Build.VERSION.SDK_INT >= 30) Bitmap.CompressFormat.WEBP_LOSSY else Bitmap.CompressFormat.WEBP
-        val encoded = frame.compress(format, 75, out)
-        frame.recycle()
-        if (!encoded) return false
-        val file = thumbs.fileOf(key)
-        file.parentFile?.mkdirs()
-        file.writeBytes(out.toByteArray())
-        return true
     }
 }
 
