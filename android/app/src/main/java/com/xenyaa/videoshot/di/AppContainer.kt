@@ -122,7 +122,7 @@ class AppContainer(context: Context) {
                 val result = localSheetCropper.crop(
                     videoId = videoId,
                     level = picked,
-                    sheetsDir = File(appContext.filesDir, "drafts/$videoId/sheets/L${picked.level}"),
+                    sheetsDir = sheetsDirFor(videoId, picked.level),
                     frameIndexes = frameIndexes,
                     onProgress = onProgress,
                 )
@@ -178,6 +178,17 @@ class AppContainer(context: Context) {
         }
     }
 
+    /**
+     * 這支影片在這個層級的 sheet 目錄。**寫的人（第二步下載）與讀的人（第三步裁圖）必須同一個路徑**，
+     * 不一致的話第三步一張圖都裁不出來，而且看起來只像「縮圖沒好」—— 所以這個約定不能是
+     * 兩處各寫一次的字串常值。
+     *
+     * 層級進路徑是必要的：續做時重抓 spec 可能換到別的層級，而 `M{n}.jpg` 的檔名裡沒有層級，
+     * 沿用舊檔就是拿 L2 的 sheet 去裁 L3 的座標 —— 裁出來的是別的畫面而且看起來完全正常。
+     */
+    private fun sheetsDirFor(videoId: String, level: Int): File =
+        File(appContext.filesDir, "drafts/$videoId/sheets/L$level")
+
     val haptics: Haptics by lazy { SystemHaptics(appContext) }
 
     /**
@@ -216,9 +227,7 @@ class AppContainer(context: Context) {
             videoId = video.videoId,
             spec = spec,
             level = level,
-            // 加一層 L{level}：續做時重抓 spec 可能換到別的層級，而 M{n}.jpg 的檔名裡沒有層級 ——
-            // 沿用舊檔就是拿 L2 的 sheet 去裁 L3 的座標，裁出來的是別的畫面而且看起來完全正常
-            sheetsDir = File(appContext.filesDir, "drafts/${video.videoId}/sheets/L${level.level}"),
+            sheetsDir = sheetsDirFor(video.videoId, level.level),
             youtube = youtube,
             refreshSpec = { youtube.watchPage(video.videoId).storyboardSpec?.let { Storyboard.parse(it) } },
             io = Dispatchers.IO,

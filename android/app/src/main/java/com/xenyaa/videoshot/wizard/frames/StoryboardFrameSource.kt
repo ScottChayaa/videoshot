@@ -54,7 +54,9 @@ fun framePlanOf(videoId: String, page: WatchPage): Pair<FramePlan, StoryboardLev
  * 148 格各留一份 320×180 也要 34 MB。sheet 解開的那一瞬間把 9 格的 dHash 算完就釋放，
  * 收斂因此不必等使用者捲到底，記憶體也壓得住（規格第二節第 6 點）。
  *
- * @param sheetsDir `filesDir/drafts/{videoId}/sheets` —— **不可用 cacheDir**（規格第四節）
+ * @param sheetsDir `filesDir/drafts/{videoId}/sheets/L{level}` —— **不可用 cacheDir**（規格第四節）。
+ *        層級一定要在路徑裡：`M{n}.jpg` 的檔名裡沒有層級，續做時換了層級還沿用舊檔，
+ *        就是拿別的層級的 sheet 去裁這一層的座標
  * @param refreshSpec sprite 回 403 時重抓 watch page 拿新 spec；拿不到回 null
  */
 class StoryboardFrameSource(
