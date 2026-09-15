@@ -275,6 +275,27 @@ class Step2Store(
     }
 
     /**
+     * 從草稿還原手動圖。**不沿用 [addManual]** —— 它會自己編號並自動勾選，還原時兩者都是錯的：
+     * 格號必須沿用草稿裡的原編號（第三步的 `details` 是用它當鍵的），
+     * 勾選狀態則由 [setSelection] 依草稿決定。
+     */
+    fun restoreManual(cells: List<ManualCell>) {
+        val current = _state.value
+        _state.value = current.copy(
+            manual = cells,
+            ready = current.ready + cells.map { it.cellIndex },
+        )
+    }
+
+    /**
+     * 從草稿還原勾選。**整組設定，不是逐格 toggle** ——
+     * toggle 依賴「進場時沒有任何勾選」這個前提，而手動圖一還原就已經在牆上了。
+     */
+    fun setSelection(cells: Set<Int>) {
+        _state.value = _state.value.copy(selected = cells)
+    }
+
+    /**
      * ±1 秒微調。**只對相簿選來的圖有效**（規格第五節、手冊第 93 行）——
      * 截圖的秒數與圖是同一瞬間取的，調了就對不上。
      *

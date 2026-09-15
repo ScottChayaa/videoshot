@@ -137,17 +137,24 @@ class WizardViewModel(
      */
     fun resumeDraft() {
         val payload = pendingDraft ?: return
+        pendingDraft = null
         _draftPrompt.value = null
         viewModelScope.launch {
             openRecentAndAwait(payload.videoId) ?: return@launch
             val store2 = _step2.value ?: return@launch
-            payload.manual.forEach { m ->
+            // **不能用 addManual 還原** —— 它會自己編號（`frameCount + manual.size`）並自動勾選。
+            // 自動編號會在中間有檔案不見時把後面每一張的格號往前擠，而 `details` 是用格號當鍵的；
+            // 自動勾選則會被下面的還原覆寫成相反的結果
+            val restored = payload.manual.mapNotNull { m ->
                 // 檔案不見了（使用者清了資料）就跳過這一張，其餘照常還原
-                val file = manualImages(payload.videoId).fileNamed(m.fileName) ?: return@forEach
-                store2.addManual(m.atSec, file, m.fromGallery)
+                manualImages(payload.videoId).fileNamed(m.fileName)
+                    ?.let { ManualCell(m.cell, m.atSec, it, m.fromGallery) }
             }
-            // 還原勾選：預設是沒有任何勾選，逐格 toggle 回去
-            payload.selected.forEach { store2.toggle(it) }
+            store2.restoreManual(restored)
+            // 還原勾選：**整組設定，不是逐格 toggle**。檔案不見的那幾張也要從勾選裡拿掉 —— 它們不在牆上
+            val alive = restored.map { it.cellIndex }.toSet()
+            val frameCount = store2.state.value.plan.frameCount
+            store2.setSelection(payload.selected.filter { it < frameCount || it in alive }.toSet())
             if (payload.step >= 3) {
                 goTo(WizardStep.DETAILS)
                 _step3.value?.restore(

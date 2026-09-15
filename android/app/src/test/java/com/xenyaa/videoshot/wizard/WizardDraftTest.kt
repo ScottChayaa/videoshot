@@ -1,7 +1,9 @@
 package com.xenyaa.videoshot.wizard
 
+import com.xenyaa.videoshot.capture.ManualImageStore
 import com.xenyaa.videoshot.core.draft.DraftCodec
 import com.xenyaa.videoshot.core.draft.DraftDetails
+import com.xenyaa.videoshot.core.draft.DraftManual
 import com.xenyaa.videoshot.core.draft.DraftPayload
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.youtube.FetchResult
@@ -11,7 +13,9 @@ import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.NewShot
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
 import com.xenyaa.videoshot.wizard.frames.FakeFrameSource
+import java.io.File
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -24,11 +28,17 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class WizardDraftTest {
 
     private val dispatcher = StandardTestDispatcher()
+
+    /** 手動圖的還原測試要真的有檔案可以 `exists()`。 */
+    @get:Rule val tmp = TemporaryFolder()
 
     @Before fun setUp() = Dispatchers.setMain(dispatcher)
     @After fun tearDown() = Dispatchers.resetMain()
@@ -70,7 +80,10 @@ class WizardDraftTest {
         strength = flowOf(FilterStrength.MEDIUM),
         hintSeen = flowOf(true),
         onHintSeen = {},
-        manualImages = { error("這個測試不碰手動圖") },
+        // 每支影片各自一個子目錄，與正式作 `drafts/{videoId}/manual/` 的切法一致；
+        // 用 File(...) 而不是 tmp.newFolder(...) —— 還原多張手動圖時同一個 videoId 會被問好幾次，
+        // newFolder 對已存在的目錄會丟例外
+        manualImages = { videoId -> ManualImageStore(File(tmp.root, videoId)) },
         captureFor = { null },
         today = { "2026-09-15" },
     )
@@ -204,5 +217,53 @@ class WizardDraftTest {
         vm.finish(force = true)
         advanceUntilIdle()
         assertNull(data.stored)
+    }
+
+    // ---- 手動圖的還原（Critical 修正：不能借用 addManual 的自動編號與自動勾選） ----
+
+    @Test
+    fun 續做會照草稿還原手動圖的勾選_不是一律勾上() = runTest(dispatcher) {
+        // 兩張手動圖：第 4 格草稿裡是勾的，第 5 格不是
+        val dir = File(tmp.root, "v1").apply { mkdirs() }
+        File(dir, "a.webp").writeBytes(byteArrayOf(1))
+        File(dir, "b.webp").writeBytes(byteArrayOf(2))
+        val payload = DraftPayload(
+            "v1", step = 2, level = 3, frameCount = 4,
+            selected = listOf(4),
+            manual = listOf(
+                DraftManual(cell = 4, atSec = 10.0, fileName = "a.webp", fromGallery = false),
+                DraftManual(cell = 5, atSec = 20.0, fileName = "b.webp", fromGallery = true),
+            ),
+        )
+        val vm = vmWith(DraftData(DraftCodec.encode(payload)))
+        advanceUntilIdle()
+        vm.resumeDraft()
+        advanceUntilIdle()
+        val state = vm.step2.value!!.state.value
+        assertEquals(setOf(4), state.selected)
+        assertEquals(listOf(4, 5), state.manual.map { it.cellIndex })
+    }
+
+    @Test
+    fun 手動圖的檔案不見了_其餘的格號不會被往前擠() = runTest(dispatcher) {
+        val dir = File(tmp.root, "v1").apply { mkdirs() }
+        File(dir, "b.webp").writeBytes(byteArrayOf(2))
+        val payload = DraftPayload(
+            "v1", step = 2, level = 3, frameCount = 4,
+            selected = listOf(4, 5),
+            manual = listOf(
+                DraftManual(cell = 4, atSec = 10.0, fileName = "gone.webp", fromGallery = false),
+                DraftManual(cell = 5, atSec = 20.0, fileName = "b.webp", fromGallery = true),
+            ),
+        )
+        val vm = vmWith(DraftData(DraftCodec.encode(payload)))
+        advanceUntilIdle()
+        vm.resumeDraft()
+        advanceUntilIdle()
+        val state = vm.step2.value!!.state.value
+        // 第 5 格還是第 5 格 —— 第三步的 details 是用這個號碼當鍵的
+        assertEquals(listOf(5), state.manual.map { it.cellIndex })
+        // 不見的那張不留在勾選裡
+        assertEquals(setOf(5), state.selected)
     }
 }
