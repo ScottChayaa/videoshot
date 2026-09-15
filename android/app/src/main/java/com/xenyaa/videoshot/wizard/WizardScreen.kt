@@ -105,9 +105,13 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                                     onPlayerReleased = { vm.detachPlayer() },
                                 )
                             }
+                            // remember 起來、以 store 當 key：FrameImage 拿它當 produceState 的 key，
+                            // 每次重組都給新 lambda 的話每一格都會重新解圖
+                            val bitmapFor: suspend (Int) -> androidx.compose.ui.graphics.ImageBitmap? =
+                                remember(current) { { cell -> current.bitmapOfCell(cell) } }
                             Step2GridScreen(
                                 state = state,
-                                source = current.source,
+                                bitmapFor = bitmapFor,
                                 haptics = haptics,
                                 onToggle = { current.toggle(it) },
                                 onTakenTap = { takenTapped = it },

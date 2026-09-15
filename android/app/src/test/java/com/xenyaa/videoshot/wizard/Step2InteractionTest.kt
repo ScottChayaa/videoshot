@@ -52,7 +52,7 @@ class Step2InteractionTest {
         compose.setContent {
             Step2GridScreen(
                 state = state,
-                source = source,
+                bitmapFor = { source.bitmapOf(it) },
                 haptics = haptics,
                 onToggle = { toggled += it },
                 onPlayFrame = { played += it },

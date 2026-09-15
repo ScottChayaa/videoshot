@@ -4,6 +4,9 @@ import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.similarity.Fingerprint
 import com.xenyaa.videoshot.core.similarity.converge
 import com.xenyaa.videoshot.wizard.frames.FramePlan
+import android.graphics.BitmapFactory
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import com.xenyaa.videoshot.wizard.frames.FrameSource
 import java.io.File
 import kotlinx.coroutines.CancellationException
@@ -267,6 +270,26 @@ class Step2Store(
                 if (it.cellIndex == cell) it.copy(atSec = (it.atSec + deltaSec).coerceAtLeast(0.0)) else it
             },
         )
+    }
+
+    /**
+     * 第 N 格的圖，**storyboard 與手動補圖都走這裡**。
+     *
+     * 解不出來一律回 null、不丟例外（與 [FrameSource] 同契約）：檔案被清掉、
+     * 內容壞掉、解到一半 OOM，都只該讓這一格空著。
+     */
+    suspend fun bitmapOfCell(cell: Int): ImageBitmap? {
+        val entry = _state.value.manual.firstOrNull { it.cellIndex == cell }
+            ?: return source.bitmapOf(cell)
+        return withContext(compute) {
+            try {
+                BitmapFactory.decodeFile(entry.file.path)?.asImageBitmap()
+            } catch (e: OutOfMemoryError) {
+                null
+            } catch (e: Exception) {
+                null
+            }
+        }
     }
 
     fun markPlaying(frameIndex: Int?) {

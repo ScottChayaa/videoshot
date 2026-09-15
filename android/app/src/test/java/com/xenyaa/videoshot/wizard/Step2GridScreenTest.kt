@@ -10,6 +10,8 @@ import com.xenyaa.videoshot.wizard.frames.FakeFrameSource
 import com.xenyaa.videoshot.wizard.frames.FramePlan
 import org.junit.Assert.assertEquals
 import org.junit.Rule
+import androidx.compose.ui.test.assertCountEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -32,11 +34,12 @@ class Step2GridScreenTest {
         onShowAll: (Boolean) -> Unit = {},
         onOnlySelected: (Boolean) -> Unit = {},
         onNext: () -> Unit = {},
+        bitmapFor: suspend (Int) -> androidx.compose.ui.graphics.ImageBitmap? = { source.bitmapOf(it) },
     ) {
         compose.setContent {
             Step2GridScreen(
                 state = state,
-                source = source,
+                bitmapFor = bitmapFor,
                 haptics = FakeHaptics(),
                 onToggle = onToggle,
                 onTakenTap = {},
@@ -196,5 +199,45 @@ class Step2GridScreenTest {
         assertEquals("00:09", formatClock(9.4))
         assertEquals("01:05", formatClock(65.0))
         assertEquals("61:01", formatClock(3661.0))
+    }
+
+    // ---- 手動補圖（階段 4c）----
+
+    @Test
+    fun 手動格帶截圖標記() {
+        val base = Step2State(plan = source.plan, converging = false)
+        show(
+            base.copy(
+                manual = listOf(ManualCell(base.plan.frameCount, 15.0, java.io.File("/tmp/a.webp"))),
+                ready = base.ready + base.plan.frameCount,
+                selected = base.selected + base.plan.frameCount,
+                kept = emptyList(),
+            ),
+        )
+        compose.onAllNodesWithContentDescription("截圖").assertCountEquals(1)
+    }
+
+    @Test
+    fun storyboard格沒有截圖標記() {
+        val base = Step2State(plan = source.plan, converging = false)
+        show(base.copy(ready = (0 until base.plan.frameCount).toSet(), kept = (0 until base.plan.frameCount).toList()))
+        compose.onAllNodesWithContentDescription("截圖").assertCountEquals(0)
+    }
+
+    @Test
+    fun 手動格的圖也向bitmapFor要() {
+        val asked = mutableListOf<Int>()
+        val base = Step2State(plan = source.plan, converging = false)
+        val cell = base.plan.frameCount
+        show(
+            base.copy(
+                manual = listOf(ManualCell(cell, 5.0, java.io.File("/tmp/a.webp"))),
+                ready = base.ready + cell,
+                kept = emptyList(),
+            ),
+            bitmapFor = { asked += it; null },
+        )
+        compose.waitForIdle()
+        assertTrue(asked.toString(), asked.contains(cell))
     }
 }

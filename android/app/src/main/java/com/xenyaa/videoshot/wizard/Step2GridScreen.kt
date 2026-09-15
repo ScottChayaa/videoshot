@@ -34,7 +34,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.xenyaa.videoshot.wizard.frames.FrameSource
 
 /**
  * 第二步：從縮圖牆挑圖。
@@ -48,7 +47,12 @@ import com.xenyaa.videoshot.wizard.frames.FrameSource
 @Composable
 fun Step2GridScreen(
     state: Step2State,
-    source: FrameSource,
+    /**
+     * 第 N 格的圖。**不收 `FrameSource`** —— 手動補圖來自 `drafts/…/manual/`，
+     * 不是 storyboard 的來源；畫面只需要「給我第 N 格的圖」，不必知道它從哪來
+     * （與 `thumbFor(shot)` 把兩種來源收斂在一處是同一個道理，規格第三節邊界 2）。
+     */
+    bitmapFor: suspend (Int) -> ImageBitmap?,
     haptics: Haptics,
     onToggle: (Int) -> Unit,
     onPlayFrame: (Int) -> Unit,
@@ -105,11 +109,12 @@ fun Step2GridScreen(
             items(state.visible, key = { it }) { frameIndex ->
                 FrameCell(
                     frameIndex = frameIndex,
-                    atSec = state.plan.atSec.getOrElse(frameIndex) { 0.0 },
+                    atSec = state.atSecOf(frameIndex),
+                    manual = state.isManual(frameIndex),
                     selected = frameIndex in state.selected,
                     taken = frameIndex in state.taken,
                     playing = state.playingFrame == frameIndex,
-                    source = source,
+                    bitmapFor = bitmapFor,
                     haptics = haptics,
                     onToggle = { onToggle(frameIndex) },
                     onTakenTap = { onTakenTap(frameIndex) },
@@ -169,10 +174,11 @@ private fun BottomBar(state: Step2State, onNext: () -> Unit) {
 private fun FrameCell(
     frameIndex: Int,
     atSec: Double,
+    manual: Boolean,
     selected: Boolean,
     taken: Boolean,
     playing: Boolean,
-    source: FrameSource,
+    bitmapFor: suspend (Int) -> ImageBitmap?,
     haptics: Haptics,
     onToggle: () -> Unit,
     onTakenTap: () -> Unit,
@@ -215,7 +221,20 @@ private fun FrameCell(
                 // 一格一個語意節點，測試與輔助技術都靠它定位
                 .semantics { contentDescription = "第 ${frameIndex + 1} 格 $clock" }
         ) {
-            FrameImage(source, frameIndex, Modifier.fillMaxSize())
+            FrameImage(bitmapFor, frameIndex, Modifier.fillMaxSize())
+
+            if (manual) {
+                // 「截圖」標記：這一格是使用者自己補的，不是 YouTube 的 storyboard（規格第五節）。
+                // 放左上角 —— 右上角是 ▶，右下角是時間標籤
+                Text(
+                    "📷",
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(2.dp)
+                        .semantics { contentDescription = "截圖" },
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
 
             if (taken) {
                 // 灰＋鎖：先前已收藏過（規格第五節互動表）
@@ -259,14 +278,21 @@ private fun FrameCell(
 /**
  * 圖是**要畫的時候才去拿**（規格第二節第 6 點：148 格全部留在記憶體要 34 MB）。
  *
- * `source` 也是 key，**不能只用 frameIndex**：`LazyVerticalGrid` 的 item 同樣以 frameIndex 當 key，
+ * [bitmapFor] 也是 key，**不能只用 frameIndex**：`LazyVerticalGrid` 的 item 同樣以 frameIndex 當 key，
  * 所以換一支影片、`Step2Store` 被換掉之後，item 的槽位會存活下來；producer 只看 frameIndex
  * 的話不會重跑，那些格子會繼續畫**前一支影片**的 bitmap，直到使用者把它們捲出畫面再捲回來。
+ *
+ * 因此呼叫端**必須把 [bitmapFor] `remember` 起來、並以 `Step2Store` 當 key**：
+ * 每次重組都給一個新的 lambda 的話，這裡會每次重組都重新解一次圖。
  */
 @Composable
-private fun FrameImage(source: FrameSource, frameIndex: Int, modifier: Modifier) {
-    val bitmap: ImageBitmap? by produceState<ImageBitmap?>(initialValue = null, source, frameIndex) {
-        value = source.bitmapOf(frameIndex)
+private fun FrameImage(
+    bitmapFor: suspend (Int) -> ImageBitmap?,
+    frameIndex: Int,
+    modifier: Modifier,
+) {
+    val bitmap: ImageBitmap? by produceState<ImageBitmap?>(initialValue = null, bitmapFor, frameIndex) {
+        value = bitmapFor(frameIndex)
     }
     bitmap?.let {
         Image(bitmap = it, contentDescription = null, contentScale = ContentScale.Crop, modifier = modifier)
