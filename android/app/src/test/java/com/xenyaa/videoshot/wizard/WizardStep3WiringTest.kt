@@ -48,6 +48,7 @@ class WizardStep3WiringTest {
         var thumbStatesMissing: List<Int> = emptyList()
         var draftCleared = false
         var cropped: List<Int> = emptyList()
+        var commitCount = 0
 
         override suspend fun watchPage(videoId: String) = page
         override suspend fun recentVideos(limit: Int): List<RecentVideo> = emptyList()
@@ -65,6 +66,7 @@ class WizardStep3WiringTest {
             return CropOutcome(written = frameIndexes.filter { it < 4 }, missing = emptyList())
         }
         override suspend fun commit(video: VideoEntity, picks: List<NewShot>): List<Long> {
+            commitCount++
             committed = video to picks
             return picks.indices.map { it.toLong() + 1 }
         }
@@ -225,5 +227,19 @@ class WizardStep3WiringTest {
         assertEquals(WizardStep.URL, vm.step.value)
         assertNull(vm.step3.value)
         assertNull(vm.step2.value)
+    }
+
+    @Test
+    fun 連按兩下完成只會寫進圖庫一次() = runTest(dispatcher) {
+        val data = RecordingData(pageOf())
+        val vm = vmWith(data)
+        vm.openRecent("v1"); advanceUntilIdle()
+        vm.step2.value!!.toggle(0)
+        vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
+        // 兩次呼叫之間不 advance —— 第一次的協程還在飛，正是連點兩下的情境
+        vm.finish(force = true)
+        vm.finish(force = true)
+        advanceUntilIdle()
+        assertEquals(1, data.commitCount)
     }
 }

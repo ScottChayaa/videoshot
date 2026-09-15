@@ -371,11 +371,19 @@ class WizardViewModel(
     private var cropped: CropOutcome = CropOutcome(emptyList(), emptyList())
 
     /**
+     * 正在寫入圖庫。**擋掉連點兩下的【完成】** —— 第二次會拿同一批格號再寫一次，
+     * 撞上 `shot(video_id, frame_index)` 的唯一索引而回滾，於是「存成功了」之後
+     * 反而彈出「存不進圖庫」。資料沒壞，但使用者會以為要重做一次。
+     */
+    private var committing = false
+
+    /**
      * 【完成】。還有沒套用過圖資的就**先問一次**，但問完仍然做得下去（規格第五節）。
      *
      * @param force 使用者在提醒框按了「仍要完成」
      */
     fun finish(force: Boolean = false) {
+        if (committing) return
         val store = _step3.value ?: return
         val video = _loaded.value ?: return
         val meta = video.page.meta
@@ -388,49 +396,54 @@ class WizardViewModel(
         _pendingFinish.value = null
 
         val level = _step2.value?.state?.value?.plan?.level ?: 3
+        committing = true
         viewModelScope.launch {
-            val picks = state.cells.map { cell ->
-                val d = state.details[cell.cell] ?: ShotDetails(eventDate = today())
-                NewShot(
-                    atSec = cell.atSec,
-                    source = if (cell.manual) "manual" else "storyboard",
-                    // 手動圖沒有格號，也不屬於任何 storyboard 層級 —— 兩欄都是 null（規格第四節）
-                    frameIndex = if (cell.manual) null else cell.cell,
-                    sbLevel = if (cell.manual) null else level,
-                    eventDate = d.eventDate,
-                    place = d.place,
-                    description = d.description,
-                    webp = if (cell.manual) manualWebpOf(cell.cell) else null,
-                    tagNames = d.tags,
+            try {
+                val picks = state.cells.map { cell ->
+                    val d = state.details[cell.cell] ?: ShotDetails(eventDate = today())
+                    NewShot(
+                        atSec = cell.atSec,
+                        source = if (cell.manual) "manual" else "storyboard",
+                        // 手動圖沒有格號，也不屬於任何 storyboard 層級 —— 兩欄都是 null（規格第四節）
+                        frameIndex = if (cell.manual) null else cell.cell,
+                        sbLevel = if (cell.manual) null else level,
+                        eventDate = d.eventDate,
+                        place = d.place,
+                        description = d.description,
+                        webp = if (cell.manual) manualWebpOf(cell.cell) else null,
+                        tagNames = d.tags,
+                    )
+                }
+                val videoRow = VideoEntity(
+                    id = video.videoId,
+                    title = meta?.title ?: video.videoId,
+                    channelTitle = meta?.channelTitle ?: "",
+                    publishedAt = meta?.publishedAt ?: "",
+                    durationSec = meta?.durationSec ?: 0,
+                    privacy = meta?.privacy ?: "unknown",
+                    sbSpec = video.page.storyboardSpec,
+                    addedAt = System.currentTimeMillis() / 1000,
                 )
+                // 第 1 步：唯一「失敗就是完成失敗」的一步
+                val ok = runCatching { data.commit(videoRow, picks) }.isSuccess
+                if (!ok) {
+                    _commitFailed.value = true
+                    return@launch
+                }
+                // 第 2、3 步：兩個 DB 無法共用交易（規格第五節）。這兩步沒做到也無妨 ——
+                // thumb_state 可由「縮圖檔在不在」重新推導，草稿目錄下次取同一支影片會覆蓋
+                runCatching { data.markThumbStates(video.videoId, level, cropped.written, cropped.missing) }
+                runCatching { data.clearDraft(video.videoId) }
+                _hasDraft.value = false
+                // 第 4 步的「標記有變更」由 repo 的 onChanged 做掉了，這裡不必再呼叫
+                _finished.emit(Finished(eventDate = picks.first().eventDate, count = picks.size))
+                // 回到第一步。**不做這件事的話使用者會停在一個已經入庫的第三步上**，
+                // 再按一次【完成】就是拿同樣的格號再寫一次 —— 撞 shot(video_id, frame_index) 的唯一索引。
+                // 階段 7 接上首頁後這裡會換成導頁，但「第三步不能重按」這條不變
+                resetToStart()
+            } finally {
+                committing = false
             }
-            val videoRow = VideoEntity(
-                id = video.videoId,
-                title = meta?.title ?: video.videoId,
-                channelTitle = meta?.channelTitle ?: "",
-                publishedAt = meta?.publishedAt ?: "",
-                durationSec = meta?.durationSec ?: 0,
-                privacy = meta?.privacy ?: "unknown",
-                sbSpec = video.page.storyboardSpec,
-                addedAt = System.currentTimeMillis() / 1000,
-            )
-            // 第 1 步：唯一「失敗就是完成失敗」的一步
-            val ok = runCatching { data.commit(videoRow, picks) }.isSuccess
-            if (!ok) {
-                _commitFailed.value = true
-                return@launch
-            }
-            // 第 2、3 步：兩個 DB 無法共用交易（規格第五節）。這兩步沒做到也無妨 ——
-            // thumb_state 可由「縮圖檔在不在」重新推導，草稿目錄下次取同一支影片會覆蓋
-            runCatching { data.markThumbStates(video.videoId, level, cropped.written, cropped.missing) }
-            runCatching { data.clearDraft(video.videoId) }
-            _hasDraft.value = false
-            // 第 4 步的「標記有變更」由 repo 的 onChanged 做掉了，這裡不必再呼叫
-            _finished.emit(Finished(eventDate = picks.first().eventDate, count = picks.size))
-            // 回到第一步。**不做這件事的話使用者會停在一個已經入庫的第三步上**，
-            // 再按一次【完成】就是拿同樣的格號再寫一次 —— 撞 shot(video_id, frame_index) 的唯一索引。
-            // 階段 7 接上首頁後這裡會換成導頁，但「第三步不能重按」這條不變
-            resetToStart()
         }
     }
 
