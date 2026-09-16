@@ -21,7 +21,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.clickable
@@ -130,14 +129,14 @@ fun LightboxScreen(
                     .fillMaxWidth()
                     .semantics { contentDescription = "收藏的大圖" },
             ) { page ->
-                // clearAndSetSemantics：拿不到圖時 ThumbImage 自己的預留圖會顯示秒數文字，
-                // 跟下面那顆固定的秒數 Text 是同一段字 —— 兩個都留著，畫面上會重複、
-                // 輔助技術也會唸兩次。秒數的權威顯示是下面那顆，這裡只留大圖本身的語意。
-                Box(Modifier.fillMaxSize().clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     ThumbImage(
                         shot = items[page],
                         loader = loader,
                         contentDescription = items[page].description,
+                        // 下面那顆固定的秒數列已經是這張圖的權威顯示 —— 拿不到圖時
+                        // 預留圖不用再疊一次同樣的秒數（會重複，畫面上真的疊字）
+                        showTimeOnPlaceholder = false,
                         modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
                     )
                 }

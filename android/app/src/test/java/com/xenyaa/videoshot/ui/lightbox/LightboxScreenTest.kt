@@ -8,7 +8,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
-import androidx.compose.ui.test.onRoot
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.thumbs.ThumbKey
 import com.xenyaa.videoshot.thumbs.ThumbSource

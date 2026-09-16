@@ -1,6 +1,7 @@
 package com.xenyaa.videoshot.data.settings
 
 import android.content.Context
+import androidx.annotation.VisibleForTesting
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
@@ -58,6 +59,16 @@ class AppSettings(context: Context) {
 
     suspend fun markLightboxHintSeen() {
         store.edit { it[LIGHTBOX_HINT_SEEN] = true }
+    }
+
+    /**
+     * 把所有設定值清空。**只給測試用**——DataStore 是裝置上的真實檔案，
+     * 儀器測試跑在同一支手機、同一個已安裝的 app 上，不會像重灌一樣自動歸零，
+     * 每個測試不各自清掉自己用到的值，上一輪留下的狀態就會讓下一輪的斷言失真。
+     */
+    @VisibleForTesting
+    suspend fun resetAll() {
+        store.edit { it.clear() }
     }
 
     private companion object {

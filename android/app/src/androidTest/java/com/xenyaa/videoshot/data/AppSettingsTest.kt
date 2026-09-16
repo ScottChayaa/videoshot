@@ -21,9 +21,13 @@ class AppSettingsTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val settings = AppSettings(context)
 
-    /** DataStore 是 process 單例，測試之間會互相污染 —— 每次先歸零。 */
+    /**
+     * DataStore 是 process 單例、又是裝置上的真實檔案，測試之間、甚至同一支測試
+     * 跑兩次之間都會互相污染 —— 每次先把整份設定清空，不是只清自己這個案例用到的欄位。
+     */
     @Before
     fun reset() = runBlocking {
+        settings.resetAll()
         settings.setFilterStrength(FilterStrength.MEDIUM)
     }
 
