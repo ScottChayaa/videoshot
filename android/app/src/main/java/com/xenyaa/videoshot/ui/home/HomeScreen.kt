@@ -92,13 +92,25 @@ fun HomeScreen(
     // 篩選換了就回頂端 —— 選到的那個月是第一個分組，停在原本的捲動位置會看不到它
     LaunchedEffect(state.upToMonth) { listState.scrollToItem(0) }
 
-    // 取圖完成導回首頁要捲到新圖那個月（手冊 §四第三步最後一條）
-    LaunchedEffect(scrollToMonth, slots) {
+    // 取圖完成導回首頁要捲到新圖那個月（手冊 §四第三步最後一條）。
+    //
+    // `state.loading` 一定要在 key 裡：外面呼叫 reload() 之後，items 會先被清空、
+    // 補資料的 coroutine 才在稍後把新的一頁塞回來 —— 這一段「暫時是空的」是正常流程，
+    // 不是「這個月真的不在」。如果趁這個空檔就把 onScrolledToMonth() 回報掉，
+    // 外面的 scrollToMonth 會被清成 null，資料補齊後這個效果不會再跑第二次，月份就永遠捲不到。
+    LaunchedEffect(scrollToMonth, slots, state.loading) {
         val month = scrollToMonth ?: return@LaunchedEffect
-        // 找不到就什麼都不捲（例如那個月還沒被分頁載進來）—— 但仍然要回報，
-        // 否則外面的 scrollToMonth 一直留著，每次重組都會再試一次
-        HomeStore.headerIndexOf(slots, month)?.let { listState.scrollToItem(it) }
-        onScrolledToMonth()
+        val index = HomeStore.headerIndexOf(slots, month)
+        when {
+            index != null -> {
+                listState.scrollToItem(index)
+                onScrolledToMonth()
+            }
+            // 還在補資料：什麼都不做，等下一次資料到位再重新判斷一次
+            state.loading -> Unit
+            // 資料已經到位、確定找不到（例如那個月根本不在已載入的分頁範圍內）才放棄
+            else -> onScrolledToMonth()
+        }
     }
 
     Column(modifier.fillMaxSize()) {

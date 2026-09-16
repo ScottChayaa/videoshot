@@ -1,6 +1,7 @@
 package com.xenyaa.videoshot.ui.shell
 
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -92,5 +93,36 @@ class WizardFinishTest {
         }
         compose.onNodeWithText("2026年3月").assertIsDisplayed()
         assertEquals(1, scrolled)
+    }
+
+    /**
+     * reload() 之後的真實順序是「先清空、稍後才補回來」，不是像 [bigState] 那樣一步到位。
+     * 這段空檔要是被誤判成「這個月不存在」而提早回報，資料補齊後 scrollToMonth 已經被清成 null，
+     * 效果不會再跑第二次，月份就永遠捲不到（AppRoot 呼叫 homeVm.reload() 就是這個順序）。
+     */
+    @Test
+    fun 資料還在補齊時暫不放棄目標月份() {
+        var scrolled = 0
+        val state = mutableStateOf(HomeState(loading = true))
+        compose.setContent {
+            VideoshotTheme {
+                HomeScreen(
+                    state = state.value,
+                    loader = loader,
+                    listState = rememberLazyGridState(),
+                    onOpen = {}, onLoadMore = {}, onPickMonth = {}, onFacetClick = { _, _ -> },
+                    scrollToMonth = "2026-01",
+                    onScrolledToMonth = { scrolled++ },
+                )
+            }
+        }
+        // 清單還是空的、還在補資料：不能提早放棄，不然資料到位後不會再捲一次
+        assertEquals("補資料的空檔不能被誤判成『這個月不存在』", 0, scrolled)
+
+        state.value = bigState()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("2026年1月").assertIsDisplayed()
+        assertEquals("資料到位後才捲、才回報，整個過程只回報一次", 1, scrolled)
     }
 }
