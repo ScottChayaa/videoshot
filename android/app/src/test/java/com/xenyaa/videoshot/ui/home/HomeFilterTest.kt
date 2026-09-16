@@ -116,6 +116,32 @@ class HomeFilterTest {
         assertEquals(true to null, picked)
     }
 
+    /**
+     * 空狀態不能讓日曆鈕失效——圖庫本來就有資料，只是這次篩選條件下 0 筆，
+     * 使用者還是得打得開選擇器才能換一個月份，不然只能按「清除」放棄篩選。
+     */
+    @Test
+    fun 篩選出空結果時日曆鈕仍打得開選擇器() {
+        show(
+            HomeState(
+                upToMonth = "2025-01",
+                endReached = true,
+                months = listOf(MonthCount("2026-03", 12), MonthCount("2026-01", 4)),
+            )
+        )
+        compose.onNodeWithContentDescription("依時間篩選").performClick()
+        compose.onNodeWithText("2026年3月 · 12 張").assertIsDisplayed()
+        compose.onNodeWithText("2026年1月 · 4 張").assertIsDisplayed()
+    }
+
+    /** 圖庫整個是空的（不是篩選出 0 筆）：沒有月份可選，選擇器用一句話收尾，不是空清單。 */
+    @Test
+    fun 完全沒有收藏時選擇器顯示中性訊息() {
+        show(HomeState(endReached = true))
+        compose.onNodeWithContentDescription("依時間篩選").performClick()
+        compose.onNodeWithText("還沒有任何收藏的月份").assertIsDisplayed()
+    }
+
     @Test
     fun 選擇器裡也能直接清除() {
         show(loaded(upToMonth = "2026-03"))

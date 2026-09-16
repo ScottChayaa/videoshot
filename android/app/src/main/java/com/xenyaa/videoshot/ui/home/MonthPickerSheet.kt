@@ -59,17 +59,27 @@ fun MonthPickerSheet(
                     TextButton(onClick = onClear) { Text("清除") }
                 }
             }
-            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
-                items(months, key = { it.month }) { month ->
-                    Text(
-                        "${monthLabel(month.month)} · ${month.count} 張",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = if (month.month == selected) AppTheme.colors.accent else AppTheme.colors.text,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onPick(month.month) }
-                            .padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
-                    )
+            if (months.isEmpty()) {
+                // 圖庫本身空的（不是篩選出 0 筆）—— 沒有月份可選，給一句話收尾就好，不必另做一套空狀態設計
+                Text(
+                    "還沒有任何收藏的月份",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AppTheme.colors.textDim,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
+                )
+            } else {
+                LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
+                    items(months, key = { it.month }) { month ->
+                        Text(
+                            "${monthLabel(month.month)} · ${month.count} 張",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = if (month.month == selected) AppTheme.colors.accent else AppTheme.colors.text,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onPick(month.month) }
+                                .padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
+                        )
+                    }
                 }
             }
         }

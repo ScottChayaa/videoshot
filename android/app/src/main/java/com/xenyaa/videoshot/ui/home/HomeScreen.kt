@@ -96,47 +96,48 @@ fun HomeScreen(
             FilterBar(month = state.upToMonth, onClear = { onPickMonth(null) })
         }
 
+        // 用 if/else 而不是提早 return —— 空狀態也要能往下走到選擇器那一段，
+        // 不然篩選出 0 筆結果時按日曆鈕會完全沒反應（手冊 §二：這個鈕本來就該打得開選擇器）。
         if (state.items.isEmpty() && state.endReached) {
             HomeEmpty(filtered = state.upToMonth != null, onClearFilter = { onPickMonth(null) })
-            return@Column
-        }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(columns),
+                state = listState,
+                modifier = Modifier.fillMaxSize().padding(horizontal = AppTheme.spacing.s3),
+                horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
+                verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
+            ) {
+                items(
+                    items = slots,
+                    key = { it.key },
+                    // 月份標題與標籤列各佔滿一整列，縮圖各佔一格
+                    span = { slot -> if (slot is HomeSlot.Tile) GridItemSpan(1) else GridItemSpan(maxLineSpan) },
+                ) { slot ->
+                    when (slot) {
+                        is HomeSlot.Header -> Text(
+                            slot.label,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = AppTheme.colors.text,
+                            modifier = Modifier.padding(top = AppTheme.spacing.s4, bottom = AppTheme.spacing.s2),
+                        )
 
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(columns),
-            state = listState,
-            modifier = Modifier.fillMaxSize().padding(horizontal = AppTheme.spacing.s3),
-            horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
-            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
-        ) {
-            items(
-                items = slots,
-                key = { it.key },
-                // 月份標題與標籤列各佔滿一整列，縮圖各佔一格
-                span = { slot -> if (slot is HomeSlot.Tile) GridItemSpan(1) else GridItemSpan(maxLineSpan) },
-            ) { slot ->
-                when (slot) {
-                    is HomeSlot.Header -> Text(
-                        slot.label,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = AppTheme.colors.text,
-                        modifier = Modifier.padding(top = AppTheme.spacing.s4, bottom = AppTheme.spacing.s2),
-                    )
+                        is HomeSlot.Facets -> MonthFacetRow(
+                            facets = state.facets[slot.month].orEmpty(),
+                            onClick = { onFacetClick(slot.month, it) },
+                        )
 
-                    is HomeSlot.Facets -> MonthFacetRow(
-                        facets = state.facets[slot.month].orEmpty(),
-                        onClick = { onFacetClick(slot.month, it) },
-                    )
-
-                    is HomeSlot.Tile -> ThumbImage(
-                        shot = slot.shot,
-                        loader = loader,
-                        contentDescription = labelOf(slot.shot),
-                        modifier = Modifier
-                            .aspectRatio(16f / 9f)
-                            .clip(RoundedCornerShape(AppTheme.radii.sm))
-                            // 真的是按鈕：鍵盤與輔助技術都到得了（手冊 §二最後一條）
-                            .clickable(onClickLabel = "開啟") { onOpen(slot.index) },
-                    )
+                        is HomeSlot.Tile -> ThumbImage(
+                            shot = slot.shot,
+                            loader = loader,
+                            contentDescription = labelOf(slot.shot),
+                            modifier = Modifier
+                                .aspectRatio(16f / 9f)
+                                .clip(RoundedCornerShape(AppTheme.radii.sm))
+                                // 真的是按鈕：鍵盤與輔助技術都到得了（手冊 §二最後一條）
+                                .clickable(onClickLabel = "開啟") { onOpen(slot.index) },
+                        )
+                    }
                 }
             }
         }
