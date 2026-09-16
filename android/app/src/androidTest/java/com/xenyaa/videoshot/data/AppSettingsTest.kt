@@ -5,7 +5,10 @@ import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.data.settings.AppSettings
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -42,5 +45,12 @@ class AppSettingsTest {
     fun 一次性提示標記過就不會再回到未看過() = runBlocking {
         settings.markGridHintSeen()
         assertEquals(true, settings.gridHintSeen.first())
+    }
+
+    @Test
+    fun Lightbox_的一次性提示記得住() = runTest {
+        assertFalse(settings.lightboxHintSeen.first())
+        settings.markLightboxHintSeen()
+        assertTrue(settings.lightboxHintSeen.first())
     }
 }

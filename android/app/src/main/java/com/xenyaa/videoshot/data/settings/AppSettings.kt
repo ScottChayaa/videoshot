@@ -53,10 +53,18 @@ class AppSettings(context: Context) {
         store.edit { it[GRID_HINT_SEEN] = true }
     }
 
+    /** Lightbox「左右滑動看上一張／下一張」這個一次性提示看過了沒（手冊 §三第三條）。 */
+    val lightboxHintSeen: Flow<Boolean> = store.data.map { it[LIGHTBOX_HINT_SEEN] ?: false }
+
+    suspend fun markLightboxHintSeen() {
+        store.edit { it[LIGHTBOX_HINT_SEEN] = true }
+    }
+
     private companion object {
         val LAST_CHANGED_AT = longPreferencesKey("last_changed_at")
         val LAST_BACKUP_AT = longPreferencesKey("last_backup_at")
         val FILTER_STRENGTH = stringPreferencesKey("filter_strength")
         val GRID_HINT_SEEN = booleanPreferencesKey("grid_hint_seen")
+        val LIGHTBOX_HINT_SEEN = booleanPreferencesKey("lightbox_hint_seen")
     }
 }
