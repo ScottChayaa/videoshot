@@ -33,6 +33,7 @@ import com.xenyaa.videoshot.ui.lightbox.LightboxScreen
 import com.xenyaa.videoshot.ui.lightbox.shareTextOf
 import com.xenyaa.videoshot.wizard.WizardScreen
 import com.xenyaa.videoshot.wizard.WizardViewModel
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -162,38 +163,64 @@ fun AppRoot(container: AppContainer, onExitApp: () -> Unit) {
     // Lightbox 與首頁的【編輯圖資】共用同一顆 sheet（Task 9），掛在 nav 的 when 外面 ——
     // 開著編輯時 Lightbox／首頁都可能是目前畫面，不屬於任何一支分支
     editing?.let { shot ->
-        val details by produceState(ShotDetails(shot.eventDate), shot) {
-            value = ShotDetails(
-                eventDate = shot.eventDate,
-                place = shot.place,
-                description = shot.description,
-                tags = container.libraryRepo.tagsOfShot(shot.id),
-            )
-        }
-        val places by produceState(emptyList<String>()) { value = container.libraryRepo.distinctPlaces() }
-        val allTags by produceState(emptyList<String>()) { value = container.libraryRepo.allTagNames() }
-        ShotEditSheet(
-            details = details,
-            placeSuggestions = places,
-            tagSuggestions = allTags,
+        EditingSheet(
+            shot = shot,
+            container = container,
+            homeVm = homeVm,
+            scope = scope,
+            snackbarHostState = snackbarHostState,
             onDismiss = { editing = null },
-            onSave = { patch ->
-                editing = null
-                scope.launch {
-                    container.libraryRepo.patchShots(
-                        listOf(shot.id),
-                        ShotPatch(
-                            eventDate = patch.eventDate,
-                            place = patch.place,
-                            description = patch.description,
-                            tagIds = null,
-                            tagNames = patch.tags,
-                        ),
-                    )
-                    container.libraryRepo.shotById(shot.id)?.let(homeVm::onShotChanged)
-                    snackbarHostState.showSnackbar("已儲存")
-                }
-            },
         )
     }
+}
+
+/**
+ * 就地編輯一張圖的圖資（Lightbox 的【編輯圖資】、之後首頁也會共用）。
+ * 從 [AppRoot] 抽出來是因為它自成一段完整流程 —— 撈既有圖資與建議、存檔、
+ * 把存檔結果同步回首頁快取、跳 snackbar —— 掛在 [AppRoot] 主體裡會把導覽分派
+ * 和這段編輯流程攪在一起，兩件事其實互不相干。
+ */
+@Composable
+private fun EditingSheet(
+    shot: ShotRow,
+    container: AppContainer,
+    homeVm: HomeViewModel,
+    scope: CoroutineScope,
+    snackbarHostState: SnackbarHostState,
+    onDismiss: () -> Unit,
+) {
+    val details by produceState(ShotDetails(shot.eventDate), shot) {
+        value = ShotDetails(
+            eventDate = shot.eventDate,
+            place = shot.place,
+            description = shot.description,
+            tags = container.libraryRepo.tagsOfShot(shot.id),
+        )
+    }
+    val places by produceState(emptyList<String>()) { value = container.libraryRepo.distinctPlaces() }
+    val allTags by produceState(emptyList<String>()) { value = container.libraryRepo.allTagNames() }
+    ShotEditSheet(
+        details = details,
+        placeSuggestions = places,
+        tagSuggestions = allTags,
+        onDismiss = onDismiss,
+        onSave = { patch ->
+            onDismiss()
+            scope.launch {
+                container.libraryRepo.patchShots(
+                    listOf(shot.id),
+                    ShotPatch(
+                        eventDate = patch.eventDate,
+                        place = patch.place,
+                        description = patch.description,
+                        tagIds = null,
+                        tagNames = patch.tags,
+                    ),
+                )
+                // 存檔後把這張圖寫回首頁快取 —— 不然使用者回到首頁還會看到編輯前的舊圖資
+                container.libraryRepo.shotById(shot.id)?.let(homeVm::onShotChanged)
+                snackbarHostState.showSnackbar("已儲存")
+            }
+        },
+    )
 }
