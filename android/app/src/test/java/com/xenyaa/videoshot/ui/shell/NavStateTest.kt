@@ -1,0 +1,66 @@
+package com.xenyaa.videoshot.ui.shell
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Test
+
+class NavStateTest {
+
+    @Test
+    fun 預設站在首頁的根層() {
+        val nav = NavState()
+        assertEquals(Tab.HOME, nav.tab)
+        assertEquals(Dest.Root, nav.current)
+    }
+
+    @Test
+    fun push_之後_current_是新的那一層() {
+        val nav = NavState().push(Dest.Lightbox(7))
+        assertEquals(Dest.Lightbox(7), nav.current)
+    }
+
+    @Test
+    fun pop_退一層_退到根層再退是_null_交還給系統() {
+        val opened = NavState().push(Dest.Lightbox(7))
+        val back = opened.pop()!!
+        assertEquals(Dest.Root, back.current)
+        assertNull(back.pop())
+    }
+
+    /** 各格的堆疊各自留著：從分類切去首頁再切回來，分類還停在原來那一層。 */
+    @Test
+    fun 切換分頁不會清掉另一格的堆疊() {
+        val nav = NavState()
+            .select(Tab.FOLDERS).push(Dest.Lightbox(3))
+            .select(Tab.HOME)
+        assertEquals(Dest.Root, nav.current)
+        assertEquals(Dest.Lightbox(3), nav.select(Tab.FOLDERS).current)
+    }
+
+    /** 非首頁的根層按返回 → 回首頁分頁，不是直接離開 app。 */
+    @Test
+    fun 其他分頁的根層按返回會回到首頁分頁() {
+        val nav = NavState().select(Tab.ACCOUNT).pop()!!
+        assertEquals(Tab.HOME, nav.tab)
+    }
+
+    /** 取圖是全螢幕的，關掉之後要回到按下【取圖】之前那一格。 */
+    @Test
+    fun 取圖記得從哪一格來的() {
+        val nav = NavState().select(Tab.FOLDERS).select(Tab.CAPTURE)
+        assertEquals(Tab.FOLDERS, nav.returnTo)
+        assertEquals(Tab.FOLDERS, nav.pop()!!.tab)
+    }
+
+    @Test
+    fun 編碼與解碼是往返一致的() {
+        val nav = NavState().select(Tab.FOLDERS).push(Dest.Lightbox(12)).select(Tab.HOME)
+        assertEquals(nav, NavCodec.decode(NavCodec.encode(nav)))
+    }
+
+    @Test
+    fun 解不開的存檔退回預設而不是當機() {
+        assertEquals(NavState(), NavCodec.decode("亂七八糟"))
+        assertEquals(NavState(), NavCodec.decode(""))
+    }
+}
