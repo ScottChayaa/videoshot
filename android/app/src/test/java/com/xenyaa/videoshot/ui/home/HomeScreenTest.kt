@@ -59,8 +59,7 @@ class HomeScreenTest {
                     listState = rememberLazyGridState(),
                     onOpen = onOpen,
                     onLoadMore = {},
-                    onOpenFilter = {},
-                    onClearFilter = {},
+                    onPickMonth = {},
                     onFacetClick = onFacet,
                 )
             }

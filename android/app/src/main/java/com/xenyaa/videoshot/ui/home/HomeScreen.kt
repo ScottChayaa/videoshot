@@ -27,7 +27,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,11 +65,12 @@ fun HomeScreen(
     listState: LazyGridState,
     onOpen: (Int) -> Unit,
     onLoadMore: () -> Unit,
-    onOpenFilter: () -> Unit,
-    onClearFilter: () -> Unit,
+    /** null＝清除篩選。開關選擇器是畫面自己的事，不必讓外面知道 */
+    onPickMonth: (String?) -> Unit,
     onFacetClick: (String, MonthFacet) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var picking by rememberSaveable { mutableStateOf(false) }
     val columns = homeColumnsFor(LocalConfiguration.current.screenWidthDp)
     val slots = remember(state.items, state.facets) { HomeStore.slots(state) }
 
@@ -81,16 +85,19 @@ fun HomeScreen(
         if (nearEnd && HomeStore.canLoadMore(state)) onLoadMore()
     }
 
+    // 篩選換了就回頂端 —— 選到的那個月是第一個分組，停在原本的捲動位置會看不到它
+    LaunchedEffect(state.upToMonth) { listState.scrollToItem(0) }
+
     Column(modifier.fillMaxSize()) {
 
-        HomeTopBar(onOpenFilter = onOpenFilter)
+        HomeTopBar(onOpenFilter = { picking = true })
 
         if (state.upToMonth != null) {
-            FilterBar(month = state.upToMonth, onClear = onClearFilter)
+            FilterBar(month = state.upToMonth, onClear = { onPickMonth(null) })
         }
 
         if (state.items.isEmpty() && state.endReached) {
-            HomeEmpty(filtered = state.upToMonth != null, onClearFilter = onClearFilter)
+            HomeEmpty(filtered = state.upToMonth != null, onClearFilter = { onPickMonth(null) })
             return@Column
         }
 
@@ -132,6 +139,16 @@ fun HomeScreen(
                     )
                 }
             }
+        }
+
+        if (picking) {
+            MonthPickerSheet(
+                months = state.months,
+                selected = state.upToMonth,
+                onPick = { picking = false; onPickMonth(it) },
+                onClear = { picking = false; onPickMonth(null) },
+                onDismiss = { picking = false },
+            )
         }
     }
 }

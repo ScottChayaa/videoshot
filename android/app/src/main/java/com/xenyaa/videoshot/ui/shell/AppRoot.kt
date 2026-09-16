@@ -56,9 +56,7 @@ fun AppRoot(container: AppContainer, onExitApp: () -> Unit) {
                 listState = homeListState,
                 onOpen = { nav = nav.push(Dest.Lightbox(it)) },
                 onLoadMore = homeVm::loadMore,
-                // Task 6 會換成真的月份選擇器
-                onOpenFilter = {},
-                onClearFilter = { homeVm.setFilter(null) },
+                onPickMonth = homeVm::setFilter,
                 // 查詢頁是階段 10；在那之前點標籤要說得出為什麼沒反應（Task 7 接上 snackbar）
                 onFacetClick = { _, _ -> },
             )
