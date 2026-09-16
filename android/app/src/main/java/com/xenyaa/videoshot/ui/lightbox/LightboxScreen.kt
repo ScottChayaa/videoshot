@@ -12,10 +12,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
@@ -37,7 +42,14 @@ import com.xenyaa.videoshot.ui.thumb.ThumbImage
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
 
 /**
- * Lightbox 的動作。Task 10 才填真的行為 —— 這一步先讓版面與滑動站得住。
+ * 分享的內容(規格第六節動作表):`https://youtu.be/{videoId}?t={at_sec}`。
+ * 秒數**取整數** —— YouTube 的 `t` 參數只吃整數秒,小數點會被當成無效值整個忽略。
+ */
+fun shareTextOf(shot: ShotRow): String = "https://youtu.be/${shot.videoId}?t=${shot.atSec.toInt()}"
+
+/**
+ * Lightbox 的動作。`onPlay`／`onAddToFolder` 依賴階段 9／階段 8，
+ * 在那兩階段完工前由呼叫端接成「說明還沒做」的 snackbar（見 `AppRoot`）。
  */
 data class LightboxActions(
     val onPlay: (ShotRow) -> Unit = {},
@@ -104,6 +116,11 @@ fun LightboxScreen(
         }
     }
 
+    // 頂列的「⋯」與底部動作列共用同一張圖，所以在 Column 最上面算一次（Task 10 步驟 3 的備註）
+    val shot = items[pager.currentPage.coerceAtMost(items.lastIndex)]
+    var menuOpen by remember { mutableStateOf(false) }
+    var confirmingDelete by remember { mutableStateOf(false) }
+
     Box(modifier.fillMaxSize().background(AppTheme.colors.lightboxBg)) {
         Column(Modifier.fillMaxSize()) {
 
@@ -120,6 +137,24 @@ fun LightboxScreen(
                     color = AppTheme.colors.accentInk,
                     modifier = Modifier.weight(1f).padding(horizontal = AppTheme.spacing.s2),
                 )
+                Box {
+                    IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(AppTheme.spacing.tap)) {
+                        Icon(VsIcons.More, contentDescription = "更多", tint = AppTheme.colors.accentInk)
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text("編輯圖資") },
+                            leadingIcon = { Icon(VsIcons.Edit, contentDescription = null) },
+                            onClick = { menuOpen = false; actions.onEdit(shot) },
+                        )
+                        DropdownMenuItem(
+                            // 破壞性動作：唯一用 danger 色的地方（手冊 §零第二條）
+                            text = { Text("刪除這張收藏", color = AppTheme.colors.danger) },
+                            leadingIcon = { Icon(VsIcons.Trash, contentDescription = null, tint = AppTheme.colors.danger) },
+                            onClick = { menuOpen = false; confirmingDelete = true },
+                        )
+                    }
+                }
             }
 
             HorizontalPager(
@@ -143,17 +178,44 @@ fun LightboxScreen(
             }
 
             Text(
-                formatClock(items[pager.currentPage.coerceAtMost(items.lastIndex)].atSec),
+                formatClock(shot.atSec),
                 style = MaterialTheme.typography.labelSmall,
                 color = AppTheme.colors.textFaint,
                 modifier = Modifier.padding(horizontal = AppTheme.spacing.s4),
             )
 
-            // Task 10 會在這裡放動作分層（主按鈕、兩顆圖示鈕、⋯）
+            // 動作分層（手冊 §三第四條）：主要動作只有一顆，其餘瀏覽動作是圖示鈕，
+            // 破壞性動作（刪除）與次要動作（編輯）收在上面的「⋯」，不跟這裡並排
             Row(
                 Modifier.fillMaxWidth().padding(AppTheme.spacing.s4),
                 horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
-            ) {}
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(onClick = { actions.onPlay(shot) }, modifier = Modifier.weight(1f)) {
+                    Icon(VsIcons.Play, contentDescription = null)
+                    Text("播放這一段", modifier = Modifier.padding(start = AppTheme.spacing.s2))
+                }
+                IconButton(onClick = { actions.onAddToFolder(shot) }, modifier = Modifier.size(AppTheme.spacing.tap)) {
+                    Icon(VsIcons.FolderPlus, contentDescription = "加入分類", tint = AppTheme.colors.accentInk)
+                }
+                IconButton(onClick = { actions.onShare(shot) }, modifier = Modifier.size(AppTheme.spacing.tap)) {
+                    Icon(VsIcons.Share, contentDescription = "分享", tint = AppTheme.colors.accentInk)
+                }
+            }
+        }
+
+        if (confirmingDelete) {
+            AlertDialog(
+                onDismissRequest = { confirmingDelete = false },
+                title = { Text("刪除這張收藏？") },
+                text = { Text("YouTube 原片不受影響") },
+                confirmButton = {
+                    TextButton(onClick = { confirmingDelete = false; actions.onDelete(shot) }) {
+                        Text("刪除", color = AppTheme.colors.danger)
+                    }
+                },
+                dismissButton = { TextButton(onClick = { confirmingDelete = false }) { Text("取消") } },
+            )
         }
 
         if (!hintDone) {

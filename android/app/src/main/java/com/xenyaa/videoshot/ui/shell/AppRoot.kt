@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.shell
 
+import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.SnackbarHostState
@@ -7,22 +8,29 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.xenyaa.videoshot.core.details.ShotDetails
 import com.xenyaa.videoshot.core.home.monthOf
+import com.xenyaa.videoshot.data.repo.model.ShotPatch
+import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.di.AppContainer
 import com.xenyaa.videoshot.ui.common.ComingSoonScreen
+import com.xenyaa.videoshot.ui.edit.ShotEditSheet
 import com.xenyaa.videoshot.ui.home.HomeScreen
 import com.xenyaa.videoshot.ui.home.HomeViewModel
 import com.xenyaa.videoshot.ui.lightbox.LightboxActions
 import com.xenyaa.videoshot.ui.lightbox.LightboxScreen
+import com.xenyaa.videoshot.ui.lightbox.shareTextOf
 import com.xenyaa.videoshot.wizard.WizardScreen
 import com.xenyaa.videoshot.wizard.WizardViewModel
 import kotlinx.coroutines.launch
@@ -75,8 +83,12 @@ fun AppRoot(container: AppContainer, onExitApp: () -> Unit) {
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var scrollToMonth by rememberSaveable { mutableStateOf<String?>(null) }
     val lightboxHintSeen by container.settings.lightboxHintSeen.collectAsStateWithLifecycle(initialValue = true)
+    // 【編輯圖資】掛在 Lightbox 外層，不是 LightboxActions 裡直接開 —— sheet 需要自己的
+    // produceState（地點／標籤建議、既有圖資），Lightbox 本身不該知道這些
+    var editing by remember { mutableStateOf<ShotRow?>(null) }
 
     BackHandler { nav.pop()?.let { nav = it } ?: onExitApp() }
 
@@ -103,7 +115,20 @@ fun AppRoot(container: AppContainer, onExitApp: () -> Unit) {
             onLoadMore = homeVm::loadMore,
             // 把目前這一張寫回導覽堆疊：轉螢幕或被系統回收重建之後，回來還在同一張
             onIndexChange = { index -> nav = nav.pop()?.push(Dest.Lightbox(index)) ?: nav },
-            actions = LightboxActions(),
+            actions = LightboxActions(
+                // 詳情頁是階段 9、分類是階段 8。按鈕照畫（分層才驗得了），但要說得出為什麼還沒反應
+                onPlay = { scope.launch { snackbarHostState.showSnackbar("播放頁在階段 9") } },
+                onAddToFolder = { scope.launch { snackbarHostState.showSnackbar("分類在階段 8") } },
+                onShare = { shot ->
+                    val send = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, shareTextOf(shot))
+                    }
+                    context.startActivity(Intent.createChooser(send, null))
+                },
+                onEdit = { editing = it },
+                onDelete = { /* Task 11 接上 */ },
+            ),
         )
 
         Dest.Root -> AppShell(nav = nav, onSelectTab = { nav = nav.select(it) }, snackbarHostState = snackbarHostState) { tab ->
@@ -132,5 +157,43 @@ fun AppRoot(container: AppContainer, onExitApp: () -> Unit) {
                 )
             }
         }
+    }
+
+    // Lightbox 與首頁的【編輯圖資】共用同一顆 sheet（Task 9），掛在 nav 的 when 外面 ——
+    // 開著編輯時 Lightbox／首頁都可能是目前畫面，不屬於任何一支分支
+    editing?.let { shot ->
+        val details by produceState(ShotDetails(shot.eventDate), shot) {
+            value = ShotDetails(
+                eventDate = shot.eventDate,
+                place = shot.place,
+                description = shot.description,
+                tags = container.libraryRepo.tagsOfShot(shot.id),
+            )
+        }
+        val places by produceState(emptyList<String>()) { value = container.libraryRepo.distinctPlaces() }
+        val allTags by produceState(emptyList<String>()) { value = container.libraryRepo.allTagNames() }
+        ShotEditSheet(
+            details = details,
+            placeSuggestions = places,
+            tagSuggestions = allTags,
+            onDismiss = { editing = null },
+            onSave = { patch ->
+                editing = null
+                scope.launch {
+                    container.libraryRepo.patchShots(
+                        listOf(shot.id),
+                        ShotPatch(
+                            eventDate = patch.eventDate,
+                            place = patch.place,
+                            description = patch.description,
+                            tagIds = null,
+                            tagNames = patch.tags,
+                        ),
+                    )
+                    container.libraryRepo.shotById(shot.id)?.let(homeVm::onShotChanged)
+                    snackbarHostState.showSnackbar("已儲存")
+                }
+            },
+        )
     }
 }
