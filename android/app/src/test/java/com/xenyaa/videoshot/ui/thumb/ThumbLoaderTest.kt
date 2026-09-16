@@ -16,6 +16,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
+import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -131,13 +132,18 @@ class ThumbLoaderTest {
     }
 
     /**
-     * 取消不是解碼失敗。第一次呼叫在自己的 coroutine 裡被取消——用 try/catch 吞掉往外丟的
-     * `CancellationException`，這裡只在意「取消那一次沒有寫進快取」，不驗證例外本身有沒有傳出去
-     * （那件事已經在 [ThumbLoader.load] 的實作裡靠 rethrow 保證了，這裡測的是後果）。
-     * 下一次 `load` 必須重新解碼、拿得到圖——不能因為上一次是被取消的就被誤判成「這張圖解不出來」。
+     * 捲動讓一格離開畫面時，`ThumbImage` 的 `produceState` coroutine 會被取消——這是正常操作，
+     * 不是「這張圖解不出來」。兩件事都要驗證：
+     *
+     * 1. 取消要**往外丟**，不能被吞成 `null` 悄悄回傳——這正是分辨新／舊實作的地方：
+     *    舊版 `catch (t: Throwable) { null }` 會把 `CancellationException` 一起接住、不重新丟出，
+     *    `load()` 會直接回 `null`，這裡的 `fail(...)` 就會被跳過、測試對新舊兩版都通過，起不到防呆作用；
+     *    新版多了 `catch (c: CancellationException) { ...; throw c }`，一定會讓這次 `load()` 往外丟例外。
+     * 2. 快取不能被這次取消污染——下一次 `load` 要重新解碼、拿得到圖，不能因為上一次是被取消的
+     *    就被誤判成「這張圖壞了」而卡住。
      */
     @Test
-    fun 解碼被取消不會毒化快取() = runTest {
+    fun 捲出畫面的取消要往外丟_而且快取不會被污染() = runTest {
         var calls = 0
         val loader = ThumbLoader(
             thumbs = FakeThumbs { ThumbSource.LocalFile(File("/a.webp")) },
@@ -150,8 +156,9 @@ class ThumbLoaderTest {
         )
         try {
             loader.load(row(1))
-        } catch (e: CancellationException) {
-            // 預期中：見上方 KDoc
+            fail("捲出畫面的取消要往外丟，不能被當成解碼失敗吞掉")
+        } catch (expected: CancellationException) {
+            // 預期中：coroutine 要以「已取消」正常收尾
         }
         val second = loader.load(row(1))
         assertNotNull(second)
