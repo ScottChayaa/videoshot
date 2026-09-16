@@ -13,12 +13,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.xenyaa.videoshot.core.time.formatClock
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.ui.theme.AppTheme
 
 /**
  * 一張縮圖。拿不到圖時畫**中性的預留圖並標影片秒數**（手冊 §一：不是破圖）。
+ *
+ * `contentDescription` 掛在外層 [Box]、不掛在 [Image] 上 ——
+ * 圖解不出來時畫面畫的是預留文字（不是 `Image`），如果說明只綁在 `Image` 上，
+ * 這張縮圖在預留圖的狀態下就會對 TalkBack 完全沒有名字，永久解不出來的壞圖會變成無法唸出來的按鈕。
  */
 @Composable
 fun ThumbImage(
@@ -30,12 +36,21 @@ fun ThumbImage(
     val bitmap by produceState<ImageBitmap?>(null, shot.id, loader) {
         value = loader.load(shot)
     }
-    Box(modifier.background(AppTheme.colors.surface2), contentAlignment = Alignment.Center) {
+    val described = if (contentDescription != null) {
+        Modifier.semantics { this.contentDescription = contentDescription }
+    } else {
+        Modifier
+    }
+    Box(
+        modifier.background(AppTheme.colors.surface2).then(described),
+        contentAlignment = Alignment.Center,
+    ) {
         val image = bitmap
         if (image != null) {
             Image(
                 bitmap = image,
-                contentDescription = contentDescription,
+                // 說明已經掛在外層 Box，這裡給 null 才不會讓輔助技術唸兩次
+                contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
