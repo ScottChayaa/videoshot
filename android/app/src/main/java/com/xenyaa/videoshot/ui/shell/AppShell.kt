@@ -8,8 +8,12 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.xenyaa.videoshot.ui.icons.VsIcons
@@ -34,15 +38,22 @@ fun AppShell(
     nav: NavState,
     onSelectTab: (Tab) -> Unit,
     modifier: Modifier = Modifier,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     content: @Composable (Tab) -> Unit,
 ) {
     if (nav.tab == Tab.CAPTURE) {
-        Box(modifier.fillMaxSize()) { content(Tab.CAPTURE) }
+        // 精靈自己的提示（例如完成時的「已新增 N 張」）也走同一個 host，
+        // 疊在內容上面而不是走 Scaffold —— 這裡本來就沒有 bottomBar
+        Box(modifier.fillMaxSize()) {
+            content(Tab.CAPTURE)
+            SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter))
+        }
         return
     }
     Scaffold(
         modifier = modifier,
         containerColor = AppTheme.colors.bg,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             NavigationBar(containerColor = AppTheme.colors.surface) {
                 for (tab in Tab.entries) {

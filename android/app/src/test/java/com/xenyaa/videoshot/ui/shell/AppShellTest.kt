@@ -59,4 +59,18 @@ class AppShellTest {
         compose.onNodeWithText("分類").assertDoesNotExist()
         compose.onNodeWithText("首頁").assertDoesNotExist()
     }
+
+    @Test
+    fun 外殼畫得出_snackbar() {
+        val host = androidx.compose.material3.SnackbarHostState()
+        compose.setContent {
+            VideoshotTheme {
+                // 用 LaunchedEffect 而不是在測試裡 runBlocking：showSnackbar 會**一直掛著**
+                // 直到那則訊息消失，在測試執行緒上等它回來，等到的一定是已經不見的畫面
+                androidx.compose.runtime.LaunchedEffect(Unit) { host.showSnackbar("已新增 8 張") }
+                AppShell(nav = NavState(), onSelectTab = {}, snackbarHostState = host) { Text("內容") }
+            }
+        }
+        compose.onNodeWithText("已新增 8 張").assertIsDisplayed()
+    }
 }

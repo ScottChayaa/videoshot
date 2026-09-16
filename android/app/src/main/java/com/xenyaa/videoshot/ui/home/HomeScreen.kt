@@ -68,6 +68,10 @@ fun HomeScreen(
     /** null＝清除篩選。開關選擇器是畫面自己的事，不必讓外面知道 */
     onPickMonth: (String?) -> Unit,
     onFacetClick: (String, MonthFacet) -> Unit,
+    /** 取圖完成後要捲到的月份（`YYYY-MM`）；null＝不用捲 */
+    scrollToMonth: String? = null,
+    /** 捲完（或發現那個月不在清單裡）回報一次，讓外面把 scrollToMonth 清掉 */
+    onScrolledToMonth: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var picking by rememberSaveable { mutableStateOf(false) }
@@ -87,6 +91,15 @@ fun HomeScreen(
 
     // 篩選換了就回頂端 —— 選到的那個月是第一個分組，停在原本的捲動位置會看不到它
     LaunchedEffect(state.upToMonth) { listState.scrollToItem(0) }
+
+    // 取圖完成導回首頁要捲到新圖那個月（手冊 §四第三步最後一條）
+    LaunchedEffect(scrollToMonth, slots) {
+        val month = scrollToMonth ?: return@LaunchedEffect
+        // 找不到就什麼都不捲（例如那個月還沒被分頁載進來）—— 但仍然要回報，
+        // 否則外面的 scrollToMonth 一直留著，每次重組都會再試一次
+        HomeStore.headerIndexOf(slots, month)?.let { listState.scrollToItem(it) }
+        onScrolledToMonth()
+    }
 
     Column(modifier.fillMaxSize()) {
 
