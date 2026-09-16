@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.data.repo
 
 import androidx.room.Transactor
 import androidx.room.useWriterConnection
+import com.xenyaa.videoshot.core.home.nextMonthStart
 import com.xenyaa.videoshot.core.paging.ShotCursor
 import com.xenyaa.videoshot.data.library.LibraryDatabase
 import com.xenyaa.videoshot.data.library.dao.ShotRowProjection
@@ -12,6 +13,7 @@ import com.xenyaa.videoshot.data.library.entity.ShotTagEntity
 import com.xenyaa.videoshot.data.library.entity.TagEntity
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.MonthCount
+import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
 import com.xenyaa.videoshot.data.repo.model.NewShot
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
@@ -27,15 +29,33 @@ class RoomLibraryRepo(
     private val onChanged: suspend () -> Unit = {},
 ) : LibraryRepo {
 
-    override suspend fun homeFeed(after: ShotCursor?, limit: Int): Page<ShotRow> = withContext(io) {
-        val rows = if (after == null) {
-            db.shotDao().feedFirst(limit)
-        } else {
-            db.shotDao().feedAfter(after.eventDate, after.id, limit)
+    /** 沒有篩選時的上界。任何合法的 event_date 都比它小。 */
+    private fun boundOf(upToMonth: String?): String =
+        upToMonth?.let { nextMonthStart(it) } ?: "9999-99-99"
+
+    override suspend fun homeFeed(after: ShotCursor?, limit: Int, upToMonth: String?): Page<ShotRow> =
+        withContext(io) {
+            val before = boundOf(upToMonth)
+            val rows = if (after == null) {
+                db.shotDao().feedFirst(before, limit)
+            } else {
+                db.shotDao().feedAfter(before, after.eventDate, after.id, limit)
+            }
+            // 撈滿才可能有下一頁；沒撈滿代表到底了，游標給 null 讓畫面停止請求
+            val next = if (rows.size < limit) null else rows.last().let { ShotCursor(it.eventDate, it.id) }
+            Page(rows.map { it.toRow() }, next)
         }
-        // 撈滿才可能有下一頁；沒撈滿代表到底了，游標給 null 讓畫面停止請求
-        val next = if (rows.size < limit) null else rows.last().let { ShotCursor(it.eventDate, it.id) }
-        Page(rows.map { it.toRow() }, next)
+
+    override suspend fun shotCount(upToMonth: String?): Int = withContext(io) {
+        db.shotDao().countBefore(boundOf(upToMonth))
+    }
+
+    override suspend fun monthFacets(month: String): List<MonthFacet> = withContext(io) {
+        db.shotDao().monthFacets(month).map { MonthFacet(it.name, it.kind, it.count) }
+    }
+
+    override suspend fun tagsOfShot(shotId: Long): List<String> = withContext(io) {
+        db.tagDao().namesOfShot(shotId)
     }
 
     override suspend fun monthCounts(): List<MonthCount> = withContext(io) {
@@ -109,14 +129,23 @@ class RoomLibraryRepo(
     override suspend fun allTagNames(): List<String> = withContext(io) { db.tagDao().allNames() }
 
     override suspend fun patchShots(ids: List<Long>, patch: ShotPatch): Unit = withContext(io) {
+        require(patch.tagIds == null || patch.tagNames == null) {
+            "tagIds 與 tagNames 只能給一個 —— 兩個都給的話，誰蓋誰要看實作順序"
+        }
         db.inWriteTransaction {
+            // 名稱→id 的解析在交易內（理由同 commitPicks：回滾後不留空標籤）
+            val tagIds = patch.tagNames?.map { name ->
+                db.tagDao().byName(name)?.id
+                    ?: db.tagDao().insert(TagEntity(id = 0, name = name, kind = "other", aliases = "[]"))
+            } ?: patch.tagIds
             for (id in ids) {
                 patch.eventDate?.let { db.shotDao().updateEventDate(id, it) }
-                patch.place?.let { db.shotDao().updatePlace(id, it) }
-                patch.description?.let { db.shotDao().updateDescription(id, it) }
-                patch.tagIds?.let { tagIds ->
+                // 空字串＝清空（與 :core 的 DetailsPatch 同一個約定）
+                patch.place?.let { db.shotDao().updatePlace(id, it.ifBlank { null }) }
+                patch.description?.let { db.shotDao().updateDescription(id, it.ifBlank { null }) }
+                tagIds?.let { resolved ->
                     db.tagDao().unlinkAllOfShot(id)
-                    tagIds.forEach { db.tagDao().link(ShotTagEntity(id, it, "human")) }
+                    resolved.forEach { db.tagDao().link(ShotTagEntity(id, it, "human")) }
                 }
             }
         }

@@ -26,4 +26,13 @@ interface TagDao {
 
     @Query("SELECT name FROM tag ORDER BY name")
     suspend fun allNames(): List<String>
+
+    @Query(
+        """
+        SELECT t.name FROM shot_tag st
+        JOIN tag t ON t.id = st.tag_id
+        WHERE st.shot_id = :shotId ORDER BY t.name
+        """
+    )
+    suspend fun namesOfShot(shotId: Long): List<String>
 }
