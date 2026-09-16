@@ -22,6 +22,8 @@ import com.xenyaa.videoshot.thumbs.FileThumbs
 import com.xenyaa.videoshot.thumbs.LocalSheetCropper
 import com.xenyaa.videoshot.thumbs.SheetHarvester
 import com.xenyaa.videoshot.thumbs.Thumbs
+import com.xenyaa.videoshot.ui.thumb.CoverFetcher
+import com.xenyaa.videoshot.ui.thumb.ThumbLoader
 import com.xenyaa.videoshot.wizard.CropOutcome
 import com.xenyaa.videoshot.wizard.Haptics
 import com.xenyaa.videoshot.wizard.LoadedVideo
@@ -37,6 +39,7 @@ import okhttp3.OkHttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import android.graphics.BitmapFactory
+import androidx.compose.ui.graphics.asImageBitmap
 import com.xenyaa.videoshot.capture.Capture
 import com.xenyaa.videoshot.capture.ManualImageStore
 import com.xenyaa.videoshot.capture.WebViewCapture
@@ -89,6 +92,37 @@ class AppContainer(context: Context) {
 
     val thumbs: Thumbs by lazy {
         FileThumbs(File(appContext.filesDir, "thumbs"), Dispatchers.IO) { libraryRepo.shotImage(it) }
+    }
+
+    /**
+     * 記憶體 LRU 的容量依裝置可用記憶體估：一張 320×180 的 ARGB_8888 約 230 KB，
+     * 取可用堆疊的 1/8 換算張數，夾在 60～240 之間。
+     * 固定寫死一個數字的話，低階機會 OOM、高階機又白白重複解碼。
+     */
+    val thumbLoader: ThumbLoader by lazy {
+        val am = appContext.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        val budgetBytes = am.memoryClass.toLong() * 1024 * 1024 / 8
+        val entries = (budgetBytes / (320L * 180 * 4)).toInt().coerceIn(60, 240)
+        ThumbLoader(
+            thumbs = thumbs,
+            decodeFile = { file -> withContext(Dispatchers.IO) { BitmapFactory.decodeFile(file.path)?.asImageBitmap() } },
+            decodeBytes = { bytes ->
+                withContext(Dispatchers.Default) {
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+                }
+            },
+            cover = coverFetcher::invoke,
+            maxEntries = entries,
+        )
+    }
+
+    private val coverFetcher: CoverFetcher by lazy {
+        CoverFetcher(
+            client = httpClient,
+            dir = File(appContext.cacheDir, "covers"),
+            io = Dispatchers.IO,
+            decode = { bytes -> BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap() },
+        )
     }
 
     val sheetHarvester: SheetHarvester by lazy { SheetHarvester(youtube, thumbs, Dispatchers.Default) }
