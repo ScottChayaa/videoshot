@@ -23,6 +23,13 @@ import com.xenyaa.videoshot.data.repo.model.MonthCount
 import com.xenyaa.videoshot.ui.theme.AppTheme
 
 /**
+ * 月份清單的高度上限——月份一多，選擇器要停在「底部工作表」的樣子，
+ * 不能一路長成全螢幕清單。只有這一個用到，不是間距刻度（`AppTheme.spacing` 管的是
+ * 4/8/12/16/24/32 的間距），所以就地宣告，不升格成主題裡的正式 token。
+ */
+private val MonthListMaxHeight = 360.dp
+
+/**
  * 「只顯示這個月以前」的月份選擇器（手冊 §二第四條）。
  *
  * 選項是**實際有收藏的月份**加上張數 —— 列出沒有資料的月份只會讓人選到空畫面。
@@ -68,7 +75,7 @@ fun MonthPickerSheet(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
                 )
             } else {
-                LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
+                LazyColumn(Modifier.fillMaxWidth().heightIn(max = MonthListMaxHeight)) {
                     items(months, key = { it.month }) { month ->
                         Text(
                             "${monthLabel(month.month)} · ${month.count} 張",
