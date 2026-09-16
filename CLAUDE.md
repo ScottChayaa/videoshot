@@ -7,9 +7,9 @@
   與原型的 localStorage key `ytspace2_*`，這些刻意不改。
 
 **目前進度：階段 0～3 完成，階段 4a（精靈外殼與第一步）完成（2026-09-14）、階段 4b（縮圖牆與收斂）、階段 4c（截圖與效能閘門）完成（2026-09-15）、階段 6（第三步、完成、草稿）完成（2026-09-16）。
-JVM 測試 325 個（`:core:test` 104 ＋ `:app:testDebugUnitTest` 221）全綠。**儀器測試本階段未跑過**
-——手機的 MIUI「USB 安裝」開關關閉，`LocalSheetCropperTest`、`LibraryRepoWriteTest` 等案例一次都沒執行，
-階段 6 要等開關重新打開、跑過 `./gradlew :app:connectedDebugAndroidTest` 才算真正驗證完。**
+三套測試全綠（2026-09-16）：JVM 335 個（`:core:test` 104 ＋ `:app:testDebugUnitTest` 231），
+**儀器測試 100 個**（`:app:connectedDebugAndroidTest`，實機 2107113SG）。
+本階段新增的 `LocalSheetCropperTest`（7）與 `LibraryRepoWriteTest`（16）都已在實機上跑過。
 
 **app 啟動後直接落在取圖精靈**（階段 2 的資料層冒煙畫面已刪除，內容在 git 歷史）。
 貼網址 → 挑畫面 → 填圖資 → 完成，這一整段的接線已經做完，圖會真的寫進 `library.db`；

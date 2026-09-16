@@ -149,10 +149,10 @@
 
 ### 階段 6 —— 取圖精靈第三步、完成、草稿 ✅
 
-細節見 [階段 6 計畫](2026-09-15-階段6-第三步完成與草稿.md)。**儀器測試套件（`:app:connectedDebugAndroidTest`）本階段尚未執行過**——
-手機的 MIUI「USB 安裝」開關關閉，`LocalSheetCropperTest`、`LibraryRepoWriteTest` 一次都沒跑過；
-JVM 兩套已全綠（`:core:test` 104、`:app:testDebugUnitTest` 221，共 325）。開關重新打開後要先把儀器測試跑完，
-階段 6 才算真的驗證過。
+細節見 [階段 6 計畫](2026-09-15-階段6-第三步完成與草稿.md)。**三套測試全綠**（2026-09-16）：
+`:core:test` 104、`:app:testDebugUnitTest` 231（共 335 JVM）、`:app:connectedDebugAndroidTest` 100（實機）。
+本階段新增的 `LocalSheetCropperTest`（7）與 `LibraryRepoWriteTest`（16）都已在實機上執行，
+`SheetHarvesterTest`（9）與 `StoryboardFrameSourceTest`（12）也證實沒有被本階段的重構弄壞。
 
 | # | 任務 | 規模 | 驗收 |
 |---|---|---|---|
@@ -160,7 +160,7 @@ JVM 兩套已全綠（`:core:test` 104、`:app:testDebugUnitTest` 221，共 325�
 | T6.2 | 抽屜：時間（中性說明）／地點／標籤／描述、`〈多個值〉`、既有值建議 | M | ✅ 2026-09-16 案例 10；手冊 §四第三步時間欄位 |
 | T6.3 | `:core` 套用語意：只套用動過的欄位、標籤整組覆蓋 | S | ✅ 2026-09-16 案例 8、9（純函式單元測試） |
 | T6.4 | 主按鈕情境切換 ＋「將更新：…」提示行 ＋ 底部單一 dock | M | ✅ 2026-09-16 手冊 §四第三步 dock、主按鈕、提示行三條 |
-| T6.5 | 完成：`library.db` transaction → `cache.db` → 刪草稿 → 標記有變更 → 回首頁捲到月份 ＋ toast | M | ✅ 2026-09-16 案例 12；手冊 §四第三步最後一條。完成的終點目前是 toast；「導回首頁 → 捲到該月份」隨階段 7 的 T7.2 接上（`WizardViewModel.finished` 已備妥）。`library.db` 的交易寫入由 `LibraryRepoWriteTest`（儀器測試）覆蓋，本階段尚未在實機上跑過 |
+| T6.5 | 完成：`library.db` transaction → `cache.db` → 刪草稿 → 標記有變更 → 回首頁捲到月份 ＋ toast | M | ✅ 2026-09-16 案例 12；手冊 §四第三步最後一條。完成的終點目前是 toast；「導回首頁 → 捲到該月份」隨階段 7 的 T7.2 接上（`WizardViewModel.finished` 已備妥）。`library.db` 的交易寫入由 `LibraryRepoWriteTest`（儀器測試，16 個案例）覆蓋，2026-09-16 已在實機跑過 |
 | T6.6 | 草稿存取與續做詢問（續做時重抓 watch page） | M | ✅ 2026-09-16 案例 13 |
 
 ### 階段 7 —— App 外殼、首頁、Lightbox
