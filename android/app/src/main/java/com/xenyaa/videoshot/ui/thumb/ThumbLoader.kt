@@ -4,9 +4,12 @@ import androidx.compose.ui.graphics.ImageBitmap
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.thumbs.ThumbSource
 import com.xenyaa.videoshot.thumbs.Thumbs
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
@@ -51,6 +54,19 @@ class ThumbLoader(
 
         val bitmap = try {
             decode(shot)
+        } catch (c: CancellationException) {
+            // 捲動離開畫面是常態，不是解碼失敗：ThumbImage 的 produceState coroutine
+            // 被取消時，decode() 會從掛起點往外丟這個例外。
+            // 用 NonCancellable 包住清理——這個 coroutine 本身已經在取消中，
+            // 如果 lock.withLock 剛好真的要掛起（鎖被別人占用），沒有這一層會讓
+            // inFlight 留著一筆孤兒紀錄，永遠沒人清。
+            // 不能對 pending 呼叫 cancel()／completeExceptionally()：那會把「這個請求被取消」
+            // 這件事傳給其他共用同一張圖、但自己的 coroutine 根本沒被取消的等待者。
+            // 改成 complete(null)：他們這一輪先看到預留圖（不寫進快取），下一次 load()
+            // 會重新解碼——用一次可能的預留圖換取「別人的取消不會誤傳給我」。
+            withContext(NonCancellable) { lock.withLock { inFlight.remove(shot.id) } }
+            pending.complete(null)
+            throw c
         } catch (t: Throwable) {
             // 壞掉的一張圖不該讓整個縮圖牆掛掉（規格第七節：降級不當機）
             null

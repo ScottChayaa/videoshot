@@ -5,8 +5,12 @@ import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.thumbs.ThumbKey
 import com.xenyaa.videoshot.thumbs.ThumbSource
 import com.xenyaa.videoshot.thumbs.Thumbs
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -22,6 +26,7 @@ import java.io.File
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35])
+@OptIn(ExperimentalCoroutinesApi::class)
 class ThumbLoaderTest {
 
     private class FakeThumbs(var source: (ShotRow) -> ThumbSource) : Thumbs {
@@ -98,18 +103,59 @@ class ThumbLoaderTest {
         assertSame(first, second)
     }
 
-    /** 捲動時同一格會被問很多次；重複的請求要合併，不能各自去解碼一次。 */
+    /**
+     * 捲動時同一格會被問很多次；重複的請求要合併，不能各自去解碼一次。
+     *
+     * `decodeFile` 卡在 [gate] 上真的掛起，逼八個呼叫者同時卡住——不這樣的話
+     * `StandardTestDispatcher` 會讓第一個呼叫者跑到底、寫完快取，剩下七個全部走快取命中，
+     * 完全沒摸到 `inFlight` 的合併邏輯，測試就算拿掉合併機制也一樣會過。
+     */
     @Test
     fun 併發請求同一張只解碼一次() = runTest {
         var files = 0
+        val gate = CompletableDeferred<Unit>()
         val loader = ThumbLoader(
             thumbs = FakeThumbs { ThumbSource.LocalFile(File("/a.webp")) },
-            decodeFile = { files++; ImageBitmap(1, 1) },
+            decodeFile = { files++; gate.await(); ImageBitmap(1, 1) },
             decodeBytes = { null }, cover = { null },
         )
-        val results = (1..8).map { async { loader.load(row(1)) } }.awaitAll()
+        val jobs = (1..8).map { async { loader.load(row(1)) } }
+        // 讓排進去的八個呼叫者全部真的跑到掛起點：第一個卡在 gate.await()，
+        // 其餘七個卡在同一張 pending deferred 上——這就是「證明八個都同時在等」。
+        advanceUntilIdle()
+        assertEquals(1, files)
+        gate.complete(Unit)
+        val results = jobs.awaitAll()
         assertEquals(1, files)
         assertEquals(1, results.distinct().size)
+    }
+
+    /**
+     * 取消不是解碼失敗。第一次呼叫在自己的 coroutine 裡被取消——用 try/catch 吞掉往外丟的
+     * `CancellationException`，這裡只在意「取消那一次沒有寫進快取」，不驗證例外本身有沒有傳出去
+     * （那件事已經在 [ThumbLoader.load] 的實作裡靠 rethrow 保證了，這裡測的是後果）。
+     * 下一次 `load` 必須重新解碼、拿得到圖——不能因為上一次是被取消的就被誤判成「這張圖解不出來」。
+     */
+    @Test
+    fun 解碼被取消不會毒化快取() = runTest {
+        var calls = 0
+        val loader = ThumbLoader(
+            thumbs = FakeThumbs { ThumbSource.LocalFile(File("/a.webp")) },
+            decodeFile = {
+                calls++
+                if (calls == 1) throw CancellationException("捲出畫面")
+                ImageBitmap(1, 1)
+            },
+            decodeBytes = { null }, cover = { null },
+        )
+        try {
+            loader.load(row(1))
+        } catch (e: CancellationException) {
+            // 預期中：見上方 KDoc
+        }
+        val second = loader.load(row(1))
+        assertNotNull(second)
+        assertEquals(2, calls)
     }
 
     @Test
