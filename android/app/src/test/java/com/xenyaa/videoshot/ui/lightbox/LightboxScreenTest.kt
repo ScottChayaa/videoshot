@@ -35,6 +35,8 @@ class LightboxScreenTest {
             override suspend fun thumbFor(shot: ShotRow) = ThumbSource.Placeholder
             override fun fileOf(key: ThumbKey) = File("/unused")
             override fun exists(key: ThumbKey) = false
+            override suspend fun delete(key: ThumbKey) = Unit
+            override suspend fun deleteVideo(videoId: String) = Unit
         },
         decodeFile = { null }, decodeBytes = { null }, cover = { null },
     )

@@ -25,6 +25,10 @@ class RoomCacheRepo(
         db.thumbStateDao().deleteVideo(videoId)
     }
 
+    override suspend fun forgetThumb(videoId: String, sbLevel: Int, frameIndex: Int) = withContext(io) {
+        db.thumbStateDao().deleteByKey(videoId, sbLevel, frameIndex)
+    }
+
     override suspend fun saveDraft(draft: DraftEntity) = withContext(io) { db.draftDao().put(draft) }
 
     override suspend fun currentDraft(): DraftEntity? = withContext(io) { db.draftDao().current() }

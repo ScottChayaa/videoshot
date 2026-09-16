@@ -31,6 +31,12 @@ interface Thumbs {
     suspend fun thumbFor(shot: ShotRow): ThumbSource
     fun fileOf(key: ThumbKey): File
     fun exists(key: ThumbKey): Boolean
+
+    /** 刪一格的縮圖檔。檔案不存在不算錯（可能本來就還沒回填）。 */
+    suspend fun delete(key: ThumbKey)
+
+    /** 刪整支影片的縮圖目錄（最後一張收藏被刪、或刪整支收藏時）。 */
+    suspend fun deleteVideo(videoId: String)
 }
 
 /** 封面圖的網址。無簽章、不會過期，所以缺圖時拿它頂著是安全的（規格第五節）。 */

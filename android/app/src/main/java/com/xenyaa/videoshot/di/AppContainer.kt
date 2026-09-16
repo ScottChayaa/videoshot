@@ -3,6 +3,7 @@ package com.xenyaa.videoshot.di
 import android.content.Context
 import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import com.xenyaa.videoshot.data.ShotDeleter
 import com.xenyaa.videoshot.data.cache.CacheDatabase
 import com.xenyaa.videoshot.data.library.LibraryDatabase
 import com.xenyaa.videoshot.data.library.LIBRARY_MIGRATIONS
@@ -84,6 +85,8 @@ class AppContainer(context: Context) {
     }
 
     val cacheRepo: CacheRepo by lazy { RoomCacheRepo(cacheDb, Dispatchers.IO) }
+
+    val shotDeleter: ShotDeleter by lazy { ShotDeleter(libraryRepo, thumbs, cacheRepo, Dispatchers.IO) }
 
     /** 整個 app 共用一個 OkHttpClient —— 它自帶連線池與執行緒池，每次 new 一個會把資源用光。 */
     private val httpClient: OkHttpClient by lazy { OkHttpClient() }

@@ -13,6 +13,8 @@ interface CacheRepo {
     /** 回填作業要處理的：還缺、而且已經到重試時間的。 */
     suspend fun thumbsDueForRetry(now: Long, limit: Int): List<ThumbStateEntity>
     suspend fun forgetVideoThumbs(videoId: String)
+    /** 刪掉一格的回填狀態。不清的話，回填作業會把已經刪掉的那一格又抓回來。 */
+    suspend fun forgetThumb(videoId: String, sbLevel: Int, frameIndex: Int)
 
     suspend fun saveDraft(draft: DraftEntity)
     suspend fun currentDraft(): DraftEntity?

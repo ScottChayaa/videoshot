@@ -36,4 +36,14 @@ class FileThumbs(
         val file = fileOf(ThumbKey(shot.videoId, level, frameIndex))
         if (file.exists()) ThumbSource.LocalFile(file) else ThumbSource.Cover(shot.videoId)
     }
+
+    override suspend fun delete(key: ThumbKey): Unit = withContext(io) {
+        fileOf(key).delete()
+        Unit
+    }
+
+    override suspend fun deleteVideo(videoId: String): Unit = withContext(io) {
+        File(root, videoId).deleteRecursively()
+        Unit
+    }
 }

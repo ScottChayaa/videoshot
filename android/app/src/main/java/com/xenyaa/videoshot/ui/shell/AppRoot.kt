@@ -128,7 +128,14 @@ fun AppRoot(container: AppContainer, onExitApp: () -> Unit) {
                     context.startActivity(Intent.createChooser(send, null))
                 },
                 onEdit = { editing = it },
-                onDelete = { /* Task 11 接上 */ },
+                onDelete = { shot ->
+                    scope.launch {
+                        container.shotDeleter.delete(shot.id)
+                        container.thumbLoader.evict(shot.id)
+                        homeVm.onShotDeleted(shot.id)
+                        snackbarHostState.showSnackbar("已刪除 1 張")
+                    }
+                },
             ),
         )
 

@@ -34,6 +34,8 @@ class ThumbLoaderTest {
         override suspend fun thumbFor(shot: ShotRow): ThumbSource = source(shot)
         override fun fileOf(key: ThumbKey): File = File("/unused")
         override fun exists(key: ThumbKey): Boolean = false
+        override suspend fun delete(key: ThumbKey) = Unit
+        override suspend fun deleteVideo(videoId: String) = Unit
     }
 
     private fun row(id: Long, videoId: String = "v1") = ShotRow(
