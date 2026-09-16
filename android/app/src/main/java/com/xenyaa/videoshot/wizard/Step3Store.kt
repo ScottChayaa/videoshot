@@ -6,6 +6,7 @@ import com.xenyaa.videoshot.core.details.ShotDetails
 import com.xenyaa.videoshot.core.details.applyToCells
 import com.xenyaa.videoshot.core.details.commonOf
 import com.xenyaa.videoshot.core.details.normalizeTags
+import com.xenyaa.videoshot.core.time.formatClock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

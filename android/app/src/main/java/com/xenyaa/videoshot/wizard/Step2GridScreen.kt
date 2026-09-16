@@ -35,6 +35,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.xenyaa.videoshot.core.time.formatClock
 
 /**
  * 第二步：從縮圖牆挑圖。

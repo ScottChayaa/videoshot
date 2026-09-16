@@ -44,6 +44,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.core.details.Common
+import com.xenyaa.videoshot.core.time.formatClock
 
 /**
  * 第三步：定義圖資。
