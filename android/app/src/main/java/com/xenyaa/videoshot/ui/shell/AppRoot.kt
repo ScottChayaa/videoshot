@@ -33,6 +33,7 @@ import com.xenyaa.videoshot.ui.lightbox.LightboxScreen
 import com.xenyaa.videoshot.ui.lightbox.shareTextOf
 import com.xenyaa.videoshot.wizard.WizardScreen
 import com.xenyaa.videoshot.wizard.WizardViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -93,13 +94,20 @@ fun AppRoot(container: AppContainer, onExitApp: () -> Unit) {
 
     BackHandler { nav.pop()?.let { nav = it } ?: onExitApp() }
 
-    // 取圖完成：回首頁、記下要捲到的月份、重新整理、跳 snackbar（手冊 §四第三步最後一條）
+    // 取圖完成：回首頁、記下要捲到的月份、重新整理、跳 snackbar（手冊 §四第三步最後一條）。
+    //
+    // showSnackbar 要用 scope.launch 另開一個 coroutine，不能直接 await 在收集區塊裡 ——
+    // `_finished` 是沒有 replay／buffer 的 SharedFlow，`emit` 會一路等到這個收集區塊
+    // 執行完才返回。showSnackbar 本身又會等到 snackbar 被關掉才返回，兩個疊在一起，
+    // WizardViewModel 那邊的 resetToStart()／committing = false 就會被吊住一整段
+    // snackbar 顯示的時間；這段空檔按【取圖】會先看到剛送出的第三步、才又跳回第一步
+    // （見階段 7 全盤覆查第 5 點）。
     LaunchedEffect(wizardVm) {
         wizardVm.finished.collect { done ->
             homeVm.reload()
             scrollToMonth = monthOf(done.eventDate)
             nav = nav.select(Tab.HOME)
-            snackbarHostState.showSnackbar("已新增 ${done.count} 張")
+            scope.launch { snackbarHostState.showSnackbar("已新增 ${done.count} 張") }
         }
     }
 
@@ -114,8 +122,17 @@ fun AppRoot(container: AppContainer, onExitApp: () -> Unit) {
             onHintSeen = { scope.launch { container.settings.markLightboxHintSeen() } },
             onClose = { nav.pop()?.let { nav = it } },
             onLoadMore = homeVm::loadMore,
-            // 把目前這一張寫回導覽堆疊：轉螢幕或被系統回收重建之後，回來還在同一張
-            onIndexChange = { index -> nav = nav.pop()?.push(Dest.Lightbox(index)) ?: nav },
+            // 把目前這一張寫回導覽堆疊：轉螢幕或被系統回收重建之後，回來還在同一張。
+            //
+            // 一定要先確認堆疊頂真的是 Dest.Lightbox 才能換掉它 —— pop() 對只有一層、
+            // 非 HOME 分頁的堆疊會回傳 copy(tab = HOME)，不是「移除頂層」。階段 8 的
+            // 資料夾頁會從別的分頁開出 Lightbox，屆時 nav.pop() 不見得還是 Lightbox 頂層，
+            // 誤換的話這一推會把畫面送去 HOME（見階段 7 全盤覆查第 8 點第 1 項）
+            onIndexChange = { index ->
+                if (nav.current is Dest.Lightbox) {
+                    nav = nav.pop()?.push(Dest.Lightbox(index)) ?: nav
+                }
+            },
             actions = LightboxActions(
                 // 詳情頁是階段 9、分類是階段 8。按鈕照畫（分層才驗得了），但要說得出為什麼還沒反應
                 onPlay = { scope.launch { snackbarHostState.showSnackbar("播放頁在階段 9") } },
@@ -130,10 +147,20 @@ fun AppRoot(container: AppContainer, onExitApp: () -> Unit) {
                 onEdit = { editing = it },
                 onDelete = { shot ->
                     scope.launch {
-                        container.shotDeleter.delete(shot.id)
-                        container.thumbLoader.evict(shot.id)
-                        homeVm.onShotDeleted(shot.id)
-                        snackbarHostState.showSnackbar("已刪除 1 張")
+                        // repo／檔案系統的例外不接住的話會直接把 process 帶走（見階段 7 全盤覆查
+                        // 第 2 點）；接住之後至少讓使用者知道要再試一次，而不是靜默失敗。
+                        // CancellationException 要重丟，不然這個 scope 被取消時反而會跳一個
+                        // 「刪除失敗」的 snackbar
+                        try {
+                            container.shotDeleter.delete(shot.id)
+                            container.thumbLoader.evict(shot.id)
+                            homeVm.onShotDeleted(shot.id)
+                            snackbarHostState.showSnackbar("已刪除 1 張")
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            snackbarHostState.showSnackbar("刪除失敗，請再試一次")
+                        }
                     }
                 },
             ),
@@ -196,16 +223,25 @@ private fun EditingSheet(
     snackbarHostState: SnackbarHostState,
     onDismiss: () -> Unit,
 ) {
+    // 這三個都是輔助性質的讀取（既有圖資、建議清單）——查不到的話 sheet 照樣能用，
+    // 只是少了建議可以點。接住例外，不然任何一個 repo 呼叫失敗都會把整個畫面炸掉
+    // （見階段 7 全盤覆查第 2 點）
     val details by produceState(ShotDetails(shot.eventDate), shot) {
-        value = ShotDetails(
-            eventDate = shot.eventDate,
-            place = shot.place,
-            description = shot.description,
-            tags = container.libraryRepo.tagsOfShot(shot.id),
-        )
+        value = runCatching {
+            ShotDetails(
+                eventDate = shot.eventDate,
+                place = shot.place,
+                description = shot.description,
+                tags = container.libraryRepo.tagsOfShot(shot.id),
+            )
+        }.getOrDefault(ShotDetails(eventDate = shot.eventDate, place = shot.place, description = shot.description))
     }
-    val places by produceState(emptyList<String>()) { value = container.libraryRepo.distinctPlaces() }
-    val allTags by produceState(emptyList<String>()) { value = container.libraryRepo.allTagNames() }
+    val places by produceState(emptyList<String>()) {
+        value = runCatching { container.libraryRepo.distinctPlaces() }.getOrDefault(emptyList())
+    }
+    val allTags by produceState(emptyList<String>()) {
+        value = runCatching { container.libraryRepo.allTagNames() }.getOrDefault(emptyList())
+    }
     ShotEditSheet(
         details = details,
         placeSuggestions = places,

@@ -7,10 +7,7 @@ import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.xenyaa.videoshot.data.cache.CacheDatabase
 import com.xenyaa.videoshot.data.library.LibraryDatabase
-import com.xenyaa.videoshot.data.library.entity.FolderEntity
 import com.xenyaa.videoshot.data.library.entity.ShotFolderEntity
-import com.xenyaa.videoshot.data.library.entity.ShotTagEntity
-import com.xenyaa.videoshot.data.library.entity.TagEntity
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
 import com.xenyaa.videoshot.data.repo.RoomCacheRepo
@@ -18,6 +15,7 @@ import com.xenyaa.videoshot.data.repo.RoomLibraryRepo
 import com.xenyaa.videoshot.data.repo.model.NewShot
 import com.xenyaa.videoshot.thumbs.FileThumbs
 import com.xenyaa.videoshot.thumbs.ThumbKey
+import com.xenyaa.videoshot.thumbs.Thumbs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -136,5 +134,28 @@ class ShotDeleterTest {
     @Test
     fun 刪不存在的_id_不會爆() = runTest {
         deleter.delete(9999L)
+    }
+
+    /**
+     * 見階段 7 全盤覆查第 2 點：KDoc 說「檔案或 cache 清失敗只是留下垃圾，圖庫仍然一致」，
+     * 但改之前這段沒接例外，清檔失敗會直接把整個 delete() 炸掉，DB 那半邊看起來也像失敗了。
+     * 這裡故意讓縮圖檔清除失敗，驗證 DB 的刪除照樣算數、delete() 本身不會往外丟例外。
+     */
+    @Test
+    fun 縮圖清除失敗不影響_DB_已經刪除的部分() = runTest {
+        val ids = library.commitPicks(video, listOf(pick(0)))
+        val failingThumbs = object : Thumbs {
+            override suspend fun thumbFor(shot: com.xenyaa.videoshot.data.repo.model.ShotRow) =
+                throw UnsupportedOperationException("測試不用到")
+            override fun fileOf(key: ThumbKey) = File("/unused")
+            override fun exists(key: ThumbKey) = false
+            override suspend fun delete(key: ThumbKey): Unit = throw java.io.IOException("模擬刪檔失敗")
+            override suspend fun deleteVideo(videoId: String): Unit = throw java.io.IOException("模擬刪檔失敗")
+        }
+        val failingDeleter = ShotDeleter(library, failingThumbs, cache, Dispatchers.IO)
+
+        failingDeleter.delete(ids.single())
+
+        assertNull(library.shotById(ids.single()))
     }
 }

@@ -33,16 +33,19 @@ class ShotDeleter(
         // 最後一張時 repo 會順帶刪掉 video 列（規格第六節）
         library.deleteShot(shotId)
 
-        val videoGone = library.shotsOfVideo(shot.videoId).isEmpty()
-        if (videoGone) {
-            // 整支都沒了：連目錄一起刪，別留下一堆沒有任何圖引用的 webp
-            thumbs.deleteVideo(shot.videoId)
-            cache.forgetVideoThumbs(shot.videoId)
-            return@withContext
-        }
-        if (level != null && frameIndex != null) {
-            thumbs.delete(ThumbKey(shot.videoId, level, frameIndex))
-            cache.forgetThumb(shot.videoId, level, frameIndex)
+        // DB 已經改完、唯一無法重建的那份已經成功。這段之後只是清檔案與 cache ——
+        // 失敗只留下垃圾（孤兒 webp、多餘的 thumb_state），圖庫本身仍然一致，
+        // 不該讓這裡的例外往上炸、把已經成功的 DB 刪除也搞得像失敗了一樣。
+        runCatching {
+            val videoGone = library.shotsOfVideo(shot.videoId).isEmpty()
+            if (videoGone) {
+                // 整支都沒了：連目錄一起刪，別留下一堆沒有任何圖引用的 webp
+                thumbs.deleteVideo(shot.videoId)
+                cache.forgetVideoThumbs(shot.videoId)
+            } else if (level != null && frameIndex != null) {
+                thumbs.delete(ThumbKey(shot.videoId, level, frameIndex))
+                cache.forgetThumb(shot.videoId, level, frameIndex)
+            }
         }
     }
 }
