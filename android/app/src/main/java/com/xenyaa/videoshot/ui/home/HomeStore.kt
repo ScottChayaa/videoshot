@@ -17,6 +17,8 @@ import com.xenyaa.videoshot.data.repo.model.ShotRow
  * @param upToMonth `YYYY-MM`；null＝沒有時間篩選（手冊 §二第三條：預設看得到最新的資料）
  * @param months 月份選擇器的選項（全部月份與張數，不受篩選影響）
  * @param facets 每個月的標籤列，key 是 `YYYY-MM`；捲到才去查，查過就留著
+ * @param error 上一次讀取失敗的訊息；null＝沒有錯誤。**不是例外物件** —— 這份狀態要能被
+ *        純函式比較與測試，例外物件沒有結構相等
  */
 data class HomeState(
     val items: List<ShotRow> = emptyList(),
@@ -27,6 +29,7 @@ data class HomeState(
     val upToMonth: String? = null,
     val months: List<MonthCount> = emptyList(),
     val facets: Map<String, List<MonthFacet>> = emptyMap(),
+    val error: String? = null,
 )
 
 /** 首頁的純狀態轉換。**沒有任何 suspend、沒有 Android 相依** —— 分頁邏輯要能單獨測。 */
@@ -42,6 +45,7 @@ object HomeStore {
         endReached = page.next == null,
         loading = false,
         total = total,
+        error = null,
     )
 
     /** 換篩選或重新整理：清單與游標一起作廢，否則新條件會接著舊游標往下撈。 */
@@ -52,6 +56,7 @@ object HomeStore {
         loading = false,
         upToMonth = upToMonth,
         facets = emptyMap(),
+        error = null,
     )
 
     fun removeShot(state: HomeState, id: Long): HomeState {
