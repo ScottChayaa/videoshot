@@ -15,17 +15,37 @@
 （首頁／查詢／取圖／分類／帳號），取圖精靈在第三格。貼網址 → 挑畫面 → 填圖資 → 完成，
 這一整段的接線已經做完，圖會真的寫進 `library.db`。
 
-階段 7 在實機（2107113SG）上驗過的是**首頁全部**（手冊 §二，含年月分組、月份篩選、封面降級）、
-**Lightbox**（手冊 §三，含刪除後自動停在下一張）、深色模式、縮圖抓不到時的降級預留圖——
-做法是把種子資料直接寫進 `library.db` 再開 app，**不是**實際跑一次取圖精靈。
-**取圖精靈從貼網址到完成這一整條路徑，目前仍然只在 JVM／Robolectric 測試下驗證過，還沒有在實機上走過一次**，
-這件事還沒解決，下次有人要動精靈相關程式碼時要留意。
+**實機（2107113SG）驗過的範圍**：首頁全部（手冊 §二，含年月分組、月份篩選、封面降級）、
+Lightbox（手冊 §三，含刪除後自動停在下一張）、深色模式、縮圖抓不到時的降級預留圖 ——
+這些是把種子資料直接寫進 `library.db` 再開 app 驗的。
+
+**取圖精靈也已經在實機上從頭走過一次**（2026-09-17）：貼 `youtu.be/aqz-KE-bpKQ` → watch page 抓到、
+storyboard 裁出真圖、收斂回報「119 張候選、隱藏 9 張」→ 挑 3 張 → 第三步自動帶入上傳日期 2014-11-10 →
+【完成】→「還有 3 張沒填資料」提醒但不阻擋 → 回首頁並捲到 2014年11月。全程正常。
+
+**尚未在實機驗過的**：手冊 §零 的輔助操作（TalkBack 唸讀順序、實體鍵盤焦點框 —— `focusRing` 這個 token
+定義了但還沒有人用）與平板寬度加欄（只有 `homeColumnsFor` 的純函式測試與一個 `w800dp` 的 Robolectric 測試）。
 
 **測試怎麼跑**（三套，環境限制見規格第十三節）：
 `./gradlew :core:test`（JVM 純邏輯）、`./gradlew :app:testDebugUnitTest`（**Compose UI 走 Robolectric，跑在 JVM**）、
 `./gradlew :app:connectedDebugAndroidTest`（資料庫與網路，實機）。
-儀器測試要注意 MIUI 的「USB 安裝」開關會自己關掉 —— 安裝失敗時 Gradle 仍回報 BUILD SUCCESSFUL 但**測試數是 0**，
-每次都要確認數字不是 0。
+儀器測試有兩個陷阱，每次都會踩：
+
+1. **Gradle 跑完會把 app 解除安裝**（AGP 的 `uninstall-after-tests=true`，日誌可見 `Uninstalling com.xenyaa.videoshot`），
+   **裝置上的 `library.db` 會一起消失**。要在實機上用種子資料驗收，順序是「先跑儀器測試、再塞資料」，
+   不然資料會被下一次測試吃掉。
+2. **安裝被擋時 Gradle 仍回報 BUILD SUCCESSFUL、exit code 0，但一個測試都沒跑**
+   （MIUI 的「透過 USB 安裝」會自己關掉；新版 AGP 只產 `.pb` 不產 XML，用 XML 數測試數會誤判成 0）。
+   不要相信 BUILD SUCCESSFUL，自己跑才看得到數字：
+
+   ```bash
+   adb install -r -t app/build/outputs/apk/debug/app-debug.apk
+   adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+   adb shell am instrument -w -e package com.xenyaa.videoshot \
+     com.xenyaa.videoshot.test/androidx.test.runner.AndroidJUnitRunner
+   ```
+
+   最後一行印出 `OK (119 tests)` 才算數。
 
 **舊的進度描述（階段 0～3）：**
 `android/` 有可建置的 `:app` 與 `:core`，共 **133 個測試**。
