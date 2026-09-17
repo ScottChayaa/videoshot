@@ -46,13 +46,16 @@ import com.xenyaa.videoshot.capture.ManualImageStore
 import com.xenyaa.videoshot.capture.WebViewCapture
 import com.xenyaa.videoshot.player.Player
 import com.xenyaa.videoshot.player.WebViewPlayer
+import com.xenyaa.videoshot.ui.shell.AppRootDeps
 import java.io.File
 
 /**
  * 手動注入的組裝點（階段 2 決定不用 Hilt）。
  * 兩個 DB 都建在 filesDir —— 不可用 cacheDir，系統或使用者清快取會把圖庫清掉（規格第四節）。
+ *
+ * 實作 [AppRootDeps]——`AppRoot` 認得的是那個窄介面，不是這整個類別；見它的 KDoc。
  */
-class AppContainer(context: Context) {
+class AppContainer(context: Context) : AppRootDeps {
 
     private val appContext = context.applicationContext
 
@@ -78,15 +81,15 @@ class AppContainer(context: Context) {
             .build()
     }
 
-    val settings: AppSettings by lazy { AppSettings(appContext) }
+    override val settings: AppSettings by lazy { AppSettings(appContext) }
 
-    val libraryRepo: LibraryRepo by lazy {
+    override val libraryRepo: LibraryRepo by lazy {
         RoomLibraryRepo(libraryDb, Dispatchers.IO) { settings.markChanged() }
     }
 
     val cacheRepo: CacheRepo by lazy { RoomCacheRepo(cacheDb, Dispatchers.IO) }
 
-    val shotDeleter: ShotDeleter by lazy { ShotDeleter(libraryRepo, thumbs, cacheRepo, Dispatchers.IO) }
+    override val shotDeleter: ShotDeleter by lazy { ShotDeleter(libraryRepo, thumbs, cacheRepo, Dispatchers.IO) }
 
     /** 整個 app 共用一個 OkHttpClient —— 它自帶連線池與執行緒池，每次 new 一個會把資源用光。 */
     private val httpClient: OkHttpClient by lazy { OkHttpClient() }
@@ -102,7 +105,7 @@ class AppContainer(context: Context) {
      * 取可用堆疊的 1/8 換算張數，夾在 60～240 之間。
      * 固定寫死一個數字的話，低階機會 OOM、高階機又白白重複解碼。
      */
-    val thumbLoader: ThumbLoader by lazy {
+    override val thumbLoader: ThumbLoader by lazy {
         val am = appContext.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
         val budgetBytes = am.memoryClass.toLong() * 1024 * 1024 / 8
         val entries = (budgetBytes / (320L * 180 * 4)).toInt().coerceIn(60, 240)
@@ -135,7 +138,7 @@ class AppContainer(context: Context) {
     }
 
     /** 精靈用得到的資料存取。窄介面的理由見 `WizardData` 的註解。 */
-    val wizardData: WizardData by lazy {
+    override val wizardData: WizardData by lazy {
         object : WizardData {
             override suspend fun watchPage(videoId: String) = youtube.watchPage(videoId)
             override suspend fun recentVideos(limit: Int) = libraryRepo.recentVideos(limit)
@@ -226,13 +229,13 @@ class AppContainer(context: Context) {
     private fun sheetsDirFor(videoId: String, level: Int): File =
         File(appContext.filesDir, "drafts/$videoId/sheets/L$level")
 
-    val haptics: Haptics by lazy { SystemHaptics(appContext) }
+    override val haptics: Haptics by lazy { SystemHaptics(appContext) }
 
     /**
      * 這支影片的手動補圖存放處。與 sheet 同樣綁在草稿上：
      * `drafts/{videoId}/manual/`，精靈完成或捨棄時整個 `drafts/{videoId}/` 一起刪（規格第四節）。
      */
-    fun manualImagesFor(videoId: String): ManualImageStore =
+    override fun manualImagesFor(videoId: String): ManualImageStore =
         ManualImageStore(File(appContext.filesDir, "drafts/$videoId/manual"))
 
     /**
@@ -241,7 +244,7 @@ class AppContainer(context: Context) {
      * 只有 `WebViewPlayer` 截得到圖 —— 它握著那個 WebView 的 JS 執行入口。
      * 其他實作（例如測試用的 `FakePlayer`）回 null，畫面上按【截圖】會得到「播放器還沒準備好」。
      */
-    fun captureFor(player: Player): Capture? = when (player) {
+    override fun captureFor(player: Player): Capture? = when (player) {
         is WebViewPlayer -> WebViewCapture(
             eval = { player.evaluate(it) },
             decode = { BitmapFactory.decodeByteArray(it, 0, it.size) },
@@ -253,7 +256,7 @@ class AppContainer(context: Context) {
      * 第二步的縮圖來源。解不出 storyboard 時給一個空的來源 ——
      * 空牆，但第二步仍然進得去（規格第七節降級表）。
      */
-    fun frameSourceFor(video: LoadedVideo): FrameSource {
+    override fun frameSourceFor(video: LoadedVideo): FrameSource {
         val (_, level) = framePlanOf(video.videoId, video.page)
         val spec = video.page.storyboardSpec?.let { Storyboard.parse(it) }
         if (level == null || spec == null) {

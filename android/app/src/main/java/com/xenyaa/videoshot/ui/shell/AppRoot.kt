@@ -2,7 +2,11 @@ package com.xenyaa.videoshot.ui.shell
 
 import android.content.Intent
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -14,6 +18,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -23,7 +29,6 @@ import com.xenyaa.videoshot.core.details.ShotDetails
 import com.xenyaa.videoshot.core.home.monthOf
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.ShotRow
-import com.xenyaa.videoshot.di.AppContainer
 import com.xenyaa.videoshot.ui.common.ComingSoonScreen
 import com.xenyaa.videoshot.ui.edit.ShotEditSheet
 import com.xenyaa.videoshot.ui.home.HomeScreen
@@ -49,7 +54,7 @@ private val NavSaver = Saver<NavState, String>(
  * @param onExitApp 已經在最外層還按返回 —— 交還給系統（結束 Activity）
  */
 @Composable
-fun AppRoot(container: AppContainer, onExitApp: () -> Unit) {
+fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
     var nav by rememberSaveable(stateSaver = NavSaver) { mutableStateOf(NavState()) }
 
     val homeVm: HomeViewModel = viewModel(
@@ -113,58 +118,72 @@ fun AppRoot(container: AppContainer, onExitApp: () -> Unit) {
 
     // Lightbox 蓋掉整個外殼（連底部導覽一起），所以判斷放在 AppShell 外面（規格第六節）
     when (val dest = nav.current) {
-        is Dest.Lightbox -> LightboxScreen(
-            items = homeState.items,
-            total = homeState.total,
-            startIndex = dest.startIndex,
-            loader = container.thumbLoader,
-            hintSeen = lightboxHintSeen,
-            onHintSeen = { scope.launch { container.settings.markLightboxHintSeen() } },
-            onClose = { nav.pop()?.let { nav = it } },
-            onLoadMore = homeVm::loadMore,
-            // 把目前這一張寫回導覽堆疊：轉螢幕或被系統回收重建之後，回來還在同一張。
-            //
-            // 一定要先確認堆疊頂真的是 Dest.Lightbox 才能換掉它 —— pop() 對只有一層、
-            // 非 HOME 分頁的堆疊會回傳 copy(tab = HOME)，不是「移除頂層」。階段 8 的
-            // 資料夾頁會從別的分頁開出 Lightbox，屆時 nav.pop() 不見得還是 Lightbox 頂層，
-            // 誤換的話這一推會把畫面送去 HOME（見階段 7 全盤覆查第 8 點第 1 項）
-            onIndexChange = { index ->
-                if (nav.current is Dest.Lightbox) {
-                    nav = nav.pop()?.push(Dest.Lightbox(index)) ?: nav
-                }
-            },
-            actions = LightboxActions(
-                // 詳情頁是階段 9、分類是階段 8。按鈕照畫（分層才驗得了），但要說得出為什麼還沒反應
-                onPlay = { scope.launch { snackbarHostState.showSnackbar("播放頁在階段 9") } },
-                onAddToFolder = { scope.launch { snackbarHostState.showSnackbar("分類在階段 8") } },
-                onShare = { shot ->
-                    val send = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, shareTextOf(shot))
+        // Lightbox 換掉整個 AppShell（連它 Scaffold 裡的 SnackbarHost 一起），所以這裡要自己
+        // 疊一顆——不疊的話，這一支分支底下任何一個 showSnackbar（編輯存檔、刪除失敗、
+        // 兩個階段未到的動作）在使用者關掉 Lightbox 之前都不會被畫出來，「已儲存」看起來像
+        // 沒反應、「刪除失敗」更糟：使用者只會看到那張圖還在，以為刪除成功了（見這一段覆查）。
+        //
+        // 對齊方式跟裡面的動作列同一個安全區：Lightbox 早先就是因為 chrome 畫到系統列下面
+        // 被修過一次（統一走 navigationBarsPadding／statusBarsPadding），這裡疊的 host
+        // 用同一個 navigationBarsPadding 讓開，不能再讓同一個問題在新地方重演。
+        is Dest.Lightbox -> Box(Modifier.fillMaxSize()) {
+            LightboxScreen(
+                items = homeState.items,
+                total = homeState.total,
+                startIndex = dest.startIndex,
+                loader = container.thumbLoader,
+                hintSeen = lightboxHintSeen,
+                onHintSeen = { scope.launch { container.settings.markLightboxHintSeen() } },
+                onClose = { nav.pop()?.let { nav = it } },
+                onLoadMore = homeVm::loadMore,
+                // 把目前這一張寫回導覽堆疊：轉螢幕或被系統回收重建之後，回來還在同一張。
+                //
+                // 一定要先確認堆疊頂真的是 Dest.Lightbox 才能換掉它 —— pop() 對只有一層、
+                // 非 HOME 分頁的堆疊會回傳 copy(tab = HOME)，不是「移除頂層」。階段 8 的
+                // 資料夾頁會從別的分頁開出 Lightbox，屆時 nav.pop() 不見得還是 Lightbox 頂層，
+                // 誤換的話這一推會把畫面送去 HOME（見階段 7 全盤覆查第 8 點第 1 項）
+                onIndexChange = { index ->
+                    if (nav.current is Dest.Lightbox) {
+                        nav = nav.pop()?.push(Dest.Lightbox(index)) ?: nav
                     }
-                    context.startActivity(Intent.createChooser(send, null))
                 },
-                onEdit = { editing = it },
-                onDelete = { shot ->
-                    scope.launch {
-                        // repo／檔案系統的例外不接住的話會直接把 process 帶走（見階段 7 全盤覆查
-                        // 第 2 點）；接住之後至少讓使用者知道要再試一次，而不是靜默失敗。
-                        // CancellationException 要重丟，不然這個 scope 被取消時反而會跳一個
-                        // 「刪除失敗」的 snackbar
-                        try {
-                            container.shotDeleter.delete(shot.id)
-                            container.thumbLoader.evict(shot.id)
-                            homeVm.onShotDeleted(shot.id)
-                            snackbarHostState.showSnackbar("已刪除 1 張")
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            snackbarHostState.showSnackbar("刪除失敗，請再試一次")
+                actions = LightboxActions(
+                    // 詳情頁是階段 9、分類是階段 8。按鈕照畫（分層才驗得了），但要說得出為什麼還沒反應
+                    onPlay = { scope.launch { snackbarHostState.showSnackbar("播放頁在階段 9") } },
+                    onAddToFolder = { scope.launch { snackbarHostState.showSnackbar("分類在階段 8") } },
+                    onShare = { shot ->
+                        val send = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, shareTextOf(shot))
                         }
-                    }
-                },
-            ),
-        )
+                        context.startActivity(Intent.createChooser(send, null))
+                    },
+                    onEdit = { editing = it },
+                    onDelete = { shot ->
+                        scope.launch {
+                            // repo／檔案系統的例外不接住的話會直接把 process 帶走（見階段 7 全盤覆查
+                            // 第 2 點）；接住之後至少讓使用者知道要再試一次，而不是靜默失敗。
+                            // CancellationException 要重丟，不然這個 scope 被取消時反而會跳一個
+                            // 「刪除失敗」的 snackbar
+                            try {
+                                container.shotDeleter.delete(shot.id)
+                                container.thumbLoader.evict(shot.id)
+                                homeVm.onShotDeleted(shot.id)
+                                snackbarHostState.showSnackbar("已刪除 1 張")
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                snackbarHostState.showSnackbar("刪除失敗，請再試一次")
+                            }
+                        }
+                    },
+                ),
+            )
+            SnackbarHost(
+                snackbarHostState,
+                Modifier.align(Alignment.BottomCenter).navigationBarsPadding(),
+            )
+        }
 
         Dest.Root -> AppShell(nav = nav, onSelectTab = { nav = nav.select(it) }, snackbarHostState = snackbarHostState) { tab ->
             when (tab) {
@@ -217,7 +236,7 @@ fun AppRoot(container: AppContainer, onExitApp: () -> Unit) {
 @Composable
 private fun EditingSheet(
     shot: ShotRow,
-    container: AppContainer,
+    container: AppRootDeps,
     homeVm: HomeViewModel,
     scope: CoroutineScope,
     snackbarHostState: SnackbarHostState,
