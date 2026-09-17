@@ -63,4 +63,18 @@ class NavStateTest {
         assertEquals(NavState(), NavCodec.decode("亂七八糟"))
         assertEquals(NavState(), NavCodec.decode(""))
     }
+
+    /**
+     * 見階段 7 全盤覆查第 8 點第 3 項：這個組合只有存檔的 Bundle 壞掉才會出現
+     * （正常流程 returnTo 永遠是按【取圖】前那一格，不會是 CAPTURE 自己）。
+     * 沒修之前 pop() 會走到 select(returnTo)，target == tab 讓它直接回傳 this ——
+     * 呼叫端看到非 null 就當作「已經處理」，返回鍵從此變成永久沒有反應的按鈕。
+     */
+    @Test
+    fun returnTo也是CAPTURE時退一層交還給系統而不是卡住() {
+        val corrupted = NavCodec.decode(NavCodec.encode(NavState(tab = Tab.CAPTURE, returnTo = Tab.CAPTURE)))
+        assertEquals(Tab.CAPTURE, corrupted.tab)
+        assertEquals(Tab.CAPTURE, corrupted.returnTo)
+        assertNull(corrupted.pop())
+    }
 }

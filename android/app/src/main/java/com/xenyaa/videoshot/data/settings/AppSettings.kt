@@ -67,7 +67,7 @@ class AppSettings(context: Context) {
      * 每個測試不各自清掉自己用到的值，上一輪留下的狀態就會讓下一輪的斷言失真。
      */
     @VisibleForTesting
-    suspend fun resetAll() {
+    internal suspend fun resetAll() {
         store.edit { it.clear() }
     }
 

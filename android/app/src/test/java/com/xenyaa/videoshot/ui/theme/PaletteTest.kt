@@ -60,13 +60,21 @@ class PaletteTest {
         assertEquals(Palettes.DEFAULT, Palettes.byId(null))
     }
 
-    /** 字級只有 6 階（手冊 §零「間距與字級有尺標」）。 */
+    /**
+     * 字級只有 6 階（手冊 §零「間距與字級有尺標」）。
+     *
+     * **列全部 15 個 slot**，不是只列目前用到的幾個 —— 漏列的 slot 會悄悄維持 Material
+     * 內建預設（例如 `labelMedium` 預設 12sp），這個測試就抓不到，字級尺標形同虛設
+     * （階段 7 全盤覆查第 8 點第 2 項踩過的坑：底部導覽列的文字正是走 `labelMedium`）。
+     */
     @Test
     fun 字級只有六階() {
         val sizes = listOf(
-            Typography.labelSmall, Typography.bodySmall, Typography.bodyMedium,
-            Typography.bodyLarge, Typography.labelLarge, Typography.titleMedium,
-            Typography.titleLarge, Typography.headlineMedium,
+            Typography.displayLarge, Typography.displayMedium, Typography.displaySmall,
+            Typography.headlineLarge, Typography.headlineMedium, Typography.headlineSmall,
+            Typography.titleLarge, Typography.titleMedium, Typography.titleSmall,
+            Typography.bodyLarge, Typography.bodyMedium, Typography.bodySmall,
+            Typography.labelLarge, Typography.labelMedium, Typography.labelSmall,
         ).map { it.fontSize.value }.distinct().sorted()
         assertEquals(listOf(13f, 15f, 17f, 20f, 24f, 28f), sizes)
     }

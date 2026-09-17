@@ -52,7 +52,14 @@ data class NavState(
     fun pop(): NavState? {
         val stack = stacks.getValue(tab)
         if (stack.size > 1) return copy(stacks = stacks + (tab to stack.dropLast(1)))
-        if (tab == Tab.CAPTURE) return select(returnTo)
+        if (tab == Tab.CAPTURE) {
+            // returnTo == CAPTURE 只有存檔的 Bundle 壞掉才會出現（正常流程 returnTo 永遠是
+            // 按【取圖】前那一格，不會是 CAPTURE 自己）。這種狀態下 select(returnTo) 因為
+            // target == tab 直接回傳 this（沒有變化的非 null），呼叫端會誤判成「已經處理」，
+            // 返回鍵從此變成永久沒有反應的按鈕。回 null 讓呼叫端把返回鍵交還給系統。
+            if (returnTo == Tab.CAPTURE) return null
+            return select(returnTo)
+        }
         if (tab != Tab.HOME) return copy(tab = Tab.HOME)
         return null
     }
