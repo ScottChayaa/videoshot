@@ -55,6 +55,7 @@ class HomeFilterTest {
     }
 
     private var picked: Pair<Boolean, String?> = false to null
+    private var loadMoreCalls = 0
 
     private fun show(state: HomeState) {
         compose.setContent {
@@ -64,7 +65,7 @@ class HomeFilterTest {
                     loader = loader,
                     listState = rememberLazyGridState(),
                     onOpen = {},
-                    onLoadMore = {},
+                    onLoadMore = { loadMoreCalls++ },
                     onPickMonth = { picked = true to it },
                     onFacetClick = { _, _ -> },
                 )
@@ -150,5 +151,28 @@ class HomeFilterTest {
         compose.onNodeWithContentDescription("依時間篩選").performClick()
         compose.onNodeWithText("清除").performClick()
         assertEquals(true to null, picked)
+    }
+
+    // ---- 讀取失敗的提示與重試（見階段 7 全盤覆查第 2 點）----
+
+    @Test
+    fun 沒有錯誤時不顯示重試列() {
+        show(loaded())
+        compose.onNodeWithText("重試").assertDoesNotExist()
+    }
+
+    @Test
+    fun 讀取失敗時顯示錯誤訊息與重試鈕() {
+        show(loaded().copy(error = "載入失敗，請再試一次"))
+        compose.onNodeWithText("載入失敗，請再試一次").assertIsDisplayed()
+        compose.onNodeWithText("重試").assertIsDisplayed()
+    }
+
+    @Test
+    fun 按重試會呼叫onLoadMore() {
+        show(loaded().copy(error = "載入失敗，請再試一次"))
+        val before = loadMoreCalls
+        compose.onNodeWithText("重試").performClick()
+        assertEquals(before + 1, loadMoreCalls)
     }
 }

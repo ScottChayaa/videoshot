@@ -1,6 +1,10 @@
 package com.xenyaa.videoshot.ui.home
 
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -138,5 +142,63 @@ class HomeScreenTest {
     fun 三張圖就有三個縮圖格() {
         show(stateOf(row(3, "2026-03-05"), row(2, "2026-03-01"), row(1, "2026-01-09")))
         compose.onAllNodesWithContentDescription("片段縮圖 01:05").assertCountEquals(3)
+    }
+
+    /** 40 張分散在三個月，確保捲到的月份不在第一畫面（同 WizardFinishTest 的作法）。 */
+    private fun bigState(upToMonth: String? = null): HomeState = HomeStore.appendPage(
+        HomeState(upToMonth = upToMonth),
+        Page(
+            (1..20).map { row(it.toLong(), "2026-03-%02d".format((it % 28) + 1)) } +
+                (21..30).map { row(it.toLong(), "2026-02-%02d".format((it % 27) + 1)) } +
+                (31..40).map { row(it.toLong(), "2026-01-%02d".format((it % 27) + 1)) },
+            null,
+        ),
+        total = 40,
+    )
+
+    /**
+     * 見階段 7 全盤覆查第 4 點：這個 composable 每次「重新掛載」（切分頁、開關 Lightbox）
+     * 都是全新的一次 composition，LaunchedEffect(state.upToMonth) 不管 key 值有沒有變
+     * 都會重跑一次。只看 key 相不相等的寫法在這裡會誤判成「篩選變了」，把捲動位置沖回頂端。
+     *
+     * listState 刻意宣告在 HomeScreen **外面**、掛載狀態切換時也不重建 —— 這跟正式環境
+     * 把 `homeListState` 提到 AppRoot 是同一個道理，用來確認「捲動位置本身沒被沖掉」，
+     * 只有 HomeScreen 那次重新掛載觸發的 LaunchedEffect 有沒有誤捲。
+     */
+    @Test
+    fun 篩選沒變時重新掛載不會捲回頂端() {
+        var mounted by mutableStateOf(true)
+        var scrollTarget by mutableStateOf<String?>("2026-01")
+        lateinit var externalListState: LazyGridState
+
+        compose.setContent {
+            VideoshotTheme {
+                externalListState = rememberLazyGridState()
+                if (mounted) {
+                    HomeScreen(
+                        state = bigState(upToMonth = "2026-03"),
+                        loader = loader,
+                        listState = externalListState,
+                        onOpen = {},
+                        onLoadMore = {},
+                        onPickMonth = {},
+                        onFacetClick = { _, _ -> },
+                        scrollToMonth = scrollTarget,
+                        onScrolledToMonth = { scrollTarget = null },
+                    )
+                }
+            }
+        }
+        // 先捲到最舊那個月，離開頂端
+        compose.onNodeWithText("2026年1月").assertIsDisplayed()
+
+        // 模擬切分頁或開關 Lightbox：HomeScreen 整個離開、再回到 composition
+        mounted = false
+        compose.waitForIdle()
+        mounted = true
+        compose.waitForIdle()
+
+        // 篩選（upToMonth）沒變：捲動位置該維持在剛才那裡，不能被沖回「2026年3月」
+        compose.onNodeWithText("2026年1月").assertIsDisplayed()
     }
 }

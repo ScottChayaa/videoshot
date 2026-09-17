@@ -89,8 +89,21 @@ fun HomeScreen(
         if (nearEnd && HomeStore.canLoadMore(state)) onLoadMore()
     }
 
-    // 篩選換了就回頂端 —— 選到的那個月是第一個分組，停在原本的捲動位置會看不到它
-    LaunchedEffect(state.upToMonth) { listState.scrollToItem(0) }
+    // 篩選換了就回頂端 —— 選到的那個月是第一個分組，停在原本的捲動位置會看不到它。
+    //
+    // 拿 rememberSaveable 記「上一次真的套用過的篩選」而不是直接把 upToMonth 當 key ——
+    // 這個 composable 離開過 composition 再回來的每一次（切分頁、開關 Lightbox）都是一次
+    // *全新*的掛載，LaunchedEffect 不管 key 值有沒有變都會重新跑一次區塊。如果只看 key，
+    // 捲到第 400 張開一張圖、關掉，回來就會被強制捲回頂端（見階段 7 全盤覆查第 4 點）。
+    // 用 rememberSaveable 的初始值直接帶入目前的 upToMonth，新掛載的當下兩者天生相等，
+    // 這一次自然不會觸發；真的換了篩選（掛載期間 upToMonth 改變）才會不相等而捲動。
+    var lastAppliedFilter by rememberSaveable { mutableStateOf(state.upToMonth) }
+    LaunchedEffect(state.upToMonth) {
+        if (state.upToMonth != lastAppliedFilter) {
+            lastAppliedFilter = state.upToMonth
+            listState.scrollToItem(0)
+        }
+    }
 
     // 取圖完成導回首頁要捲到新圖那個月（手冊 §四第三步最後一條）。
     //
@@ -119,6 +132,12 @@ fun HomeScreen(
 
         if (state.upToMonth != null) {
             FilterBar(month = state.upToMonth, onClear = { onPickMonth(null) })
+        }
+
+        // 讀取失敗不能無聲無息：loading 沒有接住例外就會卡在 true、清單再也不會重試
+        // （見階段 7 全盤覆查第 2 點）。這裡只是提示＋重試，不是破壞性動作，不用 danger 色。
+        if (state.error != null) {
+            HomeErrorRow(message = state.error, onRetry = onLoadMore)
         }
 
         // 用 if/else 而不是提早 return —— 空狀態也要能往下走到選擇器那一段，
@@ -221,6 +240,23 @@ private fun FilterBar(month: String, onClear: () -> Unit) {
         IconButton(onClick = onClear, modifier = Modifier.size(AppTheme.spacing.tap)) {
             Icon(VsIcons.Close, contentDescription = "清除時間篩選", tint = AppTheme.colors.textDim)
         }
+    }
+}
+
+/** 讀取失敗的提示列 ＋ 重試。不是破壞性動作，一律不用 danger 色。 */
+@Composable
+private fun HomeErrorRow(message: String, onRetry: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.s3, vertical = AppTheme.spacing.s1),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = AppTheme.colors.textDim,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = onRetry) { Text("重試") }
     }
 }
 
