@@ -23,7 +23,6 @@ import com.xenyaa.videoshot.core.details.ShotDetails
 import com.xenyaa.videoshot.core.home.monthOf
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.ShotRow
-import com.xenyaa.videoshot.di.AppContainer
 import com.xenyaa.videoshot.ui.common.ComingSoonScreen
 import com.xenyaa.videoshot.ui.edit.ShotEditSheet
 import com.xenyaa.videoshot.ui.home.HomeScreen
@@ -49,7 +48,7 @@ private val NavSaver = Saver<NavState, String>(
  * @param onExitApp 已經在最外層還按返回 —— 交還給系統（結束 Activity）
  */
 @Composable
-fun AppRoot(container: AppContainer, onExitApp: () -> Unit) {
+fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
     var nav by rememberSaveable(stateSaver = NavSaver) { mutableStateOf(NavState()) }
 
     val homeVm: HomeViewModel = viewModel(
@@ -217,7 +216,7 @@ fun AppRoot(container: AppContainer, onExitApp: () -> Unit) {
 @Composable
 private fun EditingSheet(
     shot: ShotRow,
-    container: AppContainer,
+    container: AppRootDeps,
     homeVm: HomeViewModel,
     scope: CoroutineScope,
     snackbarHostState: SnackbarHostState,

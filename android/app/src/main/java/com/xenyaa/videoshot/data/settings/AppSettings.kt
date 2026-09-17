@@ -16,8 +16,10 @@ private val Context.dataStore by preferencesDataStore(name = "settings")
 /**
  * 裝置本地的設定值，**不進備份**（規格第四節）。
  * lastChangedAt 是自動備份的判斷依據之一：沒有變更就不要每天上傳一份一樣的檔案（第十節）。
+ *
+ * 實作 [ShellSettings]——`AppRoot` 只認得那個窄介面，測試才不必牽動這裡的 DataStore。
  */
-class AppSettings(context: Context) {
+class AppSettings(context: Context) : ShellSettings {
 
     private val store = context.applicationContext.dataStore
 
@@ -37,7 +39,7 @@ class AppSettings(context: Context) {
      * 取圖第二步的「過濾相似強度」（規格第五節、帳號頁的設定項）。
      * 存字串而不是 ordinal —— enum 之後若調整順序，ordinal 會讓舊值指到別的強度。
      */
-    val filterStrength: Flow<FilterStrength> = store.data.map { prefs ->
+    override val filterStrength: Flow<FilterStrength> = store.data.map { prefs ->
         prefs[FILTER_STRENGTH]
             ?.let { name -> FilterStrength.entries.firstOrNull { it.name == name } }
             ?: FilterStrength.MEDIUM
@@ -48,16 +50,16 @@ class AppSettings(context: Context) {
     }
 
     /** 第二步「點一下收藏・長按看看那一段」這個一次性提示看過了沒（規格第五節）。 */
-    val gridHintSeen: Flow<Boolean> = store.data.map { it[GRID_HINT_SEEN] ?: false }
+    override val gridHintSeen: Flow<Boolean> = store.data.map { it[GRID_HINT_SEEN] ?: false }
 
-    suspend fun markGridHintSeen() {
+    override suspend fun markGridHintSeen() {
         store.edit { it[GRID_HINT_SEEN] = true }
     }
 
     /** Lightbox「左右滑動看上一張／下一張」這個一次性提示看過了沒（手冊 §三第三條）。 */
-    val lightboxHintSeen: Flow<Boolean> = store.data.map { it[LIGHTBOX_HINT_SEEN] ?: false }
+    override val lightboxHintSeen: Flow<Boolean> = store.data.map { it[LIGHTBOX_HINT_SEEN] ?: false }
 
-    suspend fun markLightboxHintSeen() {
+    override suspend fun markLightboxHintSeen() {
         store.edit { it[LIGHTBOX_HINT_SEEN] = true }
     }
 
