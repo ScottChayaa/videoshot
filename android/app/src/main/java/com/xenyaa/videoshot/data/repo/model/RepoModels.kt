@@ -53,14 +53,25 @@ data class NewShot(
 /**
  * 批次編輯的差異。**null 代表「這個欄位沒動過，不要覆蓋」** ——
  * 這是規格第五節第三步「只套用動過的欄位」的實作依據，不可以用空字串代替 null。
- * tagIds 非 null 時是**整組覆蓋**（先解除全部關聯再重建）。
+ * **空字串代表清空**（寫入時存成 null），與 `:core` 的 `DetailsPatch` 同一個約定。
+ * tagIds／tagNames 非 null 時是**整組覆蓋**（先解除全部關聯再重建）。
  */
 data class ShotPatch(
     val eventDate: String?,
     val place: String?,
     val description: String?,
     val tagIds: List<Long>?,
+    /**
+     * 標籤以**名稱**給定時用這個 —— 就地編輯的畫面只有名稱。
+     * repo 在同一個交易內解析成 id，查不到就新建（`kind = 'other'`），
+     * 與 `commitPicks` 同樣的理由：在交易外先建好的話，回滾後會留下沒有任何圖引用的空標籤。
+     * 與 [tagIds] **互斥**，同時給會丟 IllegalArgumentException。
+     */
+    val tagNames: List<String>? = null,
 )
+
+/** 首頁月份標籤列的一個項目。kind 是 `'place'` 或 `'tag'`（規格第四節：tag.kind 不再有 place）。 */
+data class MonthFacet(val name: String, val kind: String, val count: Int)
 
 /** 「最近取過的影片」清單的一列。資料直接查 video 表，不另存一份歷史（規格第五節第一步）。 */
 data class RecentVideo(

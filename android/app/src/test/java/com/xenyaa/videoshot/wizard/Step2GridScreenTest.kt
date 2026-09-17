@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.xenyaa.videoshot.core.time.formatClock
 import com.xenyaa.videoshot.wizard.frames.FakeFrameSource
 import com.xenyaa.videoshot.wizard.frames.FramePlan
 import org.junit.Assert.assertEquals

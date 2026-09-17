@@ -32,6 +32,9 @@ interface ThumbStateDao {
     @Query("DELETE FROM thumb_state WHERE video_id = :videoId")
     suspend fun deleteVideo(videoId: String)
 
+    @Query("DELETE FROM thumb_state WHERE video_id = :videoId AND sb_level = :sbLevel AND frame_index = :frameIndex")
+    suspend fun deleteByKey(videoId: String, sbLevel: Int, frameIndex: Int)
+
     @Query("DELETE FROM thumb_state")
     suspend fun clear()
 }

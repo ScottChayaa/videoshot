@@ -3,6 +3,7 @@ package com.xenyaa.videoshot.data.repo
 import com.xenyaa.videoshot.core.paging.ShotCursor
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.MonthCount
+import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
 import com.xenyaa.videoshot.data.repo.model.NewShot
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
@@ -14,10 +15,23 @@ import com.xenyaa.videoshot.data.repo.model.ShotRow
  * 這個套件以外不得出現任何 DAO 或 RoomDatabase 的引用。
  */
 interface LibraryRepo {
-    suspend fun homeFeed(after: ShotCursor?, limit: Int): Page<ShotRow>
+    /**
+     * 首頁時間軸。
+     * @param upToMonth `YYYY-MM`；非 null 時只回該月（含）以前的收藏（手冊 §二 的可清除狀態列）
+     */
+    suspend fun homeFeed(after: ShotCursor?, limit: Int, upToMonth: String? = null): Page<ShotRow>
     suspend fun monthCounts(): List<MonthCount>
     suspend fun shotsOfVideo(videoId: String): List<ShotRow>
     suspend fun shotById(id: Long): ShotRow?
+
+    /** 符合同一個篩選條件的總張數 —— Lightbox 的「共 M 張」（規格第六節）。 */
+    suspend fun shotCount(upToMonth: String? = null): Int
+
+    /** 某個月出現過的地點與標籤，附張數。 */
+    suspend fun monthFacets(month: String): List<MonthFacet>
+
+    /** 一張圖的標籤名。就地編輯要把現值帶進抽屜。 */
+    suspend fun tagsOfShot(shotId: Long): List<String>
 
     /**
      * 取圖精靈完成入庫。整批在同一個交易裡：影片列 upsert、每張 shot、手動圖的 webp、

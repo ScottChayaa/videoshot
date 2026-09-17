@@ -1,6 +1,7 @@
 package com.xenyaa.videoshot.data.settings
 
 import android.content.Context
+import androidx.annotation.VisibleForTesting
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
@@ -53,10 +54,28 @@ class AppSettings(context: Context) {
         store.edit { it[GRID_HINT_SEEN] = true }
     }
 
+    /** Lightbox「左右滑動看上一張／下一張」這個一次性提示看過了沒（手冊 §三第三條）。 */
+    val lightboxHintSeen: Flow<Boolean> = store.data.map { it[LIGHTBOX_HINT_SEEN] ?: false }
+
+    suspend fun markLightboxHintSeen() {
+        store.edit { it[LIGHTBOX_HINT_SEEN] = true }
+    }
+
+    /**
+     * 把所有設定值清空。**只給測試用**——DataStore 是裝置上的真實檔案，
+     * 儀器測試跑在同一支手機、同一個已安裝的 app 上，不會像重灌一樣自動歸零，
+     * 每個測試不各自清掉自己用到的值，上一輪留下的狀態就會讓下一輪的斷言失真。
+     */
+    @VisibleForTesting
+    internal suspend fun resetAll() {
+        store.edit { it.clear() }
+    }
+
     private companion object {
         val LAST_CHANGED_AT = longPreferencesKey("last_changed_at")
         val LAST_BACKUP_AT = longPreferencesKey("last_backup_at")
         val FILTER_STRENGTH = stringPreferencesKey("filter_strength")
         val GRID_HINT_SEEN = booleanPreferencesKey("grid_hint_seen")
+        val LIGHTBOX_HINT_SEEN = booleanPreferencesKey("lightbox_hint_seen")
     }
 }

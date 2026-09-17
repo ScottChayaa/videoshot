@@ -98,6 +98,18 @@ fun <T> commonOf(values: List<T>): Common<T> = when {
 fun normalizeTags(tags: List<String>): List<String> =
     tags.map { it.trim() }.filter { it.isNotEmpty() }.distinct().sorted()
 
+private val EVENT_DATE_PATTERN = Regex("""\d{4}-\d{2}-\d{2}""")
+
+/**
+ * `event_date` 唯一合法的格式：`YYYY-MM-DD`（規格第五節欄位表）。
+ *
+ * 就地編輯的畫面是自由文字輸入，沒有這一關的話，空字串或 `3/5` 這種打字都能存進
+ * `library.db`（`shot.event_date` 是 `TEXT NOT NULL`，不會被 `NOT NULL` 擋下來）——
+ * 那張圖之後就沒有任何月份篩選找得到它。取圖精靈的 [eventDateOf] 也是同一個判斷，
+ * 抽成這裡是唯一的判斷入口，不要各自寫一份正則表達式。
+ */
+fun isValidEventDate(date: String): Boolean = date.matches(EVENT_DATE_PATTERN)
+
 /**
  * 時間欄位的預設值：YouTube 上傳日期的日期部分（規格第五節欄位表）。
  *
@@ -107,5 +119,5 @@ fun normalizeTags(tags: List<String>): List<String> =
  */
 fun eventDateOf(publishedAt: String, fallback: String): String {
     val head = publishedAt.take(10)
-    return if (head.matches(Regex("""\d{4}-\d{2}-\d{2}"""))) head else fallback
+    return if (isValidEventDate(head)) head else fallback
 }
