@@ -127,4 +127,29 @@ class ShotEditSheetTest {
         show()
         compose.onNodeWithText("預設帶入 YouTube 的上傳日期，可以改成實際拍攝日").assertIsDisplayed()
     }
+
+    // ---- 時間欄位格式驗證：空白或打錯格式不能存進 library.db（案例：清空月份篩選找不到這張圖）----
+
+    @Test
+    fun 清空日期時儲存停用() {
+        show()
+        compose.onNodeWithContentDescription("時間").performTextClearance()
+        compose.onNodeWithText("儲存").assertIsNotEnabled()
+        compose.onNodeWithText("格式要是 YYYY-MM-DD，例如 2026-01-09").assertIsDisplayed()
+    }
+
+    @Test
+    fun 日期格式不對時儲存停用() {
+        show()
+        compose.onNodeWithContentDescription("時間").performTextReplacement("3/5")
+        compose.onNodeWithText("儲存").assertIsNotEnabled()
+        compose.onNodeWithText("格式要是 YYYY-MM-DD，例如 2026-01-09").assertIsDisplayed()
+    }
+
+    @Test
+    fun 日期格式正確時儲存可用() {
+        show()
+        compose.onNodeWithContentDescription("時間").performTextReplacement("2026-01-09")
+        compose.onNodeWithText("儲存").assertIsEnabled()
+    }
 }

@@ -139,7 +139,9 @@ class RoomLibraryRepo(
                     ?: db.tagDao().insert(TagEntity(id = 0, name = name, kind = "other", aliases = "[]"))
             } ?: patch.tagIds
             for (id in ids) {
-                patch.eventDate?.let { db.shotDao().updateEventDate(id, it) }
+                // event_date 是 TEXT NOT NULL，不能像 place／description 存 null 來清空 ——
+                // 空白在這一欄沒有「清空」的意義，所以直接不寫，維持原值（規格第四節、ShotPatch KDoc）
+                patch.eventDate?.ifBlank { null }?.let { db.shotDao().updateEventDate(id, it) }
                 // 空字串＝清空（與 :core 的 DetailsPatch 同一個約定）
                 patch.place?.let { db.shotDao().updatePlace(id, it.ifBlank { null }) }
                 patch.description?.let { db.shotDao().updateDescription(id, it.ifBlank { null }) }

@@ -122,4 +122,24 @@ class ShotDetailsTest {
         assertEquals("2026-01-01", eventDateOf("", fallback = "2026-01-01"))
         assertEquals("2026-01-01", eventDateOf("不是日期", fallback = "2026-01-01"))
     }
+
+    // ---- 時間欄位的格式驗證（就地編輯與精靈共用同一個判斷） ----
+
+    @Test
+    fun 合法的年月日格式通過() {
+        assertTrue(isValidEventDate("2026-01-09"))
+    }
+
+    @Test
+    fun 空字串不合法() {
+        assertFalse(isValidEventDate(""))
+    }
+
+    @Test
+    fun 非標準格式不合法() {
+        assertFalse(isValidEventDate("3/5"))
+        assertFalse(isValidEventDate("2026/01/09"))
+        assertFalse(isValidEventDate("2026-1-9"))
+        assertFalse(isValidEventDate("不是日期"))
+    }
 }

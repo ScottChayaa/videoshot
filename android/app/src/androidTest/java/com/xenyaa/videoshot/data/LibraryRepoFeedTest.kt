@@ -141,4 +141,15 @@ class LibraryRepoFeedTest {
         repo.patchShots(ids, ShotPatch(null, null, "描述", null))
         assertEquals("花蓮", repo.shotById(ids[0])!!.place)
     }
+
+    /**
+     * event_date 是 TEXT NOT NULL、也是月份篩選唯一依據的欄位 —— 跟 place／description
+     * 不一樣，空字串在這一欄沒有「清空」的意義可以存，只能維持原值不動（規格第四節）。
+     */
+    @Test
+    fun 空字串的日期不會改動原值() = runTest {
+        val ids = seed("v1", "2026-03-10", 1)
+        repo.patchShots(ids, ShotPatch("", null, null, null))
+        assertEquals("2026-03-10", repo.shotById(ids[0])!!.eventDate)
+    }
 }

@@ -30,6 +30,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import com.xenyaa.videoshot.core.details.DetailsPatch
 import com.xenyaa.videoshot.core.details.ShotDetails
+import com.xenyaa.videoshot.core.details.isValidEventDate
 import com.xenyaa.videoshot.core.details.normalizeTags
 import com.xenyaa.videoshot.ui.theme.AppTheme
 
@@ -57,6 +58,10 @@ fun ShotEditSheet(
     var description by remember(details) { mutableStateOf(details.description.orEmpty()) }
     var tags by remember(details) { mutableStateOf(details.tags) }
     var typing by remember(details) { mutableStateOf("") }
+
+    // 時間欄位是自由文字，沒有這一關的話「清空」或打錯格式都能一路送到 library.db ——
+    // 那張圖之後就沒有任何月份篩選找得到它（跟 :core 的 eventDateOf 用同一個判斷）
+    val dateValid = isValidEventDate(eventDate)
 
     // 「動過沒有」是拿現值跟原值比，不是記使用者按過幾次鍵 ——
     // 改完又改回來的話，那就是沒動過
@@ -90,8 +95,15 @@ fun ShotEditSheet(
                     onValueChange = { eventDate = it },
                     label = { Text("時間") },
                     singleLine = true,
-                    // 中性說明，不是警告色 —— 預設值永遠是上傳日，這是常態不是例外
-                    supportingText = { Text("預設帶入 YouTube 的上傳日期，可以改成實際拍攝日") },
+                    isError = !dateValid,
+                    supportingText = {
+                        // 格式不對才是警告；平常是中性說明 —— 預設值永遠是上傳日，這是常態不是例外
+                        if (dateValid) {
+                            Text("預設帶入 YouTube 的上傳日期，可以改成實際拍攝日")
+                        } else {
+                            Text("格式要是 YYYY-MM-DD，例如 2026-01-09")
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth().semantics { contentDescription = "時間" },
                 )
 
@@ -140,7 +152,7 @@ fun ShotEditSheet(
                 TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("取消") }
                 Button(
                     onClick = { onSave(patch) },
-                    enabled = !patch.isEmpty,
+                    enabled = !patch.isEmpty && dateValid,
                     modifier = Modifier.weight(1f),
                 ) { Text("儲存") }
             }
