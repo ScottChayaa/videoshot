@@ -7,9 +7,9 @@
   與原型的 localStorage key `ytspace2_*`，這些刻意不改。
 
 **目前進度：階段 0～3 完成，階段 4a（精靈外殼與第一步）完成（2026-09-14）、階段 4b（縮圖牆與收斂）、階段 4c（截圖與效能閘門）完成（2026-09-15）、階段 6（第三步、完成、草稿）、階段 7（App 外殼、首頁、Lightbox）完成（2026-09-16）。
-三套測試全綠（2026-09-16）：JVM 440 個（`:core:test` 119 ＋ `:app:testDebugUnitTest` 321），
-**儀器測試 117 個**（`:app:connectedDebugAndroidTest`，實機 2107113SG）。
-本階段新增的 `LibraryRepoFeedTest`（10）與 `ShotDeleterTest`（6）都已在實機上跑過。
+三套測試全綠（2026-09-16）：JVM 455 個（`:core:test` 122 ＋ `:app:testDebugUnitTest` 333），
+**儀器測試 119 個**（`:app:connectedDebugAndroidTest`，實機 2107113SG）。
+本階段新增的 `LibraryRepoFeedTest`（11）與 `ShotDeleterTest`（6）都已在實機上跑過。
 
 **app 啟動後落在首頁**（階段 2 的資料層冒煙畫面已刪除，內容在 git 歷史），底部導覽五格
 （首頁／查詢／取圖／分類／帳號），取圖精靈在第三格。貼網址 → 挑畫面 → 填圖資 → 完成，
