@@ -18,6 +18,7 @@ import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.CacheRepo
 import com.xenyaa.videoshot.data.repo.LibraryRepo
 import com.xenyaa.videoshot.data.repo.model.FolderCard
+import com.xenyaa.videoshot.data.repo.model.FolderNode
 import com.xenyaa.videoshot.data.repo.model.MonthCount
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.NewShot
@@ -117,6 +118,10 @@ class AppRootWizardFinishTest {
         override suspend fun deleteVideo(videoId: String) = Unit
         override suspend fun createFolder(parentId: Long?, name: String): Long = 0L
         override suspend fun folderCards(parentId: Long?): List<FolderCard> = emptyList()
+        override suspend fun renameFolder(id: Long, name: String) = Unit
+        override suspend fun deleteFolder(id: Long) = Unit
+        override suspend fun folderNode(id: Long): FolderNode? = null
+        override suspend fun folderTree(): List<FolderNode> = emptyList()
         override suspend fun shotImage(shotId: Long): ByteArray? = null
         override suspend fun recentVideos(limit: Int): List<RecentVideo> = emptyList()
         override suspend fun takenFrameIndexes(videoId: String, level: Int): Set<Int> = emptySet()

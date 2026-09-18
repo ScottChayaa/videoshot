@@ -3,6 +3,7 @@ package com.xenyaa.videoshot.data.repo
 import com.xenyaa.videoshot.core.paging.ShotCursor
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.FolderCard
+import com.xenyaa.videoshot.data.repo.model.FolderNode
 import com.xenyaa.videoshot.data.repo.model.MonthCount
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
@@ -58,6 +59,18 @@ interface LibraryRepo {
 
     /** 建資料夾。同層不重名、深度上限 5、名稱上限 50 —— 違反時丟 IllegalArgumentException。 */
     suspend fun createFolder(parentId: Long?, name: String): Long
+
+    /** 改名。同層不重名（不跟自己比）、名稱上限 50 —— 違反時丟 IllegalArgumentException。 */
+    suspend fun renameFolder(id: Long, name: String)
+
+    /** 刪資料夾：子資料夾與所有關聯一併刪，**圖不動**（規格第六節）。 */
+    suspend fun deleteFolder(id: Long)
+
+    /** 單一資料夾，附層數；不存在回 null。 */
+    suspend fun folderNode(id: Long): FolderNode?
+
+    /** 整棵樹（【加入分類】的 sheet 要一次畫完）。順序未定義，畫面自己排。 */
+    suspend fun folderTree(): List<FolderNode>
 
     /**
      * 某一層的資料夾卡片（含子孫張數、最近加入時間、最多 4 張預覽）。

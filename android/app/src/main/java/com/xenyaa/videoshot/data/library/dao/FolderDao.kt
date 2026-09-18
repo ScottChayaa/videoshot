@@ -29,6 +29,43 @@ interface FolderDao {
     @Query("SELECT parent_id FROM folder WHERE id = :id")
     suspend fun parentOf(id: Long): Long?
 
+    @Query("UPDATE folder SET name = :name WHERE id = :id")
+    suspend fun rename(id: Long, name: String)
+
+    /** 同層重名檢查，但**排除自己**——改名對話框沒改名字就按儲存時不該被自己擋下來。 */
+    @Query("SELECT COUNT(*) FROM folder WHERE name = :name AND parent_id IS :parentId AND id != :exceptId")
+    suspend fun countSameNameInLayerExcept(parentId: Long?, name: String, exceptId: Long): Int
+
+    /**
+     * 整棵樹，每個節點帶著層數（根層＝1，與 `createFolder` 的深度檢查同一個基準）。
+     * 一次撈完：樹是幾十個節點的事，逐層查會變成畫面每展開一層就打一次 DB。
+     */
+    @Query(
+        """
+        WITH RECURSIVE walk(id, parent_id, name, depth) AS (
+            SELECT id, parent_id, name, 1 FROM folder WHERE parent_id IS NULL
+            UNION ALL
+            SELECT f.id, f.parent_id, f.name, w.depth + 1
+            FROM folder f JOIN walk w ON f.parent_id = w.id
+        )
+        SELECT id, parent_id, name, depth FROM walk
+        """
+    )
+    suspend fun tree(): List<FolderNodeProjection>
+
+    @Query(
+        """
+        WITH RECURSIVE walk(id, parent_id, name, depth) AS (
+            SELECT id, parent_id, name, 1 FROM folder WHERE parent_id IS NULL
+            UNION ALL
+            SELECT f.id, f.parent_id, f.name, w.depth + 1
+            FROM folder f JOIN walk w ON f.parent_id = w.id
+        )
+        SELECT id, parent_id, name, depth FROM walk WHERE id = :id
+        """
+    )
+    suspend fun nodeById(id: Long): FolderNodeProjection?
+
     /**
      * 某一層的卡片：資料夾本身 ＋ 含子孫的張數 ＋ 含子孫最近加入時間。
      *
@@ -105,4 +142,11 @@ data class FolderPreviewProjection(
     @ColumnInfo(name = "card_id") val cardId: Long,
     @ColumnInfo(name = "rn") val rank: Int,
     @Embedded val shot: ShotRowProjection,
+)
+
+data class FolderNodeProjection(
+    @ColumnInfo(name = "id") val id: Long,
+    @ColumnInfo(name = "parent_id") val parentId: Long?,
+    @ColumnInfo(name = "name") val name: String,
+    @ColumnInfo(name = "depth") val depth: Int,
 )

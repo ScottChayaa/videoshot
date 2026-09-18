@@ -13,6 +13,7 @@ import com.xenyaa.videoshot.data.library.entity.ShotTagEntity
 import com.xenyaa.videoshot.data.library.entity.TagEntity
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.FolderCard
+import com.xenyaa.videoshot.data.repo.model.FolderNode
 import com.xenyaa.videoshot.data.repo.model.MonthCount
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
@@ -192,6 +193,33 @@ class RoomLibraryRepo(
         }
         onChanged()
         id
+    }
+
+    override suspend fun renameFolder(id: Long, name: String): Unit = withContext(io) {
+        require(name.isNotBlank()) { "資料夾名稱不可空白" }
+        require(name.length <= 50) { "資料夾名稱上限 50 字，收到 ${name.length} 字" }
+        db.inWriteTransaction {
+            val parentId = db.folderDao().parentOf(id)
+            require(db.folderDao().countSameNameInLayerExcept(parentId, name, id) == 0) {
+                "同一層已經有「$name」了"
+            }
+            db.folderDao().rename(id, name)
+        }
+        onChanged()
+    }
+
+    override suspend fun deleteFolder(id: Long): Unit = withContext(io) {
+        // 子資料夾與 shot_folder 都是 ON DELETE CASCADE，刪這一列就夠；shot 不在連動範圍內
+        db.folderDao().deleteById(id)
+        onChanged()
+    }
+
+    override suspend fun folderNode(id: Long): FolderNode? = withContext(io) {
+        db.folderDao().nodeById(id)?.let { FolderNode(it.id, it.parentId, it.name, it.depth) }
+    }
+
+    override suspend fun folderTree(): List<FolderNode> = withContext(io) {
+        db.folderDao().tree().map { FolderNode(it.id, it.parentId, it.name, it.depth) }
     }
 
     override suspend fun folderCards(parentId: Long?): List<FolderCard> = withContext(io) {
