@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.data.repo
 
 import com.xenyaa.videoshot.core.paging.ShotCursor
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
+import com.xenyaa.videoshot.data.repo.model.FolderCard
 import com.xenyaa.videoshot.data.repo.model.MonthCount
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
@@ -57,6 +58,14 @@ interface LibraryRepo {
 
     /** 建資料夾。同層不重名、深度上限 5、名稱上限 50 —— 違反時丟 IllegalArgumentException。 */
     suspend fun createFolder(parentId: Long?, name: String): Long
+
+    /**
+     * 某一層的資料夾卡片（含子孫張數、最近加入時間、最多 4 張預覽）。
+     * `parentId = null` 是根層 —— 清單頁要的就是它；資料夾頁上半用該資料夾的 id。
+     *
+     * **沒有排序也沒有篩選**：兩者都在 `:core` 的 `FolderSort` 與畫面的 Store 做（見階段 8 計畫 Task 2）。
+     */
+    suspend fun folderCards(parentId: Long?): List<FolderCard>
 
     /** 手動補圖的 WebP 位元組；不是手動圖或圖不見了就回 null。 */
     suspend fun shotImage(shotId: Long): ByteArray?

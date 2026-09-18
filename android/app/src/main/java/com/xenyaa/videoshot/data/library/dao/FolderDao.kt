@@ -1,6 +1,8 @@
 package com.xenyaa.videoshot.data.library.dao
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
+import androidx.room.Embedded
 import androidx.room.Insert
 import androidx.room.Query
 import com.xenyaa.videoshot.data.library.entity.FolderEntity
@@ -26,4 +28,81 @@ interface FolderDao {
 
     @Query("SELECT parent_id FROM folder WHERE id = :id")
     suspend fun parentOf(id: Long): Long?
+
+    /**
+     * 某一層的卡片：資料夾本身 ＋ 含子孫的張數 ＋ 含子孫最近加入時間。
+     *
+     * `tree` 把每個子孫對應回它所屬的那張卡片；`links` 先 `GROUP BY card_id, shot_id`，
+     * 同一張圖同時在父與子才只算一次（規格：計數含子孫層，但圖只有一張）。
+     */
+    @Query(
+        """
+        WITH RECURSIVE tree(card_id, id) AS (
+            SELECT id, id FROM folder WHERE parent_id IS :parentId
+            UNION ALL
+            SELECT t.card_id, f.id FROM folder f JOIN tree t ON f.parent_id = t.id
+        ),
+        links AS (
+            SELECT t.card_id AS card_id, sf.shot_id AS shot_id, MAX(sf.added_at) AS added_at
+            FROM shot_folder sf JOIN tree t ON t.id = sf.folder_id
+            GROUP BY t.card_id, sf.shot_id
+        )
+        SELECT c.id AS id, c.name AS name, c.created_at AS created_at,
+               (SELECT COUNT(*) FROM links l WHERE l.card_id = c.id) AS shot_count,
+               (SELECT MAX(l.added_at) FROM links l WHERE l.card_id = c.id) AS last_added_at
+        FROM folder c WHERE c.parent_id IS :parentId
+        """
+    )
+    suspend fun cardsIn(parentId: Long?): List<FolderCardProjection>
+
+    /**
+     * 上一個查詢那幾張卡片的預覽圖，每張卡最多 4 張、最近加入在前。
+     *
+     * 用 window function 一次撈完（`sqlite-bundled` 帶的是新版 SQLite，不看 Android 版本），
+     * 不是每張卡各查一次 —— 規格第六節：「本機 SQLite 下，預覽拼貼與含子孫計數都是單次查詢的事」。
+     */
+    @Query(
+        """
+        WITH RECURSIVE tree(card_id, id) AS (
+            SELECT id, id FROM folder WHERE parent_id IS :parentId
+            UNION ALL
+            SELECT t.card_id, f.id FROM folder f JOIN tree t ON f.parent_id = t.id
+        ),
+        links AS (
+            SELECT t.card_id AS card_id, sf.shot_id AS shot_id, MAX(sf.added_at) AS added_at
+            FROM shot_folder sf JOIN tree t ON t.id = sf.folder_id
+            GROUP BY t.card_id, sf.shot_id
+        ),
+        ranked AS (
+            SELECT l.card_id AS card_id, l.shot_id AS shot_id,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY l.card_id ORDER BY l.added_at DESC, l.shot_id DESC
+                   ) AS rn
+            FROM links l
+        )
+        SELECT r.card_id AS card_id, r.rn AS rn,
+               s.id AS id, s.video_id AS video_id, s.at_sec AS at_sec, s.source AS source,
+               s.frame_index AS frame_index, s.sb_level AS sb_level, s.event_date AS event_date,
+               s.place AS place, s.description AS description
+        FROM ranked r JOIN shot s ON s.id = r.shot_id
+        WHERE r.rn <= 4
+        ORDER BY r.card_id, r.rn
+        """
+    )
+    suspend fun previewsIn(parentId: Long?): List<FolderPreviewProjection>
 }
+
+data class FolderCardProjection(
+    @ColumnInfo(name = "id") val id: Long,
+    @ColumnInfo(name = "name") val name: String,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+    @ColumnInfo(name = "shot_count") val shotCount: Int,
+    /** 一張圖都沒有時是 null；repo 會退回 `createdAt`。 */
+    @ColumnInfo(name = "last_added_at") val lastAddedAt: Long?,
+)
+
+data class FolderPreviewProjection(
+    @ColumnInfo(name = "card_id") val cardId: Long,
+    @ColumnInfo(name = "rn") val rank: Int,
+    @Embedded val shot: ShotRowProjection,
+)

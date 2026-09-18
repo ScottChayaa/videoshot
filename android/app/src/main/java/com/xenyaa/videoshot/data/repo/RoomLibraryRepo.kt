@@ -12,6 +12,7 @@ import com.xenyaa.videoshot.data.library.entity.ShotImageEntity
 import com.xenyaa.videoshot.data.library.entity.ShotTagEntity
 import com.xenyaa.videoshot.data.library.entity.TagEntity
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
+import com.xenyaa.videoshot.data.repo.model.FolderCard
 import com.xenyaa.videoshot.data.repo.model.MonthCount
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
@@ -191,6 +192,21 @@ class RoomLibraryRepo(
         }
         onChanged()
         id
+    }
+
+    override suspend fun folderCards(parentId: Long?): List<FolderCard> = withContext(io) {
+        val cards = db.folderDao().cardsIn(parentId)
+        val previews = db.folderDao().previewsIn(parentId).groupBy { it.cardId }
+        cards.map { card ->
+            FolderCard(
+                id = card.id,
+                name = card.name,
+                shotCount = card.shotCount,
+                // 一張圖都沒有的資料夾用建立時間當「最近活動」，「最近加入」排序才排得出先後
+                lastActivityAt = card.lastAddedAt ?: card.createdAt,
+                preview = previews[card.id].orEmpty().map { it.shot.toRow() },
+            )
+        }
     }
 }
 
