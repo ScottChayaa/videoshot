@@ -10,7 +10,6 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import com.xenyaa.videoshot.core.folders.FolderSort
-import com.xenyaa.videoshot.core.paging.FolderCursor
 import com.xenyaa.videoshot.core.paging.ShotCursor
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.youtube.FetchResult
@@ -21,11 +20,6 @@ import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.CacheRepo
 import com.xenyaa.videoshot.data.repo.LibraryRepo
-import com.xenyaa.videoshot.data.repo.model.FolderCard
-import com.xenyaa.videoshot.data.repo.model.FolderNode
-import com.xenyaa.videoshot.data.repo.model.FolderPage
-import com.xenyaa.videoshot.data.repo.model.MonthCount
-import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.NewShot
 import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
@@ -77,22 +71,16 @@ class AppRootLightboxTest {
     )
 
     /** `HomeViewModel` 自己的分頁／篩選邊界已經有 `HomeViewModelTest` 釘住，這裡只要撈得到資料。 */
-    private class FakeLibraryRepo(seed: List<ShotRow>) : LibraryRepo {
+    private class FakeLibraryRepo(seed: List<ShotRow>) : com.xenyaa.videoshot.data.repo.FakeLibraryRepo() {
         var items: List<ShotRow> = seed
         var nextId = 100L
         val patchCalls = mutableListOf<Pair<List<Long>, ShotPatch>>()
         val deleteCalls = mutableListOf<Long>()
 
         override suspend fun homeFeed(after: ShotCursor?, limit: Int, upToMonth: String?) = Page(items, null)
-        override suspend fun monthCounts(): List<MonthCount> = emptyList()
         override suspend fun shotsOfVideo(videoId: String) = items.filter { it.videoId == videoId }
         override suspend fun shotById(id: Long) = items.find { it.id == id }
         override suspend fun shotCount(upToMonth: String?) = items.size
-        override suspend fun monthFacets(month: String): List<MonthFacet> = emptyList()
-        override suspend fun tagsOfShot(shotId: Long): List<String> = emptyList()
-        override suspend fun commitPicks(video: VideoEntity, picks: List<NewShot>): List<Long> = emptyList()
-        override suspend fun distinctPlaces(): List<String> = emptyList()
-        override suspend fun allTagNames(): List<String> = emptyList()
         override suspend fun patchShots(ids: List<Long>, patch: ShotPatch) {
             patchCalls += ids to patch
             items = items.map { row ->
@@ -109,21 +97,6 @@ class AppRootLightboxTest {
             items = items.filterNot { it.id == id }
         }
         override suspend fun deleteVideo(videoId: String) { items = items.filterNot { it.videoId == videoId } }
-        override suspend fun createFolder(parentId: Long?, name: String): Long = 0L
-        override suspend fun folderCards(parentId: Long?): List<FolderCard> = emptyList()
-        override suspend fun renameFolder(id: Long, name: String) = Unit
-        override suspend fun deleteFolder(id: Long) = Unit
-        override suspend fun folderNode(id: Long): FolderNode? = null
-        override suspend fun folderTree(): List<FolderNode> = emptyList()
-        override suspend fun shotImage(shotId: Long): ByteArray? = null
-        override suspend fun recentVideos(limit: Int): List<RecentVideo> = emptyList()
-        override suspend fun takenFrameIndexes(videoId: String, level: Int): Set<Int> = emptySet()
-        override suspend fun folderShots(folderId: Long, after: FolderCursor?, limit: Int): FolderPage =
-            FolderPage(emptyList(), null)
-        override suspend fun folderShotCount(folderId: Long): Int = 0
-        override suspend fun foldersOf(shotId: Long): Set<Long> = emptySet()
-        override suspend fun addShotToFolder(shotId: Long, folderId: Long, atSec: Long) = Unit
-        override suspend fun removeShotFromFolder(shotId: Long, folderId: Long) = Unit
     }
 
     private class FakeCacheRepo : CacheRepo {
