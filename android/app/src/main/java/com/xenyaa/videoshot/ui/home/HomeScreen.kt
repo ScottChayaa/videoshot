@@ -39,19 +39,14 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextAlign
 import com.xenyaa.videoshot.core.home.homeColumnsFor
 import com.xenyaa.videoshot.core.home.monthLabel
-import com.xenyaa.videoshot.core.time.formatClock
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
-import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import androidx.compose.foundation.shape.CircleShape
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
 import com.xenyaa.videoshot.ui.thumb.ThumbImage
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
-
-/** 縮圖的無障礙名稱。有描述就唸描述，沒有就唸中性字樣加秒數（手冊 §零「輔助操作」）。 */
-private fun labelOf(shot: ShotRow): String =
-    shot.description?.takeIf { it.isNotBlank() } ?: "片段縮圖 ${formatClock(shot.atSec)}"
+import com.xenyaa.videoshot.ui.thumb.labelOf
 
 /**
  * 首頁：依 `event_date` 年月分組的縮圖牆，由新到舊。
