@@ -124,4 +124,6 @@ object VsIcons {
             "M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2",
         )
     }
+
+    val Check: ImageVector by lazy { strokeIcon("check", "M20 6 9 17l-5-5") }
 }
