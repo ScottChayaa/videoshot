@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.core.home.monthLabel
 import com.xenyaa.videoshot.core.paging.FolderCursor
 import com.xenyaa.videoshot.core.paging.ShotCursor
@@ -178,6 +179,8 @@ class AppRootWizardFinishTest {
         override suspend fun markGridHintSeen() = Unit
         override val lightboxHintSeen = flowOf(true)
         override suspend fun markLightboxHintSeen() = Unit
+        override val folderSort = flowOf(FolderSort.NAME_ASC)
+        override suspend fun setFolderSort(value: FolderSort) = Unit
     }
 
     private class Fixture(seed: List<ShotRow>) : AppRootDeps {

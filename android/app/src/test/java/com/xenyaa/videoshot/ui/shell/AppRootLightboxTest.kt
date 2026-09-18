@@ -9,6 +9,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
+import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.core.paging.FolderCursor
 import com.xenyaa.videoshot.core.paging.ShotCursor
 import com.xenyaa.videoshot.core.similarity.FilterStrength
@@ -167,6 +168,8 @@ class AppRootLightboxTest {
         override suspend fun markGridHintSeen() = Unit
         override val lightboxHintSeen = flowOf(true) // 提示已看過：測試不用先滑一次把提示蓋掉
         override suspend fun markLightboxHintSeen() = Unit
+        override val folderSort = flowOf(FolderSort.NAME_ASC)
+        override suspend fun setFolderSort(value: FolderSort) = Unit
     }
 
     private class Fixture(seed: List<ShotRow>) : AppRootDeps {

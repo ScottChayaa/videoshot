@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.data.settings
 
+import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import kotlinx.coroutines.flow.Flow
 
@@ -19,4 +20,8 @@ interface ShellSettings {
     suspend fun markGridHintSeen()
     val lightboxHintSeen: Flow<Boolean>
     suspend fun markLightboxHintSeen()
+
+    /** 分類清單頁的排序偏好（手冊 §六：排序要記得住）。 */
+    val folderSort: Flow<FolderSort>
+    suspend fun setFolderSort(value: FolderSort)
 }

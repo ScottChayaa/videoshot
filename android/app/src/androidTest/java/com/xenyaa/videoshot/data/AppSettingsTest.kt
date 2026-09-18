@@ -1,6 +1,7 @@
 package com.xenyaa.videoshot.data
 
 import androidx.test.platform.app.InstrumentationRegistry
+import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.data.settings.AppSettings
 import kotlinx.coroutines.flow.first
@@ -56,5 +57,23 @@ class AppSettingsTest {
         assertFalse(settings.lightboxHintSeen.first())
         settings.markLightboxHintSeen()
         assertTrue(settings.lightboxHintSeen.first())
+    }
+
+    @Test
+    fun 資料夾排序存得住() = runTest {
+        assertEquals("預設是名稱升冪", FolderSort.NAME_ASC, settings.folderSort.first())
+
+        settings.setFolderSort(FolderSort.RECENT)
+
+        assertEquals(FolderSort.RECENT, settings.folderSort.first())
+    }
+
+    /** 存的是 id 字串不是 ordinal —— 之後 enum 調順序，舊值不能指到別的排序。 */
+    @Test
+    fun 認不得的舊值退回預設() = runTest {
+        settings.setFolderSort(FolderSort.COUNT_DESC)
+        settings.writeRawFolderSortForTest("這個排序已經不存在了")
+
+        assertEquals(FolderSort.NAME_ASC, settings.folderSort.first())
     }
 }
