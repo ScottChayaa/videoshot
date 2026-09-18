@@ -247,7 +247,7 @@ class RoomLibraryRepo(
             } else {
                 db.folderDao().shotsAfter(folderId, after.addedAt, after.shotId, limit)
             }
-            // 撈滿才可能有下一頁;游標的 added_at 要回查,它不在 shot 的欄位裡
+            // 撈滿才可能有下一頁；游標的 added_at 要回查，它不在 shot 的欄位裡
             val next = if (rows.size < limit) {
                 null
             } else {
@@ -266,13 +266,13 @@ class RoomLibraryRepo(
         db.folderDao().folderIdsOf(shotId).toSet()
     }
 
-    override suspend fun addShotToFolder(shotId: Long, folderId: Long, atSec: Long) {
-        withContext(io) { db.folderDao().link(ShotFolderEntity(shotId, folderId, atSec)) }
+    override suspend fun addShotToFolder(shotId: Long, folderId: Long, atSec: Long): Unit = withContext(io) {
+        db.folderDao().link(ShotFolderEntity(shotId, folderId, atSec))
         onChanged()
     }
 
-    override suspend fun removeShotFromFolder(shotId: Long, folderId: Long) {
-        withContext(io) { db.folderDao().unlink(shotId, folderId) }
+    override suspend fun removeShotFromFolder(shotId: Long, folderId: Long): Unit = withContext(io) {
+        db.folderDao().unlink(shotId, folderId)
         onChanged()
     }
 }

@@ -33,6 +33,6 @@ data class FolderNode(
 /**
  * 資料夾內容的一頁。
  *
- * 不共用首頁的 [Page]:那個的游標型別是 `ShotCursor`(拍攝日期),資料夾內排的是加入時間。
+ * 不共用首頁的 [Page]：那個的游標型別是 `ShotCursor`（拍攝日期），資料夾內排的是加入時間。
  */
 data class FolderPage(val items: List<ShotRow>, val next: FolderCursor?)

@@ -29,7 +29,7 @@ interface FolderDao {
     @Query("SELECT COUNT(*) FROM shot_folder WHERE folder_id = :folderId")
     suspend fun shotCountIn(folderId: Long): Int
 
-    /** 本層的第一頁:新加入在前。走 index_shot_folder_folder_id_added_at。 */
+    /** 本層的第一頁：新加入在前。走 index_shot_folder_folder_id_added_at。 */
     @Query(
         """
         SELECT s.id, s.video_id, s.at_sec, s.source, s.frame_index, s.sb_level,
@@ -41,7 +41,7 @@ interface FolderDao {
     )
     suspend fun shotsFirst(folderId: Long, limit: Int): List<ShotRowProjection>
 
-    /** 接續頁:(added_at, shot_id) 嚴格小於游標。同一秒加入的多張圖靠 shot_id 分先後。 */
+    /** 接續頁：（added_at, shot_id）嚴格小於游標。同一秒加入的多張圖靠 shot_id 分先後。 */
     @Query(
         """
         SELECT s.id, s.video_id, s.at_sec, s.source, s.frame_index, s.sb_level,
@@ -54,7 +54,7 @@ interface FolderDao {
     )
     suspend fun shotsAfter(folderId: Long, addedAt: Long, shotId: Long, limit: Int): List<ShotRowProjection>
 
-    /** 分頁游標要的 added_at ——投影裡沒有這一欄(那是 shot 的欄位以外的東西)。 */
+    /** 分頁游標要的 added_at ——投影裡沒有這一欄（那是 shot 的欄位以外的東西）。 */
     @Query("SELECT added_at FROM shot_folder WHERE folder_id = :folderId AND shot_id = :shotId")
     suspend fun addedAtOf(folderId: Long, shotId: Long): Long?
 
