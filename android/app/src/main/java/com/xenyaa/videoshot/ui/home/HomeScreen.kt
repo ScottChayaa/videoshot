@@ -43,7 +43,9 @@ import com.xenyaa.videoshot.core.time.formatClock
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.ui.icons.VsIcons
+import androidx.compose.foundation.shape.CircleShape
 import com.xenyaa.videoshot.ui.theme.AppTheme
+import com.xenyaa.videoshot.ui.theme.focusRing
 import com.xenyaa.videoshot.ui.thumb.ThumbImage
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
 
@@ -179,6 +181,7 @@ fun HomeScreen(
                                 .aspectRatio(16f / 9f)
                                 .clip(RoundedCornerShape(AppTheme.radii.sm))
                                 // 真的是按鈕：鍵盤與輔助技術都到得了（手冊 §二最後一條）
+                                .focusRing(RoundedCornerShape(AppTheme.radii.sm))
                                 .clickable(onClickLabel = "開啟") { onOpen(slot.index) },
                         )
                     }
@@ -212,7 +215,7 @@ private fun HomeTopBar(onOpenFilter: () -> Unit) {
             color = AppTheme.colors.text,
             modifier = Modifier.weight(1f),
         )
-        IconButton(onClick = onOpenFilter, modifier = Modifier.size(AppTheme.spacing.tap)) {
+        IconButton(onClick = onOpenFilter, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape)) {
             Icon(VsIcons.Calendar, contentDescription = "依時間篩選", tint = AppTheme.colors.textDim)
         }
     }
@@ -237,7 +240,7 @@ private fun FilterBar(month: String, onClear: () -> Unit) {
             color = AppTheme.colors.text,
             modifier = Modifier.weight(1f).padding(horizontal = AppTheme.spacing.s2),
         )
-        IconButton(onClick = onClear, modifier = Modifier.size(AppTheme.spacing.tap)) {
+        IconButton(onClick = onClear, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape)) {
             Icon(VsIcons.Close, contentDescription = "清除時間篩選", tint = AppTheme.colors.textDim)
         }
     }

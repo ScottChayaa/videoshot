@@ -7,8 +7,8 @@
   與原型的 localStorage key `ytspace2_*`，這些刻意不改。
 
 **目前進度：階段 0～3 完成，階段 4a（精靈外殼與第一步）完成（2026-09-14）、階段 4b（縮圖牆與收斂）、階段 4c（截圖與效能閘門）完成（2026-09-15）、階段 6（第三步、完成、草稿）、階段 7（App 外殼、首頁、Lightbox）完成（2026-09-16）。
-三套測試全綠（2026-09-16）：JVM 455 個（`:core:test` 122 ＋ `:app:testDebugUnitTest` 333），
-**儀器測試 119 個**（`:app:connectedDebugAndroidTest`，實機 2107113SG）。
+三套測試全綠：JVM 471 個（`:core:test` 122 ＋ `:app:testDebugUnitTest` 349，2026-09-18），
+**儀器測試 119 個**（`:app:connectedDebugAndroidTest`，實機 2107113SG，2026-09-16 那一次）。
 本階段新增的 `LibraryRepoFeedTest`（11）與 `ShotDeleterTest`（6）都已在實機上跑過。
 
 **app 啟動後落在首頁**（階段 2 的資料層冒煙畫面已刪除，內容在 git 歷史），底部導覽五格
@@ -18,13 +18,18 @@
 **實機（2107113SG）驗過的範圍**：首頁全部（手冊 §二，含年月分組、月份篩選、封面降級）、
 Lightbox（手冊 §三，含刪除後自動停在下一張）、深色模式、縮圖抓不到時的降級預留圖 ——
 這些是把種子資料直接寫進 `library.db` 再開 app 驗的。
+**手冊 §零 也在 2026-09-18 驗完**：平板寬度加欄（`wm size 1280x800` ＋ `wm density 240` ＝ 853dp → 5 欄，
+驗完 `wm size reset`／`wm density reset`）、TalkBack 要唸的名稱（`uiautomator dump` 每張縮圖都有
+「片段縮圖 MM:SS」或它的描述）、實體鍵盤焦點框（首頁縮圖、導覽五格、Lightbox 的關閉與動作鈕都看得到框）。
+**送 Tab 要用 `adb shell input keyboard keyevent 61`** —— 不加 `keyboard` 這個來源，
+系統不會離開觸控模式，`clickable` 就不可聚焦（Compose 的 `focusableInNonTouchMode`），畫面上什麼都不會發生。
 
 **取圖精靈也已經在實機上從頭走過一次**（2026-09-17）：貼 `youtu.be/aqz-KE-bpKQ` → watch page 抓到、
 storyboard 裁出真圖、收斂回報「119 張候選、隱藏 9 張」→ 挑 3 張 → 第三步自動帶入上傳日期 2014-11-10 →
 【完成】→「還有 3 張沒填資料」提醒但不阻擋 → 回首頁並捲到 2014年11月。全程正常。
 
-**尚未在實機驗過的**：手冊 §零 的輔助操作（TalkBack 唸讀順序、實體鍵盤焦點框 —— `focusRing` 這個 token
-定義了但還沒有人用）與平板寬度加欄（只有 `homeColumnsFor` 的純函式測試與一個 `w800dp` 的 Robolectric 測試）。
+**尚未在實機驗過的**：TalkBack 實際開起來走一遍（只確認過每個可點的東西都有名稱，沒有驗唸讀順序）。
+焦點框在主色按鈕（Lightbox 的【播放這一段】）上是同色相疊同色相，看得出來但不明顯。
 
 **測試怎麼跑**（三套，環境限制見規格第十三節）：
 `./gradlew :core:test`（JVM 純邏輯）、`./gradlew :app:testDebugUnitTest`（**Compose UI 走 Robolectric，跑在 JVM**）、

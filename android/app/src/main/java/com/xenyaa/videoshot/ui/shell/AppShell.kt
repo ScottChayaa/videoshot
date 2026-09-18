@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
+import com.xenyaa.videoshot.ui.theme.focusRing
 
 private fun iconOf(tab: Tab): ImageVector = when (tab) {
     Tab.HOME -> VsIcons.Home
@@ -58,6 +59,8 @@ fun AppShell(
             NavigationBar(containerColor = AppTheme.colors.surface) {
                 for (tab in Tab.entries) {
                     NavigationBarItem(
+                        // 焦點框（手冊 §零）：item 的 focusable 藏在元件內部，套在外層一樣看得到
+                        modifier = Modifier.focusRing(),
                         selected = tab == nav.tab,
                         onClick = { onSelectTab(tab) },
                         icon = { Icon(iconOf(tab), contentDescription = null) },

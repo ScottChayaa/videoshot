@@ -39,7 +39,9 @@ import kotlinx.coroutines.flow.drop
 import com.xenyaa.videoshot.core.time.formatClock
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.ui.icons.VsIcons
+import androidx.compose.foundation.shape.CircleShape
 import com.xenyaa.videoshot.ui.theme.AppTheme
+import com.xenyaa.videoshot.ui.theme.focusRing
 import com.xenyaa.videoshot.ui.thumb.ThumbImage
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
 
@@ -135,7 +137,7 @@ fun LightboxScreen(
                 Modifier.fillMaxWidth().statusBarsPadding().padding(AppTheme.spacing.s2),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onClose, modifier = Modifier.size(AppTheme.spacing.tap)) {
+                IconButton(onClick = onClose, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape)) {
                     Icon(VsIcons.Close, contentDescription = "關閉", tint = AppTheme.colors.accentInk)
                 }
                 Text(
@@ -145,7 +147,7 @@ fun LightboxScreen(
                     modifier = Modifier.weight(1f).padding(horizontal = AppTheme.spacing.s2),
                 )
                 Box {
-                    IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(AppTheme.spacing.tap)) {
+                    IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape)) {
                         Icon(VsIcons.More, contentDescription = "更多", tint = AppTheme.colors.accentInk)
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
@@ -220,14 +222,14 @@ fun LightboxScreen(
                     horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Button(onClick = { actions.onPlay(shot) }, modifier = Modifier.weight(1f)) {
+                    Button(onClick = { actions.onPlay(shot) }, modifier = Modifier.weight(1f).focusRing(CircleShape)) {
                         Icon(VsIcons.Play, contentDescription = null)
                         Text("播放這一段", modifier = Modifier.padding(start = AppTheme.spacing.s2))
                     }
-                    IconButton(onClick = { actions.onAddToFolder(shot) }, modifier = Modifier.size(AppTheme.spacing.tap)) {
+                    IconButton(onClick = { actions.onAddToFolder(shot) }, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape)) {
                         Icon(VsIcons.FolderPlus, contentDescription = "加入分類", tint = AppTheme.colors.accentInk)
                     }
-                    IconButton(onClick = { actions.onShare(shot) }, modifier = Modifier.size(AppTheme.spacing.tap)) {
+                    IconButton(onClick = { actions.onShare(shot) }, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape)) {
                         Icon(VsIcons.Share, contentDescription = "分享", tint = AppTheme.colors.accentInk)
                     }
                 }

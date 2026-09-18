@@ -20,7 +20,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.core.home.monthLabel
 import com.xenyaa.videoshot.data.repo.model.MonthCount
+import androidx.compose.foundation.shape.RoundedCornerShape
 import com.xenyaa.videoshot.ui.theme.AppTheme
+import com.xenyaa.videoshot.ui.theme.focusRing
 
 /**
  * 月份清單的高度上限——月份一多，選擇器要停在「底部工作表」的樣子，
@@ -83,6 +85,8 @@ fun MonthPickerSheet(
                             color = if (month.month == selected) AppTheme.colors.accent else AppTheme.colors.text,
                             modifier = Modifier
                                 .fillMaxWidth()
+                                // 焦點框（手冊 §零）——實機上用 Tab 走進選擇器時看得到
+                                .focusRing(RoundedCornerShape(AppTheme.radii.sm))
                                 .clickable { onPick(month.month) }
                                 .padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
                         )
