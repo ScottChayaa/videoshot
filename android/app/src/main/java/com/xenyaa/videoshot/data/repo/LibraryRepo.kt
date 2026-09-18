@@ -1,9 +1,11 @@
 package com.xenyaa.videoshot.data.repo
 
+import com.xenyaa.videoshot.core.paging.FolderCursor
 import com.xenyaa.videoshot.core.paging.ShotCursor
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.FolderCard
 import com.xenyaa.videoshot.data.repo.model.FolderNode
+import com.xenyaa.videoshot.data.repo.model.FolderPage
 import com.xenyaa.videoshot.data.repo.model.MonthCount
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
@@ -94,4 +96,19 @@ interface LibraryRepo {
      * 這次解析到 L3 的話，兩邊的格號互不相干，不能混在一起。
      */
     suspend fun takenFrameIndexes(videoId: String, level: Int): Set<Int>
+
+    /** 資料夾**本層**的圖,新加入在前,keyset 分頁。 */
+    suspend fun folderShots(folderId: Long, after: FolderCursor?, limit: Int): FolderPage
+
+    /** 資料夾本層的總張數 ——從資料夾頁開 Lightbox 時的「共 M 張」。 */
+    suspend fun folderShotCount(folderId: Long): Int
+
+    /** 這張圖在哪些資料夾(【加入分類】的勾勾)。 */
+    suspend fun foldersOf(shotId: Long): Set<Long>
+
+    /** 加入資料夾。已經在裡面的話什麼都不做。@param atSec 只有測試會指定 */
+    suspend fun addShotToFolder(shotId: Long, folderId: Long, atSec: Long = System.currentTimeMillis() / 1000)
+
+    /** 移出資料夾。圖本身不動。 */
+    suspend fun removeShotFromFolder(shotId: Long, folderId: Long)
 }

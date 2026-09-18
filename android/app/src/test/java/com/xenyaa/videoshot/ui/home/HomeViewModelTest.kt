@@ -1,10 +1,12 @@
 package com.xenyaa.videoshot.ui.home
 
+import com.xenyaa.videoshot.core.paging.FolderCursor
 import com.xenyaa.videoshot.core.paging.ShotCursor
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.LibraryRepo
 import com.xenyaa.videoshot.data.repo.model.FolderCard
 import com.xenyaa.videoshot.data.repo.model.FolderNode
+import com.xenyaa.videoshot.data.repo.model.FolderPage
 import com.xenyaa.videoshot.data.repo.model.MonthCount
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.NewShot
@@ -89,6 +91,12 @@ class HomeViewModelTest {
         override suspend fun shotImage(shotId: Long): ByteArray? = null
         override suspend fun recentVideos(limit: Int): List<RecentVideo> = emptyList()
         override suspend fun takenFrameIndexes(videoId: String, level: Int): Set<Int> = emptySet()
+        override suspend fun folderShots(folderId: Long, after: FolderCursor?, limit: Int): FolderPage =
+            FolderPage(emptyList(), null)
+        override suspend fun folderShotCount(folderId: Long): Int = 0
+        override suspend fun foldersOf(shotId: Long): Set<Long> = emptySet()
+        override suspend fun addShotToFolder(shotId: Long, folderId: Long, atSec: Long) = Unit
+        override suspend fun removeShotFromFolder(shotId: Long, folderId: Long) = Unit
     }
 
     @Test

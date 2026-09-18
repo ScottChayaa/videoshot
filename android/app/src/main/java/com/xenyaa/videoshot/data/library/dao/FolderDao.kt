@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Embedded
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.xenyaa.videoshot.data.library.entity.FolderEntity
 import com.xenyaa.videoshot.data.library.entity.ShotFolderEntity
@@ -12,7 +13,50 @@ import com.xenyaa.videoshot.data.library.entity.ShotFolderEntity
 interface FolderDao {
     @Insert suspend fun insert(folder: FolderEntity): Long
 
-    @Insert suspend fun link(link: ShotFolderEntity)
+    /**
+     * 加入資料夾。**重複加入直接忽略**——勾選是冪等的，第二次勾不該把「什麼時候加進來的」洗掉
+     * （那會讓資料夾內的排序莫名其妙跳動）。
+     */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun link(link: ShotFolderEntity)
+
+    @Query("DELETE FROM shot_folder WHERE shot_id = :shotId AND folder_id = :folderId")
+    suspend fun unlink(shotId: Long, folderId: Long)
+
+    @Query("SELECT folder_id FROM shot_folder WHERE shot_id = :shotId")
+    suspend fun folderIdsOf(shotId: Long): List<Long>
+
+    @Query("SELECT COUNT(*) FROM shot_folder WHERE folder_id = :folderId")
+    suspend fun shotCountIn(folderId: Long): Int
+
+    /** 本層的第一頁:新加入在前。走 index_shot_folder_folder_id_added_at。 */
+    @Query(
+        """
+        SELECT s.id, s.video_id, s.at_sec, s.source, s.frame_index, s.sb_level,
+               s.event_date, s.place, s.description
+        FROM shot_folder sf JOIN shot s ON s.id = sf.shot_id
+        WHERE sf.folder_id = :folderId
+        ORDER BY sf.added_at DESC, sf.shot_id DESC LIMIT :limit
+        """
+    )
+    suspend fun shotsFirst(folderId: Long, limit: Int): List<ShotRowProjection>
+
+    /** 接續頁:(added_at, shot_id) 嚴格小於游標。同一秒加入的多張圖靠 shot_id 分先後。 */
+    @Query(
+        """
+        SELECT s.id, s.video_id, s.at_sec, s.source, s.frame_index, s.sb_level,
+               s.event_date, s.place, s.description
+        FROM shot_folder sf JOIN shot s ON s.id = sf.shot_id
+        WHERE sf.folder_id = :folderId
+          AND (sf.added_at < :addedAt OR (sf.added_at = :addedAt AND sf.shot_id < :shotId))
+        ORDER BY sf.added_at DESC, sf.shot_id DESC LIMIT :limit
+        """
+    )
+    suspend fun shotsAfter(folderId: Long, addedAt: Long, shotId: Long, limit: Int): List<ShotRowProjection>
+
+    /** 分頁游標要的 added_at ——投影裡沒有這一欄(那是 shot 的欄位以外的東西)。 */
+    @Query("SELECT added_at FROM shot_folder WHERE folder_id = :folderId AND shot_id = :shotId")
+    suspend fun addedAtOf(folderId: Long, shotId: Long): Long?
 
     @Query("DELETE FROM folder WHERE id = :id")
     suspend fun deleteById(id: Long)

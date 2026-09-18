@@ -3,17 +3,20 @@ package com.xenyaa.videoshot.data.repo
 import androidx.room.Transactor
 import androidx.room.useWriterConnection
 import com.xenyaa.videoshot.core.home.nextMonthStart
+import com.xenyaa.videoshot.core.paging.FolderCursor
 import com.xenyaa.videoshot.core.paging.ShotCursor
 import com.xenyaa.videoshot.data.library.LibraryDatabase
 import com.xenyaa.videoshot.data.library.dao.ShotRowProjection
 import com.xenyaa.videoshot.data.library.entity.FolderEntity
 import com.xenyaa.videoshot.data.library.entity.ShotEntity
+import com.xenyaa.videoshot.data.library.entity.ShotFolderEntity
 import com.xenyaa.videoshot.data.library.entity.ShotImageEntity
 import com.xenyaa.videoshot.data.library.entity.ShotTagEntity
 import com.xenyaa.videoshot.data.library.entity.TagEntity
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.FolderCard
 import com.xenyaa.videoshot.data.repo.model.FolderNode
+import com.xenyaa.videoshot.data.repo.model.FolderPage
 import com.xenyaa.videoshot.data.repo.model.MonthCount
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
@@ -235,6 +238,42 @@ class RoomLibraryRepo(
                 preview = previews[card.id].orEmpty().map { it.shot.toRow() },
             )
         }
+    }
+
+    override suspend fun folderShots(folderId: Long, after: FolderCursor?, limit: Int): FolderPage =
+        withContext(io) {
+            val rows = if (after == null) {
+                db.folderDao().shotsFirst(folderId, limit)
+            } else {
+                db.folderDao().shotsAfter(folderId, after.addedAt, after.shotId, limit)
+            }
+            // 撈滿才可能有下一頁;游標的 added_at 要回查,它不在 shot 的欄位裡
+            val next = if (rows.size < limit) {
+                null
+            } else {
+                rows.last().let { last ->
+                    db.folderDao().addedAtOf(folderId, last.id)?.let { FolderCursor(it, last.id) }
+                }
+            }
+            FolderPage(rows.map { it.toRow() }, next)
+        }
+
+    override suspend fun folderShotCount(folderId: Long): Int = withContext(io) {
+        db.folderDao().shotCountIn(folderId)
+    }
+
+    override suspend fun foldersOf(shotId: Long): Set<Long> = withContext(io) {
+        db.folderDao().folderIdsOf(shotId).toSet()
+    }
+
+    override suspend fun addShotToFolder(shotId: Long, folderId: Long, atSec: Long) {
+        withContext(io) { db.folderDao().link(ShotFolderEntity(shotId, folderId, atSec)) }
+        onChanged()
+    }
+
+    override suspend fun removeShotFromFolder(shotId: Long, folderId: Long) {
+        withContext(io) { db.folderDao().unlink(shotId, folderId) }
+        onChanged()
     }
 }
 
