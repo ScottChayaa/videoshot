@@ -6,6 +6,7 @@ import com.xenyaa.videoshot.data.repo.model.FolderCard
 import com.xenyaa.videoshot.data.repo.model.FolderNode
 import com.xenyaa.videoshot.data.repo.model.FolderPage
 import com.xenyaa.videoshot.data.repo.model.ShotRow
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -42,12 +43,19 @@ class FolderViewModelTest {
         var createdParent: Long? = -1L
         val deleted = mutableListOf<Long>()
 
+        /** 只卡「下一次」`folderShots` 呼叫，取用後自動歸零 —— 手法同 `HomeViewModelTest`。 */
+        var folderShotsGate: CompletableDeferred<Unit>? = null
+
         override suspend fun folderNode(id: Long): FolderNode? = node
         override suspend fun folderCards(parentId: Long?): List<FolderCard> = children
         override suspend fun folderShotCount(folderId: Long): Int = total
         override suspend fun folderShots(folderId: Long, after: FolderCursor?, limit: Int): FolderPage {
             val index = folderShotsCalls.coerceAtMost(pages.size - 1)
             folderShotsCalls++
+            folderShotsGate?.let { gate ->
+                folderShotsGate = null
+                gate.await()
+            }
             return pages[index]
         }
         override suspend fun createFolder(parentId: Long?, name: String): Long {
@@ -100,6 +108,42 @@ class FolderViewModelTest {
         model.loadMore()
         advanceUntilIdle()
         assertEquals("到底之後 loadMore 不再打 repo", callsAfterEnd, repo.folderShotsCalls)
+    }
+
+    /**
+     * 審查 Important 1 的回歸測試：前一次 `loadMore()` 還沒完成（`loading == true`）時
+     * 再呼叫一次，不能因為沒擋 `loading` 而讓兩個協程各打一次 `repo.folderShots`——
+     * 那會用同一個 `cursor` 各撈一次，同一頁被接兩次、清單出現重複縮圖。
+     */
+    @Test
+    fun loadMore重入保護_上一次還沒完成時再呼叫只會打一次repo() = runTest {
+        val repo = Repo().apply {
+            pages = mutableListOf(
+                FolderPage(listOf(shot(20)), FolderCursor(200, 20)),
+                FolderPage(listOf(shot(21)), null),
+            )
+        }
+        val model = vm(repo)
+        advanceUntilIdle() // reload() 內建的第一頁已經跑完（folderShotsCalls == 1）
+
+        val gate = CompletableDeferred<Unit>()
+        repo.folderShotsGate = gate
+        model.loadMore() // 觸發續載，協程卡在 gate.await() 之前
+        advanceUntilIdle() // 讓它真的跑起來、卡住
+
+        assertEquals("協程卡住時 loading 應該已經是 true", true, model.state.value.loading)
+        val callsWhileLoading = repo.folderShotsCalls
+
+        model.loadMore() // 前一次還沒完成，這次應該被 loading 擋掉
+        advanceUntilIdle()
+        assertEquals("loading 還沒回到 false，不該再打第二次 repo", callsWhileLoading, repo.folderShotsCalls)
+
+        gate.complete(Unit) // 讓第一次真的完成
+        advanceUntilIdle()
+
+        assertEquals(false, model.state.value.loading)
+        assertEquals("只完成過一次續載，不該有重複的頁", listOf(20L, 21L), model.state.value.items.map { it.id })
+        assertEquals("gate 完成不算新的一次呼叫", callsWhileLoading, repo.folderShotsCalls)
     }
 
     @Test

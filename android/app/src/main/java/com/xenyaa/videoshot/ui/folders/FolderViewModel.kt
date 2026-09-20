@@ -68,9 +68,16 @@ class FolderViewModel(
         }
     }
 
+    /**
+     * 續載下一頁。**要擋 `loading` 重入**（審查 Important 1）——
+     * 前一次還在跑時再被呼叫（例如捲動觸發跟手動重試同時發生），沒有這個檢查的話兩個協程
+     * 會用同一個 `cursor` 各打一次 `repo.folderShots`，各自把結果 `items + page.items`，
+     * 同一頁被接兩次、清單裡出現重複縮圖。同層作法見 `HomeStore.canLoadMore`。
+     */
     fun loadMore() {
         val current = _state.value
-        if (current.endReached) return
+        if (current.loading || current.endReached) return
+        _state.value = current.copy(loading = true)
         launchGuarded {
             val page = repo.folderShots(folderId, current.cursor, pageSize)
             _state.value = _state.value.copy(

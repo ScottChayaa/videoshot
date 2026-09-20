@@ -26,13 +26,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -81,12 +82,22 @@ fun FolderScreen(
     val gridState = rememberLazyGridState()
     val canGoDeeper = (state.node?.depth ?: 1) < 5
 
-    // 捲到最後一列就續載（寫法同 HomeScreen）
-    LaunchedEffect(gridState, state.endReached) {
-        snapshotFlow { gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
-            .collect { last ->
-                if (last != null && last >= state.items.size - 6 && !state.endReached && !state.loading) onLoadMore()
-            }
+    // 捲到剩最後幾列就先去要下一頁（寫法真的照 HomeScreen.kt：`nearEnd` 用 derivedStateOf
+    // 算，`LaunchedEffect` 的 block 不是常駐的 collector，而是每次 key 換了就重新跑一次、
+    // 讀當下最新的 state —— 跟原本用 snapshotFlow.collect() 常駐訂閱、block 裡的 state
+    // 卻是掛載當下就凍結的閉包不一樣）。
+    //
+    // `state.loading` 一定要在 key 裡（同 HomeScreen.kt 的理由）：不放的話，掛載當下如果
+    // 剛好凍結到 `loading = true`（`init { reload() }` 一開始就是），`!state.loading`
+    // 之後永遠是 false，捲動再也不會續載。
+    val nearEnd by remember(gridState, state.items.size) {
+        derivedStateOf {
+            val last = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            last >= state.items.size - 6
+        }
+    }
+    LaunchedEffect(nearEnd, state.cursor, state.loading) {
+        if (nearEnd && !state.loading && !state.endReached) onLoadMore()
     }
 
     Column(modifier.fillMaxSize()) {
@@ -142,6 +153,12 @@ fun FolderScreen(
             }
         }
 
+        // 讀取失敗不能無聲無息（同 HomeScreen.kt 的 HomeErrorRow）——不接住的話，下面的空狀態
+        // 判斷式會把「讀取失敗」誤判成「這個資料夾真的是空的」，主動說錯話（審查 Important 3）。
+        if (state.error != null) {
+            FolderErrorRow(message = state.error, onRetry = onLoadMore)
+        }
+
         if (state.children.isNotEmpty()) {
             LazyRow(
                 Modifier.fillMaxWidth().padding(bottom = AppTheme.spacing.s3),
@@ -162,8 +179,10 @@ fun FolderScreen(
             }
         }
 
-        // 讀取中一律不算空狀態，否則每次進頁面都會閃一下空畫面（同 FoldersStore.emptyKind）
-        if (state.items.isEmpty() && !state.loading) {
+        // 讀取中一律不算空狀態，否則每次進頁面都會閃一下空畫面（同 FoldersStore.emptyKind）；
+        // 讀取失敗也不算——上面已經有 FolderErrorRow 說清楚了，這裡不能再說「資料夾是空的」
+        // 蓋過去（審查 Important 3）。
+        if (state.items.isEmpty() && !state.loading && state.error == null) {
             Column(
                 Modifier.fillMaxSize().padding(AppTheme.spacing.s6),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -212,5 +231,22 @@ fun FolderScreen(
 
     state.deleting?.let { card ->
         DeleteFolderDialog(card = card, onConfirm = onConfirmDelete, onDismiss = onDismissDelete)
+    }
+}
+
+/** 提示＋重試，不是破壞性動作，不用 danger 色（同 HomeScreen.kt 的 HomeErrorRow）。 */
+@Composable
+private fun FolderErrorRow(message: String, onRetry: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.s3, vertical = AppTheme.spacing.s1),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = AppTheme.colors.textDim,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = onRetry) { Text("重試") }
     }
 }

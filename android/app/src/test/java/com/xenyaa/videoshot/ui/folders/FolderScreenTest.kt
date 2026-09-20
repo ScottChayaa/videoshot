@@ -57,6 +57,7 @@ class FolderScreenTest {
     private var backs = 0
     private var renamedChild: FolderCard? = null
     private var deleteAskedChild: FolderCard? = null
+    private var loadMoreCalls = 0
 
     private fun show(state: FolderState) {
         compose.setContent {
@@ -67,7 +68,7 @@ class FolderScreenTest {
                     onBack = { backs++ },
                     onOpenChild = {},
                     onOpenShot = { openedIndex = it },
-                    onLoadMore = {},
+                    onLoadMore = { loadMoreCalls++ },
                     onStartCreateChild = {},
                     onStartRename = {},
                     onAskDeleteSelf = {},
@@ -171,5 +172,22 @@ class FolderScreenTest {
         compose.onNodeWithText("刪除資料夾").performClick()
         assertEquals(2L, deleteAskedChild?.id)
         assertEquals("宜蘭", deleteAskedChild?.name)
+    }
+
+    /**
+     * 審查 Important 3 的回歸測試：讀取失敗時要顯示錯誤列＋重試，不能被空狀態判斷式
+     * 誤判成「這個資料夾是空的」——那是對使用者主動說錯話（原本的沉默 bug 修好後新引入的問題）。
+     */
+    @Test
+    fun 讀取失敗顯示錯誤列不顯示資料夾是空的() {
+        show(FolderState(node = FolderNode(1, null, "旅行", 1), error = "載入失敗，請再試一次"))
+        compose.onNodeWithText("載入失敗，請再試一次").assertIsDisplayed()
+        compose.onNodeWithText("這個資料夾還沒有圖片").assertDoesNotExist()
+
+        // 點〔重試〕要能再叫一次 onLoadMore——不管掛載當下的續載偵測（空清單一律判定「近底」，
+        // 跟 HomeScreen 同一個算法）已經先自動打過幾次，點下去之後那一次一定要多算進去。
+        val before = loadMoreCalls
+        compose.onNodeWithText("重試").performClick()
+        assertEquals(before + 1, loadMoreCalls)
     }
 }
