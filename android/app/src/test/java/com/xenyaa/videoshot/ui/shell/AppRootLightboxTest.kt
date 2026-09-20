@@ -262,13 +262,16 @@ class AppRootLightboxTest {
         )
     }
 
-    // ---- 6：階段 8／9 還沒做好的兩個按鈕要有反應，不是靜默不做事 ----
+    // ---- 6：階段 9 還沒做好的按鈕要有反應，不是靜默不做事 ----
     //
-    // 兩個都**不關 Lightbox 就直接斷言**：Lightbox 換掉整個 AppShell，原本只有 AppShell
+    // **不關 Lightbox 就直接斷言**：Lightbox 換掉整個 AppShell，原本只有 AppShell
     // 的 Scaffold 裡才有 SnackbarHost，訊息要等關掉 Lightbox 回到首頁才看得到——使用者
     // 在 Lightbox 裡按下去的當下等於什麼都沒發生。這裡疊了一顆自己的 SnackbarHost
-    // 修掉這個洞（AppRoot.kt 的 Dest.Lightbox 分支），這兩個測試就是釘住修好之後的樣子：
+    // 修掉這個洞（AppRoot.kt 的 Dest.Lightbox 分支），這個測試就是釘住修好之後的樣子：
     // 訊息要在 Lightbox**還開著**的時候就看得到。
+    //
+    // 加入分類原本也是這種「還沒做好」的 snackbar，階段 8 接上之後改成真的開
+    // AddToFolderSheet——那段行為由 AppRootFoldersTest 覆蓋，不留在這裡重複斷言舊訊息。
 
     @Test
     fun 播放這一段還沒做好_跳出說明用的_snackbar() {
@@ -276,14 +279,6 @@ class AppRootLightboxTest {
         compose.onNodeWithContentDescription("片段縮圖 00:10").performClick()
         compose.onNodeWithText("播放這一段").performClick()
         compose.onNodeWithText("播放頁在階段 9").assertIsDisplayed()
-    }
-
-    @Test
-    fun 加入分類還沒做好_跳出說明用的_snackbar() {
-        show()
-        compose.onNodeWithContentDescription("片段縮圖 00:10").performClick()
-        compose.onNodeWithContentDescription("加入分類").performClick()
-        compose.onNodeWithText("分類在階段 8").assertIsDisplayed()
     }
 
     // ---- 7：編輯 sheet 存檔要走 repo，而且要同步回首頁清單 ----
