@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.ui.shell
 
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -73,6 +74,9 @@ class AppRootFoldersTest {
         val folderItems = listOf(row(11L, 30.0), row(12L, 90.0))
         val added = mutableListOf<Pair<Long, Long>>()
 
+        /** Important 2 的回滾測試用：逼 [addShotToFolder] 丟例外，不是靜靜地不寫。 */
+        var addShotToFolderShouldFail = false
+
         override suspend fun homeFeed(after: ShotCursor?, limit: Int, upToMonth: String?) = Page(homeItems, null)
         override suspend fun shotCount(upToMonth: String?) = homeItems.size
 
@@ -90,6 +94,7 @@ class AppRootFoldersTest {
         override suspend fun folderTree(): List<FolderNode> = listOf(FolderNode(1, null, "旅行", 1))
 
         override suspend fun addShotToFolder(shotId: Long, folderId: Long, atSec: Long) {
+            if (addShotToFolderShouldFail) error("模擬寫入失敗（磁碟／SQLite 之類，不是名稱規則那種 IllegalArgumentException）")
             added += shotId to folderId
         }
     }
@@ -211,5 +216,24 @@ class AppRootFoldersTest {
         compose.onNodeWithContentDescription("旅行").performClick()
 
         assertEquals(listOf(1L to 1L), repo.added)
+    }
+
+    /**
+     * Important 2：寫失敗不能停在「畫面看起來勾上了，DB 其實沒寫」這種狀態——
+     * 勾勾要退回 repo 的真實狀態（這裡就是退回沒勾），還要讓使用者知道要再試一次。
+     */
+    @Test
+    fun 加入分類寫入失敗會把勾勾改回去並顯示錯誤() {
+        show()
+        repo.addShotToFolderShouldFail = true
+
+        compose.onAllNodesWithContentDescription("片段縮圖 00:30")[0].performClick()
+        compose.onNodeWithContentDescription("加入分類").performClick()
+        compose.onNodeWithContentDescription("旅行").performClick()
+        compose.waitForIdle()
+
+        assertEquals("寫失敗就不該真的寫進去", emptyList<Pair<Long, Long>>(), repo.added)
+        compose.onNodeWithContentDescription("旅行").assertIsOff()
+        compose.onNodeWithText("加入分類失敗，請再試一次").assertIsDisplayed()
     }
 }

@@ -230,8 +230,12 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                 container.shotDeleter.delete(shot.id)
                                 container.thumbLoader.evict(shot.id)
                                 homeVm.onShotDeleted(shot.id)
-                                // 那張圖從資料夾裡也消失了，張數與預覽都要重算
-                                if (inFolder) folderVm?.reload()
+                                // 那張圖從資料夾裡也消失了，張數與預覽都要重算。不能用
+                                // if (inFolder) 擋住——資料夾頁可能只是切到別的分頁背景還活著
+                                // （每一格各自一個堆疊，folderVm 不會因為切分頁被清掉），這時
+                                // inFolder 是 false，但那個資料夾頁的舊資料還是要更新，不然
+                                // 切回去看到的張數／預覽是刪除前的（Important 1）
+                                folderVm?.reload()
                                 snackbarHostState.showSnackbar("已刪除 1 張")
                             } catch (e: CancellationException) {
                                 throw e
@@ -264,7 +268,9 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                     container.libraryRepo.removeShotFromFolder(shot.id, folderId)
                                 }
                                 foldersVm.reload()
-                                if (inFolder) folderVm?.reload()
+                                // 同 Important 1：不用 if (inFolder) 擋——資料夾頁可能在背景
+                                // 分頁活著，folderVm 不會因為不在前景就自己刷新
+                                folderVm?.reload()
                             } catch (e: CancellationException) {
                                 throw e
                             } catch (e: Exception) {
@@ -286,7 +292,13 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                             } catch (e: CancellationException) {
                                 throw e
                             } catch (e: IllegalArgumentException) {
+                                // 名稱規則（同層不重名、上限 50 字）——訊息留在對話框裡的錯誤提示
+                                // 由 FolderNameDialog 自己處理不到，這裡只能退回 snackbar
                                 snackbarHostState.showSnackbar(e.message ?: "名稱不能用")
+                            } catch (e: Exception) {
+                                // repo／檔案系統的例外不接住的話會直接把 process 帶走
+                                // （同這個檔案別處的註解、見階段 7 全盤覆查第 2 點）
+                                snackbarHostState.showSnackbar("新增資料夾失敗，請再試一次")
                             }
                         }
                     },
