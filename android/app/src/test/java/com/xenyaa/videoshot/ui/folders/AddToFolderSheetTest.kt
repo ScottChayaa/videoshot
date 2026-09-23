@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.folders
 
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
@@ -89,12 +90,17 @@ class AddToFolderSheetTest {
         assertEquals("旅行", created)
     }
 
-    /** 「貓」排序在「旅行」前面時，子資料夾仍然要跟著自己的父層，不能被排到別人底下。 */
+    /**
+     * 「貓」排序在「旅行」前面時，子資料夾仍然要跟著自己的父層，不能被排到別人底下。
+     *
+     * 已知 #6 的回歸測試：原本的斷言只數了列數（`== 3`），測試名字說的是順序與縮排，
+     * 斷言卻證明不了順序——這裡改成依序比對每一列的名稱，才真的釘住「父在前、子緊跟在後」。
+     */
     @Test
     fun 子資料夾縮排在自己的父層底下() {
         show(tree = tree, checked = emptySet())
-        // 同一個 sheet 裡，宜蘭要出現在旅行之後
-        val labels = compose.onAllNodesWithTag("folderRow").fetchSemanticsNodes()
-        assertEquals(3, labels.size)
+        val rows = compose.onAllNodesWithTag("folderRow").fetchSemanticsNodes()
+        val names = rows.map { it.config[SemanticsProperties.ContentDescription].first() }
+        assertEquals(listOf("旅行", "宜蘭", "貓"), names)
     }
 }
