@@ -2,6 +2,8 @@ package com.xenyaa.videoshot.ui.folders
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.xenyaa.videoshot.core.folders.FolderSort
+import com.xenyaa.videoshot.core.folders.sort
 import com.xenyaa.videoshot.core.paging.FolderCursor
 import com.xenyaa.videoshot.data.repo.LibraryRepo
 import com.xenyaa.videoshot.data.repo.model.FolderCard
@@ -39,6 +41,14 @@ class FolderViewModel(
     private val _state = MutableStateFlow(FolderState())
     val state: StateFlow<FolderState> = _state.asStateFlow()
 
+    /**
+     * `reload()` 或 `loadMore()` 目前在跑的那次讀取。**兩者都要先取消它再開始自己的**——
+     * 理由同 `HomeViewModel.loadJob`：Lightbox 捲到底時本來就會發 `loadMore()`，
+     * 跟刪除／編輯觸發的 `reload()` 可能撞在一起；不取消的話，晚回來的那個會把先完成的
+     * 那個剛設好的狀態蓋掉（見階段 8 全盤覆查已知 #12）。
+     */
+    private var loadJob: Job? = null
+
     init { reload() }
 
     /**
@@ -47,12 +57,13 @@ class FolderViewModel(
      * 後完成的那個會把先前設好的 `error` 蓋回 null，使用者看不到任何錯誤訊息也不知道要重試。
      */
     fun reload() {
+        loadJob?.cancel()
         _state.value = _state.value.copy(
             items = emptyList(), cursor = null, endReached = false, loading = true, error = null,
         )
-        launchGuarded {
+        loadJob = launchGuarded {
             val node = repo.folderNode(folderId)
-            val children = repo.folderCards(folderId)
+            val children = loadChildren()
             val total = repo.folderShotCount(folderId)
             val page = repo.folderShots(folderId, null, pageSize)
             _state.value = _state.value.copy(
@@ -77,8 +88,9 @@ class FolderViewModel(
     fun loadMore() {
         val current = _state.value
         if (current.loading || current.endReached) return
+        loadJob?.cancel()
         _state.value = current.copy(loading = true)
-        launchGuarded {
+        loadJob = launchGuarded {
             val page = repo.folderShots(folderId, current.cursor, pageSize)
             _state.value = _state.value.copy(
                 items = _state.value.items + page.items,
@@ -89,6 +101,25 @@ class FolderViewModel(
             )
         }
     }
+
+    /**
+     * Lightbox 在這個資料夾裡刪掉一張圖：**外科手術式地拔掉那一列**，不能整頁 `reload()`
+     * ——資料夾超過一頁、使用者已經往下捲過時，`reload()` 會把 `items` 清空重撈第一頁，
+     * 分頁跳回開頭（見階段 8 全盤覆查 N3／已知 #12）。`cursor`／`endReached` 保持原樣。
+     * 那張圖可能同時也在某個子資料夾裡，`children` 的張數與預覽拼貼要另外重查。
+     */
+    fun onShotDeleted(id: Long) {
+        val current = _state.value
+        if (current.items.none { it.id == id }) return
+        _state.value = current.copy(
+            items = current.items.filterNot { it.id == id },
+            total = (current.total - 1).coerceAtLeast(0),
+        )
+        launchGuarded { _state.value = _state.value.copy(children = loadChildren()) }
+    }
+
+    /** 子資料夾列固定名稱升冪（`FolderSort` 的 KDoc：清單頁與資料夾頁共用同一組排序）。 */
+    private suspend fun loadChildren(): List<FolderCard> = FolderSort.NAME_ASC.sort(repo.folderCards(folderId))
 
     /** 新增子資料夾。`FoldersStore` 的那幾個轉換是給清單頁的 `FoldersState` 用的，型別不同，不要硬轉 */
     fun startCreateChild() { _state.value = _state.value.copy(editor = FolderEditor(target = null, name = "")) }

@@ -85,6 +85,26 @@ class FolderViewModelTest {
         assertNull(state.error)
     }
 
+    /**
+     * N1 的回歸測試：`FolderDao.cardsIn` 沒有 `ORDER BY`，回傳順序是 SQLite 未定義的順序。
+     * `FolderSort` 的 KDoc 明寫清單頁與資料夾頁共用同一組排序，子資料夾列要固定名稱升冪，
+     * 不能原樣把 repo 回傳的順序畫出來。
+     */
+    @Test
+    fun 子資料夾固定用名稱升冪排序不管repo回傳的順序() = runTest {
+        val repo = Repo().apply {
+            children = listOf(
+                FolderCard(3, "貓", 1, 100, emptyList()),
+                FolderCard(2, "宜蘭", 3, 200, emptyList()),
+                FolderCard(4, "工作", 9, 300, emptyList()),
+            )
+        }
+        val model = vm(repo)
+        advanceUntilIdle()
+
+        assertEquals(listOf("工作", "宜蘭", "貓"), model.state.value.children.map { it.name })
+    }
+
     @Test
     fun loadMore接第二頁到底就不再打repo() = runTest {
         val cursor = FolderCursor(200, 20)
@@ -144,6 +164,90 @@ class FolderViewModelTest {
         assertEquals(false, model.state.value.loading)
         assertEquals("只完成過一次續載，不該有重複的頁", listOf(20L, 21L), model.state.value.items.map { it.id })
         assertEquals("gate 完成不算新的一次呼叫", callsWhileLoading, repo.folderShotsCalls)
+    }
+
+    /**
+     * N3 的回歸測試：Lightbox 在資料夾裡刪圖不該整頁重灌（`reload()` 會把 `items` 清空、
+     * 從第一頁重撈 50 筆）——超過一頁、使用者已經往下捲過時，這會把分頁跳回第一頁，
+     * 手冊 §三「刪除後自動停在下一張」在這條路徑上就不成立了。改成外科手術式地拔掉那一列，
+     * `cursor`／`endReached` 都不能動。
+     */
+    @Test
+    fun onShotDeleted就地移除那一列並減總數不動游標() = runTest {
+        val cursor = FolderCursor(200, 20)
+        val repo = Repo().apply {
+            total = 3
+            pages = mutableListOf(FolderPage(listOf(shot(20), shot(21)), cursor))
+        }
+        val model = vm(repo)
+        advanceUntilIdle()
+        assertEquals(listOf(20L, 21L), model.state.value.items.map { it.id })
+        assertEquals(3, model.state.value.total)
+        assertFalse(model.state.value.endReached)
+
+        model.onShotDeleted(20)
+        advanceUntilIdle()
+
+        assertEquals(listOf(21L), model.state.value.items.map { it.id })
+        assertEquals(2, model.state.value.total)
+        assertEquals("刪除不該動到游標", cursor, model.state.value.cursor)
+        assertFalse("刪除不該動到 endReached", model.state.value.endReached)
+    }
+
+    /** N3：刪掉的圖如果同時也在子資料夾裡，子資料夾卡片的張數與預覽拼貼要跟著變。 */
+    @Test
+    fun onShotDeleted也重查子資料夾的張數與預覽() = runTest {
+        val repo = Repo().apply {
+            children = listOf(FolderCard(2, "宜蘭", 3, 100, emptyList()))
+            pages = mutableListOf(FolderPage(listOf(shot(20)), null))
+        }
+        val model = vm(repo)
+        advanceUntilIdle()
+
+        repo.children = listOf(FolderCard(2, "宜蘭", 2, 100, emptyList()))
+        model.onShotDeleted(20)
+        advanceUntilIdle()
+
+        assertEquals(2, model.state.value.children.single().shotCount)
+    }
+
+    /**
+     * N3 已知 #12 的回歸測試：Lightbox 捲到底時本來就會發 `loadMore()`，跟刪除觸發的
+     * `reload()` 撞在一起——不取消前一個 job 的話，晚回來的 `loadMore()` 會把 `reload()`
+     * 剛設好的狀態蓋掉。手法同 `HomeViewModelTest.換篩選會取消還沒回來的舊請求_不會被它蓋掉`。
+     */
+    @Test
+    fun reload會取消還沒回來的loadMore_不會被它蓋掉() = runTest {
+        val cursor = FolderCursor(200, 20)
+        val repo = Repo().apply {
+            pages = mutableListOf(
+                FolderPage(listOf(shot(20)), cursor), // reload 內建的第一頁
+                FolderPage(listOf(shot(21)), null), // loadMore 續載頁——會被卡住、之後要被取消
+                FolderPage(listOf(shot(30)), null), // reload 重新叫的新第一頁
+            )
+        }
+        val model = vm(repo)
+        advanceUntilIdle()
+        assertEquals(listOf(20L), model.state.value.items.map { it.id })
+
+        val gate = CompletableDeferred<Unit>()
+        repo.folderShotsGate = gate
+        model.loadMore() // 卡在 gate.await() 之前
+        advanceUntilIdle()
+        assertEquals(true, model.state.value.loading)
+
+        model.reload() // 應該取消還在跑的 loadMore
+        advanceUntilIdle()
+
+        gate.complete(Unit) // 讓被取消的 loadMore 協程恢復；真的被取消的話，這裡不該再寫入狀態
+        advanceUntilIdle()
+
+        assertEquals(
+            "items 應該是 reload 的結果，不能被取消的 loadMore 晚到覆蓋",
+            listOf(30L),
+            model.state.value.items.map { it.id },
+        )
+        assertEquals(false, model.state.value.loading)
     }
 
     @Test

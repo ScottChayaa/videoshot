@@ -100,6 +100,14 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
         )
     }
 
+    // N4 已知 #13：父資料夾頁 → 子資料夾頁 → 在子頁刪圖／改圖資 → 返回父頁,父頁上半的子資料夾
+    // 卡片（張數／預覽拼貼）要重查。`viewModel(key = "folder-$id")` 回傳的是同一個實例
+    // （同一個 id 再開一次不會重建 VM），它的 children 停在上次離開時查到的舊值，
+    // 不會因為子頁那邊發生過什麼就自動更新。這裡用 openFolderId 當 key：換一個資料夾
+    // （不管是往下開新的還是往上退回父層）都重查一次——比新增一條全域失效匯流排更簡單，
+    // 這一輪的範圍也只需要這樣（見全盤覆查 N4：匯流排式的方案留到階段 9 有第三個消費者時再做）。
+    LaunchedEffect(openFolderId) { folderVm?.reload() }
+
     // 精靈的 VM 建在這裡（不是 CaptureTab 裡）—— finished 是沒有 replay 的 SharedFlow，
     // 只有切到取圖分頁才組合的地方收集會漏掉事件；同一個 key 仍確保實例不重複
     val wizardFactory = remember(container) {
@@ -234,8 +242,17 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                 // if (inFolder) 擋住——資料夾頁可能只是切到別的分頁背景還活著
                                 // （每一格各自一個堆疊，folderVm 不會因為切分頁被清掉），這時
                                 // inFolder 是 false，但那個資料夾頁的舊資料還是要更新，不然
-                                // 切回去看到的張數／預覽是刪除前的（Important 1）
-                                folderVm?.reload()
+                                // 切回去看到的張數／預覽是刪除前的（Important 1）。
+                                //
+                                // 用 onShotDeleted 就地拔掉那一列，不能用 reload()——資料夾
+                                // 超過一頁、使用者已經往下捲過時，reload() 會把 items 清空重撈
+                                // 第一頁，分頁跳回開頭（見階段 8 全盤覆查 N3／已知 #12）；
+                                // items 一旦被清空成空清單，Lightbox 甚至會誤判成「沒東西可看」
+                                // 自動關掉自己（LightboxScreen 的 items.isEmpty() 那段）
+                                folderVm?.onShotDeleted(shot.id)
+                                // 分類分頁（清單頁）也要跟著更新——這張圖所屬資料夾的張數與
+                                // 預覽拼貼都可能變了，原本只有加入分類那條路徑會呼叫（N4）
+                                foldersVm.reload()
                                 snackbarHostState.showSnackbar("已刪除 1 張")
                             } catch (e: CancellationException) {
                                 throw e
@@ -269,8 +286,21 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                 }
                                 foldersVm.reload()
                                 // 同 Important 1：不用 if (inFolder) 擋——資料夾頁可能在背景
-                                // 分頁活著，folderVm 不會因為不在前景就自己刷新
-                                folderVm?.reload()
+                                // 分頁活著，folderVm 不會因為不在前景就自己刷新。
+                                //
+                                // 取消勾選、而且取消的正是目前開著的那個資料夾時，這張圖會從
+                                // 它的本層清單裡消失——跟 N3 的刪除同一種形狀（資料夾超過一頁、
+                                // 使用者已經往下捲過時，reload() 會把分頁跳回開頭，甚至讓
+                                // Lightbox 誤判成清單是空的自動關掉自己），所以一樣改成就地
+                                // 移除。勾起來（checked）不會發生在這個分支：這張圖已經顯示在
+                                // 目前開著的資料夾的 Lightbox 裡，代表它本來就是成員，不可能
+                                // 又是「加入」——那種情況（在背景資料夾裡加入一張新圖）沒有
+                                // 現成的列可以拔，只能整頁重查
+                                if (!checked && folderId == openFolderId) {
+                                    folderVm?.onShotDeleted(shot.id)
+                                } else {
+                                    folderVm?.reload()
+                                }
                             } catch (e: CancellationException) {
                                 throw e
                             } catch (e: Exception) {
@@ -367,6 +397,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                         onAskDelete = foldersVm::askDelete,
                         onDismissEditor = foldersVm::dismissEditor,
                         onDismissDelete = foldersVm::dismissDelete,
+                        onRetry = foldersVm::reload,
                     )
                 }
                 Tab.ACCOUNT -> ComingSoonScreen("帳號", "備份、設定與標籤管理會在階段 11～12 做好")

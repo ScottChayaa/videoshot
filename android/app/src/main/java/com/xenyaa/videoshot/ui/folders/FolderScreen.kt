@@ -233,20 +233,3 @@ fun FolderScreen(
         DeleteFolderDialog(card = card, onConfirm = onConfirmDelete, onDismiss = onDismissDelete)
     }
 }
-
-/** 提示＋重試，不是破壞性動作，不用 danger 色（同 HomeScreen.kt 的 HomeErrorRow）。 */
-@Composable
-private fun FolderErrorRow(message: String, onRetry: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.s3, vertical = AppTheme.spacing.s1),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = AppTheme.colors.textDim,
-            modifier = Modifier.weight(1f),
-        )
-        TextButton(onClick = onRetry) { Text("重試") }
-    }
-}

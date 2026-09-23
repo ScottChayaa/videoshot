@@ -37,9 +37,14 @@ object FoldersStore {
         return state.sort.sort(filtered)
     }
 
-    /** null＝有東西可以畫。讀取中一律不算空狀態，否則每次進頁面都會閃一下空畫面。 */
+    /**
+     * null＝有東西可以畫。讀取中一律不算空狀態，否則每次進頁面都會閃一下空畫面。
+     * 讀取失敗也不算——`cards` 這時候一定是空的，但那是「讀不到」不是「真的沒有」，
+     * 不接住的話會被誤判成 `NO_FOLDERS`，對使用者主動說錯話（N2 的回歸測試）。
+     */
     fun emptyKind(state: FoldersState): FoldersEmpty? = when {
         state.loading -> null
+        state.error != null -> null
         state.cards.isEmpty() -> FoldersEmpty.NO_FOLDERS
         visible(state).isEmpty() -> FoldersEmpty.NO_MATCH
         else -> null

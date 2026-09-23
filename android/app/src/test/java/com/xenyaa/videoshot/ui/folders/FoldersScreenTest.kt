@@ -58,6 +58,7 @@ class FoldersScreenTest {
     private var renamed: Pair<Long, String>? = null
     private var deleted: FolderCard? = null
     private var sorted: FolderSort? = null
+    private var retryCalls = 0
 
     /**
      * 用 `mutableStateOf`（不是純 `var`）——回呼在 composable 外的一般 lambda 裡跑，
@@ -85,6 +86,7 @@ class FoldersScreenTest {
                     onAskDelete = { state = FoldersStore.askDelete(state, it) },
                     onDismissEditor = { state = FoldersStore.closeEditor(state) },
                     onDismissDelete = { state = FoldersStore.closeDelete(state) },
+                    onRetry = { retryCalls++ },
                 )
             }
         }
@@ -174,5 +176,20 @@ class FoldersScreenTest {
     fun 對話框的錯誤訊息留在欄位旁邊() {
         show(FoldersState(editor = FolderEditor(null, "旅行", "同一層已經有「旅行」了")))
         compose.onNodeWithText("同一層已經有「旅行」了").assertIsDisplayed()
+    }
+
+    /**
+     * N2 的回歸測試：`folderCards(null)` 讀取失敗時要顯示錯誤列＋重試，不能被空狀態判斷式
+     * 誤判成「還沒有任何分類」——那是對使用者主動說錯話。跟資料夾頁的同一條回歸測試對稱
+     * （`FolderScreenTest.讀取失敗顯示錯誤列不顯示資料夾是空的`）。
+     */
+    @Test
+    fun 讀取失敗顯示錯誤列不顯示還沒有任何分類() {
+        show(FoldersState(cards = emptyList(), error = "載入失敗，請再試一次"))
+        compose.onNodeWithText("載入失敗，請再試一次").assertIsDisplayed()
+        compose.onNodeWithText("還沒有任何分類").assertDoesNotExist()
+
+        compose.onNodeWithText("重試").performClick()
+        assertEquals(1, retryCalls)
     }
 }

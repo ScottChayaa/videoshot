@@ -40,6 +40,16 @@ class FoldersStoreTest {
         assertNull(FoldersStore.emptyKind(FoldersState(cards = emptyList(), loading = true)))
     }
 
+    /**
+     * N2 的回歸測試：`folderCards(null)` 讀取失敗時 `cards` 是空的、`loading` 已經是 false，
+     * 沒接住 `error` 的話會被誤判成 `NO_FOLDERS`，畫面對使用者主動說錯話（「還沒有任何分類」）。
+     * 這是資料夾頁已經修過的同一個 bug（`FolderScreen.kt` 的 `FolderErrorRow`），清單頁沒跟上。
+     */
+    @Test
+    fun 讀取失敗不算任何一種空狀態() {
+        assertNull(FoldersStore.emptyKind(FoldersState(cards = emptyList(), error = "載入失敗，請再試一次")))
+    }
+
     @Test
     fun 新增與改名共用同一個對話框狀態() {
         val creating = FoldersStore.startCreate(FoldersState())

@@ -62,6 +62,8 @@ fun FoldersScreen(
     onAskDelete: (FolderCard) -> Unit,
     onDismissEditor: () -> Unit,
     onDismissDelete: () -> Unit,
+    /** 讀取失敗時〔重試〕要做的事——接到 `FoldersViewModel::reload`。 */
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var sortPicking by remember { mutableStateOf(false) }
@@ -124,6 +126,12 @@ fun FoldersScreen(
             TextButton(onClick = { sortPicking = true }, modifier = Modifier.focusRing()) {
                 Text(state.sort.label)
             }
+        }
+
+        // 讀取失敗不能無聲無息（N2 的回歸測試）——不接住的話，下面的空狀態判斷式會把
+        // 「讀取失敗」誤判成「還沒有任何分類」，主動說錯話。同 FolderScreen.kt 的 FolderErrorRow。
+        if (state.error != null) {
+            FolderErrorRow(message = state.error, onRetry = onRetry)
         }
 
         when (FoldersStore.emptyKind(state)) {
