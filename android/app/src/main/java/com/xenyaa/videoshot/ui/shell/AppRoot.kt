@@ -188,12 +188,6 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
         // 對齊方式跟裡面的動作列同一個安全區：Lightbox 早先就是因為 chrome 畫到系統列下面
         // 被修過一次（統一走 navigationBarsPadding／statusBarsPadding），這裡疊的 host
         // 用同一個 navigationBarsPadding 讓開，不能再讓同一個問題在新地方重演。
-        is Dest.BatchEdit -> {
-            // 批次編輯是全螢幕、沒有底部導覽（規格第六節）。詳細實作在階段 9 的 Task 7
-            // 這裡只是編譯占位符
-            Box(Modifier.fillMaxSize())
-        }
-
         is Dest.Lightbox -> Box(Modifier.fillMaxSize()) {
             // 來源依目前在哪一格切換：分類分頁開著資料夾頁時，左右滑動範圍與「共 M 張」
             // 是那個資料夾本層，不是首頁的 homeState（規格第六節：「資料夾＝該資料夾本層」）。
@@ -341,6 +335,12 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                     onDismiss = { addingTo = null },
                 )
             }
+        }
+
+        is Dest.BatchEdit -> {
+            // 批次編輯是全螢幕、沒有底部導覽（規格第六節）。詳細實作在階段 9 的 Task 7
+            // 這裡只是編譯占位符
+            Box(Modifier.fillMaxSize())
         }
 
         Dest.Root, is Dest.Folder, is Dest.Detail -> AppShell(nav = nav, onSelectTab = { nav = nav.select(it) }, snackbarHostState = snackbarHostState) { tab ->
