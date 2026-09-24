@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -32,6 +33,12 @@ import com.xenyaa.videoshot.wizard.Step3DetailsScreen
  * 標題列跟內容用 `Column` 上下排，不是疊在同一個 `Box` 裡——疊的話內容那一層得自己猜一個
  * padding 去讓開標題列，狀態列高度因裝置而異，猜出來的 56.dp 在真機上蓋住內容
  * （最終審查 Finding 3）。用 `Column` 讓內容照標題列真正量出來的高度自然讓開，不用猜。
+ *
+ * **整個 `Column` 要吃 `navigationBarsPadding()`**——精靈第三步的 [Step3DetailsScreen] 底部
+ * dock（【完成】／【套用到 N 張】按鈕）平常是靠 `WizardScreen` 的 `Scaffold`（沒有另外指定
+ * `contentWindowInsets` 時預設含底部導覽列的 inset）讓開三鍵導覽列；這裡沒有 `Scaffold`，
+ * 同一顆按鈕在實機（三鍵導覽列機種）上會整顆畫到導覽列底下，點不到、Tab 也切不進去
+ * （2026-09-24 實機驗收找到，手勢導覽的裝置量不出這個問題）。
  */
 @Composable
 fun BatchEditScreen(
@@ -51,7 +58,7 @@ fun BatchEditScreen(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.fillMaxSize()) {
+    Column(modifier.fillMaxSize().navigationBarsPadding()) {
         Row(
             Modifier.fillMaxWidth().statusBarsPadding().padding(AppTheme.spacing.s2),
             verticalAlignment = Alignment.CenterVertically,
