@@ -46,6 +46,10 @@ class PaletteTest {
                 check("破壞色對卡片", rgb(p.danger), rgb(p.surface))
                 check("警示色對卡片", rgb(p.warn), rgb(p.surface))
                 check("成功色對卡片", rgb(p.ok), rgb(p.surface))
+                // accent 不只拿來填色，也直接當文字色用（導覽選取的那一格、排序鈕、篩選列的圖示），
+                // 所以它自己也要在底色與卡片上讀得到 —— 亮色系的主色很容易在這裡破功
+                check("主色當文字對底色", rgb(p.accent), rgb(p.bg))
+                check("主色當文字對卡片", rgb(p.accent), rgb(p.surface))
             }
         }
     }
@@ -93,5 +97,30 @@ class PaletteTest {
             listOf(4f, 8f, 12f, 16f, 24f, 32f),
             listOf(Spacing.s1, Spacing.s2, Spacing.s3, Spacing.s4, Spacing.s5, Spacing.s6).map { it.value },
         )
+    }
+
+    /**
+     * 新年主題（節慶）**只做淺色一套** —— 節慶配色不強制備齊深色（見 `ThemeSpec.dark` 的 KDoc）。
+     * 對比檢查已由上面那條測試自動涵蓋它的淺色。
+     */
+    @Test
+    fun 新年主題在註冊表裡且只做淺色() {
+        val newYear = Palettes.ALL.firstOrNull { it.id == "newyear" }
+        assertTrue("新年主題要在 Palettes.ALL 裡，使用者才選得到", newYear != null)
+        assertEquals(null, newYear!!.dark)
+        assertEquals("新年", newYear.label)
+    }
+
+    /** 節慶主題不能把主色換成紅的 —— 紅色要留給破壞性動作（手冊 §零第二條）。 */
+    @Test
+    fun 每個色系的主色都不是紅的() {
+        for (spec in Palettes.ALL) {
+            val a = spec.light.accent
+            val d = spec.light.danger
+            val 色相接近破壞色 = kotlin.math.abs(a.red - d.red) < 0.12f &&
+                kotlin.math.abs(a.green - d.green) < 0.12f &&
+                kotlin.math.abs(a.blue - d.blue) < 0.12f
+            assertTrue("${spec.id} 的主色與破壞色太接近，紅色就分不出是不是破壞性動作了", !色相接近破壞色)
+        }
     }
 }
