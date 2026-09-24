@@ -123,9 +123,27 @@ class RoomLibraryRepo(
         )
     }
 
-    /** ≥3 字走 FTS trigram，<3 字退回 LIKE(規格第八節)；多個關鍵字併集，任一個命中就算(OR)。 */
+    /**
+     * ≥3 字走 FTS trigram，<3 字退回 LIKE(規格第八節)；多個關鍵字併集，任一個命中就算(OR)。
+     *
+     * **併出來的 id 集合會被塞進 `queryFirst`／`queryAfter`／`queryCount` 的 `IN (:keywordIds)`
+     * 兩次(CASE 一次、WHERE 一次)**——SQLite 的 bind 變數上限大約 32766 個，單一關鍵字理論上
+     * 有機會撞到(例如極短、極常見的字，LIKE 掃出全庫一大半)。以這個 app 的定位(單人用的個人相簿，
+     * 規格設定總量上限約 10 萬張)來說，要撞到這個上限代表單一關鍵字命中了圖庫裡相當大的比例，
+     * 判定為可接受的已知特性，不在這個 Task 處理；真的要解可能要改成暫存表或分批查詢。
+     */
     private suspend fun keywordIdsOf(keywords: List<String>): List<Long> =
-        keywords.flatMap { kw -> if (kw.length >= 3) db.searchDao().matchIds(kw) else db.searchDao().likeIds(kw) }.distinct()
+        keywords.flatMap { kw ->
+            if (kw.length >= 3) db.searchDao().matchIds(kw.toFtsPhrase()) else db.searchDao().likeIds(kw)
+        }.distinct()
+
+    /**
+     * 把使用者的自由文字包成 FTS5 的「片語」字面值，避免 `"`、`(`、`)`、`:`、`*` 這些
+     * FTS5 查詢語法的保留字元被誤判成運算子而丟 `fts5: syntax error`。
+     * 關鍵字來自 `RuleBasedParser.parse` 剝除詞彙表命中後剩下的任意文字，不能假設它是乾淨的。
+     * 規則：整段包上雙引號，字串內既有的雙引號雙寫跳脫(SQLite 對帶引號字面值的標準跳脫)。
+     */
+    private fun String.toFtsPhrase(): String = "\"" + this.replace("\"", "\"\"") + "\""
 
     override suspend fun tagsOfShot(shotId: Long): List<String> = withContext(io) {
         db.tagDao().namesOfShot(shotId)

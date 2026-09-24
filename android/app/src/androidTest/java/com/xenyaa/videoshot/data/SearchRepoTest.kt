@@ -146,11 +146,30 @@ class SearchRepoTest {
 
     @Test
     fun searchByQuery_三個字以上的關鍵字走FTS一樣查得到() = runTest {
+        // 關鍵字要真的 >=3 個字元才會走 SearchDao.matchIds(FTS5 trigram)——
+        // 這裡順便也測到 shot_fts 的 update 觸發器(shot_fts_after_update)：
+        // seed 時 description 是 null，靠 updateDescription 才把內容寫進去，FTS 索引要跟著同步更新。
         val id = seedShot("v1", 0.0, "2026-03-01", place = null)
         libraryDb.shotDao().updateDescription(id, "夜裡的大蝦")
 
         val page = repo.searchByQuery(
-            com.xenyaa.videoshot.core.query.ParsedQuery(keywords = listOf("大蝦")),
+            com.xenyaa.videoshot.core.query.ParsedQuery(keywords = listOf("夜裡的")),
+            after = null, limit = 10,
+        )
+
+        assertEquals(listOf(id), page.items.map { it.id })
+    }
+
+    @Test
+    fun searchByQuery_關鍵字含雙引號等FTS保留字元不會丟語法錯誤() = runTest {
+        // RoomLibraryRepo.keywordIdsOf 把 >=3 字的關鍵字包成 FTS5 片語字面值再傳給 matchIds，
+        // 避免 `"`、`(`、`)`、`:`、`*` 這些字元被 FTS5 查詢語法解讀成運算子而丟 fts5: syntax error。
+        // 這裡的關鍵字本身就帶一對雙引號，驗證跳脫(把內嵌的 " 雙寫)之後仍是合法語法、也還查得到。
+        val id = seedShot("v1", 0.0, "2026-03-01", place = null)
+        libraryDb.shotDao().updateDescription(id, "他說\"好吃\"")
+
+        val page = repo.searchByQuery(
+            com.xenyaa.videoshot.core.query.ParsedQuery(keywords = listOf("\"好吃\"")),
             after = null, limit = 10,
         )
 
