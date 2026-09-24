@@ -4,6 +4,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.data.settings.AppSettings
+import com.xenyaa.videoshot.data.settings.NightMode
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
@@ -75,5 +76,38 @@ class AppSettingsTest {
         settings.writeRawFolderSortForTest("這個排序已經不存在了")
 
         assertEquals(FolderSort.NAME_ASC, settings.folderSort.first())
+    }
+
+    /**
+     * 主題（配色）的偏好。存的是色系 id 字串 —— 之後多做幾個節慶主題時，
+     * 這個值就是使用者在帳號頁選過的那一個（階段 11 才有 UI，管線先通）。
+     */
+    @Test
+    fun 主題_id_存得住_預設是空的代表跟著預設色系() = runTest {
+        assertEquals(null, settings.themeId.first())
+
+        settings.setThemeId("christmas")
+
+        assertEquals("christmas", settings.themeId.first())
+    }
+
+    @Test
+    fun 淺深模式預設跟隨系統且存得住() = runTest {
+        assertEquals(NightMode.SYSTEM, settings.nightMode.first())
+
+        settings.setNightMode(NightMode.DARK)
+        assertEquals(NightMode.DARK, settings.nightMode.first())
+
+        settings.setNightMode(NightMode.LIGHT)
+        assertEquals(NightMode.LIGHT, settings.nightMode.first())
+    }
+
+    /** 存 id 字串不是 ordinal —— 認不得的舊值要退回跟隨系統，不是當機。 */
+    @Test
+    fun 認不得的淺深模式退回跟隨系統() = runTest {
+        settings.setNightMode(NightMode.DARK)
+        settings.writeRawNightModeForTest("這個模式已經不存在了")
+
+        assertEquals(NightMode.SYSTEM, settings.nightMode.first())
     }
 }

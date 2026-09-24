@@ -43,6 +43,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
+import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.core.details.Common
 import com.xenyaa.videoshot.core.time.formatClock
 
@@ -189,7 +190,7 @@ private fun Step3Thumb(
                     .align(Alignment.TopStart)
                     .padding(4.dp)
                     .size(8.dp)
-                    .background(Color(0xFF2E7D32), CircleShape),
+                    .background(AppTheme.colors.ok, CircleShape),
             )
         }
     }

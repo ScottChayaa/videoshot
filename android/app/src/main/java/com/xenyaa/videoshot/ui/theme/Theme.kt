@@ -69,10 +69,10 @@ fun VideoshotTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    val palette = if (darkTheme) spec.dark else spec.light
+    val palette = spec.paletteFor(darkTheme)
     CompositionLocalProvider(LocalPalette provides palette) {
         MaterialTheme(
-            colorScheme = palette.toColorScheme(darkTheme),
+            colorScheme = palette.toColorScheme(spec.usesDarkScheme(darkTheme)),
             typography = Typography,
             content = content,
         )

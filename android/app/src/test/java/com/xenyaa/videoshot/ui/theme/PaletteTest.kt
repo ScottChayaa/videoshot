@@ -18,13 +18,20 @@ class PaletteTest {
     private fun rgb(color: androidx.compose.ui.graphics.Color): Int = color.toArgb() and 0xFFFFFF
 
     /**
-     * 每個色系、淺深各一套，都要通過 AA 的 4.5:1。
+     * 每個色系**做了的每一套**都要通過 AA 的 4.5:1。
      * **新增色系時這個測試會自動涵蓋它** —— Palettes.ALL 是唯一的註冊表。
+     *
+     * `dark` 是選配（節慶主題可以只做淺色），所以深色那一套只在有做的時候檢查；
+     * 「只有淺色」本身不是缺陷，但做了就要合格。
      */
     @Test
     fun 每個色系的文字與語意色都過_AA() {
         for (spec in Palettes.ALL) {
-            for ((mode, p) in listOf("淺色" to spec.light, "深色" to spec.dark)) {
+            val sets = buildList {
+                add("淺色" to spec.light)
+                spec.dark?.let { add("深色" to it) }
+            }
+            for ((mode, p) in sets) {
                 fun check(label: String, fg: Int, bg: Int) {
                     val ratio = contrastRatio(fg, bg)
                     assertTrue("${spec.id} $mode 的 $label 只有 ${"%.2f".format(ratio)}:1，低於 4.5", ratio >= 4.5)
@@ -48,7 +55,7 @@ class PaletteTest {
     fun Lightbox_的底不透明() {
         for (spec in Palettes.ALL) {
             assertEquals(1f, spec.light.lightboxBg.alpha, 0f)
-            assertEquals(1f, spec.dark.lightboxBg.alpha, 0f)
+            spec.dark?.let { assertEquals(1f, it.lightboxBg.alpha, 0f) }
         }
     }
 

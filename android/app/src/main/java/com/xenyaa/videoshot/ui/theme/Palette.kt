@@ -67,5 +67,23 @@ data class ThemeSpec(
     val id: String,
     val label: String,
     val light: Palette,
-    val dark: Palette,
+    /**
+     * 深色的那一套。**可以不做**（節慶主題通常只配一套顏色）——
+     * 留 null 時深色模式沿用 [light]，而不是掉回預設色系：
+     * 使用者選了聖誕卻在晚上看到靛藍，會以為主題壞了。
+     *
+     * 預設色系（`Palettes.DEFAULT`）例外，它一定要兩套都有，`ThemeSpecTest` 會擋。
+     */
+    val dark: Palette? = null,
 )
+
+/** 這個模式實際要用哪一套配色。 */
+fun ThemeSpec.paletteFor(dark: Boolean): Palette = if (dark) this.dark ?: light else light
+
+/**
+ * Material3 的底層 `ColorScheme` 要不要用深色的那一份。
+ *
+ * 跟著**實際用的配色**走，不是跟著系統走 —— 只有淺色的主題在深色模式下用的是淺色配色，
+ * 底層 scheme 若還套深色，現成元件（Button／TextField）的預設值會跟 token 打架。
+ */
+fun ThemeSpec.usesDarkScheme(dark: Boolean): Boolean = dark && this.dark != null

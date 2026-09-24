@@ -81,6 +81,32 @@ class AppSettings(context: Context) : ShellSettings {
     }
 
     /**
+     * 使用者選的色系 id（`Palettes.ALL` 裡那個 `ThemeSpec.id`）。
+     *
+     * null＝沒選過，用預設色系。**這裡刻意不回傳 `ThemeSpec`** —— 那是 UI 層的型別，
+     * 資料層不該認得它；由套用主題的地方（`MainActivity`）用 `Palettes.byId(id)` 解析，
+     * 認不得的 id（主題被移除、使用者降級）就自動退回預設。
+     */
+    val themeId: Flow<String?> = store.data.map { it[THEME_ID] }
+
+    suspend fun setThemeId(id: String) {
+        store.edit { it[THEME_ID] = id }
+    }
+
+    /** 淺色／深色要聽誰的（預設跟隨系統）。 */
+    val nightMode: Flow<NightMode> = store.data.map { NightMode.byId(it[NIGHT_MODE]) }
+
+    suspend fun setNightMode(value: NightMode) {
+        store.edit { it[NIGHT_MODE] = value.id }
+    }
+
+    /** 只給測試用：塞一個認不得的值，驗證讀取端會退回跟隨系統。 */
+    @VisibleForTesting
+    suspend fun writeRawNightModeForTest(raw: String) {
+        store.edit { it[NIGHT_MODE] = raw }
+    }
+
+    /**
      * 把所有設定值清空。**只給測試用**——DataStore 是裝置上的真實檔案，
      * 儀器測試跑在同一支手機、同一個已安裝的 app 上，不會像重灌一樣自動歸零，
      * 每個測試不各自清掉自己用到的值，上一輪留下的狀態就會讓下一輪的斷言失真。
@@ -97,5 +123,7 @@ class AppSettings(context: Context) : ShellSettings {
         val GRID_HINT_SEEN = booleanPreferencesKey("grid_hint_seen")
         val LIGHTBOX_HINT_SEEN = booleanPreferencesKey("lightbox_hint_seen")
         val FOLDER_SORT = stringPreferencesKey("folder_sort")
+        val THEME_ID = stringPreferencesKey("theme_id")
+        val NIGHT_MODE = stringPreferencesKey("night_mode")
     }
 }
