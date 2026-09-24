@@ -1,6 +1,9 @@
 package com.xenyaa.videoshot.data.settings
 
 import android.content.Context
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import android.util.Base64
 import androidx.annotation.VisibleForTesting
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -9,10 +12,17 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.core.similarity.FilterStrength
+import java.security.KeyStore
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
+
+private const val GEMINI_KEYSTORE_ALIAS = "gemini_key_wrap"
 
 /**
  * 裝置本地的設定值，**不進備份**（規格第四節）。
@@ -107,6 +117,63 @@ class AppSettings(context: Context) : ShellSettings {
     }
 
     /**
+     * Gemini 金鑰（規格第四節：「以 Android Keystore 的金鑰加密後存 DataStore」）。
+     * 換裝置、清除 app 資料、或 Keystore 本身被系統清掉的話，舊密文解不開——
+     * 讀取失敗一律當成「沒有金鑰」，不拋例外（這一格本來就允許沒有值，找不到就是找不到）。
+     *
+     * 這裡只做存取層；輸入這個值的畫面是階段 11 帳號頁 T11.3 的範圍（見 Task 7 的 KDoc）。
+     */
+    val geminiKey: Flow<String?> = store.data.map { prefs ->
+        val raw = prefs[GEMINI_KEY] ?: return@map null
+        decryptGeminiKey(raw)
+    }
+
+    suspend fun setGeminiKey(plain: String) {
+        store.edit { it[GEMINI_KEY] = encryptGeminiKey(plain) }
+    }
+
+    suspend fun clearGeminiKey() {
+        store.edit { it.remove(GEMINI_KEY) }
+    }
+
+    private fun geminiSecretKey(): SecretKey {
+        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        (keyStore.getKey(GEMINI_KEYSTORE_ALIAS, null) as? SecretKey)?.let { return it }
+        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+        generator.init(
+            KeyGenParameterSpec.Builder(
+                GEMINI_KEYSTORE_ALIAS,
+                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
+            )
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .build()
+        )
+        return generator.generateKey()
+    }
+
+    /** 密文格式：`base64(iv) + ":" + base64(密文)`——DataStore 只存字串，GCM 的 iv 要跟密文一起存。 */
+    private fun encryptGeminiKey(plain: String): String {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply {
+            init(Cipher.ENCRYPT_MODE, geminiSecretKey())
+        }
+        val ciphertext = cipher.doFinal(plain.toByteArray(Charsets.UTF_8))
+        val iv = Base64.encodeToString(cipher.iv, Base64.NO_WRAP)
+        val body = Base64.encodeToString(ciphertext, Base64.NO_WRAP)
+        return "$iv:$body"
+    }
+
+    private fun decryptGeminiKey(encoded: String): String? = runCatching {
+        val (ivB64, bodyB64) = encoded.split(":", limit = 2)
+        val iv = Base64.decode(ivB64, Base64.NO_WRAP)
+        val ciphertext = Base64.decode(bodyB64, Base64.NO_WRAP)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply {
+            init(Cipher.DECRYPT_MODE, geminiSecretKey(), GCMParameterSpec(128, iv))
+        }
+        String(cipher.doFinal(ciphertext), Charsets.UTF_8)
+    }.getOrNull()
+
+    /**
      * 把所有設定值清空。**只給測試用**——DataStore 是裝置上的真實檔案，
      * 儀器測試跑在同一支手機、同一個已安裝的 app 上，不會像重灌一樣自動歸零，
      * 每個測試不各自清掉自己用到的值，上一輪留下的狀態就會讓下一輪的斷言失真。
@@ -125,5 +192,6 @@ class AppSettings(context: Context) : ShellSettings {
         val FOLDER_SORT = stringPreferencesKey("folder_sort")
         val THEME_ID = stringPreferencesKey("theme_id")
         val NIGHT_MODE = stringPreferencesKey("night_mode")
+        val GEMINI_KEY = stringPreferencesKey("gemini_key")
     }
 }

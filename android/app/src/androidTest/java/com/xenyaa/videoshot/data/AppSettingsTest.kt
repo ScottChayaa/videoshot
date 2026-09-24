@@ -10,6 +10,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -109,5 +110,30 @@ class AppSettingsTest {
         settings.writeRawNightModeForTest("這個模式已經不存在了")
 
         assertEquals(NightMode.SYSTEM, settings.nightMode.first())
+    }
+
+    @Test
+    fun 沒設定過金鑰時是null() = runBlocking {
+        assertNull(settings.geminiKey.first())
+    }
+
+    @Test
+    fun 金鑰存得住也讀得回來() = runBlocking {
+        settings.setGeminiKey("AIzaSyExampleKey1234567890")
+        assertEquals("AIzaSyExampleKey1234567890", settings.geminiKey.first())
+    }
+
+    @Test
+    fun 清除後回到null() = runBlocking {
+        settings.setGeminiKey("k")
+        settings.clearGeminiKey()
+        assertNull(settings.geminiKey.first())
+    }
+
+    @Test
+    fun 覆蓋舊金鑰() = runBlocking {
+        settings.setGeminiKey("first")
+        settings.setGeminiKey("second")
+        assertEquals("second", settings.geminiKey.first())
     }
 }
