@@ -22,6 +22,9 @@ sealed interface Dest {
 
     /** @param startIndex 開啟時停在清單的第幾張；之後左右滑動由 Lightbox 自己記 */
     data class Lightbox(val startIndex: Int) : Dest
+
+    /** 分類分頁裡的一個資料夾。**只存 id**——名稱與內容每次進來重新查，改名之後標題才會對 */
+    data class Folder(val folderId: Long) : Dest
 }
 
 /**
@@ -63,6 +66,13 @@ data class NavState(
         if (tab != Tab.HOME) return copy(tab = Tab.HOME)
         return null
     }
+
+    /**
+     * 分類分頁目前打開的資料夾（Lightbox 疊在它上面時也問得出來）。
+     * 取堆疊裡**最後一個** `Dest.Folder`：資料夾可以一層一層往下開。
+     */
+    fun openFolderId(): Long? =
+        stacks.getValue(Tab.FOLDERS).filterIsInstance<Dest.Folder>().lastOrNull()?.folderId
 }
 
 /**
@@ -81,6 +91,7 @@ object NavCodec {
                 when (dest) {
                     is Dest.Root -> "R"
                     is Dest.Lightbox -> "L${dest.startIndex}"
+                    is Dest.Folder -> "F${dest.folderId}"
                 }
             }
             "${tab.name}=$items"
@@ -101,6 +112,7 @@ object NavCodec {
                 when {
                     item == "R" -> Dest.Root
                     item.startsWith("L") -> Dest.Lightbox(item.drop(1).toIntOrNull() ?: return NavState())
+                    item.startsWith("F") -> Dest.Folder(item.drop(1).toLongOrNull() ?: return NavState())
                     else -> return NavState()
                 }
             }

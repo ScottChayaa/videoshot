@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -64,6 +65,22 @@ class AppSettings(context: Context) : ShellSettings {
     }
 
     /**
+     * 分類清單頁的排序。存 id 字串而不是 ordinal —— 理由同 [filterStrength]：
+     * enum 之後若調整順序，ordinal 會讓舊值指到別的排序。
+     */
+    override val folderSort: Flow<FolderSort> = store.data.map { FolderSort.byId(it[FOLDER_SORT]) }
+
+    override suspend fun setFolderSort(value: FolderSort) {
+        store.edit { it[FOLDER_SORT] = value.id }
+    }
+
+    /** 只給測試用：塞一個認不得的值，驗證讀取端會退回預設。 */
+    @VisibleForTesting
+    suspend fun writeRawFolderSortForTest(raw: String) {
+        store.edit { it[FOLDER_SORT] = raw }
+    }
+
+    /**
      * 把所有設定值清空。**只給測試用**——DataStore 是裝置上的真實檔案，
      * 儀器測試跑在同一支手機、同一個已安裝的 app 上，不會像重灌一樣自動歸零，
      * 每個測試不各自清掉自己用到的值，上一輪留下的狀態就會讓下一輪的斷言失真。
@@ -79,5 +96,6 @@ class AppSettings(context: Context) : ShellSettings {
         val FILTER_STRENGTH = stringPreferencesKey("filter_strength")
         val GRID_HINT_SEEN = booleanPreferencesKey("grid_hint_seen")
         val LIGHTBOX_HINT_SEEN = booleanPreferencesKey("lightbox_hint_seen")
+        val FOLDER_SORT = stringPreferencesKey("folder_sort")
     }
 }

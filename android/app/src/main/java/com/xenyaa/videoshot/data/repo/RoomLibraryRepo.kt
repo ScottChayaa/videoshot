@@ -3,15 +3,20 @@ package com.xenyaa.videoshot.data.repo
 import androidx.room.Transactor
 import androidx.room.useWriterConnection
 import com.xenyaa.videoshot.core.home.nextMonthStart
+import com.xenyaa.videoshot.core.paging.FolderCursor
 import com.xenyaa.videoshot.core.paging.ShotCursor
 import com.xenyaa.videoshot.data.library.LibraryDatabase
 import com.xenyaa.videoshot.data.library.dao.ShotRowProjection
 import com.xenyaa.videoshot.data.library.entity.FolderEntity
 import com.xenyaa.videoshot.data.library.entity.ShotEntity
+import com.xenyaa.videoshot.data.library.entity.ShotFolderEntity
 import com.xenyaa.videoshot.data.library.entity.ShotImageEntity
 import com.xenyaa.videoshot.data.library.entity.ShotTagEntity
 import com.xenyaa.videoshot.data.library.entity.TagEntity
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
+import com.xenyaa.videoshot.data.repo.model.FolderCard
+import com.xenyaa.videoshot.data.repo.model.FolderNode
+import com.xenyaa.videoshot.data.repo.model.FolderPage
 import com.xenyaa.videoshot.data.repo.model.MonthCount
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
@@ -191,6 +196,84 @@ class RoomLibraryRepo(
         }
         onChanged()
         id
+    }
+
+    override suspend fun renameFolder(id: Long, name: String): Unit = withContext(io) {
+        require(name.isNotBlank()) { "資料夾名稱不可空白" }
+        require(name.length <= 50) { "資料夾名稱上限 50 字，收到 ${name.length} 字" }
+        db.inWriteTransaction {
+            val parentId = db.folderDao().parentOf(id)
+            require(db.folderDao().countSameNameInLayerExcept(parentId, name, id) == 0) {
+                "同一層已經有「$name」了"
+            }
+            db.folderDao().rename(id, name)
+        }
+        onChanged()
+    }
+
+    override suspend fun deleteFolder(id: Long): Unit = withContext(io) {
+        // 子資料夾與 shot_folder 都是 ON DELETE CASCADE，刪這一列就夠；shot 不在連動範圍內
+        db.folderDao().deleteById(id)
+        onChanged()
+    }
+
+    override suspend fun folderNode(id: Long): FolderNode? = withContext(io) {
+        db.folderDao().nodeById(id)?.let { FolderNode(it.id, it.parentId, it.name, it.depth) }
+    }
+
+    override suspend fun folderTree(): List<FolderNode> = withContext(io) {
+        db.folderDao().tree().map { FolderNode(it.id, it.parentId, it.name, it.depth) }
+    }
+
+    override suspend fun folderCards(parentId: Long?): List<FolderCard> = withContext(io) {
+        val cards = db.folderDao().cardsIn(parentId)
+        val previews = db.folderDao().previewsIn(parentId).groupBy { it.cardId }
+        cards.map { card ->
+            FolderCard(
+                id = card.id,
+                name = card.name,
+                shotCount = card.shotCount,
+                // 一張圖都沒有的資料夾用建立時間當「最近活動」，「最近加入」排序才排得出先後
+                lastActivityAt = card.lastAddedAt ?: card.createdAt,
+                preview = previews[card.id].orEmpty().map { it.shot.toRow() },
+            )
+        }
+    }
+
+    override suspend fun folderShots(folderId: Long, after: FolderCursor?, limit: Int): FolderPage =
+        withContext(io) {
+            val rows = if (after == null) {
+                db.folderDao().shotsFirst(folderId, limit)
+            } else {
+                db.folderDao().shotsAfter(folderId, after.addedAt, after.shotId, limit)
+            }
+            // 撈滿才可能有下一頁；游標的 added_at 要回查，它不在 shot 的欄位裡
+            val next = if (rows.size < limit) {
+                null
+            } else {
+                rows.last().let { last ->
+                    db.folderDao().addedAtOf(folderId, last.id)?.let { FolderCursor(it, last.id) }
+                }
+            }
+            FolderPage(rows.map { it.toRow() }, next)
+        }
+
+    override suspend fun folderShotCount(folderId: Long): Int = withContext(io) {
+        db.folderDao().shotCountIn(folderId)
+    }
+
+    override suspend fun foldersOf(shotId: Long): Set<Long> = withContext(io) {
+        db.folderDao().folderIdsOf(shotId).toSet()
+    }
+
+    override suspend fun addShotToFolder(shotId: Long, folderId: Long, atSec: Long): Unit = withContext(io) {
+        db.folderDao().link(ShotFolderEntity(shotId, folderId, atSec))
+        onChanged()
+    }
+
+    override suspend fun removeShotFromFolder(shotId: Long, folderId: Long): Unit = withContext(io) {
+        db.folderDao().unlink(shotId, folderId)
+        onChanged()
     }
 }
 

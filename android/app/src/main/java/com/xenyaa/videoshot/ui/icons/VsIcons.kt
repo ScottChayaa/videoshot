@@ -88,6 +88,8 @@ object VsIcons {
 
     val Close: ImageVector by lazy { strokeIcon("close", "M18 6 6 18", "m6 6 12 12") }
 
+    val Back: ImageVector by lazy { strokeIcon("back", "M19 12H5", "m12 19-7-7 7-7") }
+
     val Play: ImageVector by lazy { strokeIcon("play", "M6 3 20 12 6 21Z") }
 
     val Share: ImageVector by lazy {
@@ -124,4 +126,6 @@ object VsIcons {
             "M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2",
         )
     }
+
+    val Check: ImageVector by lazy { strokeIcon("check", "M20 6 9 17l-5-5") }
 }

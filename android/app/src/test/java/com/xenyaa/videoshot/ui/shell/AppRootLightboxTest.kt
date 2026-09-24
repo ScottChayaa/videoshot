@@ -9,6 +9,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
+import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.core.paging.ShotCursor
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.youtube.FetchResult
@@ -19,8 +20,6 @@ import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.CacheRepo
 import com.xenyaa.videoshot.data.repo.LibraryRepo
-import com.xenyaa.videoshot.data.repo.model.MonthCount
-import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.NewShot
 import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
@@ -72,22 +71,16 @@ class AppRootLightboxTest {
     )
 
     /** `HomeViewModel` 自己的分頁／篩選邊界已經有 `HomeViewModelTest` 釘住，這裡只要撈得到資料。 */
-    private class FakeLibraryRepo(seed: List<ShotRow>) : LibraryRepo {
+    private class FakeLibraryRepo(seed: List<ShotRow>) : com.xenyaa.videoshot.data.repo.FakeLibraryRepo() {
         var items: List<ShotRow> = seed
         var nextId = 100L
         val patchCalls = mutableListOf<Pair<List<Long>, ShotPatch>>()
         val deleteCalls = mutableListOf<Long>()
 
         override suspend fun homeFeed(after: ShotCursor?, limit: Int, upToMonth: String?) = Page(items, null)
-        override suspend fun monthCounts(): List<MonthCount> = emptyList()
         override suspend fun shotsOfVideo(videoId: String) = items.filter { it.videoId == videoId }
         override suspend fun shotById(id: Long) = items.find { it.id == id }
         override suspend fun shotCount(upToMonth: String?) = items.size
-        override suspend fun monthFacets(month: String): List<MonthFacet> = emptyList()
-        override suspend fun tagsOfShot(shotId: Long): List<String> = emptyList()
-        override suspend fun commitPicks(video: VideoEntity, picks: List<NewShot>): List<Long> = emptyList()
-        override suspend fun distinctPlaces(): List<String> = emptyList()
-        override suspend fun allTagNames(): List<String> = emptyList()
         override suspend fun patchShots(ids: List<Long>, patch: ShotPatch) {
             patchCalls += ids to patch
             items = items.map { row ->
@@ -104,10 +97,6 @@ class AppRootLightboxTest {
             items = items.filterNot { it.id == id }
         }
         override suspend fun deleteVideo(videoId: String) { items = items.filterNot { it.videoId == videoId } }
-        override suspend fun createFolder(parentId: Long?, name: String): Long = 0L
-        override suspend fun shotImage(shotId: Long): ByteArray? = null
-        override suspend fun recentVideos(limit: Int): List<RecentVideo> = emptyList()
-        override suspend fun takenFrameIndexes(videoId: String, level: Int): Set<Int> = emptySet()
     }
 
     private class FakeCacheRepo : CacheRepo {
@@ -152,6 +141,8 @@ class AppRootLightboxTest {
         override suspend fun markGridHintSeen() = Unit
         override val lightboxHintSeen = flowOf(true) // 提示已看過：測試不用先滑一次把提示蓋掉
         override suspend fun markLightboxHintSeen() = Unit
+        override val folderSort = flowOf(FolderSort.NAME_ASC)
+        override suspend fun setFolderSort(value: FolderSort) = Unit
     }
 
     private class Fixture(seed: List<ShotRow>) : AppRootDeps {
@@ -271,13 +262,16 @@ class AppRootLightboxTest {
         )
     }
 
-    // ---- 6：階段 8／9 還沒做好的兩個按鈕要有反應，不是靜默不做事 ----
+    // ---- 6：階段 9 還沒做好的按鈕要有反應，不是靜默不做事 ----
     //
-    // 兩個都**不關 Lightbox 就直接斷言**：Lightbox 換掉整個 AppShell，原本只有 AppShell
+    // **不關 Lightbox 就直接斷言**：Lightbox 換掉整個 AppShell，原本只有 AppShell
     // 的 Scaffold 裡才有 SnackbarHost，訊息要等關掉 Lightbox 回到首頁才看得到——使用者
     // 在 Lightbox 裡按下去的當下等於什麼都沒發生。這裡疊了一顆自己的 SnackbarHost
-    // 修掉這個洞（AppRoot.kt 的 Dest.Lightbox 分支），這兩個測試就是釘住修好之後的樣子：
+    // 修掉這個洞（AppRoot.kt 的 Dest.Lightbox 分支），這個測試就是釘住修好之後的樣子：
     // 訊息要在 Lightbox**還開著**的時候就看得到。
+    //
+    // 加入分類原本也是這種「還沒做好」的 snackbar，階段 8 接上之後改成真的開
+    // AddToFolderSheet——那段行為由 AppRootFoldersTest 覆蓋，不留在這裡重複斷言舊訊息。
 
     @Test
     fun 播放這一段還沒做好_跳出說明用的_snackbar() {
@@ -285,14 +279,6 @@ class AppRootLightboxTest {
         compose.onNodeWithContentDescription("片段縮圖 00:10").performClick()
         compose.onNodeWithText("播放這一段").performClick()
         compose.onNodeWithText("播放頁在階段 9").assertIsDisplayed()
-    }
-
-    @Test
-    fun 加入分類還沒做好_跳出說明用的_snackbar() {
-        show()
-        compose.onNodeWithContentDescription("片段縮圖 00:10").performClick()
-        compose.onNodeWithContentDescription("加入分類").performClick()
-        compose.onNodeWithText("分類在階段 8").assertIsDisplayed()
     }
 
     // ---- 7：編輯 sheet 存檔要走 repo，而且要同步回首頁清單 ----

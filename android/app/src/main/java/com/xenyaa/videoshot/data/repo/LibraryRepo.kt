@@ -1,7 +1,11 @@
 package com.xenyaa.videoshot.data.repo
 
+import com.xenyaa.videoshot.core.paging.FolderCursor
 import com.xenyaa.videoshot.core.paging.ShotCursor
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
+import com.xenyaa.videoshot.data.repo.model.FolderCard
+import com.xenyaa.videoshot.data.repo.model.FolderNode
+import com.xenyaa.videoshot.data.repo.model.FolderPage
 import com.xenyaa.videoshot.data.repo.model.MonthCount
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
@@ -58,6 +62,26 @@ interface LibraryRepo {
     /** 建資料夾。同層不重名、深度上限 5、名稱上限 50 —— 違反時丟 IllegalArgumentException。 */
     suspend fun createFolder(parentId: Long?, name: String): Long
 
+    /** 改名。同層不重名（不跟自己比）、名稱上限 50 —— 違反時丟 IllegalArgumentException。 */
+    suspend fun renameFolder(id: Long, name: String)
+
+    /** 刪資料夾：子資料夾與所有關聯一併刪，**圖不動**（規格第六節）。 */
+    suspend fun deleteFolder(id: Long)
+
+    /** 單一資料夾，附層數；不存在回 null。 */
+    suspend fun folderNode(id: Long): FolderNode?
+
+    /** 整棵樹（【加入分類】的 sheet 要一次畫完）。順序未定義，畫面自己排。 */
+    suspend fun folderTree(): List<FolderNode>
+
+    /**
+     * 某一層的資料夾卡片（含子孫張數、最近加入時間、最多 4 張預覽）。
+     * `parentId = null` 是根層 —— 清單頁要的就是它；資料夾頁上半用該資料夾的 id。
+     *
+     * **沒有排序也沒有篩選**：兩者都在 `:core` 的 `FolderSort` 與畫面的 Store 做（見階段 8 計畫 Task 2）。
+     */
+    suspend fun folderCards(parentId: Long?): List<FolderCard>
+
     /** 手動補圖的 WebP 位元組；不是手動圖或圖不見了就回 null。 */
     suspend fun shotImage(shotId: Long): ByteArray?
 
@@ -72,4 +96,19 @@ interface LibraryRepo {
      * 這次解析到 L3 的話，兩邊的格號互不相干，不能混在一起。
      */
     suspend fun takenFrameIndexes(videoId: String, level: Int): Set<Int>
+
+    /** 資料夾**本層**的圖,新加入在前,keyset 分頁。 */
+    suspend fun folderShots(folderId: Long, after: FolderCursor?, limit: Int): FolderPage
+
+    /** 資料夾本層的總張數 ——從資料夾頁開 Lightbox 時的「共 M 張」。 */
+    suspend fun folderShotCount(folderId: Long): Int
+
+    /** 這張圖在哪些資料夾(【加入分類】的勾勾)。 */
+    suspend fun foldersOf(shotId: Long): Set<Long>
+
+    /** 加入資料夾。已經在裡面的話什麼都不做。@param atSec 只有測試會指定 */
+    suspend fun addShotToFolder(shotId: Long, folderId: Long, atSec: Long = System.currentTimeMillis() / 1000)
+
+    /** 移出資料夾。圖本身不動。 */
+    suspend fun removeShotFromFolder(shotId: Long, folderId: Long)
 }

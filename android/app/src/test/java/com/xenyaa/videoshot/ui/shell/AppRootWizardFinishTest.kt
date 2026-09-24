@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.core.home.monthLabel
 import com.xenyaa.videoshot.core.paging.ShotCursor
 import com.xenyaa.videoshot.core.similarity.FilterStrength
@@ -17,12 +18,9 @@ import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.CacheRepo
 import com.xenyaa.videoshot.data.repo.LibraryRepo
-import com.xenyaa.videoshot.data.repo.model.MonthCount
-import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.NewShot
 import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
-import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.data.settings.ShellSettings
 import com.xenyaa.videoshot.thumbs.ThumbKey
@@ -83,7 +81,7 @@ class AppRootWizardFinishTest {
     /** 同一份 repo 同時餵首頁跟接住精靈的 `commit`——跟正式環境 `AppContainer.wizardData.commit`
      * 直接呼叫 `libraryRepo.commitPicks` 是同一條路徑，「reload 撈得到新圖」才是真的整合檢查，
      * 不是擺拍。 */
-    private class FakeLibraryRepo(seed: List<ShotRow>) : LibraryRepo {
+    private class FakeLibraryRepo(seed: List<ShotRow>) : com.xenyaa.videoshot.data.repo.FakeLibraryRepo() {
         var items: List<ShotRow> = seed
         var nextId = 1000L
         val homeFeedCalls = mutableListOf<Unit>()
@@ -92,12 +90,9 @@ class AppRootWizardFinishTest {
             homeFeedCalls += Unit
             return Page(items, null)
         }
-        override suspend fun monthCounts(): List<MonthCount> = emptyList()
         override suspend fun shotsOfVideo(videoId: String) = items.filter { it.videoId == videoId }
         override suspend fun shotById(id: Long) = items.find { it.id == id }
         override suspend fun shotCount(upToMonth: String?) = items.size
-        override suspend fun monthFacets(month: String): List<MonthFacet> = emptyList()
-        override suspend fun tagsOfShot(shotId: Long): List<String> = emptyList()
         override suspend fun commitPicks(video: VideoEntity, picks: List<NewShot>): List<Long> {
             val newRows = picks.map { p ->
                 ShotRow(
@@ -109,15 +104,6 @@ class AppRootWizardFinishTest {
             items = items + newRows // 接在後面——舊資料排在前面，新圖的月份才會落在畫面捲得到的最後面
             return newRows.map { it.id }
         }
-        override suspend fun distinctPlaces(): List<String> = emptyList()
-        override suspend fun allTagNames(): List<String> = emptyList()
-        override suspend fun patchShots(ids: List<Long>, patch: ShotPatch) = Unit
-        override suspend fun deleteShot(id: Long) = Unit
-        override suspend fun deleteVideo(videoId: String) = Unit
-        override suspend fun createFolder(parentId: Long?, name: String): Long = 0L
-        override suspend fun shotImage(shotId: Long): ByteArray? = null
-        override suspend fun recentVideos(limit: Int): List<RecentVideo> = emptyList()
-        override suspend fun takenFrameIndexes(videoId: String, level: Int): Set<Int> = emptySet()
     }
 
     private class FakeCacheRepo : CacheRepo {
@@ -163,6 +149,8 @@ class AppRootWizardFinishTest {
         override suspend fun markGridHintSeen() = Unit
         override val lightboxHintSeen = flowOf(true)
         override suspend fun markLightboxHintSeen() = Unit
+        override val folderSort = flowOf(FolderSort.NAME_ASC)
+        override suspend fun setFolderSort(value: FolderSort) = Unit
     }
 
     private class Fixture(seed: List<ShotRow>) : AppRootDeps {

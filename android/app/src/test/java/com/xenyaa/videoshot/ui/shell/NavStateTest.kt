@@ -77,4 +77,23 @@ class NavStateTest {
         assertEquals(Tab.CAPTURE, corrupted.returnTo)
         assertNull(corrupted.pop())
     }
+
+    @Test
+    fun 資料夾頁存得住也讀得回來() {
+        val nav = NavState().select(Tab.FOLDERS).push(Dest.Folder(42)).push(Dest.Lightbox(3))
+        assertEquals(nav, NavCodec.decode(NavCodec.encode(nav)))
+    }
+
+    @Test
+    fun 壞掉的資料夾編碼退回預設() {
+        assertEquals(NavState(), NavCodec.decode("HOME|HOME|HOME=R;SEARCH=R;CAPTURE=R;FOLDERS=R,F不是數字;ACCOUNT=R"))
+    }
+
+    /** Lightbox 疊在資料夾頁上面時，要問得出「現在開的是哪個資料夾」。 */
+    @Test
+    fun 問得出目前打開的資料夾() {
+        val nav = NavState().select(Tab.FOLDERS).push(Dest.Folder(42)).push(Dest.Lightbox(0))
+        assertEquals(42L, nav.openFolderId())
+        assertNull(NavState().openFolderId())
+    }
 }
