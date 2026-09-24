@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.data.repo.model
 
 import com.xenyaa.videoshot.core.folders.SortableFolder
 import com.xenyaa.videoshot.core.paging.FolderCursor
+import com.xenyaa.videoshot.core.paging.SearchCursor
 
 /**
  * 清單頁與資料夾頁上半共用的一張卡片。
@@ -36,3 +37,6 @@ data class FolderNode(
  * 不共用首頁的 [Page]：那個的游標型別是 `ShotCursor`（拍攝日期），資料夾內排的是加入時間。
  */
 data class FolderPage(val items: List<ShotRow>, val next: FolderCursor?)
+
+/** 文字查詢結果的一頁；游標是 [SearchCursor]（含相關度），跟 [Page] 的 [ShotCursor] 不同型別。 */
+data class SearchPage(val items: List<ShotRow>, val next: SearchCursor?)

@@ -115,4 +115,69 @@ class SearchRepoTest {
 
         assertEquals(1, count)
     }
+
+    @Test
+    fun searchByQuery_相關度地點大於標籤大於關鍵字() = runTest {
+        val byPlace = seedShot("v1", 0.0, "2026-03-01", place = "宜蘭")
+        val byTag = seedShot("v1", 10.0, "2026-03-01", place = null, tagNames = listOf("露營"))
+        val byKeyword = seedShot("v1", 20.0, "2026-03-01", place = null)
+        libraryDb.shotDao().updateDescription(byKeyword, "大蝦")
+
+        val page = repo.searchByQuery(
+            com.xenyaa.videoshot.core.query.ParsedQuery(places = listOf("宜蘭"), tags = listOf("露營"), keywords = listOf("大蝦")),
+            after = null, limit = 10,
+        )
+
+        assertEquals(listOf(byPlace, byTag, byKeyword), page.items.map { it.id })
+    }
+
+    @Test
+    fun searchByQuery_兩個字的關鍵字也查得到_對應手冊驗收案例24() = runTest {
+        val id = seedShot("v1", 0.0, "2026-03-01", place = null)
+        libraryDb.shotDao().updateDescription(id, "大蝦")
+
+        val page = repo.searchByQuery(
+            com.xenyaa.videoshot.core.query.ParsedQuery(keywords = listOf("大蝦")),
+            after = null, limit = 10,
+        )
+
+        assertEquals(listOf(id), page.items.map { it.id })
+    }
+
+    @Test
+    fun searchByQuery_三個字以上的關鍵字走FTS一樣查得到() = runTest {
+        val id = seedShot("v1", 0.0, "2026-03-01", place = null)
+        libraryDb.shotDao().updateDescription(id, "夜裡的大蝦")
+
+        val page = repo.searchByQuery(
+            com.xenyaa.videoshot.core.query.ParsedQuery(keywords = listOf("大蝦")),
+            after = null, limit = 10,
+        )
+
+        assertEquals(listOf(id), page.items.map { it.id })
+    }
+
+    @Test
+    fun searchByQuery_keyset分頁不重複不遺漏() = runTest {
+        val ids = (1..5).map { seedShot("v1", it.toDouble(), "2026-03-0$it", place = "宜蘭") }
+
+        val first = repo.searchByQuery(com.xenyaa.videoshot.core.query.ParsedQuery(places = listOf("宜蘭")), after = null, limit = 2)
+        assertEquals(2, first.items.size)
+        val second = repo.searchByQuery(com.xenyaa.videoshot.core.query.ParsedQuery(places = listOf("宜蘭")), after = first.next, limit = 2)
+        val third = repo.searchByQuery(com.xenyaa.videoshot.core.query.ParsedQuery(places = listOf("宜蘭")), after = second.next, limit = 2)
+
+        val seen = (first.items + second.items + third.items).map { it.id }
+        assertEquals(ids.sortedDescending(), seen)
+        assertEquals(null, third.next)
+    }
+
+    @Test
+    fun searchByQueryCount_跟結果張數一致() = runTest {
+        seedShot("v1", 0.0, "2026-03-01", place = "宜蘭")
+        seedShot("v1", 10.0, "2026-03-01", place = "台北")
+
+        val count = repo.searchByQueryCount(com.xenyaa.videoshot.core.query.ParsedQuery(places = listOf("宜蘭")))
+
+        assertEquals(1, count)
+    }
 }

@@ -1,7 +1,9 @@
 package com.xenyaa.videoshot.data.repo
 
 import com.xenyaa.videoshot.core.paging.FolderCursor
+import com.xenyaa.videoshot.core.paging.SearchCursor
 import com.xenyaa.videoshot.core.paging.ShotCursor
+import com.xenyaa.videoshot.core.query.ParsedQuery
 import com.xenyaa.videoshot.core.query.QueryVocabulary
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.FolderCard
@@ -11,6 +13,7 @@ import com.xenyaa.videoshot.data.repo.model.MonthCount
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
 import com.xenyaa.videoshot.data.repo.model.NewShot
+import com.xenyaa.videoshot.data.repo.model.SearchPage
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.ShotRow
@@ -54,6 +57,11 @@ interface LibraryRepo {
     ): Page<ShotRow>
 
     suspend fun searchByFacetsCount(places: Set<String>, tagNames: Set<String>, upToMonth: String?): Int
+
+    /** 文字查詢(規則式或 Gemini 解析後)的結果。相關度：地點 > 標籤 > 關鍵字(規格第八節)。 */
+    suspend fun searchByQuery(query: ParsedQuery, after: SearchCursor?, limit: Int): SearchPage
+
+    suspend fun searchByQueryCount(query: ParsedQuery): Int
 
     /** 一張圖的標籤名。就地編輯要把現值帶進抽屜。 */
     suspend fun tagsOfShot(shotId: Long): List<String>

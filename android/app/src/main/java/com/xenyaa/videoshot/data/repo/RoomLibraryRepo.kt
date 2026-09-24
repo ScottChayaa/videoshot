@@ -4,10 +4,13 @@ import androidx.room.Transactor
 import androidx.room.useWriterConnection
 import com.xenyaa.videoshot.core.home.nextMonthStart
 import com.xenyaa.videoshot.core.paging.FolderCursor
+import com.xenyaa.videoshot.core.paging.SearchCursor
 import com.xenyaa.videoshot.core.paging.ShotCursor
+import com.xenyaa.videoshot.core.query.ParsedQuery
 import com.xenyaa.videoshot.core.query.QueryVocabulary
 import com.xenyaa.videoshot.core.query.TagAlias
 import com.xenyaa.videoshot.data.library.LibraryDatabase
+import com.xenyaa.videoshot.data.library.dao.SearchHitProjection
 import com.xenyaa.videoshot.data.library.dao.ShotRowProjection
 import com.xenyaa.videoshot.data.library.entity.FolderEntity
 import com.xenyaa.videoshot.data.library.entity.ShotEntity
@@ -23,6 +26,7 @@ import com.xenyaa.videoshot.data.repo.model.MonthCount
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
 import com.xenyaa.videoshot.data.repo.model.NewShot
+import com.xenyaa.videoshot.data.repo.model.SearchPage
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.ShotRow
@@ -90,6 +94,38 @@ class RoomLibraryRepo(
         withContext(io) {
             db.shotDao().facetSearchCount(boundOf(upToMonth), places.toList(), resolveTagIds(tagNames))
         }
+
+    override suspend fun searchByQuery(query: ParsedQuery, after: SearchCursor?, limit: Int): SearchPage =
+        withContext(io) {
+            val tagIds = resolveTagIds(query.tags.toSet())
+            val keywordIds = keywordIdsOf(query.keywords)
+            val since = query.dateFrom ?: "0000-00-00"
+            val until = query.dateTo ?: "9999-99-99"
+            val rows = if (after == null) {
+                db.searchDao().queryFirst(since, until, query.places, tagIds, keywordIds, limit)
+            } else {
+                db.searchDao().queryAfter(
+                    since, until, query.places, tagIds, keywordIds,
+                    after.relevance, after.eventDate, after.id, limit,
+                )
+            }
+            val next = if (rows.size < limit) null else rows.last().let { SearchCursor(it.relevance, it.eventDate, it.id) }
+            SearchPage(rows.map { it.toRow() }, next)
+        }
+
+    override suspend fun searchByQueryCount(query: ParsedQuery): Int = withContext(io) {
+        db.searchDao().queryCount(
+            query.dateFrom ?: "0000-00-00",
+            query.dateTo ?: "9999-99-99",
+            query.places,
+            resolveTagIds(query.tags.toSet()),
+            keywordIdsOf(query.keywords),
+        )
+    }
+
+    /** ≥3 字走 FTS trigram，<3 字退回 LIKE(規格第八節)；多個關鍵字併集，任一個命中就算(OR)。 */
+    private suspend fun keywordIdsOf(keywords: List<String>): List<Long> =
+        keywords.flatMap { kw -> if (kw.length >= 3) db.searchDao().matchIds(kw) else db.searchDao().likeIds(kw) }.distinct()
 
     override suspend fun tagsOfShot(shotId: Long): List<String> = withContext(io) {
         db.tagDao().namesOfShot(shotId)
@@ -333,6 +369,11 @@ private fun ShotRowProjection.toRow() = ShotRow(
     eventDate = eventDate,
     place = place,
     description = description,
+)
+
+private fun SearchHitProjection.toRow() = ShotRow(
+    id = id, videoId = videoId, atSec = atSec, source = source, frameIndex = frameIndex,
+    sbLevel = sbLevel, eventDate = eventDate, place = place, description = description,
 )
 
 /** `tag.aliases` 是 JSON 陣列字串（規格第四節）；解不出來（不該發生，但寫壞的資料不該讓查詢整個炸掉）就當沒有別名。 */

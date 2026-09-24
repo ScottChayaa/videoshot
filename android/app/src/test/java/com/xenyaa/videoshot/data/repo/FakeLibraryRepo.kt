@@ -32,6 +32,9 @@ open class FakeLibraryRepo : LibraryRepo {
     override suspend fun searchByFacets(places: Set<String>, tagNames: Set<String>, upToMonth: String?, after: ShotCursor?, limit: Int) =
         Page<ShotRow>(emptyList(), null)
     override suspend fun searchByFacetsCount(places: Set<String>, tagNames: Set<String>, upToMonth: String?): Int = 0
+    override suspend fun searchByQuery(query: com.xenyaa.videoshot.core.query.ParsedQuery, after: com.xenyaa.videoshot.core.paging.SearchCursor?, limit: Int) =
+        com.xenyaa.videoshot.data.repo.model.SearchPage(emptyList(), null)
+    override suspend fun searchByQueryCount(query: com.xenyaa.videoshot.core.query.ParsedQuery): Int = 0
     override suspend fun tagsOfShot(shotId: Long): List<String> = emptyList()
     override suspend fun commitPicks(video: VideoEntity, picks: List<NewShot>): List<Long> = emptyList()
     override suspend fun distinctPlaces(): List<String> = emptyList()
