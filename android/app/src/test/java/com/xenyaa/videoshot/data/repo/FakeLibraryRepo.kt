@@ -28,10 +28,12 @@ open class FakeLibraryRepo : LibraryRepo {
     override suspend fun videoById(videoId: String): VideoEntity? = null
     override suspend fun shotCount(upToMonth: String?): Int = 0
     override suspend fun monthFacets(month: String): List<MonthFacet> = emptyList()
+    override suspend fun searchFacets(upToMonth: String?, limit: Int): List<MonthFacet> = emptyList()
     override suspend fun tagsOfShot(shotId: Long): List<String> = emptyList()
     override suspend fun commitPicks(video: VideoEntity, picks: List<NewShot>): List<Long> = emptyList()
     override suspend fun distinctPlaces(): List<String> = emptyList()
     override suspend fun allTagNames(): List<String> = emptyList()
+    override suspend fun queryVocabulary() = com.xenyaa.videoshot.core.query.QueryVocabulary(emptyList(), emptyList())
     override suspend fun patchShots(ids: List<Long>, patch: ShotPatch) = Unit
     override suspend fun deleteShot(id: Long) = Unit
     override suspend fun deleteVideo(videoId: String) = Unit

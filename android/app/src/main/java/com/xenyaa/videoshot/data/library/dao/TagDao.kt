@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.data.library.dao
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
@@ -35,4 +36,20 @@ interface TagDao {
         """
     )
     suspend fun namesOfShot(shotId: Long): List<String>
+
+    /** 規則式解析的詞彙表：所有標籤的名稱與別名 JSON（規格第四節，別名檢索時視同 name）。 */
+    @Query("SELECT name, aliases FROM tag")
+    suspend fun allWithAliases(): List<TagAliasProjection>
+
+    /**
+     * 名稱轉 id。查不到的名字直接略過——檢索不像 `commitPicks`／`patchShots` 會新建標籤，
+     * 使用者勾的是「既有」的標籤 chip，查詢裡不該無中生有一個新標籤。
+     */
+    @Query("SELECT id FROM tag WHERE name IN (:names)")
+    suspend fun idsByNames(names: List<String>): List<Long>
 }
+
+data class TagAliasProjection(
+    @ColumnInfo(name = "name") val name: String,
+    @ColumnInfo(name = "aliases") val aliases: String,
+)

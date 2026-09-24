@@ -5,6 +5,8 @@ import androidx.room.useWriterConnection
 import com.xenyaa.videoshot.core.home.nextMonthStart
 import com.xenyaa.videoshot.core.paging.FolderCursor
 import com.xenyaa.videoshot.core.paging.ShotCursor
+import com.xenyaa.videoshot.core.query.QueryVocabulary
+import com.xenyaa.videoshot.core.query.TagAlias
 import com.xenyaa.videoshot.data.library.LibraryDatabase
 import com.xenyaa.videoshot.data.library.dao.ShotRowProjection
 import com.xenyaa.videoshot.data.library.entity.FolderEntity
@@ -26,6 +28,8 @@ import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 
 class RoomLibraryRepo(
     private val db: LibraryDatabase,
@@ -57,6 +61,10 @@ class RoomLibraryRepo(
 
     override suspend fun monthFacets(month: String): List<MonthFacet> = withContext(io) {
         db.shotDao().monthFacets(month).map { MonthFacet(it.name, it.kind, it.count) }
+    }
+
+    override suspend fun searchFacets(upToMonth: String?, limit: Int): List<MonthFacet> = withContext(io) {
+        db.shotDao().facetsInRange(boundOf(upToMonth), limit).map { MonthFacet(it.name, it.kind, it.count) }
     }
 
     override suspend fun tagsOfShot(shotId: Long): List<String> = withContext(io) {
@@ -136,6 +144,12 @@ class RoomLibraryRepo(
     override suspend fun distinctPlaces(): List<String> = withContext(io) { db.shotDao().distinctPlaces() }
 
     override suspend fun allTagNames(): List<String> = withContext(io) { db.tagDao().allNames() }
+
+    override suspend fun queryVocabulary(): QueryVocabulary = withContext(io) {
+        val places = db.shotDao().distinctPlaces()
+        val tags = db.tagDao().allWithAliases().map { TagAlias(it.name, decodeAliases(it.aliases)) }
+        QueryVocabulary(places, tags)
+    }
 
     override suspend fun patchShots(ids: List<Long>, patch: ShotPatch): Unit = withContext(io) {
         require(patch.tagIds == null || patch.tagNames == null) {
@@ -292,6 +306,10 @@ private fun ShotRowProjection.toRow() = ShotRow(
     place = place,
     description = description,
 )
+
+/** `tag.aliases` 是 JSON 陣列字串（規格第四節）；解不出來（不該發生，但寫壞的資料不該讓查詢整個炸掉）就當沒有別名。 */
+private fun decodeAliases(json: String): List<String> =
+    runCatching { Json.decodeFromString<List<String>>(json) }.getOrDefault(emptyList())
 
 /**
  * 用 driver API 的寫入交易。

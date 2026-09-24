@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.data.repo
 
 import com.xenyaa.videoshot.core.paging.FolderCursor
 import com.xenyaa.videoshot.core.paging.ShotCursor
+import com.xenyaa.videoshot.core.query.QueryVocabulary
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.FolderCard
 import com.xenyaa.videoshot.data.repo.model.FolderNode
@@ -37,6 +38,12 @@ interface LibraryRepo {
     /** 某個月出現過的地點與標籤，附張數。 */
     suspend fun monthFacets(month: String): List<MonthFacet>
 
+    /**
+     * 查詢頁「標籤與地點」模式的候選清單，帶張數（規格第六節）。
+     * @param limit 想要的張數上限；呼叫端傳 `limit+1` 藉此判斷「顯示更多」
+     */
+    suspend fun searchFacets(upToMonth: String?, limit: Int): List<MonthFacet>
+
     /** 一張圖的標籤名。就地編輯要把現值帶進抽屜。 */
     suspend fun tagsOfShot(shotId: Long): List<String>
 
@@ -52,6 +59,9 @@ interface LibraryRepo {
 
     /** 抽屜的既有標籤建議。 */
     suspend fun allTagNames(): List<String>
+
+    /** 規則式查詢解析要用的詞彙表：目前圖庫裡所有的地點與標籤（含別名）。 */
+    suspend fun queryVocabulary(): QueryVocabulary
 
     /** 批次套用圖資。patch 裡為 null 的欄位代表沒動過，不覆蓋。 */
     suspend fun patchShots(ids: List<Long>, patch: ShotPatch)

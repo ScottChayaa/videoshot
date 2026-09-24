@@ -90,6 +90,33 @@ interface ShotDao {
     )
     suspend fun monthFacets(month: String): List<MonthFacetProjection>
 
+    /**
+     * 查詢頁「標籤與地點」模式的候選 chip(規格第六節「查詢」):地點與標籤混在同一份清單,依張數排序。
+     * 跟 [monthFacets] 同一個 UNION ALL 寫法,只是條件從「單一月份」換成「這個時間以前」——查詢頁的
+     * 時間篩選跟首頁一樣是「N 年 N 月以前」的上界,不是單一個月。
+     *
+     * `limit` 由呼叫端傳「想要的張數 + 1」,藉此判斷「顯示更多」(規格:top-30 + 顯示更多)
+     * ——不在這裡寫死 30,SQL 只管給多一筆讓呼叫端自己判斷,跟 `FolderDao.previewsIn` 的
+     * `rn <= 4` 是同一種「多要一筆探測邊界」手法但更簡單(這裡連 window function 都不必)。
+     */
+    @Query(
+        """
+        SELECT name, kind, COUNT(*) AS cnt FROM (
+            SELECT place AS name, 'place' AS kind
+            FROM shot WHERE event_date < :before AND place IS NOT NULL
+            UNION ALL
+            SELECT t.name AS name, 'tag' AS kind
+            FROM shot_tag st
+            JOIN tag t ON t.id = st.tag_id
+            JOIN shot s ON s.id = st.shot_id
+            WHERE s.event_date < :before
+        )
+        GROUP BY name, kind ORDER BY cnt DESC, name
+        LIMIT :limit
+        """
+    )
+    suspend fun facetsInRange(before: String, limit: Int): List<MonthFacetProjection>
+
     @Query(
         """
         SELECT substr(event_date, 1, 7) AS month, COUNT(*) AS count
