@@ -67,6 +67,30 @@ class RoomLibraryRepo(
         db.shotDao().facetsInRange(boundOf(upToMonth), limit).map { MonthFacet(it.name, it.kind, it.count) }
     }
 
+    override suspend fun searchByFacets(
+        places: Set<String>,
+        tagNames: Set<String>,
+        upToMonth: String?,
+        after: ShotCursor?,
+        limit: Int,
+    ): Page<ShotRow> = withContext(io) {
+        val before = boundOf(upToMonth)
+        val placeList = places.toList()
+        val tagIds = resolveTagIds(tagNames)
+        val rows = if (after == null) {
+            db.shotDao().facetSearchFirst(before, placeList, tagIds, limit)
+        } else {
+            db.shotDao().facetSearchAfter(before, placeList, tagIds, after.eventDate, after.id, limit)
+        }
+        val next = if (rows.size < limit) null else rows.last().let { ShotCursor(it.eventDate, it.id) }
+        Page(rows.map { it.toRow() }, next)
+    }
+
+    override suspend fun searchByFacetsCount(places: Set<String>, tagNames: Set<String>, upToMonth: String?): Int =
+        withContext(io) {
+            db.shotDao().facetSearchCount(boundOf(upToMonth), places.toList(), resolveTagIds(tagNames))
+        }
+
     override suspend fun tagsOfShot(shotId: Long): List<String> = withContext(io) {
         db.tagDao().namesOfShot(shotId)
     }
@@ -150,6 +174,10 @@ class RoomLibraryRepo(
         val tags = db.tagDao().allWithAliases().map { TagAlias(it.name, decodeAliases(it.aliases)) }
         QueryVocabulary(places, tags)
     }
+
+    /** 標籤名轉 id；查不到的名字略過（同 `TagDao.idsByNames` 的 KDoc：查詢不會新建標籤）。 */
+    private suspend fun resolveTagIds(names: Set<String>): List<Long> =
+        if (names.isEmpty()) emptyList() else db.tagDao().idsByNames(names.toList())
 
     override suspend fun patchShots(ids: List<Long>, patch: ShotPatch): Unit = withContext(io) {
         require(patch.tagIds == null || patch.tagNames == null) {

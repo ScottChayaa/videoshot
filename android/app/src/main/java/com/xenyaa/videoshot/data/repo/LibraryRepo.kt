@@ -44,6 +44,17 @@ interface LibraryRepo {
      */
     suspend fun searchFacets(upToMonth: String?, limit: Int): List<MonthFacet>
 
+    /** 查詢頁「標籤與地點」模式的結果。任一個地點或標籤命中即算(OR)；標籤以名稱給（畫面拿到的是 chip 標籤）。 */
+    suspend fun searchByFacets(
+        places: Set<String>,
+        tagNames: Set<String>,
+        upToMonth: String?,
+        after: ShotCursor?,
+        limit: Int,
+    ): Page<ShotRow>
+
+    suspend fun searchByFacetsCount(places: Set<String>, tagNames: Set<String>, upToMonth: String?): Int
+
     /** 一張圖的標籤名。就地編輯要把現值帶進抽屜。 */
     suspend fun tagsOfShot(shotId: Long): List<String>
 

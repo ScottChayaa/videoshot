@@ -29,6 +29,9 @@ open class FakeLibraryRepo : LibraryRepo {
     override suspend fun shotCount(upToMonth: String?): Int = 0
     override suspend fun monthFacets(month: String): List<MonthFacet> = emptyList()
     override suspend fun searchFacets(upToMonth: String?, limit: Int): List<MonthFacet> = emptyList()
+    override suspend fun searchByFacets(places: Set<String>, tagNames: Set<String>, upToMonth: String?, after: ShotCursor?, limit: Int) =
+        Page<ShotRow>(emptyList(), null)
+    override suspend fun searchByFacetsCount(places: Set<String>, tagNames: Set<String>, upToMonth: String?): Int = 0
     override suspend fun tagsOfShot(shotId: Long): List<String> = emptyList()
     override suspend fun commitPicks(video: VideoEntity, picks: List<NewShot>): List<Long> = emptyList()
     override suspend fun distinctPlaces(): List<String> = emptyList()

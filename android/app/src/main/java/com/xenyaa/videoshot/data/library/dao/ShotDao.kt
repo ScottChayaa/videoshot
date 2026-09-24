@@ -117,6 +117,53 @@ interface ShotDao {
     )
     suspend fun facetsInRange(before: String, limit: Int): List<MonthFacetProjection>
 
+    /**
+     * 查詢頁「標籤與地點」模式的第一頁。任一個地點或標籤命中即算(OR)，排序同首頁
+     * （`event_date DESC, id DESC`）——這個模式不分相關度，理由見 `LibraryRepo.searchByFacets` 的 KDoc。
+     *
+     * `LEFT JOIN shot_tag` 對有多個標籤的圖會展開成多列；`DISTINCT` 收斂回一列——
+     * SELECT 出來的欄位全部來自 `s.*`，同一張圖不管在哪個分支命中都是同一組值，收斂得乾淨。
+     */
+    @Query(
+        """
+        SELECT DISTINCT s.id, s.video_id, s.at_sec, s.source, s.frame_index, s.sb_level,
+               s.event_date, s.place, s.description
+        FROM shot s LEFT JOIN shot_tag st ON st.shot_id = s.id
+        WHERE s.event_date < :before AND (s.place IN (:places) OR st.tag_id IN (:tagIds))
+        ORDER BY s.event_date DESC, s.id DESC LIMIT :limit
+        """
+    )
+    suspend fun facetSearchFirst(before: String, places: List<String>, tagIds: List<Long>, limit: Int): List<ShotRowProjection>
+
+    /** 接續頁。keyset 比對跟首頁的 `feedAfter` 同一個寫法。 */
+    @Query(
+        """
+        SELECT DISTINCT s.id, s.video_id, s.at_sec, s.source, s.frame_index, s.sb_level,
+               s.event_date, s.place, s.description
+        FROM shot s LEFT JOIN shot_tag st ON st.shot_id = s.id
+        WHERE s.event_date < :before AND (s.place IN (:places) OR st.tag_id IN (:tagIds))
+          AND (s.event_date < :eventDate OR (s.event_date = :eventDate AND s.id < :id))
+        ORDER BY s.event_date DESC, s.id DESC LIMIT :limit
+        """
+    )
+    suspend fun facetSearchAfter(
+        before: String,
+        places: List<String>,
+        tagIds: List<Long>,
+        eventDate: String,
+        id: Long,
+        limit: Int,
+    ): List<ShotRowProjection>
+
+    /** 結果列的「N 張」（規格第六節：「結果列顯示『N 張・全部日期・條件 chips』」）。 */
+    @Query(
+        """
+        SELECT COUNT(DISTINCT s.id) FROM shot s LEFT JOIN shot_tag st ON st.shot_id = s.id
+        WHERE s.event_date < :before AND (s.place IN (:places) OR st.tag_id IN (:tagIds))
+        """
+    )
+    suspend fun facetSearchCount(before: String, places: List<String>, tagIds: List<Long>): Int
+
     @Query(
         """
         SELECT substr(event_date, 1, 7) AS month, COUNT(*) AS count

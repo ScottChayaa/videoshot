@@ -75,4 +75,44 @@ class SearchRepoTest {
         assertEquals("小橘", vocab.tags.single().name)
         assertEquals(listOf("我家的貓", "橘貓"), vocab.tags.single().aliases)
     }
+
+    @Test
+    fun searchByFacets_地點或標籤任一命中即算() = runTest {
+        val a = seedShot("v1", 0.0, "2026-03-01", place = "宜蘭")
+        val b = seedShot("v1", 10.0, "2026-03-02", place = "台北", tagNames = listOf("露營"))
+        seedShot("v1", 20.0, "2026-03-03", place = "高雄")
+
+        val page = repo.searchByFacets(places = setOf("宜蘭"), tagNames = setOf("露營"), upToMonth = null, after = null, limit = 10)
+
+        assertEquals(setOf(a, b), page.items.map { it.id }.toSet())
+    }
+
+    @Test
+    fun searchByFacets_排序跟首頁一樣是時間新到舊() = runTest {
+        seedShot("v1", 0.0, "2026-01-01", place = "宜蘭")
+        seedShot("v1", 10.0, "2026-03-01", place = "宜蘭")
+
+        val page = repo.searchByFacets(places = setOf("宜蘭"), tagNames = emptySet(), upToMonth = null, after = null, limit = 10)
+
+        assertEquals(listOf("2026-03-01", "2026-01-01"), page.items.map { it.eventDate })
+    }
+
+    @Test
+    fun searchByFacets_同一張圖有多個標籤不會重複出現() = runTest {
+        val id = seedShot("v1", 0.0, "2026-03-01", place = null, tagNames = listOf("露營", "夜潛"))
+
+        val page = repo.searchByFacets(places = emptySet(), tagNames = setOf("露營", "夜潛"), upToMonth = null, after = null, limit = 10)
+
+        assertEquals(listOf(id), page.items.map { it.id })
+    }
+
+    @Test
+    fun searchByFacetsCount_跟結果張數一致() = runTest {
+        seedShot("v1", 0.0, "2026-03-01", place = "宜蘭")
+        seedShot("v1", 10.0, "2026-03-02", place = "台北")
+
+        val count = repo.searchByFacetsCount(places = setOf("宜蘭"), tagNames = emptySet(), upToMonth = null)
+
+        assertEquals(1, count)
+    }
 }
