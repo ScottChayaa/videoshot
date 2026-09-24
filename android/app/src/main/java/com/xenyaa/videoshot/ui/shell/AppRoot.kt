@@ -20,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -43,6 +44,11 @@ import com.xenyaa.videoshot.ui.home.HomeViewModel
 import com.xenyaa.videoshot.ui.lightbox.LightboxActions
 import com.xenyaa.videoshot.ui.lightbox.LightboxScreen
 import com.xenyaa.videoshot.ui.lightbox.shareTextOf
+import com.xenyaa.videoshot.ui.detail.BatchEditScreen
+import com.xenyaa.videoshot.ui.detail.BatchEditState
+import com.xenyaa.videoshot.ui.detail.BatchEditViewModel
+import com.xenyaa.videoshot.ui.detail.DetailScreen
+import com.xenyaa.videoshot.ui.detail.DetailViewModel
 import com.xenyaa.videoshot.wizard.WizardScreen
 import com.xenyaa.videoshot.wizard.WizardViewModel
 import kotlinx.coroutines.CancellationException
@@ -107,6 +113,39 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
     // （不管是往下開新的還是往上退回父層）都重查一次——比新增一條全域失效匯流排更簡單，
     // 這一輪的範圍也只需要這樣（見全盤覆查 N4：匯流排式的方案留到階段 9 有第三個消費者時再做）。
     LaunchedEffect(openFolderId) { folderVm?.reload() }
+
+    // 詳情頁（或疊在它上面的批次編輯）的 VM，跟 folderVm 同一個手法：以 videoId 當 key，
+    // 換一支影片就是換一個實例；同一支影片重查靠下面的 LaunchedEffect
+    val detailVideoId = nav.currentDetailVideoId()
+    val detailVm: DetailViewModel? = detailVideoId?.let { vid ->
+        viewModel(
+            factory = object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                    DetailViewModel(
+                        videoId = vid,
+                        // 只有第一次建構（nav.current 真的是 Dest.Detail）這個值才有意義；
+                        // 疊了 BatchEdit 之後 viewModel(key=...) 會回傳既有實例，這個工廠不會再被呼叫
+                        initialFocusShotId = (nav.current as? Dest.Detail)?.focusShotId ?: 0L,
+                        library = container.libraryRepo,
+                        watchPage = container.wizardData::watchPage,
+                    ) as T
+            },
+            key = "detail-$vid",
+        )
+    }
+    LaunchedEffect(detailVideoId) { detailVm?.reload() }
+
+    val batchEditVm: BatchEditViewModel? = if (nav.current is Dest.BatchEdit) {
+        viewModel(
+            factory = object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                    BatchEditViewModel(videoId = detailVideoId!!, library = container.libraryRepo) as T
+            },
+            key = "batchedit-$detailVideoId",
+        )
+    } else null
 
     // 精靈的 VM 建在這裡（不是 CaptureTab 裡）—— finished 是沒有 replay 的 SharedFlow，
     // 只有切到取圖分頁才組合的地方收集會漏掉事件；同一個 key 仍確保實例不重複
@@ -217,8 +256,11 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                     }
                 },
                 actions = LightboxActions(
-                    // 詳情頁是階段 9。按鈕照畫（分層才驗得了），但要說得出為什麼還沒反應
-                    onPlay = { scope.launch { snackbarHostState.showSnackbar("播放頁在階段 9") } },
+                    // Lightbox 換成詳情頁——pop 掉 Lightbox 再 push 詳情頁，
+                    // 不是疊上去：返回鍵從詳情頁退一步該回到清單，不是回到 Lightbox
+                    onPlay = { shot ->
+                        nav = (nav.pop() ?: nav).push(Dest.Detail(shot.videoId, shot.id))
+                    },
                     onAddToFolder = { addingTo = it },
                     onShare = { shot ->
                         val send = Intent(Intent.ACTION_SEND).apply {
@@ -337,81 +379,147 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             }
         }
 
+        // 批次編輯跟 Lightbox 一樣全螢幕、沒有底部導覽（Task 6 的 BatchEditScreen KDoc）
         is Dest.BatchEdit -> {
-            // 批次編輯是全螢幕、沒有底部導覽（規格第六節）。詳細實作在階段 9 的 Task 7
-            // 這裡只是編譯占位符
-            Box(Modifier.fillMaxSize())
+            val vm = batchEditVm!!
+            val beState by vm.state.collectAsStateWithLifecycle()
+            val batchBitmapFor: suspend (Int) -> ImageBitmap? = remember(beState) {
+                val fn: suspend (Int) -> ImageBitmap? = { cell ->
+                    (beState as? BatchEditState.Ready)?.shots?.getOrNull(cell)?.let { container.thumbLoader.load(it) }
+                }
+                fn
+            }
+            BatchEditScreen(
+                state = beState,
+                bitmapFor = batchBitmapFor,
+                onToggle = vm::toggle,
+                onSelectAll = vm::selectAll,
+                onSelectNone = vm::selectNone,
+                onInvert = vm::invert,
+                onSelectUnapplied = vm::selectUnapplied,
+                onEditEventDate = vm::editEventDate,
+                onEditPlace = vm::editPlace,
+                onEditDescription = vm::editDescription,
+                onEditTags = vm::editTags,
+                onApply = vm::apply,
+                onFinish = vm::finish,
+                onClose = { nav.pop()?.let { nav = it } },
+            )
+            LaunchedEffect(vm) {
+                vm.finished.collect {
+                    nav.pop()?.let { nav = it }
+                    homeVm.reload()
+                    detailVm?.reload()
+                }
+            }
         }
 
         Dest.Root, is Dest.Folder, is Dest.Detail -> AppShell(nav = nav, onSelectTab = { nav = nav.select(it) }, snackbarHostState = snackbarHostState) { tab ->
-            when (tab) {
-                Tab.HOME -> HomeScreen(
-                    state = homeState,
-                    loader = container.thumbLoader,
-                    listState = homeListState,
-                    onOpen = { nav = nav.push(Dest.Lightbox(it)) },
-                    onLoadMore = homeVm::loadMore,
-                    onPickMonth = homeVm::setFilter,
-                    scrollToMonth = scrollToMonth,
-                    onScrolledToMonth = { scrollToMonth = null },
-                    // 查詢頁是階段 10。點了沒反應會被當成壞掉，先說清楚
-                    onFacetClick = { _, facet ->
-                        scope.launch { snackbarHostState.showSnackbar("「${facet.name}」的查詢在階段 10") }
-                    },
-                )
-                Tab.SEARCH -> ComingSoonScreen("查詢", "標籤與地點的查詢會在階段 10 做好")
-                Tab.FOLDERS -> when (nav.current) {
-                    // 資料夾頁：上半子資料夾、下半本層的圖。folderVm 一定不是 null——
-                    // openFolderId 非 null 時它才會被建出來，兩者同一個條件
-                    is Dest.Folder -> folderVm?.let { vm ->
-                        val folderState by vm.state.collectAsStateWithLifecycle()
-                        FolderScreen(
-                            state = folderState,
-                            loader = container.thumbLoader,
-                            onBack = ::backFromFolder,
-                            onOpenChild = { child -> nav = nav.push(Dest.Folder(child.id)) },
-                            onOpenShot = { index -> nav = nav.push(Dest.Lightbox(index)) },
-                            onLoadMore = vm::loadMore,
-                            onStartCreateChild = vm::startCreateChild,
-                            onStartRename = vm::startRename,
-                            onAskDeleteSelf = vm::askDeleteSelf,
-                            onRenameChild = vm::startRenameChild,
-                            onAskDeleteChild = vm::askDeleteChild,
-                            onEditorName = vm::editName,
-                            onConfirmEditor = vm::confirmEditor,
-                            onDismissEditor = vm::dismissEditor,
-                            // 刪掉的是這一頁自己：退回上一層，落地清單頁的話順便重查
-                            // （confirmDelete 內部已經用 deleting.id == folderId 分辨
-                            // 「自己」跟「上半列出的子資料夾」兩條路徑，這裡只接自己那一條）
-                            onConfirmDelete = { vm.confirmDelete(::backFromFolder) },
-                            onDismissDelete = vm::dismissDelete,
-                        )
-                    }
-                    else -> FoldersScreen(
-                        state = foldersState,
+            when (val current = nav.current) {
+                is Dest.Detail -> {
+                    val vm = detailVm!!
+                    val dState by vm.state.collectAsStateWithLifecycle()
+                    DetailScreen(
+                        state = dState,
                         loader = container.thumbLoader,
-                        onOpen = { card -> nav = nav.push(Dest.Folder(card.id)) },
-                        onCreate = foldersVm::create,
-                        onRename = foldersVm::rename,
-                        onDelete = foldersVm::delete,
-                        onQuery = foldersVm::setQuery,
-                        onEditorName = foldersVm::editName,
-                        onSearching = foldersVm::setSearching,
-                        onSort = foldersVm::setSort,
-                        onStartCreate = foldersVm::startCreate,
-                        onStartRename = foldersVm::startRename,
-                        onAskDelete = foldersVm::askDelete,
-                        onDismissEditor = foldersVm::dismissEditor,
-                        onDismissDelete = foldersVm::dismissDelete,
-                        onRetry = foldersVm::reload,
+                        onBack = { nav.pop()?.let { nav = it } },
+                        onPlayerReady = vm::attachPlayer,
+                        onPlayerReleased = vm::detachPlayer,
+                        onRetryPlayer = vm::loadPlayerInfo,
+                        onFocus = vm::focus,
+                        onEdit = { editing = it },
+                        onContinueCapture = {
+                            wizardVm.openRecent(current.videoId)
+                            nav = nav.select(Tab.CAPTURE)
+                        },
+                        onBatchEdit = { nav = nav.push(Dest.BatchEdit(current.videoId)) },
+                        onDeleteVideo = {
+                            scope.launch {
+                                try {
+                                    container.shotDeleter.deleteVideo(current.videoId)
+                                    // 退回詳情頁底下那一層、換到首頁分頁（規格第六節：「導回首頁」）
+                                    nav = (nav.pop() ?: nav).select(Tab.HOME)
+                                    homeVm.reload()
+                                    foldersVm.reload()
+                                    snackbarHostState.showSnackbar("已刪除整支收藏")
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    snackbarHostState.showSnackbar("刪除失敗，請再試一次")
+                                }
+                            }
+                        },
                     )
                 }
-                Tab.ACCOUNT -> ComingSoonScreen("帳號", "備份、設定與標籤管理會在階段 11～12 做好")
-                Tab.CAPTURE -> WizardScreen(
-                    vm = wizardVm,
-                    haptics = container.haptics,
-                    onExit = { nav = nav.select(nav.returnTo) },
-                )
+                else -> when (tab) {
+                    Tab.HOME -> HomeScreen(
+                        state = homeState,
+                        loader = container.thumbLoader,
+                        listState = homeListState,
+                        onOpen = { nav = nav.push(Dest.Lightbox(it)) },
+                        onLoadMore = homeVm::loadMore,
+                        onPickMonth = homeVm::setFilter,
+                        scrollToMonth = scrollToMonth,
+                        onScrolledToMonth = { scrollToMonth = null },
+                        // 查詢頁是階段 10。點了沒反應會被當成壞掉，先說清楚
+                        onFacetClick = { _, facet ->
+                            scope.launch { snackbarHostState.showSnackbar("「${facet.name}」的查詢在階段 10") }
+                        },
+                    )
+                    Tab.SEARCH -> ComingSoonScreen("查詢", "標籤與地點的查詢會在階段 10 做好")
+                    Tab.FOLDERS -> when (nav.current) {
+                        // 資料夾頁：上半子資料夾、下半本層的圖。folderVm 一定不是 null——
+                        // openFolderId 非 null 時它才會被建出來，兩者同一個條件
+                        is Dest.Folder -> folderVm?.let { vm ->
+                            val folderState by vm.state.collectAsStateWithLifecycle()
+                            FolderScreen(
+                                state = folderState,
+                                loader = container.thumbLoader,
+                                onBack = ::backFromFolder,
+                                onOpenChild = { child -> nav = nav.push(Dest.Folder(child.id)) },
+                                onOpenShot = { index -> nav = nav.push(Dest.Lightbox(index)) },
+                                onLoadMore = vm::loadMore,
+                                onStartCreateChild = vm::startCreateChild,
+                                onStartRename = vm::startRename,
+                                onAskDeleteSelf = vm::askDeleteSelf,
+                                onRenameChild = vm::startRenameChild,
+                                onAskDeleteChild = vm::askDeleteChild,
+                                onEditorName = vm::editName,
+                                onConfirmEditor = vm::confirmEditor,
+                                onDismissEditor = vm::dismissEditor,
+                                // 刪掉的是這一頁自己：退回上一層，落地清單頁的話順便重查
+                                // （confirmDelete 內部已經用 deleting.id == folderId 分辨
+                                // 「自己」跟「上半列出的子資料夾」兩條路徑，這裡只接自己那一條）
+                                onConfirmDelete = { vm.confirmDelete(::backFromFolder) },
+                                onDismissDelete = vm::dismissDelete,
+                            )
+                        }
+                        else -> FoldersScreen(
+                            state = foldersState,
+                            loader = container.thumbLoader,
+                            onOpen = { card -> nav = nav.push(Dest.Folder(card.id)) },
+                            onCreate = foldersVm::create,
+                            onRename = foldersVm::rename,
+                            onDelete = foldersVm::delete,
+                            onQuery = foldersVm::setQuery,
+                            onEditorName = foldersVm::editName,
+                            onSearching = foldersVm::setSearching,
+                            onSort = foldersVm::setSort,
+                            onStartCreate = foldersVm::startCreate,
+                            onStartRename = foldersVm::startRename,
+                            onAskDelete = foldersVm::askDelete,
+                            onDismissEditor = foldersVm::dismissEditor,
+                            onDismissDelete = foldersVm::dismissDelete,
+                            onRetry = foldersVm::reload,
+                        )
+                    }
+                    Tab.ACCOUNT -> ComingSoonScreen("帳號", "備份、設定與標籤管理會在階段 11～12 做好")
+                    Tab.CAPTURE -> WizardScreen(
+                        vm = wizardVm,
+                        haptics = container.haptics,
+                        onExit = { nav = nav.select(nav.returnTo) },
+                    )
+                }
             }
         }
     }
@@ -424,6 +532,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             container = container,
             homeVm = homeVm,
             folderVm = folderVm,
+            detailVm = detailVm,
             scope = scope,
             snackbarHostState = snackbarHostState,
             onDismiss = { editing = null },
@@ -443,6 +552,7 @@ private fun EditingSheet(
     container: AppRootDeps,
     homeVm: HomeViewModel,
     folderVm: FolderViewModel?,
+    detailVm: DetailViewModel?,
     scope: CoroutineScope,
     snackbarHostState: SnackbarHostState,
     onDismiss: () -> Unit,
@@ -486,7 +596,10 @@ private fun EditingSheet(
                 )
                 // 存檔後把這張圖寫回首頁快取 —— 不然使用者回到首頁還會看到編輯前的舊圖資。
                 // 資料夾頁的預覽拼貼跟本層列表也可能用到這張圖的圖資，一併重查
-                container.libraryRepo.shotById(shot.id)?.let(homeVm::onShotChanged)
+                container.libraryRepo.shotById(shot.id)?.let { updated ->
+                    homeVm.onShotChanged(updated)
+                    detailVm?.onShotChanged(updated)
+                }
                 folderVm?.reload()
                 snackbarHostState.showSnackbar("已儲存")
             }
