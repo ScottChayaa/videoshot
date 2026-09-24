@@ -50,9 +50,21 @@ class BatchEditViewModel(
     private val _finished = MutableSharedFlow<Unit>()
     val finished: SharedFlow<Unit> = _finished.asSharedFlow()
 
-    init { load() }
+    init { reload() }
 
-    private fun load() {
+    /**
+     * 重新查詢這支影片的收藏，建一個全新的 [Step3Store]。**每次「真的進場」都要呼叫**，
+     * 不能只靠 `init{}`：`AppRoot` 用 `videoId` 當 key 快取這個 VM（`viewModel(key = "batchedit-$videoId")`），
+     * 同一支影片第二次進批次編輯拿到的是同一個實例，`init{}` 不會再跑一次。舊的 `Step3Store`
+     * 還留著上一輪「套用過」的痕跡——不重建的話使用者會看到過期的綠點與圖資，按下【完成】
+     * 甚至會把別處剛改好的圖資蓋回這個舊值（最終審查 Finding 1）。呼叫端是 `AppRoot.kt`
+     * `Dest.BatchEdit` 分支裡的 `LaunchedEffect(Unit)`——那個 key 不能用 videoId，
+     * 理由同一份 KDoc。
+     *
+     * 先把狀態撥回 [BatchEditState.Loading]，不然重查的這段空檔畫面會閃一下上一輪的舊資料。
+     */
+    fun reload() {
+        _state.value = BatchEditState.Loading
         viewModelScope.launch {
             val shots = runCatching { library.shotsOfVideo(videoId) }.getOrDefault(emptyList())
             if (shots.isEmpty()) {

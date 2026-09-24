@@ -84,6 +84,37 @@ class BatchEditViewModelTest {
         assertEquals("2026-03-01", patch.eventDate)
     }
 
+    /**
+     * 最終審查 Finding 1：`AppRoot` 用 videoId 當 key 快取這個 VM，同一支影片第二次進批次編輯
+     * 拿到的是同一個實例，`init{}` 不會再跑——呼叫端（`AppRoot.kt` 的 `LaunchedEffect(Unit)`）
+     * 改叫公開的 `reload()`，這裡直接驗證 `reload()` 本身會重建一個乾淨的 `Step3Store`：
+     * 上一輪套用過的 cell 0，重查之後不該還帶著 `applied = true`。
+     */
+    @Test
+    fun reload會建立全新的store_不殘留上一輪的套用狀態() = runTest(dispatcher) {
+        val (s1, _) = shot(1, 10.0, place = "宜蘭")
+        val (s2, _) = shot(2, 20.0, place = "台北")
+        val repo = Repo().apply { shots = listOf(s1, s2) }
+        val vm = BatchEditViewModel("v1", repo)
+        advanceUntilIdle()
+
+        vm.toggle(1)
+        vm.editPlace("羅東")
+        vm.apply()
+        vm.finish()
+        advanceUntilIdle()
+        val beforeReload = (vm.state.value as BatchEditState.Ready).store.state.value
+        assertEquals(true, beforeReload.details[0]?.applied)
+
+        // 模擬使用者離開又重新進來這支影片的批次編輯——同一個實例，呼叫 reload()
+        vm.reload()
+        advanceUntilIdle()
+
+        val afterReload = (vm.state.value as BatchEditState.Ready).store.state.value
+        assertEquals(false, afterReload.details[0]?.applied)
+        assertEquals(0, afterReload.appliedCount)
+    }
+
     @Test
     fun 完成後finished會發出一次事件() = runTest(dispatcher) {
         val (s1, _) = shot(1, 10.0)

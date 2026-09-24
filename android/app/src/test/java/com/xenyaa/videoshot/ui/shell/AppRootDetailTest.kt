@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextReplacement
 import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.core.paging.FolderCursor
 import com.xenyaa.videoshot.core.paging.ShotCursor
@@ -24,6 +25,7 @@ import com.xenyaa.videoshot.data.repo.model.FolderPage
 import com.xenyaa.videoshot.data.repo.model.NewShot
 import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
+import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.data.settings.ShellSettings
 import com.xenyaa.videoshot.thumbs.ThumbKey
@@ -76,6 +78,14 @@ class AppRootDetailTest {
         override suspend fun shotsOfVideo(videoId: String) = videoShots
         override suspend fun videoById(videoId: String) = video
         override suspend fun deleteVideo(videoId: String) { deletedVideoIds += videoId; homeItems = emptyList(); videoShots = emptyList() }
+
+        // 批次編輯的【完成】真的要寫回——Finding 1 的迴歸測試得看得出「重進一次批次編輯
+        // 不會拿到上一輪的舊資料」，這代表 shotsOfVideo() 下一次要回傳更新後的值
+        override suspend fun patchShots(ids: List<Long>, patch: ShotPatch) {
+            videoShots = videoShots.map { row ->
+                if (row.id in ids) row.copy(eventDate = patch.eventDate ?: row.eventDate, place = patch.place, description = patch.description) else row
+            }
+        }
     }
 
     /** 跟 `AppRootFoldersTest.kt`／`AppRootLightboxTest.kt` 一樣，各檔案各自私有一份（沒有共用的測試替身）。 */
@@ -176,5 +186,63 @@ class AppRootDetailTest {
         compose.onNodeWithText("刪除", substring = false).performClick()
 
         assertEquals(listOf("v1"), repo.deletedVideoIds)
+    }
+
+    /**
+     * 最終審查 Finding 1 ＋ Finding 6：詳情頁 →【批次編輯圖資】→ 改一張的地點 → 套用 → 完成
+     * → 回到詳情頁看得到新地點（`finished` 收集區塊真的 pop＋reload 了）；接著**再進一次**
+     * 批次編輯——`BatchEditViewModel` 是用 videoId 當 key 快取的，同一支影片第二次進來拿到
+     * 同一個實例，這裡驗證它沒有帶著上一輪「1 已完成」的舊 `Step3Store`（沒修好的話這裡會顯示
+     * 「2 張 · 1 已完成」，而且按【完成】會把剛存的新地點蓋回舊值）。
+     */
+    @Test
+    fun 批次編輯完成後圖資更新_再進一次不會殘留上一輪的套用狀態() {
+        val repo = Repo()
+        compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
+
+        compose.onNodeWithContentDescription("片段縮圖 00:30").performClick()
+        compose.onNodeWithText("播放這一段").performClick()
+        compose.onNodeWithText("旅行影片").assertIsDisplayed()
+
+        compose.onNodeWithContentDescription("這支影片的更多操作").performClick()
+        compose.onNodeWithText("批次編輯圖資").performClick()
+        compose.onNodeWithText("2 張 · 0 已完成").assertIsDisplayed()
+
+        // 只留第一張（00:30）勾選——把第二張（01:30）那一格點掉
+        compose.onNodeWithContentDescription("01:30", substring = true).performClick()
+        compose.onNodeWithContentDescription("地點").performTextReplacement("羅東")
+        compose.onNodeWithText("套用到 1 張").performClick()
+        compose.onNodeWithText("完成").performClick()
+
+        // 回到詳情頁：finished 收集區塊 pop 掉批次編輯、detailVm 重查，聚焦張的地點是新值
+        compose.onNodeWithText("旅行影片").assertIsDisplayed()
+        compose.onNodeWithText("羅東").assertIsDisplayed()
+
+        // 再進一次批次編輯——沒有第二次的「1 已完成」殘留
+        compose.onNodeWithContentDescription("這支影片的更多操作").performClick()
+        compose.onNodeWithText("批次編輯圖資").performClick()
+        compose.onNodeWithText("2 張 · 0 已完成").assertIsDisplayed()
+    }
+
+    /**
+     * 最終審查 Finding 2：Lightbox【播放這一段】帶著 `focusShotId` 進詳情頁；`DetailViewModel`
+     * 用 videoId 當 key 快取，同一支影片第二次進來（播另一張截圖）拿到同一個實例。
+     * 沒修好的話這裡第二次還是卡在第一張的秒數。
+     */
+    @Test
+    fun lightbox播放同一支影片的另一張_詳情頁改聚焦新的那張() {
+        val repo = Repo().apply { homeItems = listOf(row(1L, 30.0), row(2L, 90.0)) }
+        compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
+
+        compose.onNodeWithContentDescription("片段縮圖 00:30").performClick()
+        compose.onNodeWithText("播放這一段").performClick()
+        compose.onNodeWithText("影片 00:30").assertIsDisplayed()
+
+        // 返回首頁，播第二張——同一支影片（v1），detailVm 是同一個快取實例
+        compose.onNodeWithContentDescription("返回").performClick()
+        compose.onNodeWithContentDescription("片段縮圖 01:30").performClick()
+        compose.onNodeWithText("播放這一段").performClick()
+
+        compose.onNodeWithText("影片 01:30").assertIsDisplayed()
     }
 }

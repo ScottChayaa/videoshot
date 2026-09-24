@@ -115,7 +115,10 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
     LaunchedEffect(openFolderId) { folderVm?.reload() }
 
     // 詳情頁（或疊在它上面的批次編輯）的 VM，跟 folderVm 同一個手法：以 videoId 當 key，
-    // 換一支影片就是換一個實例；同一支影片重查靠下面的 LaunchedEffect
+    // 換一支影片就是換一個實例；**同一支影片**重查靠 Dest.Detail 分支自己的
+    // LaunchedEffect(Unit)（見下面那個分支），不能靠這裡的 key 帶 videoId ——
+    // 同一支影片再進一次詳情頁，這個 key 沒變，viewModel() 會回傳快取的舊實例，
+    // 以 detailVideoId 當 key 的 LaunchedEffect 不會重新跑（最終審查 Finding 2）
     val detailVideoId = nav.currentDetailVideoId()
     val detailVm: DetailViewModel? = detailVideoId?.let { vid ->
         viewModel(
@@ -134,7 +137,6 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             key = "detail-$vid",
         )
     }
-    LaunchedEffect(detailVideoId) { detailVm?.reload() }
 
     val batchEditVm: BatchEditViewModel? = if (nav.current is Dest.BatchEdit) {
         viewModel(
@@ -382,6 +384,12 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
         // 批次編輯跟 Lightbox 一樣全螢幕、沒有底部導覽（Task 6 的 BatchEditScreen KDoc）
         is Dest.BatchEdit -> {
             val vm = batchEditVm!!
+            // 每次「真的進場」都要重查——vm 是用 videoId 當 key 快取的，同一支影片第二次
+            // 進批次編輯拿到的是同一個實例，不會再跑一次 init{}。LaunchedEffect(Unit) 放在
+            // 這個 when 分支的內容裡：切到別的分支再切回來，Compose 會把這個分支的子樹
+            // 整個拆掉重建，key 不變也一樣重新啟動——不能像 folderVm 那樣以 id 當 key，
+            // 因為這裡同一支影片重進兩次是常態，videoId 不會變（最終審查 Finding 1）
+            LaunchedEffect(Unit) { vm.reload() }
             val beState by vm.state.collectAsStateWithLifecycle()
             val batchBitmapFor: suspend (Int) -> ImageBitmap? = remember(beState) {
                 val fn: suspend (Int) -> ImageBitmap? = { cell ->
@@ -410,6 +418,11 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                     nav.pop()?.let { nav = it }
                     homeVm.reload()
                     detailVm?.reload()
+                    // 詳情頁可能是從分類分頁的資料夾頁開出來的（Lightbox【播放這一段】），
+                    // 批次編輯改的圖資可能就是那個資料夾本層預覽或子資料夾卡片用到的那幾張，
+                    // 不重查的話切回分類分頁看到的還是編輯前的舊圖資（最終審查 Finding 5，
+                    // 同 EditingSheet.onSave 已經在做的事）
+                    folderVm?.reload()
                 }
             }
         }
@@ -418,6 +431,14 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             when (val current = nav.current) {
                 is Dest.Detail -> {
                     val vm = detailVm!!
+                    // 每次「真的進場」都要用這次導覽目的地帶來的 focusShotId 重新聚焦——
+                    // vm 是用 videoId 當 key 快取的，同一支影片第二次進詳情頁（例如 Lightbox
+                    // 播了同一支影片的另一張）拿到的是同一個實例，reload() 不帶參數的話會
+                    // 沿用舊聚焦，看起來像按了播放這一段卻沒反應（最終審查 Finding 2）。
+                    // LaunchedEffect(Unit) 放在這個 when 分支裡：從別的分支（Lightbox、
+                    // BatchEdit）切回來，Compose 會把這個分支的子樹整個拆掉重建，
+                    // key 不變也一樣重新啟動——理由同 BatchEdit 分支那個 LaunchedEffect(Unit)
+                    LaunchedEffect(Unit) { vm.reload(focusShotId = current.focusShotId) }
                     val dState by vm.state.collectAsStateWithLifecycle()
                     DetailScreen(
                         state = dState,
@@ -441,6 +462,10 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                     nav = (nav.pop() ?: nav).select(Tab.HOME)
                                     homeVm.reload()
                                     foldersVm.reload()
+                                    // 詳情頁可能是從分類分頁的資料夾頁開出來的，刪掉整支影片
+                                    // 也可能刪掉那個資料夾本層的某幾張，不重查的話切回去看到的
+                                    // 還是刪除前的張數與預覽（最終審查 Finding 5）
+                                    folderVm?.reload()
                                     snackbarHostState.showSnackbar("已刪除整支收藏")
                                 } catch (e: CancellationException) {
                                     throw e

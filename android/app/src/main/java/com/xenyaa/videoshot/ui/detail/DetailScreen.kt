@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -77,8 +76,11 @@ fun DetailScreen(
 
     Column(modifier.fillMaxSize()) {
 
+        // 沒有 statusBarsPadding()——這支畫面掛在 AppShell 的 Scaffold 裡（比照 FolderScreen），
+        // Scaffold 已經把系統列 inset 當 padding 傳進來了（見 AppRoot.kt 呼叫端），這裡再加
+        // 一次會把狀態列的高度墊兩遍，標題上方多出一截真機才看得出來的空白（最終審查 Finding 4）
         Row(
-            Modifier.fillMaxWidth().statusBarsPadding().padding(AppTheme.spacing.s2),
+            Modifier.fillMaxWidth().padding(AppTheme.spacing.s2),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape)) {

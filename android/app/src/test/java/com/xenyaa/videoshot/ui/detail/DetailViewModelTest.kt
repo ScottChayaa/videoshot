@@ -155,4 +155,39 @@ class DetailViewModelTest {
 
         assertEquals("台北", vm.state.value.focused?.place)
     }
+
+    /**
+     * 最終審查 Finding 2：VM 用 videoId 當 key 被 `AppRoot` 快取，同一支影片再進一次詳情頁
+     * 拿到的是同一個實例——這時要靠 `reload(focusShotId = ...)` 蓋過目前聚焦，
+     * 不能是「盡量保留原本聚焦」（那是 `reload()` 沒帶參數時的行為，給別處重查用）。
+     */
+    @Test
+    fun reload帶focusShotId會蓋過目前聚焦() = runTest(dispatcher) {
+        val repo = Repo().apply { shots = listOf(shot(1, 10.0), shot(2, 40.0)) }
+        val vm = DetailViewModel("v1", initialFocusShotId = 1L, library = repo, watchPage = { okPage() })
+        advanceUntilIdle()
+        assertEquals(1L, vm.state.value.focusedShotId)
+
+        vm.reload(focusShotId = 2L)
+        advanceUntilIdle()
+
+        assertEquals(2L, vm.state.value.focusedShotId)
+    }
+
+    /** 對照組：不帶參數的 `reload()`（批次編輯完成、編輯 sheet 存檔後走這條）要維持原本聚焦不變。 */
+    @Test
+    fun reload不帶參數會保留原本聚焦() = runTest(dispatcher) {
+        val repo = Repo().apply { shots = listOf(shot(1, 10.0), shot(2, 40.0)) }
+        val vm = DetailViewModel("v1", initialFocusShotId = 1L, library = repo, watchPage = { okPage() })
+        advanceUntilIdle()
+
+        vm.focus(shot(2, 40.0))
+        advanceUntilIdle()
+        assertEquals(2L, vm.state.value.focusedShotId)
+
+        vm.reload()
+        advanceUntilIdle()
+
+        assertEquals(2L, vm.state.value.focusedShotId)
+    }
 }

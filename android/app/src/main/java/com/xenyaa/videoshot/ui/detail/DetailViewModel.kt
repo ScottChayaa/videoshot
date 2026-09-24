@@ -62,13 +62,27 @@ class DetailViewModel(
         loadPlayerInfo()
     }
 
-    /** 圖資讀取失敗、刪除單張、編輯之後都要重查（同 `HomeViewModel.reload` 的角色）。 */
-    fun reload(): Unit = run {
+    /**
+     * 圖資讀取失敗、刪除單張、編輯之後都要重查（同 `HomeViewModel.reload` 的角色）。
+     *
+     * @param focusShotId 非 null 時代表「使用者剛剛明確要求聚焦這一張」——例如重新進入詳情頁
+     * （`AppRoot.kt` 的 `Dest.Detail` 分支 `LaunchedEffect(Unit)` 帶進來目前導覽目的地的
+     * `focusShotId`）。這個值優先於「盡量保留原本聚焦」的邏輯，因為 `AppRoot` 用 videoId
+     * 當 key 快取這個 VM，同一支影片再進一次詳情頁拿到的是同一個實例，`initialFocusShotId`
+     * 建構參數只在第一次建構時有意義，不這樣做的話「Lightbox 播另一張同一支影片的截圖」
+     * 會誤聚焦到上一次那張、播放器也會跳去錯的秒數（最終審查 Finding 2）。
+     *
+     * 不帶這個參數（例如批次編輯完成、編輯 sheet 存檔後呼叫）——單純資料重查，
+     * 維持原本聚焦不變，這是多數呼叫端要的行為。
+     */
+    fun reload(focusShotId: Long? = null): Unit = run {
         launchGuarded {
             val shots = library.shotsOfVideo(videoId)
             val title = library.videoById(videoId)?.title ?: videoId
-            // 這支影片還有那一張就留著聚焦,不然退回第一張——例如剛好聚焦的那張被別處刪掉了
-            val keepFocus = _state.value.focusedShotId?.takeIf { id -> shots.any { it.id == id } }
+            // 有明確指定的話用它，不然沿用目前聚焦；這支影片還有那一張就留著聚焦，
+            // 不然退回第一張——例如指定的／原本聚焦的那張被別處刪掉了
+            val wanted = focusShotId ?: _state.value.focusedShotId
+            val keepFocus = wanted?.takeIf { id -> shots.any { it.id == id } }
             _state.value = _state.value.copy(
                 loading = false,
                 title = title,
