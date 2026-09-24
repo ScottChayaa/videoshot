@@ -25,6 +25,19 @@ sealed interface Dest {
 
     /** 分類分頁裡的一個資料夾。**只存 id**——名稱與內容每次進來重新查，改名之後標題才會對 */
     data class Folder(val folderId: Long) : Dest
+
+    /**
+     * 詳情頁（規格第六節）。**保留底部導覽**——跟 [Folder] 一起交給 `AppShell`。
+     * @param focusShotId 進場時要跳去播的那一張（從 Lightbox【播放這一段】帶進來）
+     */
+    data class Detail(val videoId: String, val focusShotId: Long) : Dest
+
+    /**
+     * 批次編輯圖資（規格第六節：複用精靈第三步的同一個介面）。**沒有底部導覽**——
+     * 跟 [Lightbox] 一樣是全螢幕、有終點的流程，理由同 `AppShell` 對精靈的 KDoc。
+     * 只存 videoId：要編輯的 shot 清單每次進來重查，改動後才不會顯示過期的一批。
+     */
+    data class BatchEdit(val videoId: String) : Dest
 }
 
 /**
@@ -73,6 +86,16 @@ data class NavState(
      */
     fun openFolderId(): Long? =
         stacks.getValue(Tab.FOLDERS).filterIsInstance<Dest.Folder>().lastOrNull()?.folderId
+
+    /**
+     * 詳情頁、或疊在它上面的批次編輯，目前是哪一支影片。都不是就回 null。
+     * [Dest.Detail] 與 [Dest.BatchEdit] 都自帶 videoId，不必像 [openFolderId] 那樣往下找父層。
+     */
+    fun currentDetailVideoId(): String? = when (val top = current) {
+        is Dest.Detail -> top.videoId
+        is Dest.BatchEdit -> top.videoId
+        else -> null
+    }
 }
 
 /**
@@ -92,6 +115,8 @@ object NavCodec {
                     is Dest.Root -> "R"
                     is Dest.Lightbox -> "L${dest.startIndex}"
                     is Dest.Folder -> "F${dest.folderId}"
+                    is Dest.Detail -> "D${dest.videoId}:${dest.focusShotId}"
+                    is Dest.BatchEdit -> "B${dest.videoId}"
                 }
             }
             "${tab.name}=$items"
@@ -113,6 +138,14 @@ object NavCodec {
                     item == "R" -> Dest.Root
                     item.startsWith("L") -> Dest.Lightbox(item.drop(1).toIntOrNull() ?: return NavState())
                     item.startsWith("F") -> Dest.Folder(item.drop(1).toLongOrNull() ?: return NavState())
+                    item.startsWith("D") -> {
+                        val body = item.drop(1)
+                        val sep = body.lastIndexOf(':')
+                        if (sep < 0) return NavState()
+                        val shotId = body.substring(sep + 1).toLongOrNull() ?: return NavState()
+                        Dest.Detail(body.substring(0, sep), shotId)
+                    }
+                    item.startsWith("B") -> Dest.BatchEdit(item.drop(1))
                     else -> return NavState()
                 }
             }

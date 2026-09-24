@@ -96,4 +96,27 @@ class NavStateTest {
         assertEquals(42L, nav.openFolderId())
         assertNull(NavState().openFolderId())
     }
+
+    @Test
+    fun 詳情頁存得住也讀得回來() {
+        val nav = NavState().push(Dest.Detail("abc12345678", 99L))
+        assertEquals(nav, NavCodec.decode(NavCodec.encode(nav)))
+    }
+
+    @Test
+    fun 批次編輯存得住也讀得回來() {
+        val nav = NavState().push(Dest.Detail("abc12345678", 99L)).push(Dest.BatchEdit("abc12345678"))
+        assertEquals(nav, NavCodec.decode(NavCodec.encode(nav)))
+    }
+
+    /** 詳情頁或疊在它上面的批次編輯都要問得出「現在是哪一支影片」。 */
+    @Test
+    fun 問得出詳情頁目前是哪一支影片() {
+        assertNull(NavState().currentDetailVideoId())
+        val onDetail = NavState().push(Dest.Detail("v1", 1L))
+        assertEquals("v1", onDetail.currentDetailVideoId())
+        assertEquals("v1", onDetail.push(Dest.BatchEdit("v1")).currentDetailVideoId())
+        // Lightbox 疊在詳情頁上面不算——目前沒有這個路徑，但守住這條語意
+        assertNull(NavState().push(Dest.Lightbox(0)).currentDetailVideoId())
+    }
 }
