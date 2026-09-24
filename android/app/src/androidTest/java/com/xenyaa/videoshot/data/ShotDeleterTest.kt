@@ -158,4 +158,34 @@ class ShotDeleterTest {
 
         assertNull(library.shotById(ids.single()))
     }
+
+    /** 詳情頁【刪除整支收藏】：一次砍光這支影片的所有痕跡。 */
+    @Test
+    fun deleteVideo一次砍光整支影片與縮圖目錄() = runTest {
+        val ids = library.commitPicks(video, listOf(pick(0), pick(1)))
+        val folder = library.createFolder(null, "露營")
+        libraryDb.folderDao().link(ShotFolderEntity(ids[0], folder, 1L))
+        writeThumb(0)
+        writeThumb(1)
+        cache.putThumbStates(
+            listOf(
+                ThumbStateEntity("v1", 3, 0, "ok", 0, 0, null),
+                ThumbStateEntity("v1", 3, 1, "ok", 0, 0, null),
+            )
+        )
+
+        deleter.deleteVideo("v1")
+
+        assertNull(library.shotById(ids[0]))
+        assertNull(library.shotById(ids[1]))
+        assertNull(libraryDb.videoDao().byId("v1"))
+        assertEquals(0, libraryDb.folderDao().linkCountOfShot(ids[0]))
+        assertFalse(File(thumbsRoot, "v1").exists())
+        assertEquals(0, cacheDb.thumbStateDao().countOfVideo("v1"))
+    }
+
+    @Test
+    fun deleteVideo刪不存在的影片不會爆() = runTest {
+        deleter.deleteVideo("不存在")
+    }
 }

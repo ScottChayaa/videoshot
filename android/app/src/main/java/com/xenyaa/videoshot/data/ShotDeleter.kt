@@ -48,4 +48,21 @@ class ShotDeleter(
             }
         }
     }
+
+    /**
+     * 刪整支收藏的**全部痕跡**（規格第六節「詳情頁」的【刪除整支收藏】）。
+     *
+     * 跟 [delete] 的「videoGone」分支做的事一樣（刪縮圖目錄、清 thumb_state），
+     * 差別是**一次處理整支**而不是一張一張刪到最後一張才觸發——`library.deleteVideo`
+     * 本身是單一交易（`RoomLibraryRepo.deleteVideo`），比呼叫 `delete()` N 次更省，
+     * 而且不會在中途留下「刪了一半」的可見狀態。
+     */
+    suspend fun deleteVideo(videoId: String): Unit = withContext(io) {
+        library.deleteVideo(videoId)
+        // 同 delete() 的取捨：DB 已經成功，檔案與 cache 清失敗只留垃圾，不讓整個操作看起來失敗
+        runCatching {
+            thumbs.deleteVideo(videoId)
+            cache.forgetVideoThumbs(videoId)
+        }
+    }
 }

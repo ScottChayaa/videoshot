@@ -121,4 +121,15 @@ class LibraryRepoReadTest {
         assertEquals(setOf(7), repo.takenFrameIndexes("v7", 2))
         assertEquals(emptySet<Int>(), repo.takenFrameIndexes("v7", 1))
     }
+
+    @Test
+    fun videoById讀得到已入庫的影片標題() = runTest {
+        seed("v1", "2026-04-01", 1)
+        assertEquals("t", repo.videoById("v1")?.title)
+    }
+
+    @Test
+    fun videoById查無影片時回傳null() = runTest {
+        assertNull(repo.videoById("不存在"))
+    }
 }

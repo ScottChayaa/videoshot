@@ -25,6 +25,7 @@ open class FakeLibraryRepo : LibraryRepo {
     override suspend fun monthCounts(): List<MonthCount> = emptyList()
     override suspend fun shotsOfVideo(videoId: String): List<ShotRow> = emptyList()
     override suspend fun shotById(id: Long): ShotRow? = null
+    override suspend fun videoById(videoId: String): VideoEntity? = null
     override suspend fun shotCount(upToMonth: String?): Int = 0
     override suspend fun monthFacets(month: String): List<MonthFacet> = emptyList()
     override suspend fun tagsOfShot(shotId: Long): List<String> = emptyList()

@@ -28,6 +28,9 @@ interface LibraryRepo {
     suspend fun shotsOfVideo(videoId: String): List<ShotRow>
     suspend fun shotById(id: Long): ShotRow?
 
+    /** 這支影片的列——詳情頁的標題（不存在回 null）。 */
+    suspend fun videoById(videoId: String): VideoEntity?
+
     /** 符合同一個篩選條件的總張數 —— Lightbox 的「共 M 張」（規格第六節）。 */
     suspend fun shotCount(upToMonth: String? = null): Int
 

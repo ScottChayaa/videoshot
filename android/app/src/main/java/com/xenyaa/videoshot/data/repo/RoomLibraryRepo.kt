@@ -75,6 +75,10 @@ class RoomLibraryRepo(
         db.shotDao().rowById(id)?.toRow()
     }
 
+    override suspend fun videoById(videoId: String): VideoEntity? = withContext(io) {
+        db.videoDao().byId(videoId)
+    }
+
     override suspend fun shotImage(shotId: Long): ByteArray? = withContext(io) {
         db.shotDao().imageOf(shotId)?.webp
     }
