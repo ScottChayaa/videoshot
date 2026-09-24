@@ -40,7 +40,7 @@ object SearchStore {
 
     /** 換時間範圍：清掉舊的 facets（等重新載入），選取先留著，等 [loadedFacets] 回來再修剪。 */
     fun setUpToMonth(state: SearchState, month: String?): SearchState =
-        state.copy(upToMonth = month, facetsLoading = true)
+        state.copy(upToMonth = month, facets = emptyList(), facetsHasMore = false, facetsLoading = true)
 
     fun startFacetsLoading(state: SearchState): SearchState = state.copy(facetsLoading = true)
 

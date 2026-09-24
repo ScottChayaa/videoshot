@@ -78,6 +78,8 @@ class SearchStoreTest {
         val before = SearchState(upToMonth = null, facets = listOf(MonthFacet("宜蘭", "place", 1)))
         val s = SearchStore.setUpToMonth(before, "2026-01")
         assertEquals("2026-01", s.upToMonth)
+        assertEquals(emptyList<MonthFacet>(), s.facets)
+        assertFalse(s.facetsHasMore)
         assertTrue(s.facetsLoading)
     }
 
