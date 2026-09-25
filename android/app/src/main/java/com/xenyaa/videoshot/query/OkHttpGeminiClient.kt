@@ -51,19 +51,24 @@ class OkHttpGeminiClient(
 ) : GeminiClient {
 
     override suspend fun parse(text: String, apiKey: String): ParsedQuery? = withContext(io) {
-        val body = json.encodeToString(
-            GeminiRequest(contents = listOf(GeminiRequest.Content(listOf(GeminiRequest.Part(geminiQueryPrompt(text)))))),
-        )
-        val request = Request.Builder()
-            .url("${apiUrl("gemini-flash-latest")}?key=$apiKey")
-            .post(body.toRequestBody("application/json".toMediaType()))
-            .build()
         try {
+            val body = json.encodeToString(
+                GeminiRequest(contents = listOf(GeminiRequest.Content(listOf(GeminiRequest.Part(geminiQueryPrompt(text)))))),
+            )
+            // .url(String) 丟 IllegalArgumentException（不是 IOException）——apiKey 是呼叫端傳進來的
+            // 值（未來會是使用者在設定頁貼的金鑰），格式不明時不該讓 parse() 破例外規則、直接炸出去，
+            // 所以連同這一段也包進 try：整個函式對外的約定是「一律回 null，不丟例外」。
+            val request = Request.Builder()
+                .url("${apiUrl("gemini-flash-latest")}?key=$apiKey")
+                .post(body.toRequestBody("application/json".toMediaType()))
+                .build()
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@use null
                 parseResponse(response.body.string())
             }
         } catch (e: IOException) {
+            null
+        } catch (e: IllegalArgumentException) {
             null
         }
     }
