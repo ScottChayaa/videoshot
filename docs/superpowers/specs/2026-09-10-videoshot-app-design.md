@@ -1317,7 +1317,7 @@ OAuth client 綁定 APK 的簽章憑證，**debug 與 release 用不同的憑證
 同日由階段 2 解決：依賴注入方式（手動注入）。
 2026-09-15 由階段 4b 的收尾解決：**dHash 三檔門檻值** —— 以五支真實影片實測，
 3／6／10 在所有樣本上單調遞增且全部高於雜訊底噪，維持原值不動（詳見第五節第二步）。
-2026-09-24 由階段 10 解決（第一版）：Gemini 查詢解析的 prompt——`query/GeminiClient.kt` 的
+2026-09-25 由階段 10 解決（第一版）：Gemini 查詢解析的 prompt——`query/GeminiClient.kt` 的
 `geminiQueryPrompt()`，要求模型只回 JSON、欄位對齊 `ParsedQuery`。**尚未用真的 Gemini 金鑰
 實際跑過調品質**——帳號頁的金鑰輸入 UI 是階段 11 的範圍，屆時有金鑰可以測時再視實際回應
 品質調整 prompt 用詞。
