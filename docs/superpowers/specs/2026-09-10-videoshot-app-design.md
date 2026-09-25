@@ -994,6 +994,9 @@ storyboard 與 watch page **沒有任何官方文件或相容性承諾**。設�
 
 `place` 命中 > `tag` 命中 > 關鍵字命中。避免「描述裡剛好講到宜蘭」壓過「這張圖的地點就是宜蘭」。
 
+（「標籤與地點」多選瀏覽模式的篩選是 OR 語意、依時間排序，不套用這個相關度規則——
+那個模式的命中都是使用者自己勾出來的條件，見 Task 4 的實作理由。）
+
 ### 顯示解析結果
 
 文字查詢的結果列上方常駐一行「**聽懂了：加勒比海・夜潛・大蝦　[修改]**」，
@@ -1004,7 +1007,8 @@ storyboard 與 watch page **沒有任何官方文件或相容性承諾**。設�
 
 - 金鑰由使用者在帳號頁輸入，以 Android Keystore 的金鑰加密後存放；app 直接呼叫 `generativelanguage.googleapis.com`，模型 `gemini-flash-latest`。
 - 帳號頁說明：金鑰只用於查詢解析、只存在這台裝置、建議在 Google Cloud 把該金鑰限縮為只能呼叫 Generative Language API。
-- ⏳ 解析 prompt 需實際迭代（如何穩定區分地點與標籤）。
+- 解析 prompt：`query/GeminiClient.kt` 的 `geminiQueryPrompt()`（要求模型只回 JSON、欄位對齊
+  `ParsedQuery`）。尚未用真的金鑰跑過調品質，見第十六節「已解決」段落。
 
 ---
 
@@ -1306,7 +1310,6 @@ OAuth client 綁定 APK 的簽章憑證，**debug 與 release 用不同的憑證
 | 同一 Cloud 專案的不同 OAuth client 是否共用 appDataFolder | 第十節、第十八節 | 備份階段 |
 | 回填節流參數 | 第十一節 | 回填階段 |
 | **廣告偵測 `.ad-showing` 是否有效** | 第五節、第十二節 | POC 未能觸發廣告。**階段 4c 已實作**（偵測得到就擋、偵測不到不擋流程），但驗收整輪仍未遇到廣告，**依舊未驗證**。embed 的 DOM 是行動版，但播放器容器**確實帶 `ytp-*` 類名**，所以選擇器仍有機會成立 —— 要實際觸發廣告才算數 |
-| Gemini 查詢解析的 prompt | 第八節 | 查詢階段 |
 | 首頁月份標籤：換行 vs 橫向捲動 | 第六節 | 暫定橫向捲動（沿用原型） |
 
 2026-09-13 由階段 0 的實機 POC 解決並移出本表：POC P-1～P-3、watch page 欄位位置與實際流量、
@@ -1314,6 +1317,10 @@ OAuth client 綁定 APK 的簽章憑證，**debug 與 release 用不同的憑證
 同日由階段 2 解決：依賴注入方式（手動注入）。
 2026-09-15 由階段 4b 的收尾解決：**dHash 三檔門檻值** —— 以五支真實影片實測，
 3／6／10 在所有樣本上單調遞增且全部高於雜訊底噪，維持原值不動（詳見第五節第二步）。
+2026-09-24 由階段 10 解決（第一版）：Gemini 查詢解析的 prompt——`query/GeminiClient.kt` 的
+`geminiQueryPrompt()`，要求模型只回 JSON、欄位對齊 `ParsedQuery`。**尚未用真的 Gemini 金鑰
+實際跑過調品質**——帳號頁的金鑰輸入 UI 是階段 11 的範圍，屆時有金鑰可以測時再視實際回應
+品質調整 prompt 用詞。
 
 ---
 
