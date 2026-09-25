@@ -46,12 +46,13 @@ class SearchViewModelTest {
         var queryCount = 0
         var lastFacetPlaces: Set<String>? = null
         var lastFacetTags: Set<String>? = null
+        var lastFacetUpToMonth: String? = null
         var lastQuery: ParsedQuery? = null
 
         override suspend fun monthCounts() = monthCountsValue
         override suspend fun searchFacets(upToMonth: String?, limit: Int) = facets
         override suspend fun searchByFacets(places: Set<String>, tagNames: Set<String>, upToMonth: String?, after: ShotCursor?, limit: Int): Page<ShotRow> {
-            lastFacetPlaces = places; lastFacetTags = tagNames
+            lastFacetPlaces = places; lastFacetTags = tagNames; lastFacetUpToMonth = upToMonth
             return facetPage
         }
         override suspend fun searchByFacetsCount(places: Set<String>, tagNames: Set<String>, upToMonth: String?) = facetCount
@@ -170,6 +171,36 @@ class SearchViewModelTest {
 
         assertEquals(2, vm.state.value.results.size)
         assertEquals(listOf("大蝦"), repo.lastQuery?.keywords)
+    }
+
+    @Test
+    fun loadMore延續標籤模式查詢時捕捉的條件不受中途facet重新載入修剪影響() = runTest(dispatcher) {
+        val repo = Repo().apply {
+            facetPage = Page(listOf(row(1)), ShotCursor("2026-03-01", 1))
+            facetCount = 1
+        }
+        val vm = SearchViewModel(repo, resolverOf())
+        advanceUntilIdle()
+        vm.toggleFacet(MonthFacet("宜蘭", "place", 1))
+        vm.runSearch()
+        advanceUntilIdle()
+
+        // 模擬使用者查詢中途換了時間範圍——這會觸發一次 facet 重新載入,新的候選池
+        // (這裡設成空清單)會把剛剛查詢用的 "宜蘭" 從 selected 修剪掉。
+        repo.facets = emptyList()
+        vm.setUpToMonth("2026-01")
+        advanceUntilIdle()
+        assertTrue(vm.state.value.selected.isEmpty())
+
+        repo.facetPage = Page(listOf(row(2)), null)
+        vm.loadMore()
+        advanceUntilIdle()
+
+        // loadMore() 應該沿用 runSearch() 當初捕捉的條件("宜蘭"、upToMonth=null)，
+        // 不是重新從已經被修剪成空、且 upToMonth 已經變成 "2026-01" 的 state 讀。
+        assertEquals(setOf("宜蘭"), repo.lastFacetPlaces)
+        assertEquals(null, repo.lastFacetUpToMonth)
+        assertEquals(2, vm.state.value.results.size)
     }
 
     @Test

@@ -36,6 +36,13 @@ private fun heardTextOf(parsed: ParsedQuery): String {
 }
 
 /**
+ * 標籤模式「一次搜尋」全程固定用的條件——跟文字模式的 `resolvedQuery` 同一個理由：
+ * `loadMore()` 續頁不能重新從 `state.selected` 拆一次，不然中途一次 facet 重新載入
+ * 把 `selected` 修剪掉,會讓第 2 頁跟第 1 頁用不同條件查、卻接在同一個游標之後。
+ */
+private data class TagCriteria(val places: Set<String>, val tags: Set<String>, val upToMonth: String?)
+
+/**
  * 查詢分頁的資料接線（規格第六節「查詢」、第八節「檢索」）。
  * @param pageSize 測試會調小，正式一律 50
  */
@@ -50,6 +57,9 @@ class SearchViewModel(
 
     /** 文字模式往下捲要延續同一次解析結果，不能每捲一頁就重新問一次 Gemini（見本 Task 的 KDoc）。 */
     private var resolvedQuery: ParsedQuery? = null
+
+    /** 標籤模式往下捲要延續同一次的地點／標籤／時間條件——跟 [resolvedQuery] 同一個理由（見 [TagCriteria]）。 */
+    private var tagCriteria: TagCriteria? = null
 
     /** 換條件前一次還在跑的讀取要先取消——理由同 `HomeViewModel.loadJob`。 */
     private var loadJob: Job? = null
@@ -99,6 +109,7 @@ class SearchViewModel(
         when (current.mode) {
             SearchMode.TAG -> {
                 val (places, tags) = placesAndTagsOf(current.selected)
+                tagCriteria = TagCriteria(places, tags, current.upToMonth)
                 _state.value = SearchStore.startTagSearch(current)
                 loadJob = launchGuarded { loadTagPage(places, tags, current.upToMonth) }
             }
@@ -124,8 +135,9 @@ class SearchViewModel(
         _state.value = SearchStore.startResultsLoading(current)
         when (current.mode) {
             SearchMode.TAG -> {
-                val (places, tags) = placesAndTagsOf(current.selected)
-                loadJob = launchGuarded { loadTagPage(places, tags, current.upToMonth) }
+                loadJob = launchGuarded {
+                    tagCriteria?.let { (places, tags, upToMonth) -> loadTagPage(places, tags, upToMonth) }
+                }
             }
             SearchMode.TEXT -> {
                 loadJob = launchGuarded { resolvedQuery?.let { loadTextPage(it) } }
