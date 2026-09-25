@@ -9,6 +9,7 @@ import androidx.compose.ui.test.performClick
 import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.core.home.monthLabel
 import com.xenyaa.videoshot.core.paging.ShotCursor
+import com.xenyaa.videoshot.core.query.QueryVocabulary
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.youtube.FetchResult
 import com.xenyaa.videoshot.core.youtube.WatchPage
@@ -23,6 +24,8 @@ import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.data.settings.ShellSettings
+import com.xenyaa.videoshot.query.FakeGeminiClient
+import com.xenyaa.videoshot.query.QueryResolver
 import com.xenyaa.videoshot.thumbs.ThumbKey
 import com.xenyaa.videoshot.thumbs.ThumbSource
 import com.xenyaa.videoshot.thumbs.Thumbs
@@ -161,6 +164,11 @@ class AppRootWizardFinishTest {
         override val wizardData: WizardData = FakeWizardData(repo)
         override val haptics = FakeHaptics()
         override val settings: ShellSettings = FakeShellSettings()
+        override val queryResolver: QueryResolver = QueryResolver(
+            gemini = FakeGeminiClient(null),
+            geminiKey = { null },
+            vocabulary = { QueryVocabulary(emptyList(), emptyList()) },
+        )
         // frameCount=1、intervalSec=0.0：只有一格，內容描述固定是「第 1 格 00:00」
         override fun frameSourceFor(video: LoadedVideo): FrameSource = FakeFrameSource.of(frameCount = 1, intervalSec = 0.0)
         override fun manualImagesFor(videoId: String) = error("這組測試不碰手動圖")

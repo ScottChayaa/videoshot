@@ -13,6 +13,7 @@ import androidx.compose.ui.test.assertCountEquals
 import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.core.paging.FolderCursor
 import com.xenyaa.videoshot.core.paging.ShotCursor
+import com.xenyaa.videoshot.core.query.QueryVocabulary
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.youtube.FetchResult
 import com.xenyaa.videoshot.core.youtube.WatchPage
@@ -30,6 +31,8 @@ import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.data.settings.ShellSettings
+import com.xenyaa.videoshot.query.FakeGeminiClient
+import com.xenyaa.videoshot.query.QueryResolver
 import com.xenyaa.videoshot.thumbs.ThumbKey
 import com.xenyaa.videoshot.thumbs.ThumbSource
 import com.xenyaa.videoshot.thumbs.Thumbs
@@ -227,6 +230,11 @@ class AppRootFoldersTest {
         override val wizardData: WizardData = NoopWizardData()
         override val haptics = FakeHaptics()
         override val settings: ShellSettings = FakeShellSettings()
+        override val queryResolver: QueryResolver = QueryResolver(
+            gemini = FakeGeminiClient(null),
+            geminiKey = { null },
+            vocabulary = { QueryVocabulary(emptyList(), emptyList()) },
+        )
         override fun frameSourceFor(video: LoadedVideo): FrameSource = error("這組測試不碰精靈第二步")
         override fun manualImagesFor(videoId: String) = error("這組測試不碰手動圖")
         override fun captureFor(player: com.xenyaa.videoshot.player.Player) = null

@@ -6,6 +6,7 @@ import com.xenyaa.videoshot.data.ShotDeleter
 import com.xenyaa.videoshot.data.repo.LibraryRepo
 import com.xenyaa.videoshot.data.settings.ShellSettings
 import com.xenyaa.videoshot.player.Player
+import com.xenyaa.videoshot.query.QueryResolver
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
 import com.xenyaa.videoshot.wizard.Haptics
 import com.xenyaa.videoshot.wizard.LoadedVideo
@@ -33,6 +34,9 @@ interface AppRootDeps {
     val wizardData: WizardData
     val haptics: Haptics
     val settings: ShellSettings
+
+    /** 文字查詢解析（規格第八節）：Gemini 優先，無金鑰或逾時退回規則式。 */
+    val queryResolver: QueryResolver
 
     /** 精靈第二步的縮圖來源。見 `AppContainer.frameSourceFor` 的 KDoc。 */
     fun frameSourceFor(video: LoadedVideo): FrameSource

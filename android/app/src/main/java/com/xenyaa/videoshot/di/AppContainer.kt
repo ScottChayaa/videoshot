@@ -46,7 +46,10 @@ import com.xenyaa.videoshot.capture.ManualImageStore
 import com.xenyaa.videoshot.capture.WebViewCapture
 import com.xenyaa.videoshot.player.Player
 import com.xenyaa.videoshot.player.WebViewPlayer
+import com.xenyaa.videoshot.query.OkHttpGeminiClient
+import com.xenyaa.videoshot.query.QueryResolver
 import com.xenyaa.videoshot.ui.shell.AppRootDeps
+import kotlinx.coroutines.flow.first
 import java.io.File
 
 /**
@@ -82,6 +85,15 @@ class AppContainer(context: Context) : AppRootDeps {
     }
 
     override val settings: AppSettings by lazy { AppSettings(appContext) }
+
+    override val queryResolver: QueryResolver by lazy {
+        QueryResolver(
+            gemini = OkHttpGeminiClient(httpClient, Dispatchers.IO),
+            geminiKey = { settings.geminiKey.first() },
+            // 每次查詢都重新取得——理由見 QueryResolver 建構子參數的 KDoc
+            vocabulary = { libraryRepo.queryVocabulary() },
+        )
+    }
 
     override val libraryRepo: LibraryRepo by lazy {
         RoomLibraryRepo(libraryDb, Dispatchers.IO) { settings.markChanged() }

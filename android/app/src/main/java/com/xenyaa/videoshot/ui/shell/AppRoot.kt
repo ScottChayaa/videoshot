@@ -41,6 +41,8 @@ import com.xenyaa.videoshot.ui.folders.FoldersScreen
 import com.xenyaa.videoshot.ui.folders.FoldersViewModel
 import com.xenyaa.videoshot.ui.home.HomeScreen
 import com.xenyaa.videoshot.ui.home.HomeViewModel
+import com.xenyaa.videoshot.ui.search.SearchScreen
+import com.xenyaa.videoshot.ui.search.SearchViewModel
 import com.xenyaa.videoshot.ui.lightbox.LightboxActions
 import com.xenyaa.videoshot.ui.lightbox.LightboxScreen
 import com.xenyaa.videoshot.ui.lightbox.shareTextOf
@@ -81,6 +83,17 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
     )
     val homeState by homeVm.state.collectAsStateWithLifecycle()
     val homeListState = rememberLazyGridState()
+
+    val searchVm: SearchViewModel = viewModel(
+        factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                SearchViewModel(container.libraryRepo, container.queryResolver) as T
+        },
+        key = "search",
+    )
+    val searchState by searchVm.state.collectAsStateWithLifecycle()
+    val searchListState = rememberLazyGridState()
 
     val foldersVm: FoldersViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
@@ -233,10 +246,25 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             // 來源依目前在哪一格切換：分類分頁開著資料夾頁時，左右滑動範圍與「共 M 張」
             // 是那個資料夾本層，不是首頁的 homeState（規格第六節：「資料夾＝該資料夾本層」）。
             val inFolder = nav.tab == Tab.FOLDERS && folderVm != null
+            val inSearch = nav.tab == Tab.SEARCH
             val folderState by (folderVm?.state ?: MutableStateFlow(FolderState())).collectAsStateWithLifecycle()
-            val items = if (inFolder) folderState.items else homeState.items
-            val total = if (inFolder) folderState.total else homeState.total
-            val loadMore: () -> Unit = if (inFolder) folderVm!!::loadMore else homeVm::loadMore
+            // 規格第六節：Lightbox 左右滑動的範圍是「進來時的清單」——查詢結果、資料夾本層、
+            // 首頁目前顯示中的時間軸三選一，依目前在哪一格決定
+            val items = when {
+                inFolder -> folderState.items
+                inSearch -> searchState.results
+                else -> homeState.items
+            }
+            val total = when {
+                inFolder -> folderState.total
+                inSearch -> searchState.total
+                else -> homeState.total
+            }
+            val loadMore: () -> Unit = when {
+                inFolder -> folderVm!!::loadMore
+                inSearch -> searchVm::loadMore
+                else -> homeVm::loadMore
+            }
             LightboxScreen(
                 items = items,
                 total = total,
@@ -486,12 +514,26 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                         onPickMonth = homeVm::setFilter,
                         scrollToMonth = scrollToMonth,
                         onScrolledToMonth = { scrollToMonth = null },
-                        // 查詢頁是階段 10。點了沒反應會被當成壞掉，先說清楚
-                        onFacetClick = { _, facet ->
-                            scope.launch { snackbarHostState.showSnackbar("「${facet.name}」的查詢在階段 10") }
+                        // 規格第六節：「從首頁的月份標籤點進來時，條件與時間自動帶入並直接顯示結果」
+                        onFacetClick = { month, facet ->
+                            searchVm.seedFromHome(month, facet)
+                            nav = nav.select(Tab.SEARCH)
                         },
                     )
-                    Tab.SEARCH -> ComingSoonScreen("查詢", "標籤與地點的查詢會在階段 10 做好")
+                    Tab.SEARCH -> SearchScreen(
+                        state = searchState,
+                        loader = container.thumbLoader,
+                        listState = searchListState,
+                        onSetMode = searchVm::setMode,
+                        onSetTextQuery = searchVm::setTextQuery,
+                        onToggleFacet = searchVm::toggleFacet,
+                        onShowMoreFacets = searchVm::showMoreFacets,
+                        onPickMonth = searchVm::setUpToMonth,
+                        onRunSearch = searchVm::runSearch,
+                        onLoadMore = searchVm::loadMore,
+                        onShowConditions = searchVm::showConditions,
+                        onOpen = { nav = nav.push(Dest.Lightbox(it)) },
+                    )
                     Tab.FOLDERS -> when (nav.current) {
                         // 資料夾頁：上半子資料夾、下半本層的圖。folderVm 一定不是 null——
                         // openFolderId 非 null 時它才會被建出來，兩者同一個條件
