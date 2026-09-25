@@ -235,4 +235,40 @@ class SearchViewModelTest {
         assertEquals(setOf("place:宜蘭"), vm.state.value.selected)
         assertEquals(listOf(com.xenyaa.videoshot.data.repo.model.MonthCount("2026-03", 4)), vm.state.value.months)
     }
+
+    /**
+     * 從查詢分頁開的 Lightbox 刪除／編輯要同步回查詢結果，不然清單、「共 M 張」、Lightbox
+     * 都會停在刪除／編輯前的狀態（Task 12 覆查 Important 1，跟 `HomeViewModel` 的
+     * `onShotDeleted`／`onShotChanged` 是同一種修法）。
+     */
+    @Test
+    fun 刪除會同步拿掉查詢結果裡的那一張並減少總數() = runTest(dispatcher) {
+        val repo = Repo().apply { facetPage = Page(listOf(row(1), row(2)), null); facetCount = 2 }
+        val vm = SearchViewModel(repo, resolverOf())
+        advanceUntilIdle()
+        vm.toggleFacet(MonthFacet("宜蘭", "place", 1))
+        vm.runSearch()
+        advanceUntilIdle()
+        assertEquals(2, vm.state.value.total)
+
+        vm.onShotDeleted(1L)
+
+        assertEquals(listOf(2L), vm.state.value.results.map { it.id })
+        assertEquals(1, vm.state.value.total)
+    }
+
+    @Test
+    fun 編輯會同步換掉查詢結果裡對應的那一張() = runTest(dispatcher) {
+        val repo = Repo().apply { facetPage = Page(listOf(row(1)), null); facetCount = 1 }
+        val vm = SearchViewModel(repo, resolverOf())
+        advanceUntilIdle()
+        vm.toggleFacet(MonthFacet("宜蘭", "place", 1))
+        vm.runSearch()
+        advanceUntilIdle()
+
+        val edited = row(1).copy(place = "台北")
+        vm.onShotChanged(edited)
+
+        assertEquals("台北", vm.state.value.results.single { it.id == 1L }.place)
+    }
 }

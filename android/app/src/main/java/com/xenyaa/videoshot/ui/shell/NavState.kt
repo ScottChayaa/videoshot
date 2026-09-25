@@ -58,6 +58,23 @@ data class NavState(
         if (target == tab) this
         else copy(tab = target, returnTo = if (target == Tab.CAPTURE) tab else returnTo)
 
+    /**
+     * 切到某一格，**同時把它的堆疊重置成只剩 [Dest.Root]**。目前只給「首頁月份標籤點進查詢」
+     * 這條路徑用——查詢分頁被剛帶入的新條件蓋過一次結果之後，那一格不能還停在使用者先前留在
+     * 那裡的舊畫面（例如查詢結果 Lightbox【播放這一段】留下的詳情頁），不然使用者會落在一個
+     * 過期的畫面上，看不到規格第六節要求的「直接顯示結果」。
+     *
+     * 跟 [select] 不同：[select] 只換作用中的分頁，不動堆疊本身——那是給「使用者自己點底部
+     * 導覽切分頁」用的，那種情況本來就該留住那一格原來停在哪裡。這裡兩件事綁在一起做，
+     * 因為呼叫端（`seedFromHome`）永遠是「把查詢分頁重新帶到最新結果」，不會有只想換分頁、
+     * 卻不想清掉舊畫面的情境。
+     *
+     * 不複製 [select] 對 `returnTo` 的 [Tab.CAPTURE] 特別處理——這裡的 `target` 只會是
+     * [Tab.SEARCH]，不會是 [Tab.CAPTURE]，`returnTo` 不需要跟著換。
+     */
+    fun selectAndReset(target: Tab): NavState =
+        copy(tab = target, stacks = stacks + (target to listOf(Dest.Root)))
+
     fun push(dest: Dest): NavState =
         copy(stacks = stacks + (tab to stacks.getValue(tab) + dest))
 

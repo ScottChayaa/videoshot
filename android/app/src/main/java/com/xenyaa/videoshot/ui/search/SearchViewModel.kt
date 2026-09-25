@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.xenyaa.videoshot.core.query.ParsedQuery
 import com.xenyaa.videoshot.data.repo.LibraryRepo
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
+import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.query.QuerySource
 import com.xenyaa.videoshot.query.QueryResolver
 import kotlinx.coroutines.CancellationException
@@ -159,6 +160,23 @@ class SearchViewModel(
         )
         runSearch()
         loadFacets()
+    }
+
+    /**
+     * 從 Lightbox 刪掉一張，查詢結果要同步（見 Task 12 覆查 Important 1）——不然使用者在
+     * 查詢分頁開的 Lightbox 刪除之後，那張圖還留在清單裡、`total` 也還沒少一張，
+     * 刪到最後一張時 Lightbox 也不會自動關掉（跟 `HomeViewModel.onShotDeleted` 同一個理由）。
+     */
+    fun onShotDeleted(id: Long) {
+        _state.value = SearchStore.removeShot(_state.value, id)
+    }
+
+    /**
+     * 就地編輯之後同步查詢結果，理由同 [onShotDeleted]。標籤模式會依日期重新排序，
+     * 文字模式的相關度排序限制見 `SearchStore.replace` 的 KDoc。
+     */
+    fun onShotChanged(row: ShotRow) {
+        _state.value = SearchStore.replace(_state.value, row)
     }
 
     private suspend fun loadTagPage(places: Set<String>, tags: Set<String>, upToMonth: String?) {

@@ -322,6 +322,10 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                 // items 一旦被清空成空清單，Lightbox 甚至會誤判成「沒東西可看」
                                 // 自動關掉自己（LightboxScreen 的 items.isEmpty() 那段）
                                 folderVm?.onShotDeleted(shot.id)
+                                // 查詢分頁同一個理由（Task 12 覆查 Important 1）：查詢分頁可能在
+                                // 背景分頁活著，這張圖若剛好在它的結果裡，清單與「共 M 張」都要
+                                // 跟著更新，不能只在 nav.tab == Tab.SEARCH 時才呼叫
+                                searchVm.onShotDeleted(shot.id)
                                 // 分類分頁（清單頁）也要跟著更新——這張圖所屬資料夾的張數與
                                 // 預覽拼貼都可能變了，原本只有加入分類那條路徑會呼叫（N4）
                                 foldersVm.reload()
@@ -517,7 +521,11 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                         // 規格第六節：「從首頁的月份標籤點進來時，條件與時間自動帶入並直接顯示結果」
                         onFacetClick = { month, facet ->
                             searchVm.seedFromHome(month, facet)
-                            nav = nav.select(Tab.SEARCH)
+                            // 用 selectAndReset 而不是 select——查詢分頁可能還停在使用者上次
+                            // 留下的舊畫面（例如查詢結果 Lightbox【播放這一段】留下的詳情頁），
+                            // 不清掉的話使用者會落在過期畫面上，看不到剛帶入的新結果
+                            // （Task 12 覆查 Important 2）
+                            nav = nav.selectAndReset(Tab.SEARCH)
                         },
                     )
                     Tab.SEARCH -> SearchScreen(
@@ -600,6 +608,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             homeVm = homeVm,
             folderVm = folderVm,
             detailVm = detailVm,
+            searchVm = searchVm,
             scope = scope,
             snackbarHostState = snackbarHostState,
             onDismiss = { editing = null },
@@ -620,6 +629,7 @@ private fun EditingSheet(
     homeVm: HomeViewModel,
     folderVm: FolderViewModel?,
     detailVm: DetailViewModel?,
+    searchVm: SearchViewModel,
     scope: CoroutineScope,
     snackbarHostState: SnackbarHostState,
     onDismiss: () -> Unit,
@@ -666,6 +676,8 @@ private fun EditingSheet(
                 container.libraryRepo.shotById(shot.id)?.let { updated ->
                     homeVm.onShotChanged(updated)
                     detailVm?.onShotChanged(updated)
+                    // 查詢分頁同步，理由同刪除那一段（Task 12 覆查 Important 1）
+                    searchVm.onShotChanged(updated)
                 }
                 folderVm?.reload()
                 snackbarHostState.showSnackbar("已儲存")

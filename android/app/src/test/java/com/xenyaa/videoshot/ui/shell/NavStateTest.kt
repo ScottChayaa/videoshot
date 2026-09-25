@@ -37,6 +37,22 @@ class NavStateTest {
         assertEquals(Dest.Lightbox(3), nav.select(Tab.FOLDERS).current)
     }
 
+    /**
+     * 首頁月份標籤點進查詢分頁：查詢分頁上次留下的舊畫面（例如詳情頁）要被清掉，
+     * 不能讓使用者切過去卻看到過期的那一層（見 Task 12 覆查 Important 2）。
+     */
+    @Test
+    fun selectAndReset會換分頁並把該格堆疊清回根層() {
+        val nav = NavState()
+            .select(Tab.SEARCH).push(Dest.Lightbox(1)).push(Dest.Detail("v1", 9L))
+            .select(Tab.HOME)
+        val reseeded = nav.selectAndReset(Tab.SEARCH)
+        assertEquals(Tab.SEARCH, reseeded.tab)
+        assertEquals(Dest.Root, reseeded.current)
+        // 其他格的堆疊不受影響
+        assertEquals(Dest.Root, reseeded.select(Tab.HOME).current)
+    }
+
     /** 非首頁的根層按返回 → 回首頁分頁，不是直接離開 app。 */
     @Test
     fun 其他分頁的根層按返回會回到首頁分頁() {

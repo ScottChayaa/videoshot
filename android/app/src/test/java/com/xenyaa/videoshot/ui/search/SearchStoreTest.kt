@@ -126,4 +126,59 @@ class SearchStoreTest {
         assertFalse(SearchStore.canLoadMore(SearchState(phase = SearchPhase.RESULTS, resultsLoading = true)))
         assertFalse(SearchStore.canLoadMore(SearchState(phase = SearchPhase.RESULTS, endReached = true)))
     }
+
+    /** 刪一張：清單少一張、總數也要跟著少，理由同 `HomeStore.removeShot`（Task 12 覆查 Important 1）。 */
+    @Test
+    fun 刪一張會同時更新清單與總數() {
+        val loaded = SearchStore.appendTagPage(SearchState(), Page(listOf(row(3), row(2), row(1)), null), total = 3)
+        val after = SearchStore.removeShot(loaded, 2)
+        assertEquals(listOf(3L, 1L), after.results.map { it.id })
+        assertEquals(2, after.total)
+    }
+
+    @Test
+    fun 刪不存在的_id_不動任何東西() {
+        val loaded = SearchStore.appendTagPage(SearchState(), Page(listOf(row(1)), null), total = 1)
+        assertEquals(loaded, SearchStore.removeShot(loaded, 999))
+    }
+
+    /** 標籤模式依日期排序，就地編輯改了日期要換到正確的位置，跟 `HomeStore.replace` 同一個理由。 */
+    @Test
+    fun 標籤模式換掉一張之後仍然依日期由新到舊() {
+        fun rowAt(id: Long, date: String) = ShotRow(
+            id = id, videoId = "v1", atSec = id.toDouble(), source = "storyboard", frameIndex = id.toInt(),
+            sbLevel = 3, eventDate = date, place = null, description = null,
+        )
+        val loaded = SearchStore.appendTagPage(
+            SearchState(mode = SearchMode.TAG),
+            Page(listOf(rowAt(3, "2026-03-01"), rowAt(2, "2026-02-01"), rowAt(1, "2026-01-01")), null),
+            total = 3,
+        )
+        val moved = SearchStore.replace(loaded, rowAt(3, "2026-01-15"))
+        assertEquals(listOf(2L, 3L, 1L), moved.results.map { it.id })
+    }
+
+    /**
+     * 文字模式的順序是查詢當下的相關度，不是日期——就地編輯不重新排序，只換資料本身
+     * （見 `SearchStore.replace` KDoc 對這個限制的說明）。
+     */
+    @Test
+    fun 文字模式換掉一張不會重新排序只換資料() {
+        val loaded = SearchStore.appendTextPage(
+            SearchState(mode = SearchMode.TEXT),
+            com.xenyaa.videoshot.data.repo.model.SearchPage(listOf(row(3), row(2), row(1)), null),
+            total = 3,
+        )
+        val edited = row(2).copy(place = "宜蘭")
+        val after = SearchStore.replace(loaded, edited)
+        // 順序不變（還是 3、2、1），但第二筆的資料已經換成新的
+        assertEquals(listOf(3L, 2L, 1L), after.results.map { it.id })
+        assertEquals("宜蘭", after.results[1].place)
+    }
+
+    @Test
+    fun 換不存在的_id_不動任何東西() {
+        val loaded = SearchStore.appendTagPage(SearchState(), Page(listOf(row(1)), null), total = 1)
+        assertEquals(loaded, SearchStore.replace(loaded, row(999)))
+    }
 }

@@ -94,4 +94,39 @@ object SearchStore {
 
     fun failed(state: SearchState, message: String): SearchState =
         state.copy(resultsLoading = false, facetsLoading = false, error = message)
+
+    /**
+     * 從查詢結果就地拔掉一張（刪除同步，見 Task 12 覆查 Important 1）。
+     * 跟 `HomeStore.removeShot` 同一個理由：總數要一起減，否則 Lightbox 的「共 M 張」
+     * 停在刪除前的數字；清單也要一起拔掉，否則使用者滑回去還看得到那張已經不存在的圖。
+     */
+    fun removeShot(state: SearchState, id: Long): SearchState {
+        if (state.results.none { it.id == id }) return state
+        return state.copy(
+            results = state.results.filterNot { it.id == id },
+            total = (state.total - 1).coerceAtLeast(0),
+        )
+    }
+
+    /**
+     * 就地編輯之後換掉一張（編輯同步，見 Task 12 覆查 Important 1）。
+     *
+     * **只有 [SearchMode.TAG] 重新排序**——那個模式的順序是日期（跟 `HomeStore.replace`
+     * 同一個理由：改了日期那張圖要換到正確的位置，不然使用者會覺得清單亂掉了）。
+     * [SearchMode.TEXT] 的順序是查詢當下算出來的相關度，不是日期，這裡刻意不重新排序：
+     * 編輯有可能改到影響相關度的欄位（例如說明、地點），理論上該重新排序甚至換名次，
+     * 但那需要拿新內容重新問一次查詢引擎（甚至重新問 Gemini）才排得出新名次，
+     * 這個修正只保證「資料本身是新的、畫面不會顯示編輯前的舊圖資」，不解決文字模式的
+     * 相關度重新排序——這是已知的限制，留到真的需要時再處理。
+     */
+    fun replace(state: SearchState, row: ShotRow): SearchState {
+        if (state.results.none { it.id == row.id }) return state
+        val updated = state.results.map { if (it.id == row.id) row else it }
+        val ordered = if (state.mode == SearchMode.TAG) {
+            updated.sortedWith(compareByDescending<ShotRow> { it.eventDate }.thenByDescending { it.id })
+        } else {
+            updated
+        }
+        return state.copy(results = ordered)
+    }
 }
