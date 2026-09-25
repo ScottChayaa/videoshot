@@ -23,6 +23,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -305,12 +306,39 @@ private fun ResultBar(state: SearchState) {
             Text("·", color = AppTheme.colors.textDim)
             Text(dateLabelOf(state.upToMonth), color = AppTheme.colors.textDim)
         }
+        ConditionChipsRow(state)
         state.heard?.let { heard ->
             Text(
                 "聽懂了：${heard.text}${if (heard.local) "（本機解析）" else ""}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = AppTheme.colors.textDim,
             )
+        }
+    }
+}
+
+/**
+ * 結果列的「條件 chips」（驗收手冊 §五：「N 張・全部日期・條件 chips」、mockup `tags.html`
+ * 的 `renderResults()`）——標籤模式列出目前勾選的 facet，文字模式列出查詢字串本身。
+ * 純顯示用，不能再點掉（改條件要靠上面的返回鍵），所以用 [AssistChip] 的 `onClick = {}`。
+ */
+@Composable
+private fun ConditionChipsRow(state: SearchState) {
+    when (state.mode) {
+        SearchMode.TAG -> {
+            val selected = state.facets.filter { facetKey(it) in state.selected }
+            if (selected.isNotEmpty()) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1)) {
+                    for (facet in selected) {
+                        AssistChip(onClick = {}, label = { Text(facet.name) })
+                    }
+                }
+            }
+        }
+        SearchMode.TEXT -> {
+            if (state.textQuery.isNotBlank()) {
+                AssistChip(onClick = {}, label = { Text(state.textQuery) })
+            }
         }
     }
 }

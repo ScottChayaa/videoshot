@@ -93,6 +93,33 @@ class SearchScreenTest {
     }
 
     @Test
+    fun 結果階段標籤模式結果列顯示選取的條件chip() {
+        val state = SearchState(
+            phase = SearchPhase.RESULTS,
+            mode = SearchMode.TAG,
+            facets = listOf(MonthFacet("宜蘭", "place", 3)),
+            selected = setOf("place:宜蘭"),
+        )
+        show(state)
+        compose.onNodeWithText("宜蘭").assertIsDisplayed()
+    }
+
+    @Test
+    fun 結果階段文字模式結果列顯示查詢字串chip() {
+        val state = SearchState(
+            phase = SearchPhase.RESULTS,
+            mode = SearchMode.TEXT,
+            textQuery = "大蝦",
+            heard = ResolvedSummary("加勒比海・夜潛・大蝦", local = true),
+        )
+        show(state)
+        // 「大蝦」單獨成一個節點的只有結果列的條件 chip——「聽懂了：…大蝦（本機解析）」
+        // 是同一個 Text 裡的完整句子，onNodeWithText 預設精確比對不會跟它撞在一起，
+        // 但還是用 hasClickAction() 明確鎖定 chip，跟前面「查詢」二字的處理手法一致。
+        compose.onNode(hasText("大蝦") and hasClickAction()).assertIsDisplayed()
+    }
+
+    @Test
     fun 結果階段沒有結果時顯示空狀態() {
         show(SearchState(phase = SearchPhase.RESULTS, results = emptyList(), total = 0))
         compose.onNodeWithText("沒有符合的收藏").assertIsDisplayed()
