@@ -187,7 +187,12 @@ class SearchViewModelTest {
 
     @Test
     fun seedFromHome帶入條件並直接查詢() = runTest(dispatcher) {
-        val repo = Repo().apply { facetPage = Page(listOf(row(1)), null); facetCount = 1 }
+        val repo = Repo().apply {
+            facetPage = Page(listOf(row(1)), null)
+            facetCount = 1
+            facets = listOf(MonthFacet("宜蘭", "place", 4))
+            monthCountsValue = listOf(com.xenyaa.videoshot.data.repo.model.MonthCount("2026-03", 4))
+        }
         val vm = SearchViewModel(repo, resolverOf())
         advanceUntilIdle()
         vm.seedFromHome("2026-03", MonthFacet("宜蘭", "place", 4))
@@ -196,5 +201,7 @@ class SearchViewModelTest {
         assertEquals(SearchPhase.RESULTS, vm.state.value.phase)
         assertEquals("2026-03", vm.state.value.upToMonth)
         assertEquals(setOf("宜蘭"), repo.lastFacetPlaces)
+        assertEquals(setOf("place:宜蘭"), vm.state.value.selected)
+        assertEquals(listOf(com.xenyaa.videoshot.data.repo.model.MonthCount("2026-03", 4)), vm.state.value.months)
     }
 }

@@ -54,6 +54,10 @@ class SearchViewModel(
     /** 換條件前一次還在跑的讀取要先取消——理由同 `HomeViewModel.loadJob`。 */
     private var loadJob: Job? = null
 
+    /** facet 候選清單的讀取——跟 [loadJob] 分開追蹤，換月份時前一次還在跑的查詢要先取消，
+     * 不然回應晚到的那個會覆蓋掉新查詢的結果（`setUpToMonth` 連續呼叫兩次就會踩到）。 */
+    private var facetsJob: Job? = null
+
     init {
         loadFacets()
         // 日期選擇器的選項，跟首頁看的是同一份「有收藏的月份」清單，只查一次不必跟著時間篩選重查
@@ -72,7 +76,8 @@ class SearchViewModel(
     }
 
     fun loadFacets() {
-        launchGuarded {
+        facetsJob?.cancel()
+        facetsJob = launchGuarded {
             val facets = repo.searchFacets(_state.value.upToMonth, limit = FACET_PAGE_LIMIT + 1)
             _state.value = SearchStore.loadedFacets(_state.value, facets, limit = FACET_PAGE_LIMIT)
         }
@@ -80,7 +85,8 @@ class SearchViewModel(
 
     /** 手冊 §五：top-30 之外的【顯示更多】——重查一次更大的上限，不是對 facet 做分頁（見 `SearchStore.loadedFacets` 的 KDoc）。 */
     fun showMoreFacets() {
-        launchGuarded {
+        facetsJob?.cancel()
+        facetsJob = launchGuarded {
             val facets = repo.searchFacets(_state.value.upToMonth, limit = FACET_EXPANDED_LIMIT)
             _state.value = SearchStore.loadedFacets(_state.value, facets, limit = FACET_EXPANDED_LIMIT)
         }
@@ -92,8 +98,9 @@ class SearchViewModel(
         loadJob?.cancel()
         when (current.mode) {
             SearchMode.TAG -> {
+                val (places, tags) = placesAndTagsOf(current.selected)
                 _state.value = SearchStore.startTagSearch(current)
-                loadJob = launchGuarded { loadTagPage() }
+                loadJob = launchGuarded { loadTagPage(places, tags, current.upToMonth) }
             }
             SearchMode.TEXT -> {
                 _state.value = current.copy(resultsLoading = true)
@@ -115,10 +122,13 @@ class SearchViewModel(
         if (!SearchStore.canLoadMore(current)) return
         loadJob?.cancel()
         _state.value = SearchStore.startResultsLoading(current)
-        loadJob = launchGuarded {
-            when (current.mode) {
-                SearchMode.TAG -> loadTagPage()
-                SearchMode.TEXT -> resolvedQuery?.let { loadTextPage(it) }
+        when (current.mode) {
+            SearchMode.TAG -> {
+                val (places, tags) = placesAndTagsOf(current.selected)
+                loadJob = launchGuarded { loadTagPage(places, tags, current.upToMonth) }
+            }
+            SearchMode.TEXT -> {
+                loadJob = launchGuarded { resolvedQuery?.let { loadTextPage(it) } }
             }
         }
     }
@@ -129,16 +139,19 @@ class SearchViewModel(
     /** 首頁月份標籤點進來：條件與時間自動帶入並直接顯示結果（規格第六節）。 */
     fun seedFromHome(month: String, facet: MonthFacet) {
         loadJob?.cancel()
-        _state.value = SearchState(mode = SearchMode.TAG, upToMonth = month, selected = setOf(facetKey(facet)))
+        _state.value = SearchState(
+            mode = SearchMode.TAG,
+            upToMonth = month,
+            selected = setOf(facetKey(facet)),
+            months = _state.value.months,
+        )
         runSearch()
         loadFacets()
     }
 
-    private suspend fun loadTagPage() {
-        val current = _state.value
-        val (places, tags) = placesAndTagsOf(current.selected)
-        val page = repo.searchByFacets(places, tags, current.upToMonth, current.tagCursor, pageSize)
-        val total = repo.searchByFacetsCount(places, tags, current.upToMonth)
+    private suspend fun loadTagPage(places: Set<String>, tags: Set<String>, upToMonth: String?) {
+        val page = repo.searchByFacets(places, tags, upToMonth, _state.value.tagCursor, pageSize)
+        val total = repo.searchByFacetsCount(places, tags, upToMonth)
         _state.value = SearchStore.appendTagPage(_state.value, page, total)
     }
 
