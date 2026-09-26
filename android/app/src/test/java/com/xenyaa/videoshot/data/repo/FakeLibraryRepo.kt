@@ -5,6 +5,7 @@ import com.xenyaa.videoshot.core.paging.SearchCursor
 import com.xenyaa.videoshot.core.paging.ShotCursor
 import com.xenyaa.videoshot.core.query.ParsedQuery
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
+import com.xenyaa.videoshot.data.repo.model.AccountStats
 import com.xenyaa.videoshot.data.repo.model.FolderCard
 import com.xenyaa.videoshot.data.repo.model.FolderNode
 import com.xenyaa.videoshot.data.repo.model.FolderPage
@@ -16,6 +17,7 @@ import com.xenyaa.videoshot.data.repo.model.RecentVideo
 import com.xenyaa.videoshot.data.repo.model.SearchPage
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.ShotRow
+import com.xenyaa.videoshot.data.repo.model.TagUsage
 
 /**
  * 測試用的假 repo，每個方法都有「什麼都沒有」的預設值。
@@ -42,7 +44,11 @@ open class FakeLibraryRepo : LibraryRepo {
     override suspend fun commitPicks(video: VideoEntity, picks: List<NewShot>): List<Long> = emptyList()
     override suspend fun distinctPlaces(): List<String> = emptyList()
     override suspend fun allTagNames(): List<String> = emptyList()
+    override suspend fun allTagsWithUsage(): List<TagUsage> = emptyList()
+    override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>) = Unit
+    override suspend fun deleteTag(id: Long) = Unit
     override suspend fun queryVocabulary() = com.xenyaa.videoshot.core.query.QueryVocabulary(emptyList(), emptyList())
+    override suspend fun accountStats(thisMonth: String): AccountStats = AccountStats(0, 0, 0)
     override suspend fun patchShots(ids: List<Long>, patch: ShotPatch) = Unit
     override suspend fun deleteShot(id: Long) = Unit
     override suspend fun deleteVideo(videoId: String) = Unit
