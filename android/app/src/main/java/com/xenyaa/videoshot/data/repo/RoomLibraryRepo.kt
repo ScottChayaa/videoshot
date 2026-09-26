@@ -95,17 +95,18 @@ class RoomLibraryRepo(
             db.shotDao().facetSearchCount(boundOf(upToMonth), places.toList(), resolveTagIds(tagNames))
         }
 
-    override suspend fun searchByQuery(query: ParsedQuery, after: SearchCursor?, limit: Int): SearchPage =
+    override suspend fun searchByQuery(query: ParsedQuery, upToMonth: String?, after: SearchCursor?, limit: Int): SearchPage =
         withContext(io) {
             val tagIds = resolveTagIds(query.tags.toSet())
             val keywordIds = keywordIdsOf(query.keywords)
             val since = query.dateFrom ?: "0000-00-00"
             val until = query.dateTo ?: "9999-99-99"
+            val upToMonthBound = boundOf(upToMonth)
             val rows = if (after == null) {
-                db.searchDao().queryFirst(since, until, query.places, tagIds, keywordIds, limit)
+                db.searchDao().queryFirst(since, until, upToMonthBound, query.places, tagIds, keywordIds, limit)
             } else {
                 db.searchDao().queryAfter(
-                    since, until, query.places, tagIds, keywordIds,
+                    since, until, upToMonthBound, query.places, tagIds, keywordIds,
                     after.relevance, after.eventDate, after.id, limit,
                 )
             }
@@ -113,10 +114,11 @@ class RoomLibraryRepo(
             SearchPage(rows.map { it.toRow() }, next)
         }
 
-    override suspend fun searchByQueryCount(query: ParsedQuery): Int = withContext(io) {
+    override suspend fun searchByQueryCount(query: ParsedQuery, upToMonth: String?): Int = withContext(io) {
         db.searchDao().queryCount(
             query.dateFrom ?: "0000-00-00",
             query.dateTo ?: "9999-99-99",
+            boundOf(upToMonth),
             query.places,
             resolveTagIds(query.tags.toSet()),
             keywordIdsOf(query.keywords),

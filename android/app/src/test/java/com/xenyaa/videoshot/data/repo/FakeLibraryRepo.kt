@@ -1,7 +1,9 @@
 package com.xenyaa.videoshot.data.repo
 
 import com.xenyaa.videoshot.core.paging.FolderCursor
+import com.xenyaa.videoshot.core.paging.SearchCursor
 import com.xenyaa.videoshot.core.paging.ShotCursor
+import com.xenyaa.videoshot.core.query.ParsedQuery
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.FolderCard
 import com.xenyaa.videoshot.data.repo.model.FolderNode
@@ -11,6 +13,7 @@ import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.NewShot
 import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
+import com.xenyaa.videoshot.data.repo.model.SearchPage
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 
@@ -32,9 +35,9 @@ open class FakeLibraryRepo : LibraryRepo {
     override suspend fun searchByFacets(places: Set<String>, tagNames: Set<String>, upToMonth: String?, after: ShotCursor?, limit: Int) =
         Page<ShotRow>(emptyList(), null)
     override suspend fun searchByFacetsCount(places: Set<String>, tagNames: Set<String>, upToMonth: String?): Int = 0
-    override suspend fun searchByQuery(query: com.xenyaa.videoshot.core.query.ParsedQuery, after: com.xenyaa.videoshot.core.paging.SearchCursor?, limit: Int) =
-        com.xenyaa.videoshot.data.repo.model.SearchPage(emptyList(), null)
-    override suspend fun searchByQueryCount(query: com.xenyaa.videoshot.core.query.ParsedQuery): Int = 0
+    override suspend fun searchByQuery(query: ParsedQuery, upToMonth: String?, after: SearchCursor?, limit: Int) =
+        SearchPage(emptyList(), null)
+    override suspend fun searchByQueryCount(query: ParsedQuery, upToMonth: String?): Int = 0
     override suspend fun tagsOfShot(shotId: Long): List<String> = emptyList()
     override suspend fun commitPicks(video: VideoEntity, picks: List<NewShot>): List<Long> = emptyList()
     override suspend fun distinctPlaces(): List<String> = emptyList()

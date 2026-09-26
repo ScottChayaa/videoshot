@@ -109,6 +109,20 @@ object SearchStore {
     }
 
     /**
+     * 刪掉整支收藏之後從查詢結果就地拔掉那支影片的所有列（最終審查 Important 4）。
+     * 跟 [removeShot] 同一個理由，差別是一支影片可能同時有好幾張在查詢結果裡，
+     * `total` 要照實際拔掉的張數扣，不能假設只有一張。
+     */
+    fun removeVideo(state: SearchState, videoId: String): SearchState {
+        val removed = state.results.count { it.videoId == videoId }
+        if (removed == 0) return state
+        return state.copy(
+            results = state.results.filterNot { it.videoId == videoId },
+            total = (state.total - removed).coerceAtLeast(0),
+        )
+    }
+
+    /**
      * 就地編輯之後換掉一張（編輯同步，見 Task 12 覆查 Important 1）。
      *
      * **只有 [SearchMode.TAG] 重新排序**——那個模式的順序是日期（跟 `HomeStore.replace`

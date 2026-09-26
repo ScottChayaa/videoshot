@@ -142,6 +142,29 @@ class SearchStoreTest {
         assertEquals(loaded, SearchStore.removeShot(loaded, 999))
     }
 
+    /**
+     * 刪整支收藏：那支影片可能同時有好幾張列在查詢結果裡，全部都要拔掉、總數照實際拔掉的
+     * 張數扣，不能假設只有一張（最終審查 Important 4，跟 `removeShot` 是同一類修法）。
+     */
+    @Test
+    fun 刪整支收藏會拔掉該影片的所有列並照實際數量減少總數() {
+        val rows = listOf(
+            row(1).copy(videoId = "v1"),
+            row(2).copy(videoId = "v2"),
+            row(3).copy(videoId = "v1"),
+        )
+        val loaded = SearchStore.appendTagPage(SearchState(), Page(rows, null), total = 3)
+        val after = SearchStore.removeVideo(loaded, "v1")
+        assertEquals(listOf(2L), after.results.map { it.id })
+        assertEquals(1, after.total)
+    }
+
+    @Test
+    fun 刪不存在的videoId不動任何東西() {
+        val loaded = SearchStore.appendTagPage(SearchState(), Page(listOf(row(1)), null), total = 1)
+        assertEquals(loaded, SearchStore.removeVideo(loaded, "沒有這支"))
+    }
+
     /** 標籤模式依日期排序，就地編輯改了日期要換到正確的位置，跟 `HomeStore.replace` 同一個理由。 */
     @Test
     fun 標籤模式換掉一張之後仍然依日期由新到舊() {

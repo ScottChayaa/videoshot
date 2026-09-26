@@ -125,7 +125,7 @@ class SearchRepoTest {
 
         val page = repo.searchByQuery(
             com.xenyaa.videoshot.core.query.ParsedQuery(places = listOf("宜蘭"), tags = listOf("露營"), keywords = listOf("大蝦")),
-            after = null, limit = 10,
+            upToMonth = null, after = null, limit = 10,
         )
 
         assertEquals(listOf(byPlace, byTag, byKeyword), page.items.map { it.id })
@@ -138,7 +138,7 @@ class SearchRepoTest {
 
         val page = repo.searchByQuery(
             com.xenyaa.videoshot.core.query.ParsedQuery(keywords = listOf("大蝦")),
-            after = null, limit = 10,
+            upToMonth = null, after = null, limit = 10,
         )
 
         assertEquals(listOf(id), page.items.map { it.id })
@@ -154,7 +154,7 @@ class SearchRepoTest {
 
         val page = repo.searchByQuery(
             com.xenyaa.videoshot.core.query.ParsedQuery(keywords = listOf("夜裡的")),
-            after = null, limit = 10,
+            upToMonth = null, after = null, limit = 10,
         )
 
         assertEquals(listOf(id), page.items.map { it.id })
@@ -170,7 +170,7 @@ class SearchRepoTest {
 
         val page = repo.searchByQuery(
             com.xenyaa.videoshot.core.query.ParsedQuery(keywords = listOf("\"好吃\"")),
-            after = null, limit = 10,
+            upToMonth = null, after = null, limit = 10,
         )
 
         assertEquals(listOf(id), page.items.map { it.id })
@@ -180,10 +180,10 @@ class SearchRepoTest {
     fun searchByQuery_keyset分頁不重複不遺漏() = runTest {
         val ids = (1..5).map { seedShot("v1", it.toDouble(), "2026-03-0$it", place = "宜蘭") }
 
-        val first = repo.searchByQuery(com.xenyaa.videoshot.core.query.ParsedQuery(places = listOf("宜蘭")), after = null, limit = 2)
+        val first = repo.searchByQuery(com.xenyaa.videoshot.core.query.ParsedQuery(places = listOf("宜蘭")), upToMonth = null, after = null, limit = 2)
         assertEquals(2, first.items.size)
-        val second = repo.searchByQuery(com.xenyaa.videoshot.core.query.ParsedQuery(places = listOf("宜蘭")), after = first.next, limit = 2)
-        val third = repo.searchByQuery(com.xenyaa.videoshot.core.query.ParsedQuery(places = listOf("宜蘭")), after = second.next, limit = 2)
+        val second = repo.searchByQuery(com.xenyaa.videoshot.core.query.ParsedQuery(places = listOf("宜蘭")), upToMonth = null, after = first.next, limit = 2)
+        val third = repo.searchByQuery(com.xenyaa.videoshot.core.query.ParsedQuery(places = listOf("宜蘭")), upToMonth = null, after = second.next, limit = 2)
 
         val seen = (first.items + second.items + third.items).map { it.id }
         assertEquals(ids.sortedDescending(), seen)
@@ -195,8 +195,30 @@ class SearchRepoTest {
         seedShot("v1", 0.0, "2026-03-01", place = "宜蘭")
         seedShot("v1", 10.0, "2026-03-01", place = "台北")
 
-        val count = repo.searchByQueryCount(com.xenyaa.videoshot.core.query.ParsedQuery(places = listOf("宜蘭")))
+        val count = repo.searchByQueryCount(com.xenyaa.videoshot.core.query.ParsedQuery(places = listOf("宜蘭")), upToMonth = null)
 
+        assertEquals(1, count)
+    }
+
+    /**
+     * 文字模式的時間篩選是跟 [ParsedQuery.dateFrom]／[ParsedQuery.dateTo] 各自獨立的第二層
+     * 篩選（最終審查 Important 5）——這裡兩張都命中查詢條件（同一個地點），但只有一張落在
+     * `upToMonth` 邊界以內，`searchByQuery`／`searchByQueryCount` 都要只回那一張。
+     */
+    @Test
+    fun searchByQuery_upToMonth邊界以外的不算進結果() = runTest {
+        val inside = seedShot("v1", 0.0, "2026-01-15", place = "宜蘭")
+        seedShot("v1", 10.0, "2026-03-01", place = "宜蘭")
+
+        val page = repo.searchByQuery(
+            com.xenyaa.videoshot.core.query.ParsedQuery(places = listOf("宜蘭")),
+            upToMonth = "2026-01", after = null, limit = 10,
+        )
+        val count = repo.searchByQueryCount(
+            com.xenyaa.videoshot.core.query.ParsedQuery(places = listOf("宜蘭")), upToMonth = "2026-01",
+        )
+
+        assertEquals(listOf(inside), page.items.map { it.id })
         assertEquals(1, count)
     }
 }

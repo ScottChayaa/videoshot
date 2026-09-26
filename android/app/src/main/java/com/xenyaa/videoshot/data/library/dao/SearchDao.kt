@@ -45,7 +45,7 @@ interface SearchDao {
                 END
             ) AS relevance
             FROM shot s LEFT JOIN shot_tag st ON st.shot_id = s.id
-            WHERE s.event_date >= :since AND s.event_date <= :until
+            WHERE s.event_date >= :since AND s.event_date <= :until AND s.event_date < :upToMonthBound
               AND (s.place IN (:places) OR st.tag_id IN (:tagIds) OR s.id IN (:keywordIds))
             GROUP BY s.id
         )
@@ -59,6 +59,7 @@ interface SearchDao {
     suspend fun queryFirst(
         since: String,
         until: String,
+        upToMonthBound: String,
         places: List<String>,
         tagIds: List<Long>,
         keywordIds: List<Long>,
@@ -82,7 +83,7 @@ interface SearchDao {
                 END
             ) AS relevance
             FROM shot s LEFT JOIN shot_tag st ON st.shot_id = s.id
-            WHERE s.event_date >= :since AND s.event_date <= :until
+            WHERE s.event_date >= :since AND s.event_date <= :until AND s.event_date < :upToMonthBound
               AND (s.place IN (:places) OR st.tag_id IN (:tagIds) OR s.id IN (:keywordIds))
             GROUP BY s.id
         )
@@ -97,6 +98,7 @@ interface SearchDao {
     suspend fun queryAfter(
         since: String,
         until: String,
+        upToMonthBound: String,
         places: List<String>,
         tagIds: List<Long>,
         keywordIds: List<Long>,
@@ -111,7 +113,7 @@ interface SearchDao {
         """
         WITH matches(id) AS (
             SELECT s.id FROM shot s LEFT JOIN shot_tag st ON st.shot_id = s.id
-            WHERE s.event_date >= :since AND s.event_date <= :until
+            WHERE s.event_date >= :since AND s.event_date <= :until AND s.event_date < :upToMonthBound
               AND (s.place IN (:places) OR st.tag_id IN (:tagIds) OR s.id IN (:keywordIds))
             GROUP BY s.id
         )
@@ -121,6 +123,7 @@ interface SearchDao {
     suspend fun queryCount(
         since: String,
         until: String,
+        upToMonthBound: String,
         places: List<String>,
         tagIds: List<Long>,
         keywordIds: List<Long>,

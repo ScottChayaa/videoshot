@@ -37,11 +37,19 @@ private fun heardTextOf(parsed: ParsedQuery): String {
 }
 
 /**
- * 標籤模式「一次搜尋」全程固定用的條件——跟文字模式的 `resolvedQuery` 同一個理由：
+ * 標籤模式「一次搜尋」全程固定用的條件——跟文字模式的 [TextCriteria] 同一個理由：
  * `loadMore()` 續頁不能重新從 `state.selected` 拆一次，不然中途一次 facet 重新載入
  * 把 `selected` 修剪掉,會讓第 2 頁跟第 1 頁用不同條件查、卻接在同一個游標之後。
  */
 private data class TagCriteria(val places: Set<String>, val tags: Set<String>, val upToMonth: String?)
+
+/**
+ * 文字模式「一次搜尋」全程固定用的條件——跟 [TagCriteria] 同一個理由：`loadMore()` 續頁
+ * 不能重新讀 `state.upToMonth`，不然使用者在還沒捲完的時候回條件畫面改了時間篩選，
+ * 第 2 頁會跟第 1 頁用不同的時間範圍查、卻接在同一個游標之後（最終審查 Important 5，
+ * 跟這個階段已經抓到兩次的 `tagCriteria` 是同一類錯，這裡不能再犯一次）。
+ */
+private data class TextCriteria(val parsed: ParsedQuery, val upToMonth: String?)
 
 /**
  * 查詢分頁的資料接線（規格第六節「查詢」、第八節「檢索」）。
@@ -56,10 +64,11 @@ class SearchViewModel(
     private val _state = MutableStateFlow(SearchState())
     val state: StateFlow<SearchState> = _state.asStateFlow()
 
-    /** 文字模式往下捲要延續同一次解析結果，不能每捲一頁就重新問一次 Gemini（見本 Task 的 KDoc）。 */
-    private var resolvedQuery: ParsedQuery? = null
+    /** 文字模式往下捲要延續同一次解析結果與時間篩選，不能每捲一頁就重新問一次 Gemini
+     * 或重新讀當下的 `upToMonth`（見 [TextCriteria] 的 KDoc）。 */
+    private var textCriteria: TextCriteria? = null
 
-    /** 標籤模式往下捲要延續同一次的地點／標籤／時間條件——跟 [resolvedQuery] 同一個理由（見 [TagCriteria]）。 */
+    /** 標籤模式往下捲要延續同一次的地點／標籤／時間條件——跟 [textCriteria] 同一個理由（見 [TagCriteria]）。 */
     private var tagCriteria: TagCriteria? = null
 
     /** 換條件前一次還在跑的讀取要先取消——理由同 `HomeViewModel.loadJob`。 */
@@ -118,12 +127,12 @@ class SearchViewModel(
                 _state.value = current.copy(resultsLoading = true)
                 loadJob = launchGuarded {
                     val resolved = queryResolver.resolve(current.textQuery)
-                    resolvedQuery = resolved.parsed
+                    textCriteria = TextCriteria(resolved.parsed, current.upToMonth)
                     _state.value = SearchStore.startTextSearch(
                         _state.value,
                         ResolvedSummary(heardTextOf(resolved.parsed), resolved.source == QuerySource.Rule),
                     )
-                    loadTextPage(resolved.parsed)
+                    loadTextPage(resolved.parsed, current.upToMonth)
                 }
             }
         }
@@ -141,7 +150,9 @@ class SearchViewModel(
                 }
             }
             SearchMode.TEXT -> {
-                loadJob = launchGuarded { resolvedQuery?.let { loadTextPage(it) } }
+                loadJob = launchGuarded {
+                    textCriteria?.let { (parsed, upToMonth) -> loadTextPage(parsed, upToMonth) }
+                }
             }
         }
     }
@@ -172,6 +183,15 @@ class SearchViewModel(
     }
 
     /**
+     * 從詳情頁【刪除整支收藏】之後同步查詢結果，理由同 [onShotDeleted]——差別是這裡一次
+     * 可能要拔掉好幾張（同一支影片的好幾個 shot 都在查詢結果裡），見 `SearchStore.removeVideo`
+     * 的 KDoc（最終審查 Important 4）。
+     */
+    fun onVideoDeleted(videoId: String) {
+        _state.value = SearchStore.removeVideo(_state.value, videoId)
+    }
+
+    /**
      * 就地編輯之後同步查詢結果，理由同 [onShotDeleted]。標籤模式會依日期重新排序，
      * 文字模式的相關度排序限制見 `SearchStore.replace` 的 KDoc。
      */
@@ -185,9 +205,9 @@ class SearchViewModel(
         _state.value = SearchStore.appendTagPage(_state.value, page, total)
     }
 
-    private suspend fun loadTextPage(parsed: ParsedQuery) {
-        val page = repo.searchByQuery(parsed, _state.value.textCursor, pageSize)
-        val total = repo.searchByQueryCount(parsed)
+    private suspend fun loadTextPage(parsed: ParsedQuery, upToMonth: String?) {
+        val page = repo.searchByQuery(parsed, upToMonth, _state.value.textCursor, pageSize)
+        val total = repo.searchByQueryCount(parsed, upToMonth)
         _state.value = SearchStore.appendTextPage(_state.value, page, total)
     }
 

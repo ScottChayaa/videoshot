@@ -63,6 +63,7 @@ class AppRootSearchTest {
         var homeItems = listOf(row(1L, "2026-03-01", place = "宜蘭"))
         var facets = listOf(MonthFacet("宜蘭", "place", 1))
         var searchResults = listOf(row(1L, "2026-03-01", place = "宜蘭"))
+        val deletedVideoIds = mutableListOf<String>()
 
         override suspend fun homeFeed(after: ShotCursor?, limit: Int, upToMonth: String?) = Page(homeItems, null)
         override suspend fun monthCounts() = emptyList<com.xenyaa.videoshot.data.repo.model.MonthCount>()
@@ -72,6 +73,11 @@ class AppRootSearchTest {
         override suspend fun searchByFacets(places: Set<String>, tagNames: Set<String>, upToMonth: String?, after: ShotCursor?, limit: Int) =
             Page(searchResults, null)
         override suspend fun searchByFacetsCount(places: Set<String>, tagNames: Set<String>, upToMonth: String?) = searchResults.size
+        // 詳情頁需要的兩個查詢——查詢分頁點進來的那張圖是 v1，跟首頁那張同一支影片
+        override suspend fun shotsOfVideo(videoId: String) = searchResults.filter { it.videoId == videoId }
+        override suspend fun videoById(videoId: String) =
+            VideoEntity(videoId, "旅行影片", "c", "2026-03-01T00:00:00Z", 600, "public", null, 1L)
+        override suspend fun deleteVideo(videoId: String) { deletedVideoIds += videoId }
     }
 
     private class FakeShellSettings : ShellSettings {
@@ -121,7 +127,14 @@ class AppRootSearchTest {
             io = Dispatchers.Unconfined,
         )
         override val wizardData: WizardData = object : WizardData {
-            override suspend fun watchPage(videoId: String) = throw UnsupportedOperationException("測試不用到")
+            // 詳情頁的播放器會在 init 就呼叫 loadPlayerInfo() → watchPage()（見 DetailViewModel）——
+            // 本檔新增的刪除整支收藏測試會真的走到詳情頁，不能再丟 UnsupportedOperationException，
+            // 跟著 AppRootDetailTest.kt 的手法回一個可用的 WatchPage。
+            override suspend fun watchPage(videoId: String) = com.xenyaa.videoshot.core.youtube.WatchPage(
+                com.xenyaa.videoshot.core.youtube.FetchResult.OK,
+                com.xenyaa.videoshot.core.youtube.VideoMeta(videoId, "旅行影片", "c", "2026-03-01T00:00:00Z", 600, "public", true),
+                null,
+            )
             override suspend fun recentVideos(limit: Int): List<RecentVideo> = emptyList()
             override suspend fun takenFrameIndexes(videoId: String, level: Int) = emptySet<Int>()
             override suspend fun distinctPlaces() = emptyList<String>()
@@ -180,5 +193,34 @@ class AppRootSearchTest {
         compose.onNodeWithContentDescription("片段縮圖 00:01", substring = true).performClick()
 
         compose.onNodeWithText("播放這一段").assertIsDisplayed()
+    }
+
+    /**
+     * 查詢結果 → Lightbox →【播放這一段】→ 詳情頁 →〔刪除整支收藏〕：`AppRoot.onDeleteVideo`
+     * 原本只刷新 homeVm／foldersVm／folderVm，沒接查詢分頁，刪完那支影片查詢結果還留著
+     * 已經不存在的列（最終審查 Important 4）。
+     */
+    @Test
+    fun 從查詢分頁開的詳情頁刪除整支收藏後查詢結果同步拔掉() {
+        val repo = Repo()
+        compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
+
+        compose.onNodeWithText("查詢").performClick()
+        compose.onNodeWithText("宜蘭 1").performClick()
+        compose.onNodeWithText("查詢 1 個條件").performClick()
+        compose.onNodeWithText("1 張").assertIsDisplayed()
+
+        compose.onNodeWithContentDescription("片段縮圖 00:01", substring = true).performClick()
+        compose.onNodeWithText("播放這一段").performClick()
+        compose.onNodeWithContentDescription("這支影片的更多操作").performClick()
+        compose.onNodeWithText("刪除整支收藏").performClick()
+        compose.onNodeWithText("刪除", substring = false).performClick()
+
+        assertEquals(listOf("v1"), repo.deletedVideoIds)
+
+        // 刪除完會導回首頁分頁——切回查詢分頁看背景那個 SearchViewModel 的結果是不是
+        // 已經同步拔掉了（不是重新整頁查詢，是就地拔掉，理由同 onShotDeleted）
+        compose.onNodeWithText("查詢").performClick()
+        compose.onNodeWithText("沒有符合的收藏").assertIsDisplayed()
     }
 }

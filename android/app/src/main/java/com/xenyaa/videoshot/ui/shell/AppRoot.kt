@@ -498,6 +498,10 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                     // 也可能刪掉那個資料夾本層的某幾張，不重查的話切回去看到的
                                     // 還是刪除前的張數與預覽（最終審查 Finding 5）
                                     folderVm?.reload()
+                                    // 詳情頁也可能是從查詢分頁的結果開出來的——刪掉整支影片，
+                                    // 查詢結果裡屬於那支影片的列要一起拔掉，不然會留著點了會
+                                    // 導去不存在的 videoId 的殘影（這次最終審查 Important 4）
+                                    searchVm.onVideoDeleted(current.videoId)
                                     snackbarHostState.showSnackbar("已刪除整支收藏")
                                 } catch (e: CancellationException) {
                                     throw e

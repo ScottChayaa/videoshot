@@ -37,17 +37,18 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import com.xenyaa.videoshot.core.home.homeColumnsFor
 import com.xenyaa.videoshot.core.home.monthLabel
@@ -59,7 +60,6 @@ import com.xenyaa.videoshot.ui.theme.focusRing
 import com.xenyaa.videoshot.ui.thumb.ThumbImage
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
 import com.xenyaa.videoshot.ui.thumb.labelOf
-import kotlinx.coroutines.flow.distinctUntilChanged
 
 /**
  * 查詢分頁（規格第六節「查詢」、驗收手冊 §五）。條件與結果**同一頁切換**——
@@ -83,14 +83,19 @@ fun SearchScreen(
     var picking by rememberSaveable { mutableStateOf(false) }
     val showingResults = state.phase == SearchPhase.RESULTS
 
-    // 捲到接近底部就補下一頁——手法跟 HomeScreen 一樣，觀察目前顯示到第幾格。
-    LaunchedEffect(listState, showingResults) {
-        if (!showingResults) return@LaunchedEffect
-        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
-            .distinctUntilChanged()
-            .collect { lastVisible ->
-                if (lastVisible != null && lastVisible >= state.results.size - 6) onLoadMore()
-            }
+    // 捲到接近底部就補下一頁——寫法照 HomeScreen.kt／FolderScreen.kt：`nearEnd` 用
+    // derivedStateOf 算，LaunchedEffect 的 block 不是常駐的 collector，而是每次 key 換了
+    // 就重新跑一次、讀當下最新的 state。原本用 snapshotFlow.collect() 常駐訂閱，
+    // block 裡讀的 state.results.size 卻是掛載當下就凍結的閉包，一直是初次進結果階段時
+    // 的 0，等於門檻永遠是「>= -6」、每次捲動都會觸發（最終審查 Important 2）。
+    val nearEnd by remember(listState, state.results.size) {
+        derivedStateOf {
+            val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            last >= state.results.size - 6
+        }
+    }
+    LaunchedEffect(nearEnd, state.tagCursor, state.textCursor, state.resultsLoading, showingResults) {
+        if (showingResults && nearEnd && SearchStore.canLoadMore(state)) onLoadMore()
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -208,10 +213,17 @@ private fun TagCloudPane(state: SearchState, onToggleFacet: (MonthFacet) -> Unit
                 ) {
                     for (facet in state.facets) {
                         val key = facetKey(facet)
+                        val isSelected = key in state.selected
                         InputChip(
-                            selected = key in state.selected,
+                            selected = isSelected,
                             onClick = { onToggleFacet(facet) },
                             label = { Text("${facet.name} ${facet.count}") },
+                            // Material3 1.4.0 的 InputChip 選取狀態只換底色，不會自己畫勾勾
+                            // （反編譯過 1.4.0 原始碼確認：leadingIcon 完全交給呼叫端決定，
+                            // KDoc 也建議選取時放打勾圖示）——手冊要求看得到勾勾，不是只換顏色。
+                            leadingIcon = if (isSelected) {
+                                { Icon(VsIcons.Check, contentDescription = null, modifier = Modifier.testTag("chipCheck")) }
+                            } else null,
                         )
                     }
                 }
@@ -321,16 +333,21 @@ private fun ResultBar(state: SearchState) {
  * 結果列的「條件 chips」（驗收手冊 §五：「N 張・全部日期・條件 chips」、mockup `tags.html`
  * 的 `renderResults()`）——標籤模式列出目前勾選的 facet，文字模式列出查詢字串本身。
  * 純顯示用，不能再點掉（改條件要靠上面的返回鍵），所以用 [AssistChip] 的 `onClick = {}`。
+ *
+ * 標籤模式**直接從 [SearchState.selected] 的 key 解析標籤／地點名稱來畫**，不查
+ * [SearchState.facets]——`seedFromHome` 帶進來的那個 key 是從單一月份的 facet 挑出來的，
+ * `loadFacets()` 之後重查的是**整個時間範圍**的 top-30 池子，很容易把它修剪掉
+ * （`SearchStore.loadedFacets` 的 pruning）。查詢結果本身沒受影響，但如果 chips 還要
+ * 反查 `state.facets` 才畫得出來，選到的條件就會憑空消失（最終審查 Important 3）。
  */
 @Composable
 private fun ConditionChipsRow(state: SearchState) {
     when (state.mode) {
         SearchMode.TAG -> {
-            val selected = state.facets.filter { facetKey(it) in state.selected }
-            if (selected.isNotEmpty()) {
+            if (state.selected.isNotEmpty()) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1)) {
-                    for (facet in selected) {
-                        AssistChip(onClick = {}, label = { Text(facet.name) })
+                    for (key in state.selected) {
+                        AssistChip(onClick = {}, label = { Text(nameOfFacetKey(key)) })
                     }
                 }
             }
@@ -341,6 +358,12 @@ private fun ConditionChipsRow(state: SearchState) {
             }
         }
     }
+}
+
+/** [facetKey] 的反函式：`"$kind:$name"` 拆回 `name`——找不到分隔符就整段當名稱顯示。 */
+private fun nameOfFacetKey(key: String): String {
+    val sep = key.indexOf(':')
+    return if (sep < 0) key else key.substring(sep + 1)
 }
 
 @Composable

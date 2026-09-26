@@ -12,7 +12,7 @@ interface GeminiClient {
 
 /**
  * 查詢解析的 prompt（規格第十六節開放項目：「Gemini 查詢解析的 prompt 需實際迭代」，
- * 本階段給出第一版，实際用真的金鑰跑過、確認品質留給階段 11 之後——見本文件 Global Constraints）。
+ * 本階段給出第一版，實際用真的金鑰跑過、確認品質留給階段 11 之後——見本文件 Global Constraints）。
  *
  * 要求模型只回 JSON、欄位對齊 [ParsedQuery] 的 snake_case 版本，並用一個例句示範地點／標籤／
  * 關鍵字怎麼拆——這個例句直接取自規格第八節的示範。

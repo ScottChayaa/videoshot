@@ -58,10 +58,15 @@ interface LibraryRepo {
 
     suspend fun searchByFacetsCount(places: Set<String>, tagNames: Set<String>, upToMonth: String?): Int
 
-    /** 文字查詢(規則式或 Gemini 解析後)的結果。相關度：地點 > 標籤 > 關鍵字(規格第八節)。 */
-    suspend fun searchByQuery(query: ParsedQuery, after: SearchCursor?, limit: Int): SearchPage
+    /**
+     * 文字查詢(規則式或 Gemini 解析後)的結果。相關度：地點 > 標籤 > 關鍵字(規格第八節)。
+     * @param upToMonth `YYYY-MM`；查詢頁的時間篩選在 TAG／TEXT 兩種模式都看得到、也都要生效
+     *        ——跟 [ParsedQuery.dateFrom]／[ParsedQuery.dateTo] 是各自獨立的篩選，不互相取代
+     *        （最終審查 Important 5：文字模式原本完全沒把這個條件送進來，結果列卻照樣宣稱套用了）。
+     */
+    suspend fun searchByQuery(query: ParsedQuery, upToMonth: String?, after: SearchCursor?, limit: Int): SearchPage
 
-    suspend fun searchByQueryCount(query: ParsedQuery): Int
+    suspend fun searchByQueryCount(query: ParsedQuery, upToMonth: String?): Int
 
     /** 一張圖的標籤名。就地編輯要把現值帶進抽屜。 */
     suspend fun tagsOfShot(shotId: Long): List<String>

@@ -48,6 +48,7 @@ class SearchViewModelTest {
         var lastFacetTags: Set<String>? = null
         var lastFacetUpToMonth: String? = null
         var lastQuery: ParsedQuery? = null
+        var lastQueryUpToMonth: String? = null
 
         override suspend fun monthCounts() = monthCountsValue
         override suspend fun searchFacets(upToMonth: String?, limit: Int) = facets
@@ -56,12 +57,12 @@ class SearchViewModelTest {
             return facetPage
         }
         override suspend fun searchByFacetsCount(places: Set<String>, tagNames: Set<String>, upToMonth: String?) = facetCount
-        override suspend fun searchByQuery(query: ParsedQuery, after: com.xenyaa.videoshot.core.paging.SearchCursor?, limit: Int): SearchPage {
-            lastQuery = query
+        override suspend fun searchByQuery(query: ParsedQuery, upToMonth: String?, after: com.xenyaa.videoshot.core.paging.SearchCursor?, limit: Int): SearchPage {
+            lastQuery = query; lastQueryUpToMonth = upToMonth
             return queryPage
         }
-        override suspend fun searchByQueryCount(query: ParsedQuery): Int {
-            lastQuery = query
+        override suspend fun searchByQueryCount(query: ParsedQuery, upToMonth: String?): Int {
+            lastQuery = query; lastQueryUpToMonth = upToMonth
             return queryCount
         }
     }
@@ -171,6 +172,58 @@ class SearchViewModelTest {
 
         assertEquals(2, vm.state.value.results.size)
         assertEquals(listOf("大蝦"), repo.lastQuery?.keywords)
+    }
+
+    /**
+     * 文字模式的時間篩選要真的送給 repo（最終審查 Important 5：`searchByQuery`／
+     * `searchByQueryCount` 之前完全沒接到 `upToMonth`，結果列卻照樣宣稱套用了）。
+     */
+    @Test
+    fun 文字模式查詢會把目前選的時間範圍送給repo() = runTest(dispatcher) {
+        val repo = Repo().apply { queryPage = SearchPage(listOf(row(1)), null); queryCount = 1 }
+        val vm = SearchViewModel(repo, resolverOf())
+        advanceUntilIdle()
+        vm.setUpToMonth("2026-02")
+        advanceUntilIdle()
+        vm.setMode(SearchMode.TEXT)
+        vm.setTextQuery("大蝦")
+        vm.runSearch()
+        advanceUntilIdle()
+
+        assertEquals("2026-02", repo.lastQueryUpToMonth)
+    }
+
+    /**
+     * loadMore() 續頁要沿用 runSearch() 當初捕捉的 upToMonth，不是重新讀 state 目前的值——
+     * 跟標籤模式的 `tagCriteria` 是同一類已經抓到兩次的錯（最終審查 Important 5 第 3 點）。
+     */
+    @Test
+    fun loadMore延續文字模式查詢時捕捉的時間範圍不受中途改動影響() = runTest(dispatcher) {
+        val repo = Repo().apply {
+            queryPage = SearchPage(listOf(row(1)), com.xenyaa.videoshot.core.paging.SearchCursor(0, "2026-03-01", 1))
+            queryCount = 2
+        }
+        val vm = SearchViewModel(repo, resolverOf())
+        advanceUntilIdle()
+        vm.setUpToMonth("2026-02")
+        advanceUntilIdle()
+        vm.setMode(SearchMode.TEXT)
+        vm.setTextQuery("大蝦")
+        vm.runSearch()
+        advanceUntilIdle()
+        assertEquals("2026-02", repo.lastQueryUpToMonth)
+
+        // 使用者查詢中途回條件畫面把時間範圍換掉
+        vm.setUpToMonth("2026-05")
+        advanceUntilIdle()
+
+        repo.queryPage = SearchPage(listOf(row(2)), null)
+        vm.loadMore()
+        advanceUntilIdle()
+
+        // loadMore() 應該沿用 runSearch() 當初捕捉的 "2026-02"，不是已經被改成 "2026-05" 的 state
+        assertEquals("2026-02", repo.lastQueryUpToMonth)
+        assertEquals(2, vm.state.value.results.size)
     }
 
     @Test
