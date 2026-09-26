@@ -25,6 +25,8 @@ import com.xenyaa.videoshot.data.repo.model.RecentVideo
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.data.settings.ShellSettings
 import com.xenyaa.videoshot.query.FakeGeminiClient
+import com.xenyaa.videoshot.ui.account.AccountDeps
+import com.xenyaa.videoshot.ui.account.FakeAccountDeps
 import com.xenyaa.videoshot.query.QueryResolver
 import com.xenyaa.videoshot.thumbs.ThumbKey
 import com.xenyaa.videoshot.thumbs.ThumbSource
@@ -173,6 +175,7 @@ class AppRootWizardFinishTest {
         override fun frameSourceFor(video: LoadedVideo): FrameSource = FakeFrameSource.of(frameCount = 1, intervalSec = 0.0)
         override fun manualImagesFor(videoId: String) = error("這組測試不碰手動圖")
         override fun captureFor(player: com.xenyaa.videoshot.player.Player) = null
+        override val accountDeps: AccountDeps = FakeAccountDeps()
     }
 
     /** 40 張分散在三個舊月份（跟 `WizardFinishTest.bigState()` 同樣的用意）：

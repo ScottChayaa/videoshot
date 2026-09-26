@@ -30,6 +30,8 @@ import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.data.settings.ShellSettings
 import com.xenyaa.videoshot.query.FakeGeminiClient
+import com.xenyaa.videoshot.ui.account.AccountDeps
+import com.xenyaa.videoshot.ui.account.FakeAccountDeps
 import com.xenyaa.videoshot.query.QueryResolver
 import com.xenyaa.videoshot.thumbs.ThumbKey
 import com.xenyaa.videoshot.thumbs.ThumbSource
@@ -166,6 +168,7 @@ class AppRootDetailTest {
         override fun frameSourceFor(video: LoadedVideo): FrameSource = throw UnsupportedOperationException("測試不用到")
         override fun manualImagesFor(videoId: String) = throw UnsupportedOperationException("測試不用到")
         override fun captureFor(player: com.xenyaa.videoshot.player.Player) = null
+        override val accountDeps: AccountDeps = FakeAccountDeps()
     }
 
     @Test
