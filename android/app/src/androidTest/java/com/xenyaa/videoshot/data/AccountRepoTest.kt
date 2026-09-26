@@ -86,24 +86,30 @@ class AccountRepoTest {
     }
 
     @Test
-    fun 改名成既有名稱會合併並刪掉舊標籤() = runTest {
+    fun 改名成既有名稱會合併並刪掉舊標籤且既有標籤的kind與別名不被草稿覆蓋() = runTest {
         val ids = repo.commitPicks(video("v1"), listOf(pick("2026-02-01", 0), pick("2026-02-01", 1)))
-        val keep = db.tagDao().insert(com.xenyaa.videoshot.data.library.entity.TagEntity(0, "阿明", "person", "[]"))
+        // keep 的 kind／aliases 刻意跟下面的改名草稿不同——如果合併時誤把草稿的值蓋到 keep 上，
+        // 這裡會抓到（規格「既有那個標籤的 kind／別名不會被這次編輯的值覆蓋」）
+        val keep = db.tagDao()
+            .insert(com.xenyaa.videoshot.data.library.entity.TagEntity(0, "阿明", "person", "[\"小明\"]"))
         val dup = db.tagDao().insert(com.xenyaa.videoshot.data.library.entity.TagEntity(0, "阿明哥", "person", "[]"))
         db.tagDao().link(com.xenyaa.videoshot.data.library.entity.ShotTagEntity(ids[0], keep, "human"))
         db.tagDao().link(com.xenyaa.videoshot.data.library.entity.ShotTagEntity(ids[1], dup, "human"))
 
-        repo.renameTag(dup, "阿明", "person", emptyList())
+        repo.renameTag(dup, "阿明", "topic", listOf("哥哥"))
 
         val tags = repo.allTagsWithUsage()
         assertEquals(1, tags.size)
-        assertEquals("阿明", tags.single().name)
-        assertEquals(2, tags.single().shotCount)
+        val merged = tags.single()
+        assertEquals("阿明", merged.name)
+        assertEquals(2, merged.shotCount)
+        assertEquals("person", merged.kind)
+        assertEquals(listOf("小明"), merged.aliases)
     }
 
     @Test
-    fun 改名成既有名稱時兩張圖都已經連過同一個舊標籤不會撞主鍵() = runTest {
-        // 兩支圖都已經同時關聯 keep 與 dup——合併時 (shot, keep) 已存在，
+    fun 改名成既有名稱時一支圖同時關聯keep與dup不會撞主鍵() = runTest {
+        // 這支圖已經同時關聯 keep 與 dup——合併時 (shot, keep) 已存在，
         // reassignLinks 用 UPDATE OR IGNORE 略過那一列，靠刪除 dup 時的外鍵連動清掉殘餘關聯
         val ids = repo.commitPicks(video("v1"), listOf(pick("2026-02-01", 0)))
         val keep = db.tagDao().insert(com.xenyaa.videoshot.data.library.entity.TagEntity(0, "阿明", "person", "[]"))
