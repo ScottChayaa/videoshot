@@ -136,4 +136,24 @@ class AppSettingsTest {
         settings.setGeminiKey("second")
         assertEquals("second", settings.geminiKey.first())
     }
+
+    @Test
+    fun AI分析區間預設是十秒與二十秒() = runTest {
+        assertEquals(10, settings.aiRangeBeforeSec.first())
+        assertEquals(20, settings.aiRangeAfterSec.first())
+    }
+
+    @Test
+    fun AI分析區間存得住() = runTest {
+        settings.setAiRange(beforeSec = 5, afterSec = 15)
+        assertEquals(5, settings.aiRangeBeforeSec.first())
+        assertEquals(15, settings.aiRangeAfterSec.first())
+    }
+
+    @Test
+    fun AI分析區間不接受負數() = runTest {
+        settings.setAiRange(beforeSec = -3, afterSec = -1)
+        assertEquals(0, settings.aiRangeBeforeSec.first())
+        assertEquals(0, settings.aiRangeAfterSec.first())
+    }
 }

@@ -7,6 +7,7 @@ import android.util.Base64
 import androidx.annotation.VisibleForTesting
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -136,6 +137,21 @@ class AppSettings(context: Context) : ShellSettings {
         store.edit { it.remove(GEMINI_KEY) }
     }
 
+    /**
+     * AI 分析區間：送 Gemini 分析時，從 `shot.at_sec` 往前／往後涵蓋的秒數（規格第九節、
+     * 第十三節「shot 只有 at_sec，送 Gemini 時由帳號頁的兩個數字推導」）。
+     * **顯示但第四步（AI 補充）還沒上線前不生效**——上線後才會真的拿這兩個值切分析區間。
+     */
+    val aiRangeBeforeSec: Flow<Int> = store.data.map { it[AI_RANGE_BEFORE_SEC] ?: 10 }
+    val aiRangeAfterSec: Flow<Int> = store.data.map { it[AI_RANGE_AFTER_SEC] ?: 20 }
+
+    suspend fun setAiRange(beforeSec: Int, afterSec: Int) {
+        store.edit {
+            it[AI_RANGE_BEFORE_SEC] = beforeSec.coerceAtLeast(0)
+            it[AI_RANGE_AFTER_SEC] = afterSec.coerceAtLeast(0)
+        }
+    }
+
     private fun geminiSecretKey(): SecretKey {
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (keyStore.getKey(GEMINI_KEYSTORE_ALIAS, null) as? SecretKey)?.let { return it }
@@ -193,5 +209,7 @@ class AppSettings(context: Context) : ShellSettings {
         val THEME_ID = stringPreferencesKey("theme_id")
         val NIGHT_MODE = stringPreferencesKey("night_mode")
         val GEMINI_KEY = stringPreferencesKey("gemini_key")
+        val AI_RANGE_BEFORE_SEC = intPreferencesKey("ai_range_before_sec")
+        val AI_RANGE_AFTER_SEC = intPreferencesKey("ai_range_after_sec")
     }
 }
