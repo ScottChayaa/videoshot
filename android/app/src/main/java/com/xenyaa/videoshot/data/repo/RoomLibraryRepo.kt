@@ -31,9 +31,11 @@ import com.xenyaa.videoshot.data.repo.model.SearchPage
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.ShotRow
+import com.xenyaa.videoshot.data.repo.model.TagUsage
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 class RoomLibraryRepo(
@@ -383,6 +385,31 @@ class RoomLibraryRepo(
         val row = db.shotDao().accountStats(thisMonth)
         AccountStats(row.totalShots, row.thisMonthShots, row.distinctVideos)
     }
+
+    override suspend fun allTagsWithUsage(): List<TagUsage> = withContext(io) {
+        db.tagDao().allWithUsage().map { TagUsage(it.id, it.name, it.kind, decodeAliases(it.aliases), it.shotCount) }
+    }
+
+    override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>): Unit =
+        withContext(io) {
+            val trimmed = name.trim()
+            require(trimmed.isNotEmpty()) { "標籤名稱不能是空的" }
+            db.inWriteTransaction {
+                val existing = db.tagDao().byName(trimmed)
+                if (existing != null && existing.id != id) {
+                    db.tagDao().reassignLinks(id, existing.id)
+                    db.tagDao().deleteById(id)
+                } else {
+                    db.tagDao().update(id, trimmed, kind, encodeAliases(aliases))
+                }
+            }
+            onChanged()
+        }
+
+    override suspend fun deleteTag(id: Long): Unit = withContext(io) {
+        db.tagDao().deleteById(id)
+        onChanged()
+    }
 }
 
 private fun ShotRowProjection.toRow() = ShotRow(
@@ -405,6 +432,9 @@ private fun SearchHitProjection.toRow() = ShotRow(
 /** `tag.aliases` 是 JSON 陣列字串（規格第四節）；解不出來（不該發生，但寫壞的資料不該讓查詢整個炸掉）就當沒有別名。 */
 private fun decodeAliases(json: String): List<String> =
     runCatching { Json.decodeFromString<List<String>>(json) }.getOrDefault(emptyList())
+
+/** [decodeAliases] 的反向：標籤管理頁存別名時用。 */
+private fun encodeAliases(aliases: List<String>): String = Json.encodeToString(aliases)
 
 /**
  * 用 driver API 的寫入交易。

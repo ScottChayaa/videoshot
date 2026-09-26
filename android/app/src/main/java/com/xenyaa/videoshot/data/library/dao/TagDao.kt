@@ -47,9 +47,43 @@ interface TagDao {
      */
     @Query("SELECT id FROM tag WHERE name IN (:names)")
     suspend fun idsByNames(names: List<String>): List<Long>
+
+    /** 標籤管理頁：全部標籤 ＋ 使用張數，依名稱排序（規格第九節）。 */
+    @Query(
+        """
+        SELECT t.id AS id, t.name AS name, t.kind AS kind, t.aliases AS aliases, COUNT(st.shot_id) AS shotCount
+        FROM tag t LEFT JOIN shot_tag st ON st.tag_id = t.id
+        GROUP BY t.id ORDER BY t.name
+        """
+    )
+    suspend fun allWithUsage(): List<TagUsageProjection>
+
+    @Query("UPDATE tag SET name = :name, kind = :kind, aliases = :aliases WHERE id = :id")
+    suspend fun update(id: Long, name: String, kind: String, aliases: String)
+
+    /**
+     * 標籤合併：把 `oldTagId` 的關聯轉給 `newTagId`。**`OR IGNORE`**——
+     * 一張圖如果同時已經關聯過這兩個標籤，轉移會撞到 `shot_tag` 的複合主鍵 `(shot_id, tag_id)`，
+     * `OR IGNORE` 讓那一列維持原樣（還連著 `oldTagId`），呼叫端接著刪掉 `oldTagId`
+     * 那一列標籤時，靠 `shot_tag` 的外鍵 `ON DELETE CASCADE` 把殘餘的那一列一併清掉。
+     */
+    @Query("UPDATE OR IGNORE shot_tag SET tag_id = :newTagId WHERE tag_id = :oldTagId")
+    suspend fun reassignLinks(oldTagId: Long, newTagId: Long)
+
+    /** 只刪標籤列本身；`shot_tag` 由外鍵 `ON DELETE CASCADE` 連動刪除（圖不動）。 */
+    @Query("DELETE FROM tag WHERE id = :id")
+    suspend fun deleteById(id: Long)
 }
 
 data class TagAliasProjection(
     @ColumnInfo(name = "name") val name: String,
     @ColumnInfo(name = "aliases") val aliases: String,
+)
+
+data class TagUsageProjection(
+    @ColumnInfo(name = "id") val id: Long,
+    @ColumnInfo(name = "name") val name: String,
+    @ColumnInfo(name = "kind") val kind: String,
+    @ColumnInfo(name = "aliases") val aliases: String,
+    @ColumnInfo(name = "shotCount") val shotCount: Int,
 )

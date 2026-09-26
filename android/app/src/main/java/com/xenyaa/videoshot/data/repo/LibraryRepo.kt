@@ -18,6 +18,7 @@ import com.xenyaa.videoshot.data.repo.model.SearchPage
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.ShotRow
+import com.xenyaa.videoshot.data.repo.model.TagUsage
 
 /**
  * library.db 的唯一對外入口（規格第三節模組邊界第 1 條）。
@@ -152,4 +153,18 @@ interface LibraryRepo {
 
     /** 帳號頁三格統計。@param thisMonth `YYYY-MM`，跟 `core.home.monthOf` 輸出同格式 */
     suspend fun accountStats(thisMonth: String): AccountStats
+
+    /** 標籤管理頁：全部標籤 ＋ 使用張數（規格第九節）。 */
+    suspend fun allTagsWithUsage(): List<TagUsage>
+
+    /**
+     * 標籤改名／改 kind／改別名。**改名成既有的名稱＝合併**：兩者的 `shot_tag` 併到既有標籤，
+     * 這個 `id` 的標籤列被刪除（規格第九節「標籤管理的規則」）。合併發生時，
+     * **既有那個標籤的 kind／別名不會被這次編輯的值覆蓋**——合併保留的是「既有的那個」，
+     * 這次編輯的草稿只在沒有撞名時才會真的寫入。
+     */
+    suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>)
+
+    /** 刪除標籤。只解除關聯（`shot_tag` 由外鍵連動一起刪），圖不動。 */
+    suspend fun deleteTag(id: Long)
 }
