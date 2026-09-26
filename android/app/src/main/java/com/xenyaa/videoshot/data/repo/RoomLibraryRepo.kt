@@ -19,6 +19,7 @@ import com.xenyaa.videoshot.data.library.entity.ShotImageEntity
 import com.xenyaa.videoshot.data.library.entity.ShotTagEntity
 import com.xenyaa.videoshot.data.library.entity.TagEntity
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
+import com.xenyaa.videoshot.data.repo.model.AccountStats
 import com.xenyaa.videoshot.data.repo.model.FolderCard
 import com.xenyaa.videoshot.data.repo.model.FolderNode
 import com.xenyaa.videoshot.data.repo.model.FolderPage
@@ -376,6 +377,11 @@ class RoomLibraryRepo(
     override suspend fun removeShotFromFolder(shotId: Long, folderId: Long): Unit = withContext(io) {
         db.folderDao().unlink(shotId, folderId)
         onChanged()
+    }
+
+    override suspend fun accountStats(thisMonth: String): AccountStats = withContext(io) {
+        val row = db.shotDao().accountStats(thisMonth)
+        AccountStats(row.totalShots, row.thisMonthShots, row.distinctVideos)
     }
 }
 

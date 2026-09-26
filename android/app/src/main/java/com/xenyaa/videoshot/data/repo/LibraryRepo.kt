@@ -6,6 +6,7 @@ import com.xenyaa.videoshot.core.paging.ShotCursor
 import com.xenyaa.videoshot.core.query.ParsedQuery
 import com.xenyaa.videoshot.core.query.QueryVocabulary
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
+import com.xenyaa.videoshot.data.repo.model.AccountStats
 import com.xenyaa.videoshot.data.repo.model.FolderCard
 import com.xenyaa.videoshot.data.repo.model.FolderNode
 import com.xenyaa.videoshot.data.repo.model.FolderPage
@@ -148,4 +149,7 @@ interface LibraryRepo {
 
     /** 移出資料夾。圖本身不動。 */
     suspend fun removeShotFromFolder(shotId: Long, folderId: Long)
+
+    /** 帳號頁三格統計。@param thisMonth `YYYY-MM`，跟 `core.home.monthOf` 輸出同格式 */
+    suspend fun accountStats(thisMonth: String): AccountStats
 }

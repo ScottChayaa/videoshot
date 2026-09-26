@@ -191,6 +191,21 @@ interface ShotDao {
     /** 抽屜的既有地點建議（規格第五節欄位表）。空字串在寫入時已轉成 null，這裡只要排除 null。 */
     @Query("SELECT DISTINCT place FROM shot WHERE place IS NOT NULL ORDER BY place")
     suspend fun distinctPlaces(): List<String>
+
+    /**
+     * 帳號頁三格統計（規格第九節）。`distinctVideos` 直接數 `video` 表的列數，
+     * 不對 `shot.video_id` 做 `COUNT(DISTINCT ...)`——`deleteShot` 刪掉一支影片最後一張時
+     * 會連帶刪掉 `video` 列（規格第六節），兩種算法永遠同值，前者不必掃過整張 shot 表。
+     */
+    @Query(
+        """
+        SELECT
+          (SELECT COUNT(*) FROM shot) AS totalShots,
+          (SELECT COUNT(*) FROM shot WHERE substr(event_date, 1, 7) = :thisMonth) AS thisMonthShots,
+          (SELECT COUNT(*) FROM video) AS distinctVideos
+        """
+    )
+    suspend fun accountStats(thisMonth: String): AccountStatsProjection
 }
 
 /** Room 直接映射查詢結果用；欄位名對應 SQL 的輸出欄位。 */
@@ -215,4 +230,10 @@ data class MonthFacetProjection(
     @ColumnInfo(name = "name") val name: String,
     @ColumnInfo(name = "kind") val kind: String,
     @ColumnInfo(name = "cnt") val count: Int,
+)
+
+data class AccountStatsProjection(
+    @ColumnInfo(name = "totalShots") val totalShots: Int,
+    @ColumnInfo(name = "thisMonthShots") val thisMonthShots: Int,
+    @ColumnInfo(name = "distinctVideos") val distinctVideos: Int,
 )
