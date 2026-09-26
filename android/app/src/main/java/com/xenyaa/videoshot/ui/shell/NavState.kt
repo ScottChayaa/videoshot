@@ -12,6 +12,21 @@ enum class Tab(val label: String) {
 }
 
 /**
+ * 帳號頁選單的六個入口（規格第九節）。`id` 是 [NavCodec] 存檔用的短字串，**不可更動**。
+ *
+ * [BACKUP]／[THUMBS] 兩格本階段（階段 11）只顯示靜態說明——備份與 Google 帳號連結是階段 12，
+ * 縮圖回填進度是階段 13；[THUMBS] 目前只掛「儲存用量」。
+ */
+enum class AccountSection(val id: String) {
+    BACKUP("backup"),
+    THUMBS("thumbs"),
+    CAPTURE("capture"),
+    GEMINI("gemini"),
+    AI("ai"),
+    TAGS("tags"),
+}
+
+/**
  * 一格分頁裡的一層畫面。
  *
  * 階段 8 的資料夾頁、階段 9 的詳情頁往這裡加項目，`AppShell` 的 `when` 會因為窮盡檢查
@@ -38,6 +53,12 @@ sealed interface Dest {
      * 只存 videoId：要編輯的 shot 清單每次進來重查，改動後才不會顯示過期的一批。
      */
     data class BatchEdit(val videoId: String) : Dest
+
+    /**
+     * 帳號頁的一個設定子畫面（規格第九節）。**保留底部導覽**——跟 [Folder]／[Detail] 一樣，
+     * 這不是有進有出的全螢幕流程，使用者應該隨時能切別的分頁。
+     */
+    data class AccountSetting(val section: AccountSection) : Dest
 }
 
 /**
@@ -134,6 +155,7 @@ object NavCodec {
                     is Dest.Folder -> "F${dest.folderId}"
                     is Dest.Detail -> "D${dest.videoId}:${dest.focusShotId}"
                     is Dest.BatchEdit -> "B${dest.videoId}"
+                    is Dest.AccountSetting -> "A${dest.section.id}"
                 }
             }
             "${tab.name}=$items"
@@ -163,6 +185,11 @@ object NavCodec {
                         Dest.Detail(body.substring(0, sep), shotId)
                     }
                     item.startsWith("B") -> Dest.BatchEdit(item.drop(1))
+                    item.startsWith("A") -> {
+                        val section = AccountSection.entries.firstOrNull { it.id == item.drop(1) }
+                            ?: return NavState()
+                        Dest.AccountSetting(section)
+                    }
                     else -> return NavState()
                 }
             }

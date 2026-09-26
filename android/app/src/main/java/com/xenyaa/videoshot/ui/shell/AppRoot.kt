@@ -459,7 +459,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             }
         }
 
-        Dest.Root, is Dest.Folder, is Dest.Detail -> AppShell(nav = nav, onSelectTab = { nav = nav.select(it) }, snackbarHostState = snackbarHostState) { tab ->
+        Dest.Root, is Dest.Folder, is Dest.Detail, is Dest.AccountSetting -> AppShell(nav = nav, onSelectTab = { nav = nav.select(it) }, snackbarHostState = snackbarHostState) { tab ->
             when (val current = nav.current) {
                 is Dest.Detail -> {
                     val vm = detailVm!!

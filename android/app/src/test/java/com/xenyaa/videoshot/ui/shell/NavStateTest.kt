@@ -135,4 +135,24 @@ class NavStateTest {
         // Lightbox 疊在詳情頁上面不算——目前沒有這個路徑，但守住這條語意
         assertNull(NavState().push(Dest.Lightbox(0)).currentDetailVideoId())
     }
+
+    @Test
+    fun account區段的push與pop() {
+        val nav = NavState().select(Tab.ACCOUNT).push(Dest.AccountSetting(AccountSection.TAGS))
+        assertEquals(Dest.AccountSetting(AccountSection.TAGS), nav.current)
+        val popped = nav.pop()
+        assertEquals(Dest.Root, popped?.current)
+    }
+
+    @Test
+    fun account區段的編碼與解碼往返() {
+        val nav = NavState().select(Tab.ACCOUNT).push(Dest.AccountSetting(AccountSection.GEMINI))
+        val decoded = NavCodec.decode(NavCodec.encode(nav))
+        assertEquals(nav, decoded)
+    }
+
+    @Test
+    fun account區段解不出來時退回預設NavState() {
+        assertEquals(NavState(), NavCodec.decode("ACCOUNT|HOME|HOME=R;SEARCH=R;CAPTURE=R;FOLDERS=R;ACCOUNT=A不存在的區段"))
+    }
 }
