@@ -44,12 +44,15 @@ import androidx.compose.ui.graphics.asImageBitmap
 import com.xenyaa.videoshot.capture.Capture
 import com.xenyaa.videoshot.capture.ManualImageStore
 import com.xenyaa.videoshot.capture.WebViewCapture
+import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.player.Player
 import com.xenyaa.videoshot.player.WebViewPlayer
 import com.xenyaa.videoshot.query.OkHttpGeminiClient
 import com.xenyaa.videoshot.query.QueryResolver
+import com.xenyaa.videoshot.ui.account.AccountDeps
 import com.xenyaa.videoshot.ui.shell.AppRootDeps
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import java.io.File
 
 /**
@@ -226,6 +229,40 @@ class AppContainer(context: Context) : AppRootDeps {
                 withContext(Dispatchers.IO) {
                     File(appContext.filesDir, "drafts/$videoId").deleteRecursively()
                 }
+            }
+        }
+    }
+
+    override val accountDeps: AccountDeps by lazy {
+        object : AccountDeps {
+            override val filterStrength = settings.filterStrength
+            override suspend fun setFilterStrength(value: FilterStrength) = settings.setFilterStrength(value)
+
+            override val aiRangeBeforeSec = settings.aiRangeBeforeSec
+            override val aiRangeAfterSec = settings.aiRangeAfterSec
+            override suspend fun setAiRange(beforeSec: Int, afterSec: Int) =
+                settings.setAiRange(beforeSec, afterSec)
+
+            override val geminiKeySet = settings.geminiKey.map { it != null }
+            override suspend fun setGeminiKey(plain: String) = settings.setGeminiKey(plain)
+            override suspend fun clearGeminiKey() = settings.clearGeminiKey()
+
+            override suspend fun stats(thisMonth: String) = libraryRepo.accountStats(thisMonth)
+            override suspend fun tags() = libraryRepo.allTagsWithUsage()
+            override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>) =
+                libraryRepo.renameTag(id, name, kind, aliases)
+            override suspend fun deleteTag(id: Long) = libraryRepo.deleteTag(id)
+
+            /**
+             * `thumbs/` 遞迴掃檔案大小 ＋ `library.db` 的檔案大小。**不含 `cache.db`／草稿**——
+             * 那些是可重建的快取（CLAUDE.md「無法重建的在 library.db，DB 外面的都能重建」），
+             * 使用者關心的是「圖庫本身佔多少空間」，不是暫存檔。
+             */
+            override suspend fun storageUsageBytes(): Long = withContext(Dispatchers.IO) {
+                val thumbsBytes = File(appContext.filesDir, "thumbs").walkTopDown()
+                    .filter { it.isFile }.sumOf { it.length() }
+                val dbBytes = File(appContext.filesDir, "library.db").let { if (it.exists()) it.length() else 0L }
+                thumbsBytes + dbBytes
             }
         }
     }
