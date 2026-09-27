@@ -29,5 +29,5 @@ class FakeGoogleAuth(initiallyLinked: LinkedGoogleAccount? = null) : GoogleAuth 
         return linked?.let { "fake-access-token" } ?: error("尚未連結 Google 帳號")
     }
 
-    override suspend fun unlink() { linked = null }
+    override suspend fun unlink(email: String) { linked = null }
 }

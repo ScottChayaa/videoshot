@@ -33,13 +33,6 @@ private const val GOOGLE_ACCOUNT_TYPE = "com.google"
  *
  * **已知限制（Task 0 完成前）**：`webClientId` 若還是 strings.xml 裡的佔位字串，
  * `beginLink` 會在 Credential Manager 那一步丟例外，不會走到 `AuthorizationClient`。
- *
- * **已知限制（跨行程）**：[pendingAccount] 只存在記憶體裡，app 行程被殺掉、重開後會是
- * `null`。[unlink] 需要一個 [Account] 才能呼叫 Play Services 的 `revokeAccess`——如果那時候
- * `pendingAccount` 是 `null`（例如重開 app 後直接進帳號頁按【中斷連結】，中間沒有再呼叫過
- * `beginLink`／`finishLink`），這裡會丟例外。Task 12 若要在跨行程情境下也能撤銷，需要把
- * `email` 從別的地方（例如 DataStore 裡持久化的顯示用身分）傳進來——這已經超出這個介面
- * （[GoogleAuth.unlink] 不收參數）目前的設計範圍，留給 Task 12 決定怎麼補。
  */
 class GisGoogleAuth(
     private val context: Context,
@@ -47,7 +40,12 @@ class GisGoogleAuth(
     private val io: CoroutineDispatcher,
 ) : GoogleAuth {
 
-    /** `beginLink` 到 `finishLink` 之間的身分結果——授權若需要額外同意，要先記住身分，等 `finishLink` 再一起回傳。 */
+    /**
+     * `beginLink` 到 `finishLink` 之間的身分結果——授權若需要額外同意，要先記住身分，等 `finishLink`
+     * 再一起回傳。這個 pairing 是同一次 UI 互動內同步發生的，行程不會在中途被殺掉，所以放在記憶體裡沒問題
+     * ——跟 [unlink] 不一樣，[unlink] 可能發生在行程重啟、`beginLink`／`finishLink` 都沒重跑過的情況下，
+     * 所以那個方法改成由呼叫端把 email 帶進來，不能依賴這個欄位。
+     */
     private var pendingAccount: LinkedGoogleAccount? = null
 
     override suspend fun beginLink(activity: Activity): LinkOutcome = withContext(io) {
@@ -60,11 +58,10 @@ class GisGoogleAuth(
         val account = LinkedGoogleAccount(displayName = idTokenCredential.displayName ?: email, email = email)
         pendingAccount = account
 
+        // 只有這裡需要 activity——授權若沒同意過要跳系統畫面，得綁在目前的畫面上；
+        // finishLink／accessToken／unlink 都是背景可呼叫，用 context 就夠。
         val authClient = Identity.getAuthorizationClient(activity)
-        val authRequest = AuthorizationRequest.builder()
-            .setRequestedScopes(listOf(Scope(DRIVE_APPDATA_SCOPE)))
-            .build()
-        val result = Tasks.await(authClient.authorize(authRequest))
+        val result = Tasks.await(authClient.authorize(driveAppDataAuthorizationRequest()))
         val pendingIntent = result.pendingIntent
         if (result.hasResolution() && pendingIntent != null) {
             LinkOutcome.NeedsConsent(pendingIntent.intentSender)
@@ -81,19 +78,17 @@ class GisGoogleAuth(
 
     override suspend fun accessToken(): String = withContext(io) {
         val authClient = Identity.getAuthorizationClient(context)
-        val authRequest = AuthorizationRequest.builder()
-            .setRequestedScopes(listOf(Scope(DRIVE_APPDATA_SCOPE)))
-            .build()
-        val result = Tasks.await(authClient.authorize(authRequest))
+        val result = Tasks.await(authClient.authorize(driveAppDataAuthorizationRequest()))
         if (result.hasResolution()) error("Drive 授權已失效，需要使用者重新連結")
         result.accessToken ?: error("Drive 授權沒有回傳存取權杖")
     }
 
-    override suspend fun unlink(): Unit = withContext(io) {
+    override suspend fun unlink(email: String): Unit = withContext(io) {
         // revokeAccess 需要指定帳號（官方文件範例是 .setAccount(account).setScopes(scopes)，
         // 不能只呼叫 builder().build()——那樣沒有目標帳號，撤銷不到東西）。
-        val email = pendingAccount?.email
-            ?: error("尚未連結 Google 帳號（或行程重啟後遺失連結狀態），無法中斷連結")
+        // email 由呼叫端帶進來（來自 AppSettings.linkedAccount，跨行程持久化），
+        // 不能靠 pendingAccount——那個欄位只在同一次 beginLink／finishLink 互動內有效，
+        // 行程重啟後就是 null，用它會讓「重開 app 後按中斷連結」壞掉。
         val account = Account(email, GOOGLE_ACCOUNT_TYPE)
         val authClient = Identity.getAuthorizationClient(context)
         val revokeRequest = RevokeAccessRequest.builder()
@@ -102,6 +97,11 @@ class GisGoogleAuth(
         Tasks.await(authClient.revokeAccess(revokeRequest))
         pendingAccount = null
     }
+
+    private fun driveAppDataAuthorizationRequest(): AuthorizationRequest =
+        AuthorizationRequest.builder()
+            .setRequestedScopes(listOf(Scope(DRIVE_APPDATA_SCOPE)))
+            .build()
 
     private fun decodeEmailFromIdToken(idToken: String): String? = runCatching {
         val payload = idToken.split(".")[1]

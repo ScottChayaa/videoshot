@@ -59,7 +59,7 @@ class FakeGoogleAuthTest {
         val auth = FakeGoogleAuth(initiallyLinked = LinkedGoogleAccount("阿明", "ming@example.com"))
         auth.accessToken() // 連結中，不丟
 
-        auth.unlink()
+        auth.unlink("ming@example.com")
 
         assertTrue(runCatching { auth.accessToken() }.isFailure)
     }

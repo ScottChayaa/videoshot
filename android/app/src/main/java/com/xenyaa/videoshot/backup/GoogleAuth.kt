@@ -32,6 +32,10 @@ interface GoogleAuth {
     /** 背景可呼叫：拿目前授權下可用的存取權杖。未連結、或授權已失效需要重新同意時丟例外。 */
     suspend fun accessToken(): String
 
-    /** 撤銷授權（規格「中斷連結」，破壞性樣式按鈕）。 */
-    suspend fun unlink()
+    /**
+     * 撤銷授權（規格「中斷連結」，破壞性樣式按鈕）。
+     * `email` 由呼叫端提供——真正的「目前是否已連結」狀態存在 `AppSettings.linkedAccount`
+     * （跨行程持久化），不是這個介面自己記的，所以撤銷時要由呼叫端把 email 帶進來。
+     */
+    suspend fun unlink(email: String)
 }
