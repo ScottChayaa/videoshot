@@ -95,8 +95,10 @@ class AccountViewModelTest {
         }
 
         var unlinkCalled = false
+        var failNextUnlink = false
         override suspend fun unlink() {
             unlinkCalled = true
+            if (failNextUnlink) throw RuntimeException("中斷連結失敗")
             linkedAccountFlow.value = null
         }
 
@@ -361,5 +363,50 @@ class AccountViewModelTest {
         dispatcher.scheduler.advanceUntilIdle()
 
         assertTrue(deps.unlinkCalled)
+    }
+
+    /**
+     * 最終審查 Important 4：中斷連結失敗要走 `backupError`（備份子畫面會畫出來），
+     * 不能走泛用的 `error`——那個欄位只有標籤管理畫面會顯示，結果就是使用者當下什麼都看不到，
+     * 然後那句「操作失敗，請再試一次」會殘留到毫不相干的標籤管理畫面上。
+     */
+    @Test
+    fun unlink失敗時顯示在backupError不是泛用error() = runTest {
+        val deps = FakeDeps()
+        deps.failNextUnlink = true
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.unlink()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("中斷連結失敗，請確認網路後再試一次", viewModel.state.value.backupError)
+        assertNull("不能污染標籤管理畫面才會顯示的泛用 error", viewModel.state.value.error)
+    }
+
+    // `beginLink`／`finishLink` 的失敗路徑沒有單獨的案例：它們的參數是真的 `Activity`／
+    // `Intent`，而這個檔案是純 JVM 測試（沒有 Robolectric、也沒開 returnDefaultValues），
+    // 造不出這兩個物件。三個動作走的是同一個 `launchBackupGuarded`，由上面 unlink 的兩個
+    // 案例把那個 helper 的行為釘住。
+
+    /**
+     * 成功的動作要把上一次失敗留下的 `backupError` 清掉——不清的話使用者會看到「中斷連結
+     * 失敗」跟成功的結果並存（`launchBackupGuarded` 一開始就清，同 `backupNow` 的做法）。
+     */
+    @Test
+    fun 重新嘗試時會先清掉上一次的backupError() = runTest {
+        val deps = FakeDeps()
+        deps.failNextUnlink = true
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.unlink()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals("中斷連結失敗，請確認網路後再試一次", viewModel.state.value.backupError)
+
+        deps.failNextUnlink = false
+        viewModel.unlink()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertNull(viewModel.state.value.backupError)
     }
 }

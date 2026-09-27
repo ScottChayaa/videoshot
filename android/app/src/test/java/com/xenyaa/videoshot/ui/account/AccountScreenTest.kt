@@ -59,6 +59,13 @@ class AccountScreenTest {
         compose.onNodeWithText("阿明").assertIsDisplayed()
     }
 
+    /** 手冊 §八：已連結時圓形頭像顯示帳號名稱的第一個字（大寫），不是通用人形圖示。 */
+    @Test
+    fun 已連結時頭像顯示名稱首字大寫() {
+        setContent(state.copy(linkedAccount = LinkedGoogleAccount("ming wang", "ming@example.com")))
+        compose.onNodeWithText("M").assertIsDisplayed()
+    }
+
     @Test
     fun 點統計卡會呼叫onOpenStat() {
         var called = false

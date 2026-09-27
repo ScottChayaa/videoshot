@@ -51,6 +51,39 @@ class BackupScreenTest {
         compose.onNodeWithText("上次備份：剛剛").assertIsDisplayed()
     }
 
+    /**
+     * 最終審查 Important 4：連結失敗時 `linkedAccount` 還是 null——錯誤訊息如果畫在
+     * 「已連結」那一支分支裡（原本的寫法），使用者最需要看到它的那條路徑永遠看不到。
+     */
+    @Test
+    fun 未連結時也要顯示錯誤訊息() {
+        compose.setContent {
+            VideoshotTheme {
+                BackupScreen(
+                    linkedAccount = null, lastBackupAtEpochSec = 0, backingUp = false,
+                    backupError = "連結 Google 帳號失敗，請確認網路後再試一次",
+                    onBack = {}, onLinkClick = {}, onUnlinkClick = {}, onBackupNowClick = {}, onRestoreClick = {},
+                )
+            }
+        }
+        compose.onNodeWithText("連結 Google 帳號失敗，請確認網路後再試一次").assertIsDisplayed()
+    }
+
+    /** 已連結那一支（中斷連結／立即備份失敗）也還要顯示得出來——改位置不能把原本的行為弄丟。 */
+    @Test
+    fun 已連結時同樣顯示錯誤訊息() {
+        compose.setContent {
+            VideoshotTheme {
+                BackupScreen(
+                    linkedAccount = LinkedGoogleAccount("阿明", "ming@example.com"),
+                    lastBackupAtEpochSec = 0, backingUp = false, backupError = "中斷連結失敗，請確認網路後再試一次",
+                    onBack = {}, onLinkClick = {}, onUnlinkClick = {}, onBackupNowClick = {}, onRestoreClick = {},
+                )
+            }
+        }
+        compose.onNodeWithText("中斷連結失敗，請確認網路後再試一次").assertIsDisplayed()
+    }
+
     @Test
     fun 點立即備份會呼叫onBackupNowClick() {
         var called = false

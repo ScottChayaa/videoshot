@@ -88,16 +88,18 @@ class AccountViewModel(
      *        用 `rememberLauncherForActivityResult` 跳出畫面，回來後呼叫 [finishLink]。
      *        連結**成功**（不需要額外同意）時不會呼叫這個 callback，`linkedAccount` flow 自己會更新畫面。
      */
-    fun beginLink(activity: Activity, onNeedsConsent: (IntentSender) -> Unit) = launchGuarded {
-        when (val outcome = deps.beginLink(activity)) {
-            is LinkOutcome.Linked -> Unit
-            is LinkOutcome.NeedsConsent -> onNeedsConsent(outcome.intentSender)
+    fun beginLink(activity: Activity, onNeedsConsent: (IntentSender) -> Unit) =
+        launchBackupGuarded("連結 Google 帳號失敗，請確認網路後再試一次") {
+            when (val outcome = deps.beginLink(activity)) {
+                is LinkOutcome.Linked -> Unit
+                is LinkOutcome.NeedsConsent -> onNeedsConsent(outcome.intentSender)
+            }
         }
-    }
 
-    fun finishLink(data: Intent) = launchGuarded { deps.finishLink(data) }
+    fun finishLink(data: Intent) =
+        launchBackupGuarded("連結 Google 帳號失敗，請確認網路後再試一次") { deps.finishLink(data) }
 
-    fun unlink() = launchGuarded { deps.unlink() }
+    fun unlink() = launchBackupGuarded("中斷連結失敗，請確認網路後再試一次") { deps.unlink() }
 
     fun backupNow() {
         _state.value = _state.value.copy(backingUp = true, backupError = null)
@@ -164,6 +166,30 @@ class AccountViewModel(
             _state.value = _state.value.copy(deleting = null, editor = null)
             reload()
             _tagsChanged.emit(Unit)
+        }
+    }
+
+    /**
+     * 連結／同意流程／中斷連結這三個動作的失敗要走 [AccountState.backupError]，不是
+     * [launchGuarded] 的泛用 `error`——`error` 目前只有 `TagManagementScreen` 會畫出來，
+     * 備份子畫面（`BackupScreen`）與帳號頁首畫面都不顯示它。走 `error` 的後果是：中斷連結
+     * 真的失敗時（`GisGoogleAuth.unlink` 的 `revokeAccess` 遇到網路錯誤）使用者當下什麼
+     * 都看不到、以為斷掉了；然後那句泛用的「操作失敗，請再試一次」會殘留到**毫不相干的**
+     * 標籤管理畫面上，等到使用者哪天點進去才莫名看到一次（最終審查 Important 4）。
+     *
+     * 一開始就先清掉 [AccountState.backupError]（同 [backupNow] 的做法）——上一次失敗的
+     * 訊息不能留在畫面上跟這一次的成功並存。
+     */
+    private fun launchBackupGuarded(message: String, block: suspend () -> Unit): Job {
+        _state.value = _state.value.copy(backupError = null)
+        return viewModelScope.launch {
+            try {
+                block()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                _state.value = _state.value.copy(backupError = message)
+            }
         }
     }
 

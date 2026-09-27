@@ -57,7 +57,19 @@ fun AccountScreen(
                         Modifier.size(56.dp).clip(CircleShape).background(AppTheme.colors.overlay),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(VsIcons.Person, contentDescription = null, tint = AppTheme.colors.accentInk)
+                        // 已連結就把帳號名稱的第一個字（大寫）當頭像，沒連結才用通用人形圖示
+                        // （手冊 §八）。名稱理論上不會是空字串，但 Drive 的顯示名稱不是我們
+                        // 產生的資料，取不到字就退回「?」，不讓一個空字串把圓圈畫成空白。
+                        val linked = state.linkedAccount
+                        if (linked != null) {
+                            Text(
+                                linked.displayName.firstOrNull()?.uppercase() ?: "?",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = AppTheme.colors.accentInk,
+                            )
+                        } else {
+                            Icon(VsIcons.Person, contentDescription = null, tint = AppTheme.colors.accentInk)
+                        }
                     }
                     Column(Modifier.padding(start = AppTheme.spacing.s3)) {
                         if (state.linkedAccount == null) {

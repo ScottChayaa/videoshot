@@ -67,9 +67,12 @@ fun BackupScreen(
                     }
                     TextButton(onClick = onRestoreClick, modifier = Modifier.weight(1f)) { Text("從 Drive 還原") }
                 }
-                if (backupError != null) {
-                    Text(backupError, style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.danger)
-                }
+            }
+            // 錯誤訊息擺在 if/else **外面**：連結失敗（`AccountViewModel.beginLink`／
+            // `finishLink`）發生時 `linkedAccount` 還是 null，畫在「已連結」那一支裡的話
+            // 那條路徑最需要看到的錯誤永遠不會被畫出來（最終審查 Important 4）。
+            if (backupError != null) {
+                Text(backupError, style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.danger)
             }
         }
         if (linkedAccount != null) {
