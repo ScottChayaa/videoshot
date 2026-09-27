@@ -100,6 +100,47 @@ class RestoreViewModelTest {
     }
 
     /**
+     * 最終審查 Important 3（還原側）：換檔那一步失敗時 `libraryDb.close()` 已經執行過了，
+     * 這個行程的 Room 連線沒辦法再打開——所以即使結果是 `Failure`，只要 `needsRestart` 是
+     * true 就一定要呼叫 `onRestartApp`，不然使用者會停在一個「還原失敗」的畫面上，而後面
+     * 每一次資料庫讀取都會炸。
+     */
+    @Test
+    fun 換檔失敗needsRestart為true時照樣重啟() = runTest {
+        var restarted = false
+        val model = vm(
+            localShotCount = 0,
+            restoreResult = RestoreResult.Failure("換檔失敗，原本的圖庫沒有變動；app 會重新啟動", needsRestart = true),
+            onRestartApp = { restarted = true },
+        )
+        advanceUntilIdle()
+        model.pick(backup("a"))
+        advanceUntilIdle()
+        assertTrue("失敗原因還是要留在畫面上", model.step.value is RestoreStep.Failed)
+        assertTrue("needsRestart 的失敗一定要重啟", restarted)
+    }
+
+    /**
+     * 反面：換檔**之前**的三種驗證失敗（雜湊不符、integrity_check 不過、備份比 app 新）
+     * `needsRestart` 都是 false——那時 `libraryDb` 還開著、一切正常，使用者應該可以留在
+     * 挑選畫面換一份備份再試，不該被迫重啟。
+     */
+    @Test
+    fun 換檔前的驗證失敗不重啟() = runTest {
+        var restarted = false
+        val model = vm(
+            localShotCount = 0,
+            restoreResult = RestoreResult.Failure("下載的檔案跟雲端記錄的雜湊不符，原本的圖庫沒有變動"),
+            onRestartApp = { restarted = true },
+        )
+        advanceUntilIdle()
+        model.pick(backup("a"))
+        advanceUntilIdle()
+        assertTrue(model.step.value is RestoreStep.Failed)
+        assertTrue("換檔前的失敗不該重啟", !restarted)
+    }
+
+    /**
      * `RestoreManager.restore` 不保證每次都乾淨回傳 `RestoreResult`——換檔用的原子改名失敗、
      * 下載／解壓縮的例外都可能以未接住的例外往外傳（見它的 KDoc、Task 11 已知的落差）。
      * `doRestore` 必須接住任意例外轉成 `RestoreStep.Failed`，不能讓 ViewModel 整個崩潰或
