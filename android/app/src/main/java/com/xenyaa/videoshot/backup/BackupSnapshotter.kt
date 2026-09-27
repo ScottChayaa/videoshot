@@ -1,8 +1,6 @@
 package com.xenyaa.videoshot.backup
 
 import androidx.room.useWriterConnection
-import androidx.sqlite.SQLiteConnection
-import androidx.sqlite.execSQL
 import com.xenyaa.videoshot.data.library.LibraryDatabase
 import java.io.File
 import kotlinx.coroutines.CoroutineDispatcher
@@ -22,7 +20,7 @@ class BackupSnapshotter(
         dest.delete()
         val escapedPath = dest.absolutePath.replace("'", "''")
         libraryDb.useWriterConnection { connection ->
-            (connection as SQLiteConnection).execSQL("VACUUM INTO '$escapedPath'")
+            connection.usePrepared("VACUUM INTO '$escapedPath'") { stmt -> stmt.step() }
         }
     }
 }
