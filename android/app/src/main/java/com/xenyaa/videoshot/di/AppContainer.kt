@@ -334,6 +334,8 @@ class AppContainer(context: Context) : AppRootDeps {
             io = Dispatchers.IO,
             deviceName = { android.os.Build.MODEL ?: "Android" },
             shotCount = { libraryRepo.accountStats(monthOf(LocalDate.now().toString())).totalShots },
+            // 沒連結帳號就沒有備份的去處，連【立即備份】也不做（見 BackupManager.runIfDue）
+            isLinked = { settings.linkedAccount.first() != null },
             lastChangedAtSec = { settings.lastChangedAt.first() },
             lastBackupAtSec = { settings.lastBackupAt.first() },
             nowSec = { System.currentTimeMillis() / 1000 },
