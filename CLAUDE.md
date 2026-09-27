@@ -10,10 +10,12 @@
 三套測試：JVM **653 個**（`:core:test` 143 ＋ `:app:testDebugUnitTest` 510，2026-09-26）全綠；
 **儀器測試 `OK (150 tests)`**（`am instrument`，2107113SG 實機，2026-09-24）——階段 9 Task 1 新增的 4 個 androidTest 方法已在實機上真的跑過並通過。
 階段 10 新增了約 23 個 androidTest 方法（`SearchRepoTest.kt`／`OkHttpGeminiClientTest.kt`／
-`AppSettingsTest.kt`，涵蓋 FTS5／CTE／row-value SQL、Gemini HTTP 往返、Keystore 加解密往返）——
-**這些只在這台開發機上編譯驗證過（`compileDebugAndroidTestSources`），尚未像上面那 150 個一樣
-在實機上用 `am instrument` 真的跑過**，因為這台開發機沒有連接的實機／模擬器（見規格第十三節環境
-限制）。跟上面已確認的 150 個放在一起講清楚，是為了不讓「✅ 完成」看起來像同一種驗證強度。
+`AppSettingsTest.kt`，涵蓋 FTS5／CTE／row-value SQL、Gemini HTTP 往返、Keystore 加解密往返）。
+**2026-09-27 補測**：這 23 個已在 2107113SG 實機上用 `am instrument` 真的跑過並全過——
+`-e class com.xenyaa.videoshot.data.SearchRepoTest,com.xenyaa.videoshot.query.OkHttpGeminiClientTest,com.xenyaa.videoshot.data.AppSettingsTest`
+→ `OK (35 tests)`（14＋5＋16，`AppSettingsTest` 的 16 個裡有 9 個是階段 10 以前就有的舊案例，
+一起跑不影響結果）。跟階段 11 一起補測，兩階段累積的 androidTest 積欠（23＋10＝33 個新方法）
+已全部清掉，不再是「只編譯驗證過」。
 階段 10 新增查詢頁（標籤與地點多選、文字查詢的規則式／Gemini 解析、FTS5 相關度檢索）。
 Gemini 解析路徑（有金鑰時）**尚未在實機驗過**——金鑰輸入畫面是階段 11 帳號頁的範圍，
 本階段只在單元測試裡用假的 GeminiClient 驗證邏輯；沒有金鑰時的規則式解析路徑已可在實機驗。
@@ -42,9 +44,10 @@ Gemini 金鑰輸入／清除（`GeminiKeyScreen`，沿用階段 10 就做好的 
 `CaptureSettingScreenTest` 1 個 ＋ `AiRangeScreenTest` 2 個、`GeminiKeyScreenTest` 3 個、
 `TagManagementScreenTest` 5 個）。階段 11 另外新增 10 個 androidTest 方法（`AppSettingsTest.kt`
 補 3 個 AI 分析區間案例、新檔 `AccountRepoTest.kt` 共 7 個——2 個帳號統計、5 個標籤管理含改名合併
-與刪除）——**跟階段 9、10 一樣的但書：這些只用 `./gradlew :app:compileDebugAndroidTestSources`
-編譯驗證過（BUILD SUCCESSFUL），沒有像階段 9 那 150 個一樣用 `am instrument` 在實機上真的跑過**，
-因為這台開發機沒有連接的實機／模擬器（規格第十三節環境限制）。
+與刪除）。**2026-09-27 補測，全部通過**：`AccountRepoTest.kt` 7 個方法單獨用
+`am instrument -e class com.xenyaa.videoshot.data.AccountRepoTest` 跑，`OK (7 tests)`；
+`AppSettingsTest.kt` 的 3 個 AI 分析區間案例跟階段 10 的補測一起跑（見上）。階段 11 新增的
+10 個 androidTest 方法（7＋3）已全部在 2107113SG 實機上真的跑過並通過，不再只是編譯驗證。
 **五項刻意留到之後的範圍**（跟 scott 確認過，不是本階段的疏漏）：
 (1) 主題色系選擇器沒有做——規格第十五節提到「帳號頁，階段 11 的 UI」，但路線圖 T11.1～T11.4
 與驗收手冊 §八都沒有列出，跟 scott 確認後這次刻意跳過，留到之後單獨排一個階段；DataStore 存取層
