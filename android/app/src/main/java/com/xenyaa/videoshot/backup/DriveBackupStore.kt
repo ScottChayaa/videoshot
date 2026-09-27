@@ -3,6 +3,7 @@ package com.xenyaa.videoshot.backup
 import com.xenyaa.videoshot.core.backup.nextChunk
 import com.xenyaa.videoshot.core.backup.parseReceivedBytes
 import java.io.File
+import java.io.IOException
 import java.io.RandomAccessFile
 import java.time.Instant
 import kotlinx.coroutines.CoroutineDispatcher
@@ -112,23 +113,40 @@ class DriveBackupStore(
                         else -> error("上傳失敗: ${response.code}")
                     }
                 }
-            } catch (e: java.io.IOException) {
+            } catch (e: IOException) {
                 attempt++
                 if (attempt > MAX_RETRIES) throw e
-                offset = queryResumeOffset(sessionUri, total)
+                when (val query = queryResumeOffset(sessionUri, total)) {
+                    // Drive 其實已經收滿全部位元組(通常是最後一個 chunk 剛好在讀回應時斷線)——
+                    // 直接把查詢回應裡的檔案資源當作上傳結果,不要再繞回 nextChunk(total, total, ...)
+                    // 否則會因為 fromByte >= total 丟 IllegalArgumentException,把一次「其實已經
+                    // 成功」的上傳誤判成失敗。
+                    is ResumeQuery.Completed -> resultJson = query.result
+                    is ResumeQuery.StillUploading -> offset = query.receivedBytes
+                }
             }
         }
         checkNotNull(resultJson).toRemoteBackupFromUploadResult(backup)
     }
 
-    private suspend fun queryResumeOffset(sessionUri: String, total: Long): Long {
+    /** [queryResumeOffset] 的查詢結果:Drive 可能回報「還沒收完,從這裡繼續」,也可能回報「其實已經收完了」。 */
+    private sealed interface ResumeQuery {
+        data class StillUploading(val receivedBytes: Long) : ResumeQuery
+        data class Completed(val result: JsonObject) : ResumeQuery
+    }
+
+    private suspend fun queryResumeOffset(sessionUri: String, total: Long): ResumeQuery {
         val request = Request.Builder()
             .url(sessionUri)
             .header("Content-Range", "bytes */$total")
             .put(ByteArray(0).toRequestBody(null))
             .build()
         return execute(request).use { response ->
-            if (response.isSuccessful) total else parseReceivedBytes(response.header("Range"))
+            if (response.isSuccessful) {
+                ResumeQuery.Completed(Json.parseToJsonElement(response.body!!.string()).jsonObject)
+            } else {
+                ResumeQuery.StillUploading(parseReceivedBytes(response.header("Range")))
+            }
         }
     }
 
