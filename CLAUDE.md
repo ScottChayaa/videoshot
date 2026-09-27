@@ -6,7 +6,7 @@
 - 舊名 **yt-space**（2026-09-11 改名）。舊名仍留在 `src/`、`static/`、`tests/`（web 版，清理階段整批刪除）
   與原型的 localStorage key `ytspace2_*`，這些刻意不改。
 
-**目前進度：階段 0～3 完成，階段 4a（精靈外殼與第一步）完成（2026-09-14）、階段 4b（縮圖牆與收斂）、階段 4c（截圖與效能閘門）完成（2026-09-15）、階段 6（第三步、完成、草稿）、階段 7（App 外殼、首頁、Lightbox）完成（2026-09-16）、階段 8（分類資料夾）完成（2026-09-23）、階段 9（詳情頁）完成並實機驗收（2026-09-24）、階段 10（查詢）完成（2026-09-25，2026-09-26 完成全分支最終審查修正）。
+**目前進度：階段 0～3 完成，階段 4a（精靈外殼與第一步）完成（2026-09-14）、階段 4b（縮圖牆與收斂）、階段 4c（截圖與效能閘門）完成（2026-09-15）、階段 6（第三步、完成、草稿）、階段 7（App 外殼、首頁、Lightbox）完成（2026-09-16）、階段 8（分類資料夾）完成（2026-09-23）、階段 9（詳情頁）完成並實機驗收（2026-09-24）、階段 10（查詢）完成（2026-09-25，2026-09-26 完成全分支最終審查修正）、階段 11（帳號頁、設定、標籤管理）完成（2026-09-27）。
 三套測試：JVM **653 個**（`:core:test` 143 ＋ `:app:testDebugUnitTest` 510，2026-09-26）全綠；
 **儀器測試 `OK (150 tests)`**（`am instrument`，2107113SG 實機，2026-09-24）——階段 9 Task 1 新增的 4 個 androidTest 方法已在實機上真的跑過並通過。
 階段 10 新增了約 23 個 androidTest 方法（`SearchRepoTest.kt`／`OkHttpGeminiClientTest.kt`／
@@ -28,6 +28,35 @@ Gemini 解析路徑（有金鑰時）**尚未在實機驗過**——金鑰輸入
 批次編輯改了圖資，查詢結果列表可能會繼續顯示圖資過期的那幾列，要等使用者自己重新查一次才會更新。
 （「刪除整支收藏」原本也有同一種落差，已在 2026-09-26 的最終審查修正裡接上查詢頁同步，
 見 `SearchViewModel.onVideoDeleted`／`AppRoot.kt` 的 `onDeleteVideo`。）
+
+階段 11 完成帳號頁、設定與標籤管理，路線圖 T11.1～T11.4 全部四項都做完：漸層 hero ＋ 三格統計 ＋
+六格選單、圖示語意齊全（`AccountScreen`／`AccountMenuRow`，`VsIcons.kt` 新增 9 個圖示）；設定頁的
+過濾相似強度與 AI 分析區間存進 DataStore（`AppSettings.aiRangeBeforeSec`／`aiRangeAfterSec`／
+`setAiRange`）；儲存用量顯示（`ThumbsUsageScreen`，掃 `thumbs/` 目錄與 `library.db` 檔案大小）；
+Gemini 金鑰輸入／清除（`GeminiKeyScreen`，沿用階段 10 就做好的 Keystore 加密邏輯，這次只補 UI）；
+標籤管理——改名即合併（撞名時跳確認框，且不覆蓋既有標籤的 kind／別名）、改 kind（人物／動物／主題／
+其他四種）、編輯別名、刪除只解關聯（`TagManagementScreen`／`TagEditSheet`）。
+三套測試：JVM **689 個**（`:core:test` 152 ＋ `:app:testDebugUnitTest` 537，2026-09-27）全綠——
+比階段 10 完成時的 653 個多了 36 個（`:core` +9：Task 1 的 `TagKindTest` 5 個、Task 2 的 `BytesTest`
+4 個；`:app` +27：`NavStateTest` 3 個、`AccountViewModelTest` 9 個、`AccountScreenTest` 4 個、
+`CaptureSettingScreenTest` 1 個 ＋ `AiRangeScreenTest` 2 個、`GeminiKeyScreenTest` 3 個、
+`TagManagementScreenTest` 5 個）。階段 11 另外新增 10 個 androidTest 方法（`AppSettingsTest.kt`
+補 3 個 AI 分析區間案例、新檔 `AccountRepoTest.kt` 共 7 個——2 個帳號統計、5 個標籤管理含改名合併
+與刪除）——**跟階段 9、10 一樣的但書：這些只用 `./gradlew :app:compileDebugAndroidTestSources`
+編譯驗證過（BUILD SUCCESSFUL），沒有像階段 9 那 150 個一樣用 `am instrument` 在實機上真的跑過**，
+因為這台開發機沒有連接的實機／模擬器（規格第十三節環境限制）。
+**五項刻意留到之後的範圍**（跟 scott 確認過，不是本階段的疏漏）：
+(1) 主題色系選擇器沒有做——規格第十五節提到「帳號頁，階段 11 的 UI」，但路線圖 T11.1～T11.4
+與驗收手冊 §八都沒有列出，跟 scott 確認後這次刻意跳過，留到之後單獨排一個階段；DataStore 存取層
+（`themeId`／`NightMode`）已經在階段 7 做好，只差畫面。
+(2) 備份（雲）選單列只顯示靜態說明（`ComingSoonScreen`）——Google 帳號連結與備份是階段 12 的範圍，
+這次沒有做任何 OAuth 或 Drive 相關的東西。
+(3) 縮圖選單列只顯示儲存用量，沒有回填進度——回填是階段 13 的範圍，這次只做規格第九節版面表
+「縮圖」那一列會出現的兩件事裡的其中一件（用量），回填進度（「320/1200」之類）刻意留白。
+(4) 【中斷連結】按鈕沒有出現在畫面上——因為沒有「已連結」狀態可以中斷（Google 帳號連結是階段 12
+才做），手冊 §八第四條字面上要求這顆按鈕，但邏輯上要等連結功能做出來才有意義。
+(5) 手冊 §八「設定值真的存得住」「三格統計的數字正確」等條目**尚未在實機驗過**——跟階段 9、10
+同樣的但書：這台開發機沒有連接的實機／模擬器（規格第十三節）。
 
 **app 啟動後落在首頁**（階段 2 的資料層冒煙畫面已刪除，內容在 git 歷史），底部導覽五格
 （首頁／查詢／取圖／分類／帳號），取圖精靈在第三格。貼網址 → 挑畫面 → 填圖資 → 完成，
