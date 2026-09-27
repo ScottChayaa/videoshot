@@ -233,10 +233,21 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
     LaunchedEffect(wizardVm) {
         wizardVm.finished.collect { done ->
             homeVm.reload()
+            // 帳號頁的統計卡（收藏片段／本月新增／來源影片）跟這次新增的張數直接相關,
+            // accountVm 在背景分頁一樣要跟著重查,不能只等使用者自己切過去才看到新數字
+            // （最終審查 Important 2：帳號頁的重查是無條件的,不是只有在前景才做）
+            accountVm.reload()
             scrollToMonth = monthOf(done.eventDate)
             nav = nav.select(Tab.HOME)
             scope.launch { snackbarHostState.showSnackbar("已新增 ${done.count} 張") }
         }
+    }
+
+    // 標籤改名／刪除完成——查詢分頁的 facet chip 快取要跟著失效,不然使用者在帳號頁的
+    // 標籤管理改了名字或刪掉標籤之後,查詢分頁的標籤雲還是舊的名字/還留著已刪除的那個,
+    // 點下去用舊名字去解析會查到 0 筆（最終審查 Important 1）
+    LaunchedEffect(accountVm) {
+        accountVm.tagsChanged.collect { searchVm.loadFacets() }
     }
 
     // 資料夾頁的返回鍵，以及刪掉自己之後要做的事：退一層；如果因此落回分類清單頁
@@ -346,6 +357,9 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                 // 分類分頁（清單頁）也要跟著更新——這張圖所屬資料夾的張數與
                                 // 預覽拼貼都可能變了，原本只有加入分類那條路徑會呼叫（N4）
                                 foldersVm.reload()
+                                // 帳號頁的「收藏片段」統計少了一張,同一個理由——背景分頁也要
+                                // 跟著重查,不能等使用者自己切過去（最終審查 Important 2）
+                                accountVm.reload()
                                 snackbarHostState.showSnackbar("已刪除 1 張")
                             } catch (e: CancellationException) {
                                 throw e
@@ -472,6 +486,9 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                     // 不重查的話切回分類分頁看到的還是編輯前的舊圖資（最終審查 Finding 5，
                     // 同 EditingSheet.onSave 已經在做的事）
                     folderVm?.reload()
+                    // 批次編輯可能透過 patchShots 的 tagNames 建立新標籤,帳號頁「N 個標籤」
+                    // 的計數與統計卡都可能變了,同一個理由跟著重查（最終審查 Important 2）
+                    accountVm.reload()
                 }
             }
         }
@@ -519,6 +536,9 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                     // 查詢結果裡屬於那支影片的列要一起拔掉，不然會留著點了會
                                     // 導去不存在的 videoId 的殘影（這次最終審查 Important 4）
                                     searchVm.onVideoDeleted(current.videoId)
+                                    // 帳號頁的「收藏片段」／「來源影片」統計整支都少了,同一個
+                                    // 理由——背景分頁也要跟著重查（這次最終審查 Important 2）
+                                    accountVm.reload()
                                     snackbarHostState.showSnackbar("已刪除整支收藏")
                                 } catch (e: CancellationException) {
                                     throw e
@@ -648,6 +668,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                 onAskDelete = accountVm::askDeleteTag,
                                 onDismissDelete = accountVm::dismissDeleteTag,
                                 onConfirmDelete = accountVm::confirmDeleteTag,
+                                onRetry = accountVm::reload,
                             )
                         }
                         else -> AccountScreen(

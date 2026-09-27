@@ -17,11 +17,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.xenyaa.videoshot.core.tags.TagKind
 import com.xenyaa.videoshot.data.repo.model.TagUsage
+import com.xenyaa.videoshot.ui.folders.FolderErrorRow
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
 
-/** 帳號頁「標籤管理」子畫面：全部標籤 ＋ kind ＋ 使用張數（規格第九節）。 */
+/** 帳號頁「標籤管理」子畫面：全部標籤 ＋ kind ＋ 使用張數（規格第九節）。
+ * @param onRetry 讀取／改名／刪除失敗時的〔重試〕——接到 `AccountViewModel::reload`
+ *   （最終審查 Important 3：`AccountState.error` 原本設定了卻沒有任何畫面讀它，
+ *   跟 `FoldersScreen`／`FolderScreen` 同一套 `FolderErrorRow` 元件）。 */
 @Composable
 fun TagManagementScreen(
     state: AccountState,
@@ -37,6 +41,9 @@ fun TagManagementScreen(
     onAskDelete: (TagUsage) -> Unit,
     onDismissDelete: () -> Unit,
     onConfirmDelete: () -> Unit,
+    /** 讀取／改名／刪除失敗時的〔重試〕——見上面 KDoc；預設空白，既有呼叫端／測試
+     * 不關心錯誤重試時不必跟著改。 */
+    onRetry: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxWidth()) {
@@ -47,6 +54,9 @@ fun TagManagementScreen(
             color = AppTheme.colors.textDim,
             modifier = Modifier.padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s2),
         )
+        if (state.error != null) {
+            FolderErrorRow(message = state.error, onRetry = onRetry)
+        }
         LazyColumn(Modifier.weight(1f, fill = false)) {
             items(state.tags, key = { it.id }) { tag ->
                 TagRow(tag, onClick = { onOpenEditor(tag) })

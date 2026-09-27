@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -221,5 +222,63 @@ class AccountViewModelTest {
         assertEquals(2L, deps.deletedId)
         assertNull(viewModel.state.value.deleting)
         assertEquals(1, viewModel.state.value.tags.size)
+    }
+
+    /** 最終審查 Important 4：從編輯抽屜按刪除,抽屜要立刻關掉,不能疊在確認對話框底下
+     * ——不然確認之後抽屜還留著一份已經被刪掉的標籤的草稿,按【儲存】會對不存在的 id
+     * 呼叫 renameTag,靜默沒反應。 */
+    @Test
+    fun 從編輯抽屜按刪除會立刻關掉抽屜() = runTest {
+        val deps = FakeDeps()
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.openTagEditor(deps.tagList[0])
+        assertEquals(1L, viewModel.state.value.editor?.id)
+
+        viewModel.askDeleteTag(deps.tagList[0])
+
+        assertNull(viewModel.state.value.editor)
+        assertEquals(1L, viewModel.state.value.deleting?.id)
+    }
+
+    /** 最終審查 Important 1：改名真的送出之後要發一次 `tagsChanged`——查詢分頁的
+     * facet chip 快取靠這個訊號知道要重查,見 `SearchViewModel.loadFacets` 的接線。 */
+    @Test
+    fun 改名送出成功後發出tagsChanged事件() = runTest {
+        val deps = FakeDeps()
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        var changedCount = 0
+        val job = launch { viewModel.tagsChanged.collect { changedCount++ } }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.openTagEditor(deps.tagList[0])
+        viewModel.editTagName("阿明哥")
+        viewModel.requestSaveTag()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, changedCount)
+        job.cancel()
+    }
+
+    /** 同上,刪除標籤那條路徑。 */
+    @Test
+    fun 刪除標籤送出成功後發出tagsChanged事件() = runTest {
+        val deps = FakeDeps()
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        var changedCount = 0
+        val job = launch { viewModel.tagsChanged.collect { changedCount++ } }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.askDeleteTag(deps.tagList[1])
+        viewModel.confirmDeleteTag()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, changedCount)
+        job.cancel()
     }
 }

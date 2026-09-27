@@ -119,4 +119,26 @@ class TagManagementScreenTest {
         compose.onNodeWithText("刪除").performClick()
         assert(confirmed)
     }
+
+    /** 最終審查 Important 3：`AccountState.error` 原本設了卻沒有任何畫面讀它——
+     * 這裡釘住錯誤列真的會畫出來，按〔重試〕會呼叫 onRetry（同 FoldersScreenTest 的寫法）。 */
+    @Test
+    fun 讀取失敗顯示錯誤列按重試會呼叫onRetry() {
+        var retried = false
+        compose.setContent {
+            VideoshotTheme {
+                TagManagementScreen(
+                    state = AccountState(tags = tags, error = "操作失敗，請再試一次"),
+                    onBack = {}, onOpenEditor = {}, onDismissEditor = {},
+                    onEditName = {}, onEditKind = {}, onEditAliases = {},
+                    onRequestSave = {}, onConfirmMerge = {}, onDismissMerge = {},
+                    onAskDelete = {}, onDismissDelete = {}, onConfirmDelete = {},
+                    onRetry = { retried = true },
+                )
+            }
+        }
+        compose.onNodeWithText("操作失敗，請再試一次").assertIsDisplayed()
+        compose.onNodeWithText("重試").performClick()
+        assert(retried)
+    }
 }

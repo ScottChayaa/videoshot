@@ -4,13 +4,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.home.monthOf
+import com.xenyaa.videoshot.core.tags.TagKind
 import com.xenyaa.videoshot.core.tags.parseAliases
 import com.xenyaa.videoshot.data.repo.model.TagUsage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -29,6 +33,16 @@ class AccountViewModel(
 
     private val _state = MutableStateFlow(AccountState())
     val state: StateFlow<AccountState> = _state.asStateFlow()
+
+    /**
+     * 標籤改名／刪除真的送出（`deps.renameTag`／`deps.deleteTag` 完成）之後發一次——
+     * 查詢分頁的 facet chip 是從 `SearchViewModel` 自己那份快取畫的，改名或刪除標籤之後
+     * 不會自動知道要重查（最終審查 Important 1）。用 `extraBufferCapacity = 1`：
+     * `emit` 不必等 `AppRoot` 那邊的收集端排到才返回，理由同 `WizardViewModel.finished`
+     * 的 KDoc 提到的隱患，這裡用緩衝直接避開,不必比照它改成 `scope.launch`。
+     */
+    private val _tagsChanged = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val tagsChanged: SharedFlow<Unit> = _tagsChanged.asSharedFlow()
 
     init {
         viewModelScope.launch { deps.filterStrength.collect { v -> _state.value = _state.value.copy(filterStrength = v) } }
@@ -66,7 +80,7 @@ class AccountViewModel(
     fun openTagEditor(tag: TagUsage) { _state.value = AccountStore.openEditor(_state.value, tag) }
     fun dismissTagEditor() { _state.value = AccountStore.closeEditor(_state.value) }
     fun editTagName(name: String) { _state.value = AccountStore.editName(_state.value, name) }
-    fun editTagKind(kind: com.xenyaa.videoshot.core.tags.TagKind) { _state.value = AccountStore.editKind(_state.value, kind) }
+    fun editTagKind(kind: TagKind) { _state.value = AccountStore.editKind(_state.value, kind) }
     fun editTagAliases(raw: String) { _state.value = AccountStore.editAliases(_state.value, raw) }
 
     /**
@@ -94,17 +108,26 @@ class AccountViewModel(
         deps.renameTag(id, name, kind, aliases)
         _state.value = _state.value.copy(editor = null, pendingMerge = null)
         reload()
+        _tagsChanged.emit(Unit)
     }
 
-    fun askDeleteTag(tag: TagUsage) { _state.value = _state.value.copy(deleting = tag) }
+    /**
+     * 也清掉 [AccountState.editor]——這顆刪除鈕是從編輯抽屜（[TagEditor]）裡按的
+     * （`TagManagementScreen` 的 `TagEditSheet.onDelete`），不清的話確認對話框會疊在
+     * 還開著的編輯抽屜上面；確認之後抽屜還留在畫面上顯示這個已經被刪掉的標籤的舊草稿，
+     * 這時候按【儲存】會對一個不存在的 id 呼叫 `renameTag`，SQL 一列都不會命中、
+     * 靜默沒反應（不是當機，但畫面對不上）（最終審查 Important 4）。
+     */
+    fun askDeleteTag(tag: TagUsage) { _state.value = _state.value.copy(deleting = tag, editor = null) }
     fun dismissDeleteTag() { _state.value = _state.value.copy(deleting = null) }
 
     fun confirmDeleteTag() {
         val tag = _state.value.deleting ?: return
         launchGuarded {
             deps.deleteTag(tag.id)
-            _state.value = _state.value.copy(deleting = null)
+            _state.value = _state.value.copy(deleting = null, editor = null)
             reload()
+            _tagsChanged.emit(Unit)
         }
     }
 
