@@ -42,7 +42,11 @@ fun CaptureSettingScreen(
                     .padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s2),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(selected = option.value == current, onClick = { onSelect(option.value) })
+                    // onClick = null——這顆單獨有自己的觸控目標的話,TalkBack 會在同一個選項上
+                    // 唸出兩個焦點停駐點(RadioButton 自己一個、外層 Column 的 .clickable 一個)。
+                    // 讓它變成純裝飾、不能單獨聚焦,只留外層 Column 的 .clickable 當唯一焦點
+                    // (Material3 對「整列可點的單選」的標準寫法;最終審查 Minor 2)。
+                    RadioButton(selected = option.value == current, onClick = null)
                     Text(option.label, style = MaterialTheme.typography.bodyLarge, color = AppTheme.colors.text)
                 }
                 Text(

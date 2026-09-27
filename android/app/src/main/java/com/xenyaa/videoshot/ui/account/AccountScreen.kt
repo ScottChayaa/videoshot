@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.core.format.formatBytes
+import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.shell.AccountSection
 import com.xenyaa.videoshot.ui.theme.AppTheme
@@ -144,9 +145,9 @@ private fun StatCard(label: String, count: Int, modifier: Modifier = Modifier, o
 
 /** 過濾強度的顯示文字（原型 `SIM_LABEL`）。只有帳號頁用得到，不升格成 `FilterStrength` 的欄位——
  * `:core` 不該認得 UI 顯示字串（跟 `FolderSort.label` 不同，那個本來就是給畫面顯示的欄位）。 */
-internal fun filterStrengthLabel(value: com.xenyaa.videoshot.core.similarity.FilterStrength): String =
+internal fun filterStrengthLabel(value: FilterStrength): String =
     when (value) {
-        com.xenyaa.videoshot.core.similarity.FilterStrength.HIGH -> "高"
-        com.xenyaa.videoshot.core.similarity.FilterStrength.MEDIUM -> "中"
-        com.xenyaa.videoshot.core.similarity.FilterStrength.LOW -> "低"
+        FilterStrength.HIGH -> "高"
+        FilterStrength.MEDIUM -> "中"
+        FilterStrength.LOW -> "低"
     }
