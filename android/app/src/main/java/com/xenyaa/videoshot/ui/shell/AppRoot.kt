@@ -45,6 +45,7 @@ import com.xenyaa.videoshot.ui.account.RestoreScreen
 import com.xenyaa.videoshot.ui.account.RestoreViewModel
 import com.xenyaa.videoshot.ui.account.TagManagementScreen
 import com.xenyaa.videoshot.ui.account.ThumbsUsageScreen
+import com.xenyaa.videoshot.backup.LinkOutcome
 import com.xenyaa.videoshot.backup.restartApp
 import com.xenyaa.videoshot.ui.edit.ShotEditSheet
 import com.xenyaa.videoshot.ui.folders.AddToFolderSheet
@@ -90,11 +91,55 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
     // 猜一個預設值再等真正的值回來會有畫面閃一下的風險，不如先留白一瞬間。
     val restoreDecisionMade by container.settings.restoreDecisionMade
         .collectAsStateWithLifecycle(initialValue = null as Boolean?)
-    if (restoreDecisionMade == false) {
-        FirstRunGate(container)
-        return
+
+    // 旗標是 false 不等於「全新安裝」：既有安裝升級到這一版時，DataStore 裡本來就沒有這個 key
+    // （AppSettings 的預設值是 false），但本機圖庫早就有資料——那台裝置下一次啟動會被這個
+    // 閘門擋在「歡迎使用 videoshot／從 Drive 還原／全新開始」前面，明顯是錯的。所以再多問
+    // 一句「本機有資料嗎」：有就當作「這個選擇已經回答過」，順便把旗標補寫回去，之後每次啟動
+    // 都能只看旗標短路，不必每次都去問一次 repo（最終審查 Important 2）。
+    //
+    // null＝還在查。這個 LaunchedEffect 一定要寫在下面那幾個 return 之前才會被註冊。
+    var localHasData by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(restoreDecisionMade) {
+        if (restoreDecisionMade != false || localHasData != null) return@LaunchedEffect
+        // totalShots 不受月份參數影響（accountStats 只有「本月新增」那一欄才看月份），
+        // 所以這裡傳今天所在的月份就行——跟 AccountViewModel／RestoreViewModel 同一個呼法
+        val hasData = try {
+            container.libraryRepo.accountStats(monthOf(LocalDate.now().toString())).totalShots > 0
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            // 查不出來就當作沒有資料、照原本的閘門邏輯走：真的是全新安裝遠比「repo 壞掉」
+            // 可能，而且誤判成「有資料」會直接把還原入口整個吃掉，那是更糟的方向
+            false
+        }
+        localHasData = hasData
+        if (hasData) {
+            // 這一段是啟動時自動跑的，沒有使用者動作在等結果——寫入失敗不能把 app 炸掉。
+            // localHasData 已經是 true，這一輪照樣往下走一般畫面，代價只是下一次啟動
+            // 再問一次 repo
+            try {
+                container.settings.markRestoreDecisionMade()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // 補寫旗標失敗——下次啟動再試，不影響這一輪
+            }
+        }
     }
+
     if (restoreDecisionMade == null) return
+    if (restoreDecisionMade == false) {
+        when (localHasData) {
+            // 還在查本機有沒有資料——先留白一瞬間，理由同 restoreDecisionMade == null：
+            // 先閃一下閘門再收掉比留白難看得多
+            null -> return
+            false -> { FirstRunGate(container); return }
+            // 既有安裝：markRestoreDecisionMade() 已經寫下去了，旗標下一瞬間就會翻成 true。
+            // 這一瞬間直接往下走一般畫面，不要讓閘門閃出來
+            true -> Unit
+        }
+    }
 
     var nav by rememberSaveable(stateSaver = NavSaver) { mutableStateOf(NavState()) }
 
@@ -784,14 +829,75 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
  * （Task 13），只是這裡另起一份獨立實例（key 不同），不牽動 `AppRoot` 主體的 `nav` 狀態——
  * 這個閘門出現時 `nav` 那一整套還沒被建出來（[AppRoot] 在更早的 `return` 就先擋掉了）。
  *
+ * **進還原流程之前一定要先把 Google 帳號連起來。** 全新安裝的裝置從來沒有授權過，
+ * `GoogleAuth.accessToken()` 只做靜默檢查、沒有既有授權就直接丟例外——先前的寫法按下
+ * 【從 Google Drive 還原】直接跳進 `RestoreViewModel`，`listBackups()` 必然失敗，畫面上只說
+ * 「讀取備份清單失敗，請確認網路後再試一次」，而這個閘門裡根本沒有任何地方能觸發真正的同意
+ * 流程——使用者除了退回去按【全新開始】之外沒有第二條路（最終審查 Critical 1）。所以這裡
+ * 自己準備一份 `consentLauncher`：帳號頁那一份（`AppRoot` 主體裡的）建在這個閘門的 early
+ * return 之後，拿不到。
+ *
  * `localShotCount = { 0 }`——全新安裝，本機一定沒有資料，天然跳過「會被取代」的確認框
  * （[RestoreViewModel] 的 KDoc：這個分支只有 `localShotCount() > 0` 才會走到）。
  */
 @Composable
 private fun FirstRunGate(container: AppRootDeps) {
     var showingRestoreFlow by rememberSaveable { mutableStateOf(false) }
+    // 連結進行中／失敗。不用 rememberSaveable：橫跨 process 重建之後重新按一次就好，
+    // 半途的「連結中」狀態留下來反而會卡住畫面
+    var linking by remember { mutableStateOf(false) }
+    var linkError by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+
+    // 同意流程回來：拿到的 Intent 餵回 finishLink，成功才進還原流程。使用者在系統畫面按取消
+    // （resultCode 不是 RESULT_OK 或 data 是 null）就只是把「連結中」收掉，留在選擇畫面
+    val consentLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult(),
+    ) { result ->
+        val data = result.data
+        if (result.resultCode != Activity.RESULT_OK || data == null) {
+            linking = false
+            return@rememberLauncherForActivityResult
+        }
+        scope.launch {
+            try {
+                container.accountDeps.finishLink(data)
+                showingRestoreFlow = true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                linkError = "連結 Google 帳號失敗，請確認網路後再試一次"
+            } finally {
+                linking = false
+            }
+        }
+    }
+
+    // 按【從 Google Drive 還原】先做的事：把帳號連起來。beginLink 回 Linked 就直接進還原流程；
+    // 回 NeedsConsent 要先跳系統同意畫面（linking 保持 true 等 launcher 回來）。
+    // AccountDeps 的實作（AppContainer）內部已經把連結結果寫進 settings.linkedAccount，
+    // 這裡不必自己存
+    fun startLinkThenRestore() {
+        linkError = null
+        linking = true
+        scope.launch {
+            try {
+                when (val outcome = container.accountDeps.beginLink(context as Activity)) {
+                    is LinkOutcome.Linked -> { showingRestoreFlow = true; linking = false }
+                    is LinkOutcome.NeedsConsent ->
+                        consentLauncher.launch(IntentSenderRequest.Builder(outcome.intentSender).build())
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // 使用者在系統的帳號選擇畫面按取消也會走到這裡（Credential Manager 丟例外）——
+                // 訊息寫得中性一點，別斷言是網路問題
+                linking = false
+                linkError = "連結 Google 帳號失敗，請再試一次"
+            }
+        }
+    }
 
     if (showingRestoreFlow) {
         val restoreVm: RestoreViewModel = viewModel(
@@ -821,8 +927,10 @@ private fun FirstRunGate(container: AppRootDeps) {
         )
     } else {
         FirstRunChooserScreen(
-            onRestoreClick = { showingRestoreFlow = true },
+            onRestoreClick = { startLinkThenRestore() },
             onStartFreshClick = { scope.launch { container.settings.markRestoreDecisionMade() } },
+            linking = linking,
+            error = linkError,
         )
     }
 }
