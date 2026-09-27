@@ -102,6 +102,8 @@ class AppRootDetailTest {
         override suspend fun markLightboxHintSeen() = Unit
         override val folderSort = flowOf(FolderSort.NAME_ASC)
         override suspend fun setFolderSort(value: FolderSort) = Unit
+        override val restoreDecisionMade = flowOf(true)
+        override suspend fun markRestoreDecisionMade() = Unit
     }
 
     private val loader = ThumbLoader(
@@ -169,6 +171,8 @@ class AppRootDetailTest {
         override fun manualImagesFor(videoId: String) = throw UnsupportedOperationException("測試不用到")
         override fun captureFor(player: com.xenyaa.videoshot.player.Player) = null
         override val accountDeps: AccountDeps = FakeAccountDeps()
+        override suspend fun listBackups() = error("這組測試不碰還原")
+        override suspend fun restore(backup: com.xenyaa.videoshot.backup.RemoteBackup) = error("這組測試不碰還原")
     }
 
     @Test

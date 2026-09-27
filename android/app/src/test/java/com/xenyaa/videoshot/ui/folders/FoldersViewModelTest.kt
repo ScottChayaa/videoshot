@@ -53,6 +53,8 @@ class FoldersViewModelTest {
         override suspend fun markLightboxHintSeen() = Unit
         override val folderSort: Flow<FolderSort> = sort
         override suspend fun setFolderSort(value: FolderSort) { sort.value = value }
+        override val restoreDecisionMade: Flow<Boolean> = flowOf(true)
+        override suspend fun markRestoreDecisionMade() = Unit
     }
 
     private fun vm(repo: Repo = Repo(), sort: MutableStateFlow<FolderSort> = MutableStateFlow(FolderSort.NAME_ASC)) =

@@ -24,4 +24,12 @@ interface ShellSettings {
     /** 分類清單頁的排序偏好（手冊 §六：排序要記得住）。 */
     val folderSort: Flow<FolderSort>
     suspend fun setFolderSort(value: FolderSort)
+
+    /**
+     * 全新安裝的第一個畫面（【從 Google Drive 還原】／【全新開始】）有沒有被回答過
+     * （規格第十節「還原」入口）。`AppRoot` 靠它決定要不要在最外層擋住整個 app、
+     * 先跳出 [com.xenyaa.videoshot.ui.onboarding.FirstRunChooserScreen]。
+     */
+    val restoreDecisionMade: Flow<Boolean>
+    suspend fun markRestoreDecisionMade()
 }

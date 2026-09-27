@@ -60,6 +60,7 @@ import com.xenyaa.videoshot.ui.search.SearchViewModel
 import com.xenyaa.videoshot.ui.lightbox.LightboxActions
 import com.xenyaa.videoshot.ui.lightbox.LightboxScreen
 import com.xenyaa.videoshot.ui.lightbox.shareTextOf
+import com.xenyaa.videoshot.ui.onboarding.FirstRunChooserScreen
 import com.xenyaa.videoshot.ui.detail.BatchEditScreen
 import com.xenyaa.videoshot.ui.detail.BatchEditState
 import com.xenyaa.videoshot.ui.detail.BatchEditViewModel
@@ -85,6 +86,16 @@ private val NavSaver = Saver<NavState, String>(
  */
 @Composable
 fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
+    // 全新安裝的第一個畫面（規格第十節「還原」入口）。用 null 當「還在讀 DataStore」的訊號——
+    // 猜一個預設值再等真正的值回來會有畫面閃一下的風險，不如先留白一瞬間。
+    val restoreDecisionMade by container.settings.restoreDecisionMade
+        .collectAsStateWithLifecycle(initialValue = null as Boolean?)
+    if (restoreDecisionMade == false) {
+        FirstRunGate(container)
+        return
+    }
+    if (restoreDecisionMade == null) return
+
     var nav by rememberSaveable(stateSaver = NavSaver) { mutableStateOf(NavState()) }
 
     val homeVm: HomeViewModel = viewModel(
@@ -763,6 +774,51 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             scope = scope,
             snackbarHostState = snackbarHostState,
             onDismiss = { editing = null },
+        )
+    }
+}
+
+/**
+ * 全新安裝的第一個畫面的閘門（規格第十節「還原」入口，Task 14）：【從 Google Drive 還原】
+ * 或【全新開始】。跟 [Dest.RestoreFlow] 共用同一個 `RestoreViewModel`／`RestoreScreen`
+ * （Task 13），只是這裡另起一份獨立實例（key 不同），不牽動 `AppRoot` 主體的 `nav` 狀態——
+ * 這個閘門出現時 `nav` 那一整套還沒被建出來（[AppRoot] 在更早的 `return` 就先擋掉了）。
+ *
+ * `localShotCount = { 0 }`——全新安裝，本機一定沒有資料，天然跳過「會被取代」的確認框
+ * （[RestoreViewModel] 的 KDoc：這個分支只有 `localShotCount() > 0` 才會走到）。
+ */
+@Composable
+private fun FirstRunGate(container: AppRootDeps) {
+    var showingRestoreFlow by rememberSaveable { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    if (showingRestoreFlow) {
+        val restoreVm: RestoreViewModel = viewModel(
+            factory = object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T = RestoreViewModel(
+                    listBackups = { container.listBackups() },
+                    restore = { backup -> container.restore(backup) },
+                    localShotCount = { 0 }, // 全新安裝，本機一定沒有資料——天然跳過確認框
+                    onRestartApp = { restartApp(context) },
+                ) as T
+            },
+            key = "first-run-restore",
+        )
+        val step by restoreVm.step.collectAsStateWithLifecycle()
+        RestoreScreen(
+            step = step,
+            onBack = { showingRestoreFlow = false },
+            onPick = restoreVm::pick,
+            onConfirm = restoreVm::confirmRestore,
+            onDismissConfirm = restoreVm::dismissConfirm,
+            onRetry = restoreVm::load,
+        )
+    } else {
+        FirstRunChooserScreen(
+            onRestoreClick = { showingRestoreFlow = true },
+            onStartFreshClick = { scope.launch { container.settings.markRestoreDecisionMade() } },
         )
     }
 }

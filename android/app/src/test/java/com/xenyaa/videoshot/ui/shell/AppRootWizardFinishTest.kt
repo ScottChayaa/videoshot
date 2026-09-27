@@ -156,6 +156,8 @@ class AppRootWizardFinishTest {
         override suspend fun markLightboxHintSeen() = Unit
         override val folderSort = flowOf(FolderSort.NAME_ASC)
         override suspend fun setFolderSort(value: FolderSort) = Unit
+        override val restoreDecisionMade = flowOf(true)
+        override suspend fun markRestoreDecisionMade() = Unit
     }
 
     private class Fixture(seed: List<ShotRow>) : AppRootDeps {

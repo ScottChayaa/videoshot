@@ -121,9 +121,9 @@ class AppSettings(context: Context) : ShellSettings {
      * 全新安裝的第一個畫面（【從 Google Drive 還原】／【全新開始】）有沒有被回答過
      * （規格第十節「還原」入口）。回答過就不再問——即使之後圖庫又變空，也不會重新跳出來。
      */
-    val restoreDecisionMade: Flow<Boolean> = store.data.map { it[RESTORE_DECISION_MADE] ?: false }
+    override val restoreDecisionMade: Flow<Boolean> = store.data.map { it[RESTORE_DECISION_MADE] ?: false }
 
-    suspend fun markRestoreDecisionMade() {
+    override suspend fun markRestoreDecisionMade() {
         store.edit { it[RESTORE_DECISION_MADE] = true }
     }
 
