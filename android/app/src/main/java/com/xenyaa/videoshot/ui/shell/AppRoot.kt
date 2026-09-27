@@ -31,6 +31,13 @@ import com.xenyaa.videoshot.core.home.monthOf
 import com.xenyaa.videoshot.data.repo.model.FolderNode
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.ShotRow
+import com.xenyaa.videoshot.ui.account.AccountScreen
+import com.xenyaa.videoshot.ui.account.AccountViewModel
+import com.xenyaa.videoshot.ui.account.AiRangeScreen
+import com.xenyaa.videoshot.ui.account.CaptureSettingScreen
+import com.xenyaa.videoshot.ui.account.GeminiKeyScreen
+import com.xenyaa.videoshot.ui.account.TagManagementScreen
+import com.xenyaa.videoshot.ui.account.ThumbsUsageScreen
 import com.xenyaa.videoshot.ui.common.ComingSoonScreen
 import com.xenyaa.videoshot.ui.edit.ShotEditSheet
 import com.xenyaa.videoshot.ui.folders.AddToFolderSheet
@@ -104,6 +111,16 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
         key = "folders",
     )
     val foldersState by foldersVm.state.collectAsStateWithLifecycle()
+
+    val accountVm: AccountViewModel = viewModel(
+        factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                AccountViewModel(container.accountDeps) as T
+        },
+        key = "account",
+    )
+    val accountState by accountVm.state.collectAsStateWithLifecycle()
 
     // 目前打開的資料夾（分類分頁的堆疊裡最後一個 Dest.Folder）。key 帶 id：換一個資料夾
     // 就是換一個 VM，否則會看到上一個資料夾的內容
@@ -592,7 +609,53 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                             onRetry = foldersVm::reload,
                         )
                     }
-                    Tab.ACCOUNT -> ComingSoonScreen("帳號", "備份、設定與標籤管理會在階段 11～12 做好")
+                    Tab.ACCOUNT -> when (val dest = nav.current) {
+                        is Dest.AccountSetting -> when (dest.section) {
+                            AccountSection.BACKUP ->
+                                ComingSoonScreen("備份", "備份與 Google 帳號連結會在階段 12 做好")
+                            AccountSection.THUMBS -> ThumbsUsageScreen(
+                                usageBytes = accountState.storageUsageBytes,
+                                onBack = { nav = nav.pop() ?: nav },
+                            )
+                            AccountSection.CAPTURE -> CaptureSettingScreen(
+                                current = accountState.filterStrength,
+                                onBack = { nav = nav.pop() ?: nav },
+                                onSelect = accountVm::setFilterStrength,
+                            )
+                            AccountSection.GEMINI -> GeminiKeyScreen(
+                                keySet = accountState.geminiKeySet,
+                                onBack = { nav = nav.pop() ?: nav },
+                                onSave = accountVm::saveGeminiKey,
+                                onClear = accountVm::clearGeminiKey,
+                            )
+                            AccountSection.AI -> AiRangeScreen(
+                                beforeSec = accountState.aiRangeBeforeSec,
+                                afterSec = accountState.aiRangeAfterSec,
+                                onBack = { nav = nav.pop() ?: nav },
+                                onChange = accountVm::setAiRange,
+                            )
+                            AccountSection.TAGS -> TagManagementScreen(
+                                state = accountState,
+                                onBack = { nav = nav.pop() ?: nav },
+                                onOpenEditor = accountVm::openTagEditor,
+                                onDismissEditor = accountVm::dismissTagEditor,
+                                onEditName = accountVm::editTagName,
+                                onEditKind = accountVm::editTagKind,
+                                onEditAliases = accountVm::editTagAliases,
+                                onRequestSave = accountVm::requestSaveTag,
+                                onConfirmMerge = accountVm::confirmMerge,
+                                onDismissMerge = accountVm::dismissMergeConfirm,
+                                onAskDelete = accountVm::askDeleteTag,
+                                onDismissDelete = accountVm::dismissDeleteTag,
+                                onConfirmDelete = accountVm::confirmDeleteTag,
+                            )
+                        }
+                        else -> AccountScreen(
+                            state = accountState,
+                            onOpenSection = { nav = nav.push(Dest.AccountSetting(it)) },
+                            onOpenStat = { nav = nav.select(Tab.HOME) },
+                        )
+                    }
                     Tab.CAPTURE -> WizardScreen(
                         vm = wizardVm,
                         haptics = container.haptics,
