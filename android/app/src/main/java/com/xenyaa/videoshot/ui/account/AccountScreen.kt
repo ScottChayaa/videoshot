@@ -34,7 +34,8 @@ import com.xenyaa.videoshot.ui.theme.focusRing
 /**
  * 帳號頁首畫面：漸層 hero ＋ 跨在下緣的三格統計卡 ＋ 六格選單（規格第九節「版面」）。
  *
- * **hero 永遠顯示未連結狀態**——Google 帳號連結是階段 12 的範圍，本階段沒有已連結狀態可畫。
+ * hero 依 `state.linkedAccount` 分支：未連結時顯示「尚未設定備份」，已連結時顯示帳號
+ * 名稱與 Email（階段 12）。兩種狀態底下那一行都可點，開的都是同一個 `AccountSection.BACKUP`。
  */
 @Composable
 fun AccountScreen(
@@ -59,20 +60,37 @@ fun AccountScreen(
                         Icon(VsIcons.Person, contentDescription = null, tint = AppTheme.colors.accentInk)
                     }
                     Column(Modifier.padding(start = AppTheme.spacing.s3)) {
-                        Text(
-                            "尚未設定備份",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = AppTheme.colors.accentInk,
-                        )
-                        Text(
-                            "連結 Google 帳號以啟用備份",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = AppTheme.colors.accentInk,
-                            modifier = Modifier
-                                .focusRing()
-                                .clickable { onOpenSection(AccountSection.BACKUP) }
-                                .padding(top = AppTheme.spacing.s1),
-                        )
+                        if (state.linkedAccount == null) {
+                            Text(
+                                "尚未設定備份",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = AppTheme.colors.accentInk,
+                            )
+                            Text(
+                                "連結 Google 帳號以啟用備份",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AppTheme.colors.accentInk,
+                                modifier = Modifier
+                                    .focusRing()
+                                    .clickable { onOpenSection(AccountSection.BACKUP) }
+                                    .padding(top = AppTheme.spacing.s1),
+                            )
+                        } else {
+                            Text(
+                                state.linkedAccount.displayName,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = AppTheme.colors.accentInk,
+                            )
+                            Text(
+                                state.linkedAccount.email,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AppTheme.colors.accentInk,
+                                modifier = Modifier
+                                    .focusRing()
+                                    .clickable { onOpenSection(AccountSection.BACKUP) }
+                                    .padding(top = AppTheme.spacing.s1),
+                            )
+                        }
                     }
                 }
             }
@@ -91,7 +109,11 @@ fun AccountScreen(
             }
         }
         item {
-            AccountMenuRow(VsIcons.Cloud, "備份", "尚未設定備份", onClick = { onOpenSection(AccountSection.BACKUP) })
+            AccountMenuRow(
+                VsIcons.Cloud, "備份",
+                state.linkedAccount?.let { "已連結：${it.displayName}" } ?: "尚未設定備份",
+                onClick = { onOpenSection(AccountSection.BACKUP) },
+            )
         }
         item {
             AccountMenuRow(

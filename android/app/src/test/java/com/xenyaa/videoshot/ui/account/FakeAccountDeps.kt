@@ -1,5 +1,9 @@
 package com.xenyaa.videoshot.ui.account
 
+import android.app.Activity
+import android.content.Intent
+import com.xenyaa.videoshot.backup.LinkOutcome
+import com.xenyaa.videoshot.backup.LinkedGoogleAccount
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.data.repo.model.AccountStats
 import com.xenyaa.videoshot.data.repo.model.TagUsage
@@ -28,4 +32,13 @@ open class FakeAccountDeps : AccountDeps {
     override suspend fun deleteTag(id: Long) = Unit
 
     override suspend fun storageUsageBytes(): Long = 0L
+
+    override val linkedAccount = MutableStateFlow<LinkedGoogleAccount?>(null)
+    override suspend fun beginLink(activity: Activity): LinkOutcome =
+        LinkOutcome.Linked(LinkedGoogleAccount("", ""))
+    override suspend fun finishLink(data: Intent): LinkedGoogleAccount = LinkedGoogleAccount("", "")
+    override suspend fun unlink() = Unit
+
+    override val lastBackupAtEpochSec = MutableStateFlow(0L)
+    override suspend fun backupNow(): Boolean = true
 }

@@ -26,6 +26,27 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+            關掉 WorkManager 的自動初始化(androidx.startup)。VideoshotApp 實作了
+            Configuration.Provider——若不關掉,WorkManager 的預設初始化 Provider 會在
+            attachInfo()/onCreate() 階段(比 Application.onCreate() 更早)就去讀
+            workManagerConfiguration,那時候 container 這個 lateinit var 還沒賦值,
+            會直接丟 UninitializedPropertyAccessException 讓每次啟動都當機。
+            關掉之後改成「用到才初始化」——VideoshotApp.onCreate() 呼叫的
+            scheduleDailyBackup() 會是第一個真正碰 WorkManager 的地方,那時候
+            container 早就賦值好了。見官方文件「On-demand initialization」那一節。
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
     </application>
 
 </manifest>

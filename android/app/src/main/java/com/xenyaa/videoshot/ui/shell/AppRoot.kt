@@ -1,7 +1,11 @@
 package com.xenyaa.videoshot.ui.shell
 
+import android.app.Activity
 import android.content.Intent
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -34,11 +38,11 @@ import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.ui.account.AccountScreen
 import com.xenyaa.videoshot.ui.account.AccountViewModel
 import com.xenyaa.videoshot.ui.account.AiRangeScreen
+import com.xenyaa.videoshot.ui.account.BackupScreen
 import com.xenyaa.videoshot.ui.account.CaptureSettingScreen
 import com.xenyaa.videoshot.ui.account.GeminiKeyScreen
 import com.xenyaa.videoshot.ui.account.TagManagementScreen
 import com.xenyaa.videoshot.ui.account.ThumbsUsageScreen
-import com.xenyaa.videoshot.ui.common.ComingSoonScreen
 import com.xenyaa.videoshot.ui.edit.ShotEditSheet
 import com.xenyaa.videoshot.ui.folders.AddToFolderSheet
 import com.xenyaa.videoshot.ui.folders.FolderScreen
@@ -121,6 +125,20 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
         key = "account",
     )
     val accountState by accountVm.state.collectAsStateWithLifecycle()
+
+    // Google 帳號連結：授權若需要額外同意（LinkOutcome.NeedsConsent），accountVm.beginLink
+    // 把跳系統畫面這件事透過 callback 交回這裡——AccountViewModel／AccountDeps 不該知道
+    // ActivityResultContracts 這種 Compose／Activity 層才有的東西。使用者同意完回來後
+    // 把拿到的 Intent 餵回 accountVm.finishLink；使用者取消（resultCode 不是 RESULT_OK 或
+    // data 是 null）就什麼都不做，linkedAccount 維持未連結。
+    val consentLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult(),
+    ) { result ->
+        val data = result.data
+        if (result.resultCode == Activity.RESULT_OK && data != null) {
+            accountVm.finishLink(data)
+        }
+    }
 
     // 目前打開的資料夾（分類分頁的堆疊裡最後一個 Dest.Folder）。key 帶 id：換一個資料夾
     // 就是換一個 VM，否則會看到上一個資料夾的內容
@@ -631,8 +649,21 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                     }
                     Tab.ACCOUNT -> when (val dest = nav.current) {
                         is Dest.AccountSetting -> when (dest.section) {
-                            AccountSection.BACKUP ->
-                                ComingSoonScreen("備份", "備份與 Google 帳號連結會在階段 12 做好")
+                            AccountSection.BACKUP -> BackupScreen(
+                                linkedAccount = accountState.linkedAccount,
+                                lastBackupAtEpochSec = accountState.lastBackupAtEpochSec,
+                                backingUp = accountState.backingUp,
+                                backupError = accountState.backupError,
+                                onBack = { nav = nav.pop() ?: nav },
+                                onLinkClick = {
+                                    accountVm.beginLink(context as Activity) { intentSender ->
+                                        consentLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+                                    }
+                                },
+                                onUnlinkClick = accountVm::unlink,
+                                onBackupNowClick = accountVm::backupNow,
+                                onRestoreClick = { /* Task 13 接上 Dest.RestoreFlow */ },
+                            )
                             AccountSection.THUMBS -> ThumbsUsageScreen(
                                 usageBytes = accountState.storageUsageBytes,
                                 onBack = { nav = nav.pop() ?: nav },

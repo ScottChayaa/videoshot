@@ -1,7 +1,11 @@
 package com.xenyaa.videoshot.ui.account
 
+import android.app.Activity
+import android.content.Intent
+import android.content.IntentSender
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.xenyaa.videoshot.backup.LinkOutcome
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.home.monthOf
 import com.xenyaa.videoshot.core.tags.TagKind
@@ -49,6 +53,8 @@ class AccountViewModel(
         viewModelScope.launch { deps.aiRangeBeforeSec.collect { v -> _state.value = _state.value.copy(aiRangeBeforeSec = v) } }
         viewModelScope.launch { deps.aiRangeAfterSec.collect { v -> _state.value = _state.value.copy(aiRangeAfterSec = v) } }
         viewModelScope.launch { deps.geminiKeySet.collect { v -> _state.value = _state.value.copy(geminiKeySet = v) } }
+        viewModelScope.launch { deps.linkedAccount.collect { v -> _state.value = _state.value.copy(linkedAccount = v) } }
+        viewModelScope.launch { deps.lastBackupAtEpochSec.collect { v -> _state.value = _state.value.copy(lastBackupAtEpochSec = v) } }
         reload()
     }
 
@@ -76,6 +82,36 @@ class AccountViewModel(
     }
 
     fun clearGeminiKey() = launchGuarded { deps.clearGeminiKey() }
+
+    /**
+     * @param onNeedsConsent 需要使用者到系統畫面同意時呼叫——`AppRoot` 接住這個 callback，
+     *        用 `rememberLauncherForActivityResult` 跳出畫面，回來後呼叫 [finishLink]。
+     *        連結**成功**（不需要額外同意）時不會呼叫這個 callback，`linkedAccount` flow 自己會更新畫面。
+     */
+    fun beginLink(activity: Activity, onNeedsConsent: (IntentSender) -> Unit) = launchGuarded {
+        when (val outcome = deps.beginLink(activity)) {
+            is LinkOutcome.Linked -> Unit
+            is LinkOutcome.NeedsConsent -> onNeedsConsent(outcome.intentSender)
+        }
+    }
+
+    fun finishLink(data: Intent) = launchGuarded { deps.finishLink(data) }
+
+    fun unlink() = launchGuarded { deps.unlink() }
+
+    fun backupNow() {
+        _state.value = _state.value.copy(backingUp = true, backupError = null)
+        viewModelScope.launch {
+            try {
+                deps.backupNow()
+                _state.value = _state.value.copy(backingUp = false)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                _state.value = _state.value.copy(backingUp = false, backupError = "備份失敗，請確認網路後再試一次")
+            }
+        }
+    }
 
     fun openTagEditor(tag: TagUsage) { _state.value = AccountStore.openEditor(_state.value, tag) }
     fun dismissTagEditor() { _state.value = AccountStore.closeEditor(_state.value) }

@@ -1,8 +1,19 @@
 package com.xenyaa.videoshot.di
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import com.xenyaa.videoshot.R
+import com.xenyaa.videoshot.backup.BackupManager
+import com.xenyaa.videoshot.backup.BackupSnapshotter
+import com.xenyaa.videoshot.backup.BackupStore
+import com.xenyaa.videoshot.backup.DriveBackupStore
+import com.xenyaa.videoshot.backup.GisGoogleAuth
+import com.xenyaa.videoshot.backup.GoogleAuth
+import com.xenyaa.videoshot.backup.LinkOutcome
+import com.xenyaa.videoshot.backup.LinkedGoogleAccount
 import com.xenyaa.videoshot.data.ShotDeleter
 import com.xenyaa.videoshot.data.cache.CacheDatabase
 import com.xenyaa.videoshot.data.library.LibraryDatabase
@@ -13,6 +24,7 @@ import com.xenyaa.videoshot.data.repo.LibraryRepo
 import com.xenyaa.videoshot.data.repo.RoomCacheRepo
 import com.xenyaa.videoshot.data.repo.RoomLibraryRepo
 import com.xenyaa.videoshot.data.settings.AppSettings
+import com.xenyaa.videoshot.core.home.monthOf
 import com.xenyaa.videoshot.core.storyboard.Storyboard
 import com.xenyaa.videoshot.core.draft.DraftCodec
 import com.xenyaa.videoshot.data.cache.entity.DraftEntity
@@ -54,6 +66,7 @@ import com.xenyaa.videoshot.ui.shell.AppRootDeps
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.io.File
+import java.time.LocalDate
 
 /**
  * 手動注入的組裝點（階段 2 決定不用 Hilt）。
@@ -264,7 +277,65 @@ class AppContainer(context: Context) : AppRootDeps {
                 val dbBytes = File(appContext.filesDir, "library.db").let { if (it.exists()) it.length() else 0L }
                 thumbsBytes + dbBytes
             }
+
+            override val linkedAccount = settings.linkedAccount
+            override suspend fun beginLink(activity: Activity): LinkOutcome {
+                val outcome = googleAuth.beginLink(activity)
+                if (outcome is LinkOutcome.Linked) {
+                    settings.setLinkedAccount(outcome.account)
+                }
+                return outcome
+            }
+            override suspend fun finishLink(data: Intent): LinkedGoogleAccount {
+                val account = googleAuth.finishLink(data)
+                settings.setLinkedAccount(account)
+                return account
+            }
+            /**
+             * 沒有連結時是無害的 no-op——沒有帳號可斷（`settings.linkedAccount` 是這個行程／裝置
+             * 目前真正的連結狀態，不能靠 `GisGoogleAuth.pendingAccount` 那種只在 beginLink／
+             * finishLink 同一次互動內有效的記憶體欄位，理由見 `GoogleAuth.unlink` 的 KDoc）。
+             */
+            override suspend fun unlink() {
+                val email = settings.linkedAccount.first()?.email ?: return
+                googleAuth.unlink(email)
+                settings.clearLinkedAccount()
+            }
+
+            override val lastBackupAtEpochSec = settings.lastBackupAt
+            override suspend fun backupNow() = backupManager.runIfDue(force = true)
         }
+    }
+
+    val googleAuth: GoogleAuth by lazy {
+        GisGoogleAuth(
+            context = appContext,
+            webClientId = appContext.getString(R.string.google_signin_web_client_id),
+            io = Dispatchers.IO,
+        )
+    }
+
+    val backupStore: BackupStore by lazy {
+        DriveBackupStore(
+            http = httpClient,
+            accessToken = { googleAuth.accessToken() },
+            io = Dispatchers.IO,
+        )
+    }
+
+    val backupManager: BackupManager by lazy {
+        BackupManager(
+            snapshotTo = { dest -> BackupSnapshotter(libraryDb, Dispatchers.IO).snapshotTo(dest) },
+            store = backupStore,
+            workDir = File(appContext.filesDir, "backup_work"),
+            io = Dispatchers.IO,
+            deviceName = { android.os.Build.MODEL ?: "Android" },
+            shotCount = { libraryRepo.accountStats(monthOf(LocalDate.now().toString())).totalShots },
+            lastChangedAtSec = { settings.lastChangedAt.first() },
+            lastBackupAtSec = { settings.lastBackupAt.first() },
+            nowSec = { System.currentTimeMillis() / 1000 },
+            markBackedUp = { at -> settings.markBackedUp(at) },
+        )
     }
 
     /**

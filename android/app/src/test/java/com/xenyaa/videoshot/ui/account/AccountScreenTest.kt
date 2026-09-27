@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.xenyaa.videoshot.backup.LinkedGoogleAccount
 import com.xenyaa.videoshot.data.repo.model.AccountStats
 import com.xenyaa.videoshot.ui.shell.AccountSection
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
@@ -50,6 +51,12 @@ class AccountScreenTest {
         // 都是在描述同一件「還沒連結」的事實），這裡只需要確認至少顯示一次；
         // hero 排在 LazyColumn 最前面，語意樹的第一個命中一定是它。
         compose.onAllNodesWithText("尚未設定備份").onFirst().assertIsDisplayed()
+    }
+
+    @Test
+    fun 已連結時hero顯示帳號名稱() {
+        setContent(state.copy(linkedAccount = LinkedGoogleAccount("阿明", "ming@example.com")))
+        compose.onNodeWithText("阿明").assertIsDisplayed()
     }
 
     @Test

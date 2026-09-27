@@ -1,5 +1,9 @@
 package com.xenyaa.videoshot.ui.account
 
+import android.app.Activity
+import android.content.Intent
+import com.xenyaa.videoshot.backup.LinkOutcome
+import com.xenyaa.videoshot.backup.LinkedGoogleAccount
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.tags.TagKind
 import com.xenyaa.videoshot.data.repo.model.AccountStats
@@ -15,6 +19,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -68,6 +73,43 @@ class AccountViewModelTest {
         }
 
         override suspend fun storageUsageBytes(): Long = 12_345_678L
+
+        val linkedAccountFlow = MutableStateFlow<LinkedGoogleAccount?>(null)
+        override val linkedAccount: Flow<LinkedGoogleAccount?> get() = linkedAccountFlow
+        var beginLinkCalled = false
+        var linkOutcome: LinkOutcome = LinkOutcome.Linked(LinkedGoogleAccount("阿明", "ming@example.com"))
+        override suspend fun beginLink(activity: Activity): LinkOutcome {
+            beginLinkCalled = true
+            if (linkOutcome is LinkOutcome.Linked) {
+                linkedAccountFlow.value = (linkOutcome as LinkOutcome.Linked).account
+            }
+            return linkOutcome
+        }
+
+        var finishLinkCalled = false
+        override suspend fun finishLink(data: Intent): LinkedGoogleAccount {
+            finishLinkCalled = true
+            val account = LinkedGoogleAccount("阿明", "ming@example.com")
+            linkedAccountFlow.value = account
+            return account
+        }
+
+        var unlinkCalled = false
+        override suspend fun unlink() {
+            unlinkCalled = true
+            linkedAccountFlow.value = null
+        }
+
+        val lastBackupAtFlow = MutableStateFlow(0L)
+        override val lastBackupAtEpochSec: Flow<Long> get() = lastBackupAtFlow
+        var failNextBackup = false
+        var backupNowCalled = false
+        override suspend fun backupNow(): Boolean {
+            backupNowCalled = true
+            if (failNextBackup) throw RuntimeException("備份失敗")
+            lastBackupAtFlow.value = 12345L
+            return true
+        }
     }
 
     private fun vm(deps: AccountDeps = FakeDeps()) = AccountViewModel(deps, today = { "2026-03-14" })
@@ -280,5 +322,44 @@ class AccountViewModelTest {
 
         assertEquals(1, changedCount)
         job.cancel()
+    }
+
+    @Test
+    fun backupNow成功後backingUp回到false() = runTest {
+        val deps = FakeDeps()
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.backupNow()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.backingUp)
+        assertNull(viewModel.state.value.backupError)
+    }
+
+    @Test
+    fun backupNow失敗時顯示backupError() = runTest {
+        val deps = FakeDeps()
+        deps.failNextBackup = true
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.backupNow()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.backingUp)
+        assertEquals("備份失敗，請確認網路後再試一次", viewModel.state.value.backupError)
+    }
+
+    @Test
+    fun unlink會呼叫deps的unlink() = runTest {
+        val deps = FakeDeps()
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.unlink()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(deps.unlinkCalled)
     }
 }

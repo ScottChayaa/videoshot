@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.account
 
+import com.xenyaa.videoshot.backup.LinkedGoogleAccount
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.tags.TagKind
 import com.xenyaa.videoshot.data.repo.model.AccountStats
@@ -22,6 +23,10 @@ data class AccountState(
     /** 儲存時發現會撞名——這裡放「撞到的那個名字」，畫面用它顯示確認文案。 */
     val pendingMerge: String? = null,
     val deleting: TagUsage? = null,
+    val linkedAccount: LinkedGoogleAccount? = null,
+    val lastBackupAtEpochSec: Long = 0L,
+    val backingUp: Boolean = false,
+    val backupError: String? = null,
 )
 
 /** 標籤管理頁的純狀態轉換。沒有 suspend、沒有 Android 相依（比照 `FoldersStore`）。 */
