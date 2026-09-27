@@ -121,4 +121,70 @@ class RestoreViewModelTest {
         assertTrue(step is RestoreStep.Failed)
         assertTrue(!restarted)
     }
+
+    /**
+     * 首次開啟的閘門（Task 14 的 `FirstRunGate`）靠 `onRestoreSucceeded` 標記
+     * 「首次開啟的選擇已經回答過」，還原成功時一定要呼叫到，不然重啟後閘門會一直重複跳出來
+     * （這次覆查抓到的落差：先前的實作只接了 onRestartApp，onRestoreSucceeded 完全沒被呼叫）。
+     */
+    @Test
+    fun 還原成功時呼叫onRestoreSucceeded() = runTest {
+        var succeededMarked = false
+        var restarted = false
+        val model = RestoreViewModel(
+            listBackups = { listOf(backup("a")) },
+            restore = { RestoreResult.Success },
+            localShotCount = { 0 },
+            onRestartApp = { restarted = true },
+            onRestoreSucceeded = { succeededMarked = true },
+        )
+        advanceUntilIdle()
+        model.pick(backup("a"))
+        advanceUntilIdle()
+        assertTrue(succeededMarked)
+        assertTrue(restarted)
+    }
+
+    /**
+     * 順序要對——onRestoreSucceeded 要在 onRestartApp 之前完成（真正的 onRestartApp 最後一步是
+     * Runtime.getRuntime().exit(0)，process 直接結束；順序反了的話，DataStore 的寫入若還沒
+     * 落盤，這次標記就會遺失）。用 onRestartApp 裡去檢查 succeededMarked 是不是已經是 true，
+     * 確認呼叫到 onRestartApp 的那一刻，onRestoreSucceeded 已經跑完了。
+     */
+    @Test
+    fun onRestoreSucceeded要在onRestartApp之前完成() = runTest {
+        var succeededMarked = false
+        var orderWasCorrectWhenRestarted = false
+        val model = RestoreViewModel(
+            listBackups = { listOf(backup("a")) },
+            restore = { RestoreResult.Success },
+            localShotCount = { 0 },
+            onRestartApp = { orderWasCorrectWhenRestarted = succeededMarked },
+            onRestoreSucceeded = { succeededMarked = true },
+        )
+        advanceUntilIdle()
+        model.pick(backup("a"))
+        advanceUntilIdle()
+        assertTrue(orderWasCorrectWhenRestarted)
+    }
+
+    /**
+     * 還原失敗時不該呼叫 onRestoreSucceeded——帳號頁【從 Drive 還原】走這條路徑時
+     * restoreDecisionMade 早就是 true，這裡也不該亂標記別的東西。
+     */
+    @Test
+    fun 還原失敗時不呼叫onRestoreSucceeded() = runTest {
+        var succeededMarked = false
+        val model = RestoreViewModel(
+            listBackups = { listOf(backup("a")) },
+            restore = { RestoreResult.Failure("雜湊不符") },
+            localShotCount = { 0 },
+            onRestartApp = {},
+            onRestoreSucceeded = { succeededMarked = true },
+        )
+        advanceUntilIdle()
+        model.pick(backup("a"))
+        advanceUntilIdle()
+        assertTrue(!succeededMarked)
+    }
 }

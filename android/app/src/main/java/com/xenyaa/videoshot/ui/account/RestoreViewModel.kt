@@ -36,12 +36,22 @@ sealed interface RestoreStep {
  * @param localShotCount 本機目前有幾張收藏——大於 0 才要跳「會被取代」的確認框（流程圖的
  *        `本機已有資料？` 分支）；首次開啟時這裡永遠是 0，天然跳過確認框。
  * @param onRestartApp 還原成功後呼叫——通常是 [com.xenyaa.videoshot.backup.restartApp]。
+ * @param onRestoreSucceeded 還原成功、但**在 [onRestartApp] 之前**呼叫的收尾動作。預設是空的
+ *        no-op——帳號頁【從 Drive 還原】（`Dest.RestoreFlow`）進來時 `restoreDecisionMade`
+ *        早就是 `true`，沒有東西需要標記。首次開啟的閘門（Task 14 的 `FirstRunGate`）才會
+ *        真的傳一個會寫 DataStore 的函式進來——還原成功也要標記「首次開啟的選擇已經回答過」，
+ *        不然 [onRestartApp] 重啟後 `AppRoot` 的閘門會看到 `restoreDecisionMade` 還是
+ *        `false`，永遠卡在還原/全新開始這一頁重複跳出來。**一定要在 [onRestartApp] 之前
+ *        `await`（不是 `launch` 之後不等）**——`restartApp()` 最後一步是
+ *        `Runtime.getRuntime().exit(0)`，process 說沒就沒，沒等到 DataStore 真的落盤
+ *        就重啟的話這次標記會遺失。
  */
 class RestoreViewModel(
     private val listBackups: suspend () -> List<RemoteBackup>,
     private val restore: suspend (RemoteBackup) -> RestoreResult,
     private val localShotCount: suspend () -> Int,
     private val onRestartApp: () -> Unit,
+    private val onRestoreSucceeded: suspend () -> Unit = {},
 ) : ViewModel() {
 
     private val _step = MutableStateFlow<RestoreStep>(RestoreStep.Loading)
@@ -93,7 +103,13 @@ class RestoreViewModel(
             return
         }
         when (result) {
-            is RestoreResult.Success -> onRestartApp()
+            // 先 await 收尾動作、才呼叫 onRestartApp——onRestartApp 通常會用
+            // Runtime.getRuntime().exit(0) 結束整個 process，必須確保收尾動作（例如寫
+            // DataStore）真的落盤完成，不能只是 launch 之後不等就繼續（見建構子參數的 KDoc）
+            is RestoreResult.Success -> {
+                onRestoreSucceeded()
+                onRestartApp()
+            }
             is RestoreResult.Failure -> _step.value = RestoreStep.Failed(result.reason)
         }
     }

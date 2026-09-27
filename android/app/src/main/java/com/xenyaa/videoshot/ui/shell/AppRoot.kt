@@ -802,6 +802,10 @@ private fun FirstRunGate(container: AppRootDeps) {
                     restore = { backup -> container.restore(backup) },
                     localShotCount = { 0 }, // 全新安裝，本機一定沒有資料——天然跳過確認框
                     onRestartApp = { restartApp(context) },
+                    // 還原成功也要標記首次開啟的選擇已經回答過，不然重啟後這個閘門會看到
+                    // restoreDecisionMade 還是 false，永遠卡在這一頁重複跳出來
+                    // （RestoreViewModel 的 KDoc：這個函式在 onRestartApp 之前被 await 完）
+                    onRestoreSucceeded = { container.settings.markRestoreDecisionMade() },
                 ) as T
             },
             key = "first-run-restore",
