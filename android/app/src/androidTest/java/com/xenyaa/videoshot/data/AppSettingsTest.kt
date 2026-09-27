@@ -1,6 +1,7 @@
 package com.xenyaa.videoshot.data
 
 import androidx.test.platform.app.InstrumentationRegistry
+import com.xenyaa.videoshot.backup.LinkedGoogleAccount
 import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.data.settings.AppSettings
@@ -46,6 +47,37 @@ class AppSettingsTest {
 
         settings.setFilterStrength(FilterStrength.LOW)
         assertEquals(FilterStrength.LOW, settings.filterStrength.first())
+    }
+
+    @Test
+    fun 尚未連結時linkedAccount是null() = runBlocking {
+        assertNull(settings.linkedAccount.first())
+    }
+
+    @Test
+    fun 連結帳號存得住() = runBlocking {
+        settings.setLinkedAccount(LinkedGoogleAccount("阿明", "ming@example.com"))
+        val account = settings.linkedAccount.first()
+        assertEquals("阿明", account?.displayName)
+        assertEquals("ming@example.com", account?.email)
+    }
+
+    @Test
+    fun 中斷連結後linkedAccount回到null() = runBlocking {
+        settings.setLinkedAccount(LinkedGoogleAccount("阿明", "ming@example.com"))
+        settings.clearLinkedAccount()
+        assertNull(settings.linkedAccount.first())
+    }
+
+    @Test
+    fun 首次開啟的還原決定預設是還沒決定() = runBlocking {
+        assertFalse(settings.restoreDecisionMade.first())
+    }
+
+    @Test
+    fun 標記過還原決定之後不會再是還沒決定() = runBlocking {
+        settings.markRestoreDecisionMade()
+        assertTrue(settings.restoreDecisionMade.first())
     }
 
     @Test

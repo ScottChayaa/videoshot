@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.xenyaa.videoshot.backup.LinkedGoogleAccount
 import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import java.security.KeyStore
@@ -89,6 +90,41 @@ class AppSettings(context: Context) : ShellSettings {
     @VisibleForTesting
     suspend fun writeRawFolderSortForTest(raw: String) {
         store.edit { it[FOLDER_SORT] = raw }
+    }
+
+    /**
+     * 已連結的 Google 帳號（規格第九節 hero：「已連結 Google：名稱、Email、頭像字母」）。
+     * 只存顯示用的兩個欄位——真正的授權狀態交給 `GoogleAuth`／Play Services 自己管，
+     * 這裡不快取存取權杖。換裝置、清除 app 資料都會回到未連結，使用者要重新連結。
+     */
+    val linkedAccount: Flow<LinkedGoogleAccount?> = store.data.map { prefs ->
+        val name = prefs[LINKED_ACCOUNT_NAME] ?: return@map null
+        val email = prefs[LINKED_ACCOUNT_EMAIL] ?: return@map null
+        LinkedGoogleAccount(name, email)
+    }
+
+    suspend fun setLinkedAccount(account: LinkedGoogleAccount) {
+        store.edit {
+            it[LINKED_ACCOUNT_NAME] = account.displayName
+            it[LINKED_ACCOUNT_EMAIL] = account.email
+        }
+    }
+
+    suspend fun clearLinkedAccount() {
+        store.edit {
+            it.remove(LINKED_ACCOUNT_NAME)
+            it.remove(LINKED_ACCOUNT_EMAIL)
+        }
+    }
+
+    /**
+     * 全新安裝的第一個畫面（【從 Google Drive 還原】／【全新開始】）有沒有被回答過
+     * （規格第十節「還原」入口）。回答過就不再問——即使之後圖庫又變空，也不會重新跳出來。
+     */
+    val restoreDecisionMade: Flow<Boolean> = store.data.map { it[RESTORE_DECISION_MADE] ?: false }
+
+    suspend fun markRestoreDecisionMade() {
+        store.edit { it[RESTORE_DECISION_MADE] = true }
     }
 
     /**
@@ -211,5 +247,8 @@ class AppSettings(context: Context) : ShellSettings {
         val GEMINI_KEY = stringPreferencesKey("gemini_key")
         val AI_RANGE_BEFORE_SEC = intPreferencesKey("ai_range_before_sec")
         val AI_RANGE_AFTER_SEC = intPreferencesKey("ai_range_after_sec")
+        val LINKED_ACCOUNT_NAME = stringPreferencesKey("linked_account_name")
+        val LINKED_ACCOUNT_EMAIL = stringPreferencesKey("linked_account_email")
+        val RESTORE_DECISION_MADE = booleanPreferencesKey("restore_decision_made")
     }
 }
