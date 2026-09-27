@@ -41,8 +41,11 @@ import com.xenyaa.videoshot.ui.account.AiRangeScreen
 import com.xenyaa.videoshot.ui.account.BackupScreen
 import com.xenyaa.videoshot.ui.account.CaptureSettingScreen
 import com.xenyaa.videoshot.ui.account.GeminiKeyScreen
+import com.xenyaa.videoshot.ui.account.RestoreScreen
+import com.xenyaa.videoshot.ui.account.RestoreViewModel
 import com.xenyaa.videoshot.ui.account.TagManagementScreen
 import com.xenyaa.videoshot.ui.account.ThumbsUsageScreen
+import com.xenyaa.videoshot.backup.restartApp
 import com.xenyaa.videoshot.ui.edit.ShotEditSheet
 import com.xenyaa.videoshot.ui.folders.AddToFolderSheet
 import com.xenyaa.videoshot.ui.folders.FolderScreen
@@ -511,6 +514,35 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             }
         }
 
+        // 還原挑選流程跟 Lightbox／BatchEdit 一樣全螢幕、沒有底部導覽（規格第十節、
+        // Dest.RestoreFlow 的 KDoc）——還原成功會整個重啟 app，不會走到「回上一層」這條路,
+        // 也因此不需要像 BatchEdit 那樣在 finished 之後手動 pop／重查別的 VM。
+        is Dest.RestoreFlow -> {
+            val restoreVm: RestoreViewModel = viewModel(
+                factory = object : ViewModelProvider.Factory {
+                    @Suppress("UNCHECKED_CAST")
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T = RestoreViewModel(
+                        listBackups = { container.listBackups() },
+                        restore = { backup -> container.restore(backup) },
+                        localShotCount = {
+                            container.libraryRepo.accountStats(monthOf(LocalDate.now().toString())).totalShots
+                        },
+                        onRestartApp = { restartApp(context) },
+                    ) as T
+                },
+                key = "restore",
+            )
+            val restoreStep by restoreVm.step.collectAsStateWithLifecycle()
+            RestoreScreen(
+                step = restoreStep,
+                onBack = { nav.pop()?.let { nav = it } },
+                onPick = restoreVm::pick,
+                onConfirm = restoreVm::confirmRestore,
+                onDismissConfirm = restoreVm::dismissConfirm,
+                onRetry = restoreVm::load,
+            )
+        }
+
         Dest.Root, is Dest.Folder, is Dest.Detail, is Dest.AccountSetting -> AppShell(nav = nav, onSelectTab = { nav = nav.select(it) }, snackbarHostState = snackbarHostState) { tab ->
             when (val current = nav.current) {
                 is Dest.Detail -> {
@@ -662,7 +694,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                 },
                                 onUnlinkClick = accountVm::unlink,
                                 onBackupNowClick = accountVm::backupNow,
-                                onRestoreClick = { /* Task 13 接上 Dest.RestoreFlow */ },
+                                onRestoreClick = { nav = nav.push(Dest.RestoreFlow) },
                             )
                             AccountSection.THUMBS -> ThumbsUsageScreen(
                                 usageBytes = accountState.storageUsageBytes,

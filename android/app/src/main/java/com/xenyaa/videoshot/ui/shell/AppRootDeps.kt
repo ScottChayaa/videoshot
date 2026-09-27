@@ -1,5 +1,7 @@
 package com.xenyaa.videoshot.ui.shell
 
+import com.xenyaa.videoshot.backup.RemoteBackup
+import com.xenyaa.videoshot.backup.RestoreResult
 import com.xenyaa.videoshot.capture.Capture
 import com.xenyaa.videoshot.capture.ManualImageStore
 import com.xenyaa.videoshot.data.ShotDeleter
@@ -36,6 +38,18 @@ interface AppRootDeps {
     val haptics: Haptics
     val settings: ShellSettings
     val accountDeps: AccountDeps
+
+    /**
+     * 還原挑選流程（規格第十節、Task 11）。**兩個函式而不是整個 `RestoreManager`** ——
+     * 那個具體類別的建構子需要真的 `LibraryDatabase`（Room），直接把它整個放進這個介面的話,
+     * 用假實作組出 `AppRootDeps` 的既有測試（`AppRootLightboxTest`／`AppRootWizardFinishTest`，
+     * 兩者都跟還原完全無關）也要背一個真的 Room 資料庫殼才能實作這個介面 —— 跟
+     * `RestoreViewModel` 建構子不直接依賴 `RestoreManager` 的理由完全一樣（見它的 KDoc）。
+     */
+    suspend fun listBackups(): List<RemoteBackup>
+
+    /** 見 [listBackups] 的 KDoc——同一個理由。 */
+    suspend fun restore(backup: RemoteBackup): RestoreResult
 
     /** 文字查詢解析（規格第八節）：Gemini 優先，無金鑰或逾時退回規則式。 */
     val queryResolver: QueryResolver

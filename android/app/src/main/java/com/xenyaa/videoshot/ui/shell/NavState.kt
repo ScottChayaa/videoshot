@@ -59,6 +59,12 @@ sealed interface Dest {
      * 這不是有進有出的全螢幕流程，使用者應該隨時能切別的分頁。
      */
     data class AccountSetting(val section: AccountSection) : Dest
+
+    /**
+     * 還原挑選流程（規格第十節）。**沒有底部導覽**——跟 [Lightbox]／[BatchEdit] 一樣是
+     * 全螢幕、有終點的流程；還原成功會整個重啟 app，不會走到「回上一層」這條路。
+     */
+    data object RestoreFlow : Dest
 }
 
 /**
@@ -156,6 +162,7 @@ object NavCodec {
                     is Dest.Detail -> "D${dest.videoId}:${dest.focusShotId}"
                     is Dest.BatchEdit -> "B${dest.videoId}"
                     is Dest.AccountSetting -> "A${dest.section.id}"
+                    is Dest.RestoreFlow -> "V"
                 }
             }
             "${tab.name}=$items"
@@ -175,6 +182,7 @@ object NavCodec {
             val stack = items.split(",").map { item ->
                 when {
                     item == "R" -> Dest.Root
+                    item == "V" -> Dest.RestoreFlow
                     item.startsWith("L") -> Dest.Lightbox(item.drop(1).toIntOrNull() ?: return NavState())
                     item.startsWith("F") -> Dest.Folder(item.drop(1).toLongOrNull() ?: return NavState())
                     item.startsWith("D") -> {

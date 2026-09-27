@@ -14,6 +14,9 @@ import com.xenyaa.videoshot.backup.GisGoogleAuth
 import com.xenyaa.videoshot.backup.GoogleAuth
 import com.xenyaa.videoshot.backup.LinkOutcome
 import com.xenyaa.videoshot.backup.LinkedGoogleAccount
+import com.xenyaa.videoshot.backup.RemoteBackup
+import com.xenyaa.videoshot.backup.RestoreManager
+import com.xenyaa.videoshot.backup.RestoreResult
 import com.xenyaa.videoshot.data.ShotDeleter
 import com.xenyaa.videoshot.data.cache.CacheDatabase
 import com.xenyaa.videoshot.data.library.LibraryDatabase
@@ -337,6 +340,23 @@ class AppContainer(context: Context) : AppRootDeps {
             markBackedUp = { at -> settings.markBackedUp(at) },
         )
     }
+
+    /** 見 `AppRootDeps.listBackups`／`restore` 的 KDoc：介面不收整個 `RestoreManager`,這裡是唯一組出它的地方。 */
+    private val restoreManager: RestoreManager by lazy {
+        RestoreManager(
+            store = backupStore,
+            libraryDb = libraryDb,
+            libraryDbFile = File(appContext.filesDir, "library.db"),
+            cacheRepo = cacheRepo,
+            draftsDir = File(appContext.filesDir, "drafts"),
+            workDir = File(appContext.filesDir, "restore_work"),
+            io = Dispatchers.IO,
+        )
+    }
+
+    override suspend fun listBackups(): List<RemoteBackup> = restoreManager.listBackups()
+
+    override suspend fun restore(backup: RemoteBackup): RestoreResult = restoreManager.restore(backup)
 
     /**
      * 這支影片在這個層級的 sheet 目錄。**寫的人（第二步下載）與讀的人（第三步裁圖）必須同一個路徑**，

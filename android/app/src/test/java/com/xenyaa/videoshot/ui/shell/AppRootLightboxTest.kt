@@ -176,6 +176,8 @@ class AppRootLightboxTest {
         override fun manualImagesFor(videoId: String) = error("這組測試不碰手動圖")
         override fun captureFor(player: com.xenyaa.videoshot.player.Player) = null
         override val accountDeps: AccountDeps = FakeAccountDeps()
+        override suspend fun listBackups() = error("這組測試不碰還原")
+        override suspend fun restore(backup: com.xenyaa.videoshot.backup.RemoteBackup) = error("這組測試不碰還原")
     }
 
     private fun show(seed: List<ShotRow> = (1L..3L).map { row(it, it * 10.0) }): Fixture {

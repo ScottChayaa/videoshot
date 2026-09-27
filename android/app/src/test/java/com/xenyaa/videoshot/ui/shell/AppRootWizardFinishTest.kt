@@ -176,6 +176,8 @@ class AppRootWizardFinishTest {
         override fun manualImagesFor(videoId: String) = error("這組測試不碰手動圖")
         override fun captureFor(player: com.xenyaa.videoshot.player.Player) = null
         override val accountDeps: AccountDeps = FakeAccountDeps()
+        override suspend fun listBackups() = error("這組測試不碰還原")
+        override suspend fun restore(backup: com.xenyaa.videoshot.backup.RemoteBackup) = error("這組測試不碰還原")
     }
 
     /** 40 張分散在三個舊月份（跟 `WizardFinishTest.bigState()` 同樣的用意）：

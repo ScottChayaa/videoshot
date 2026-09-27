@@ -155,4 +155,11 @@ class NavStateTest {
     fun account區段解不出來時退回預設NavState() {
         assertEquals(NavState(), NavCodec.decode("ACCOUNT|HOME|HOME=R;SEARCH=R;CAPTURE=R;FOLDERS=R;ACCOUNT=A不存在的區段"))
     }
+
+    @Test
+    fun RestoreFlow編解碼往返() {
+        val nav = NavState().push(Dest.RestoreFlow)
+        val decoded = NavCodec.decode(NavCodec.encode(nav))
+        assertEquals(Dest.RestoreFlow, decoded.current)
+    }
 }
