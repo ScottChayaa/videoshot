@@ -39,7 +39,22 @@
      ```bash
      keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android
      ```
-     release 憑證要等正式簽名 keystore 建好後再補登記；同一個 Android OAuth 用戶端可以登記多個 SHA-1 指紋，不必為 debug/release 分別建立兩個用戶端。
+     這台機器的系統 PATH 上沒有 `keytool`——它內建在 Android Studio 自帶的 JDK 裡（跟 CLAUDE.md
+     記錄的「系統 PATH 上沒有 java」是同一件事），改用完整路徑：
+     ```bash
+     /snap/android-studio/current/jbr/bin/keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android
+     ```
+     **這個 JDK（25.0.3）在中文語系下印憑證那一步會炸掉**（`IllegalFormatConversionException`，
+     日期格式字串跟語系不合的已知 bug；金鑰庫本身讀取沒問題，只是印不出 SHA-1 那幾行），加
+     `LANG=en_US.UTF-8` 強制英文語系即可繞過，SHA-1 印在 `Certificate fingerprints:` 那一行：
+     ```bash
+     LANG=en_US.UTF-8 /snap/android-studio/current/jbr/bin/keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android
+     ```
+     2026-09-28 用這個指令取過一次，debug SHA-1 是 `A9:AB:05:0E:2B:60:8D:67:52:F6:1F:3E:3F:89:5F:8C:4D:0B:B5:2F`
+     （Google Cloud Console 的 SHA-1 欄位含冒號或去掉冒號都收）。
+     release 憑證要等正式簽名 keystore 建好後再補登記（同一個指令、換成 release keystore 的路徑與密碼即可，
+     一樣會踩到同一個語系 bug，一樣加 `LANG=en_US.UTF-8`）；同一個 Android OAuth 用戶端可以登記多個
+     SHA-1 指紋，不必為 debug/release 分別建立兩個用戶端。
 5. **再建立第二個 OAuth 用戶端 ID，應用程式類型「網頁應用程式」**（例如命名 `videoshot-signin-audience`，不需要填「已授權的重新導向 URI」）。這個 client ID **只用來當 Credential Manager「使用 Google 登入」的 ID token 受眾**，本身不是密鑰，可以直接寫進程式碼／resource（Task 7 會用到）。
 6. 把步驟 5 拿到的網頁用戶端 ID 交給實作者，寫入 `app/src/main/res/values/strings.xml` 的新字串資源 `google_signin_web_client_id`（Task 7 的 Step 1 會做這件事；沒有這個值前可以先填一個明顯的佔位字串，讓專案能編譯，但**帳號連結功能在真機上不會成功**，直到換成真的值）。
 
