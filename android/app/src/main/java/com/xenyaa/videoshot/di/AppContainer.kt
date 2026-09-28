@@ -17,6 +17,7 @@ import com.xenyaa.videoshot.backup.LinkedGoogleAccount
 import com.xenyaa.videoshot.backup.RemoteBackup
 import com.xenyaa.videoshot.backup.RestoreManager
 import com.xenyaa.videoshot.backup.RestoreResult
+import com.xenyaa.videoshot.backfill.BackfillManager
 import com.xenyaa.videoshot.data.ShotDeleter
 import com.xenyaa.videoshot.data.cache.CacheDatabase
 import com.xenyaa.videoshot.data.library.LibraryDatabase
@@ -128,7 +129,12 @@ class AppContainer(context: Context) : AppRootDeps {
     val youtube: Youtube by lazy { OkHttpYoutube(httpClient, Dispatchers.IO) }
 
     val thumbs: Thumbs by lazy {
-        FileThumbs(File(appContext.filesDir, "thumbs"), Dispatchers.IO, { libraryRepo.shotImage(it) })
+        FileThumbs(
+            root = File(appContext.filesDir, "thumbs"),
+            io = Dispatchers.IO,
+            loadManualImage = { libraryRepo.shotImage(it) },
+            isLost = { key -> cacheRepo.thumbState(key.videoId, key.level, key.frameIndex)?.state == "lost" },
+        )
     }
 
     /**
@@ -163,6 +169,28 @@ class AppContainer(context: Context) : AppRootDeps {
     }
 
     val sheetHarvester: SheetHarvester by lazy { SheetHarvester(youtube, thumbs, Dispatchers.Default) }
+
+    val backfillManager: BackfillManager by lazy {
+        BackfillManager(
+            libraryRepo = libraryRepo,
+            cacheRepo = cacheRepo,
+            shotDeleter = shotDeleter,
+            thumbs = thumbs,
+            fetchWatchPage = { videoId -> youtube.watchPage(videoId) },
+            harvest = { videoId, spec, level, frameIndexes ->
+                sheetHarvester.harvest(videoId, spec, level, frameIndexes) {
+                    youtube.watchPage(videoId).storyboardSpec?.let { Storyboard.parse(it) }
+                }
+            },
+            harvestRelocated = { videoId, spec, targetLevel, sourceLevel, frames ->
+                sheetHarvester.harvestRelocated(videoId, spec, targetLevel, sourceLevel, frames) {
+                    youtube.watchPage(videoId).storyboardSpec?.let { Storyboard.parse(it) }
+                }
+            },
+            io = Dispatchers.IO,
+            nowSec = { System.currentTimeMillis() / 1000 },
+        )
+    }
 
     val localSheetCropper: LocalSheetCropper by lazy {
         LocalSheetCropper(thumbs, Dispatchers.IO, Dispatchers.Default)
