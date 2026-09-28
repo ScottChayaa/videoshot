@@ -14,7 +14,8 @@ import kotlinx.coroutines.withContext
 
 /**
  * @param written 這次真的寫進 thumbs/ 的格子（已存在而跳過的不算）
- * @param failed 拿不到的格號
+ * @param failed 拿不到的格號——**用的是目標識別碼的 frameIndex**（`harvestRelocated` 呼叫時
+ *        是 [RelocatedFrame.targetFrameIndex]，不是來源座標）
  * @param degradedToCover 重抓 spec 之後仍然 403 —— 呼叫端該顯示封面圖（規格第七節）
  */
 data class HarvestResult(
@@ -22,6 +23,9 @@ data class HarvestResult(
     val failed: List<Int>,
     val degradedToCover: Boolean,
 )
+
+/** 讀取座標跟寫入的縮圖識別碼不同時用（回填的層級重新定位，見 [SheetHarvester.harvestRelocated]）。 */
+data class RelocatedFrame(val targetFrameIndex: Int, val sourceFrameIndex: Int)
 
 /**
  * 下載 storyboard sheet、裁出指定的格子、編成 320×180 WebP 存進 thumbs/。
@@ -37,7 +41,7 @@ class SheetHarvester(
 ) {
 
     /**
-     * @param frameIndexes 要取的格號
+     * @param frameIndexes 要取的格號——讀取座標與寫入識別碼用的是同一個 [level]／格號
      * @param refreshSpec sprite 回 403 時重抓 watch page 拿新 spec；拿不到回 null
      */
     suspend fun harvest(
@@ -46,6 +50,38 @@ class SheetHarvester(
         level: StoryboardLevel,
         frameIndexes: List<Int>,
         refreshSpec: suspend () -> StoryboardSpec?,
+    ): HarvestResult = harvestFrames(
+        videoId = videoId,
+        spec = spec,
+        targetLevel = level.level,
+        sourceLevel = level,
+        frames = frameIndexes.map { RelocatedFrame(targetFrameIndex = it, sourceFrameIndex = it) },
+        refreshSpec = refreshSpec,
+    )
+
+    /**
+     * 跟 [harvest] 一樣，但讀取座標（[sourceLevel]／[RelocatedFrame.sourceFrameIndex]）可以
+     * 跟寫入的縮圖識別碼（[targetLevel]／[RelocatedFrame.targetFrameIndex]）不同——回填遇到
+     * `shot.sbLevel` 那層已經不存在時，用 `shot.atSec` 在目前可用的最高層級重新定位，但裁出
+     * 來的圖仍要寫回原本的識別碼（規格第十一節：「裁出的圖仍寫入原路徑...DB 不改，路徑只是
+     * 識別碼」）。
+     */
+    suspend fun harvestRelocated(
+        videoId: String,
+        spec: StoryboardSpec,
+        targetLevel: Int,
+        sourceLevel: StoryboardLevel,
+        frames: List<RelocatedFrame>,
+        refreshSpec: suspend () -> StoryboardSpec?,
+    ): HarvestResult = harvestFrames(videoId, spec, targetLevel, sourceLevel, frames, refreshSpec)
+
+    private suspend fun harvestFrames(
+        videoId: String,
+        spec: StoryboardSpec,
+        targetLevel: Int,
+        sourceLevel: StoryboardLevel,
+        frames: List<RelocatedFrame>,
+        refreshSpec: suspend () -> StoryboardSpec?,
     ): HarvestResult {
         val written = mutableListOf<ThumbKey>()
         val failed = mutableListOf<Int>()
@@ -53,48 +89,47 @@ class SheetHarvester(
         var currentSpec = spec
         var refreshed = false
 
-        // 同一張 sheet 上的格子一起處理，一張只下載一次
-        val todo = frameIndexes.filterNot { thumbs.exists(ThumbKey(videoId, level.level, it)) }
-        val bySheet = todo.groupBy { Storyboard.framePosition(level, it).sheetIndex }
+        // 同一張 sheet 上的格子一起處理，一張只下載一次。分組依據是「讀取座標」的 sheetIndex。
+        val todo = frames.filterNot { thumbs.exists(ThumbKey(videoId, targetLevel, it.targetFrameIndex)) }
+        val bySheet = todo.groupBy { Storyboard.framePosition(sourceLevel, it.sourceFrameIndex).sheetIndex }
 
-        for ((sheetIndex, frames) in bySheet) {
+        for ((sheetIndex, group) in bySheet) {
             val bytes = try {
-                youtube.sheet(Storyboard.sheetUrl(currentSpec, level, sheetIndex))
+                youtube.sheet(Storyboard.sheetUrl(currentSpec, sourceLevel, sheetIndex))
             } catch (e: SheetForbidden) {
                 // 簽章效期不可知（規格第二節第 2 點）：重抓一次 watch page 拿新 spec 再試
                 if (refreshed) {
-                    failed += frames; degraded = true; continue
+                    failed += group.map { it.targetFrameIndex }; degraded = true; continue
                 }
                 refreshed = true
                 val fresh = refreshSpec()
                 if (fresh == null) {
-                    failed += frames; degraded = true; continue
+                    failed += group.map { it.targetFrameIndex }; degraded = true; continue
                 }
                 currentSpec = fresh
                 try {
-                    youtube.sheet(Storyboard.sheetUrl(currentSpec, level, sheetIndex))
+                    youtube.sheet(Storyboard.sheetUrl(currentSpec, sourceLevel, sheetIndex))
                 } catch (e2: Exception) {
-                    failed += frames; degraded = true; continue
+                    failed += group.map { it.targetFrameIndex }; degraded = true; continue
                 }
             } catch (e: Exception) {
-                failed += frames; continue
+                failed += group.map { it.targetFrameIndex }; continue
             }
 
             val sheet = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
             if (sheet == null) {
                 // 下載成功但解不出圖 —— 截圖 POC 學到的教訓：這是一種失敗型態，不是例外
-                failed += frames
+                failed += group.map { it.targetFrameIndex }
                 continue
             }
 
-            for (frameIndex in frames) {
-                val key = ThumbKey(videoId, level.level, frameIndex)
+            for (frame in group) {
+                val key = ThumbKey(videoId, targetLevel, frame.targetFrameIndex)
+                val pos = Storyboard.framePosition(sourceLevel, frame.sourceFrameIndex)
                 val ok = withContext(default) {
-                    runCatching {
-                        writeFrameToThumbs(sheet, Storyboard.framePosition(level, frameIndex), key, thumbs)
-                    }.getOrDefault(false)
+                    runCatching { writeFrameToThumbs(sheet, pos, key, thumbs) }.getOrDefault(false)
                 }
-                if (ok) written += key else failed += frameIndex
+                if (ok) written += key else failed += frame.targetFrameIndex
             }
             sheet.recycle()
         }

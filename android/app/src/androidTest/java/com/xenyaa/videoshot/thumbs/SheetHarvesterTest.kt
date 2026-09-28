@@ -188,4 +188,37 @@ class SheetHarvesterTest {
         assertEquals(72, gray.size)
         assertTrue(gray.all { it in 0..255 })
     }
+
+    @Test
+    fun 讀舊層級不存在時可以指定不同的來源層級寫入原識別碼() = runTest {
+        // 來源層級（level=1）跟目標識別碼的層級（level=9，模擬 shot.sbLevel 已經不在新 spec 裡）不同
+        val yt = FakeYoutube(mutableListOf(Result.success(fakeSheet())))
+        val harvester = SheetHarvester(yt, thumbs, Dispatchers.Default)
+
+        val frames = listOf(RelocatedFrame(targetFrameIndex = 5, sourceFrameIndex = 4))
+        val r = harvester.harvestRelocated("v1", spec, targetLevel = 9, sourceLevel = level, frames = frames) { null }
+
+        assertEquals(1, r.written.size)
+        assertEquals(ThumbKey("v1", 9, 5), r.written.single())
+        // 讀的是 sourceFrameIndex=4（青色格），驗證裁對來源座標而不是目標格號
+        val decoded = BitmapFactory.decodeFile(thumbs.fileOf(ThumbKey("v1", 9, 5)).path)
+        val px = decoded.getPixel(160, 90)
+        assertChannelsClose("應該讀到來源第 4 格（青色）", Color.CYAN, px)
+    }
+
+    @Test
+    fun 已存在目標識別碼的檔案時跳過不重新下載() = runTest {
+        val key = ThumbKey("v1", 9, 5)
+        thumbs.fileOf(key).apply { parentFile!!.mkdirs(); writeBytes(byteArrayOf(1, 2, 3)) }
+        val yt = FakeYoutube(mutableListOf())
+        val harvester = SheetHarvester(yt, thumbs, Dispatchers.Default)
+
+        val r = harvester.harvestRelocated(
+            "v1", spec, targetLevel = 9, sourceLevel = level,
+            frames = listOf(RelocatedFrame(targetFrameIndex = 5, sourceFrameIndex = 4)),
+        ) { null }
+
+        assertTrue(r.written.isEmpty())
+        assertEquals(0, yt.requestedUrls.size)
+    }
 }
