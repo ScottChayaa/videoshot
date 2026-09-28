@@ -29,6 +29,16 @@ class RoomCacheRepo(
         db.thumbStateDao().deleteByKey(videoId, sbLevel, frameIndex)
     }
 
+    override suspend fun countByState(state: String): Int =
+        withContext(io) { db.thumbStateDao().countByState(state) }
+
+    override suspend fun lostThumbs(): List<ThumbStateEntity> =
+        withContext(io) { db.thumbStateDao().lost() }
+
+    override suspend fun resetLostToMissing(now: Long) = withContext(io) {
+        db.thumbStateDao().resetLostToMissing(now)
+    }
+
     override suspend fun saveDraft(draft: DraftEntity) = withContext(io) { db.draftDao().put(draft) }
 
     override suspend fun currentDraft(): DraftEntity? = withContext(io) { db.draftDao().current() }

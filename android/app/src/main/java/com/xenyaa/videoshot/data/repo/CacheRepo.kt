@@ -16,6 +16,15 @@ interface CacheRepo {
     /** 刪掉一格的回填狀態。不清的話，回填作業會把已經刪掉的那一格又抓回來。 */
     suspend fun forgetThumb(videoId: String, sbLevel: Int, frameIndex: Int)
 
+    /** 回填進度／「無法取回 N 張」用的計數。@param state 'ok' | 'missing' | 'lost' */
+    suspend fun countByState(state: String): Int
+
+    /** 全部 lost 的格子——帳號頁【刪除這些收藏】要靠這份清單反查是哪幾張 shot。 */
+    suspend fun lostThumbs(): List<ThumbStateEntity>
+
+    /** 【稍後重試】：全部 lost 的格子重設成 missing，立刻可以重試。 */
+    suspend fun resetLostToMissing(now: Long)
+
     suspend fun saveDraft(draft: DraftEntity)
     suspend fun currentDraft(): DraftEntity?
     suspend fun clearDraft()

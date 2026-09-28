@@ -35,6 +35,19 @@ interface ThumbStateDao {
     @Query("DELETE FROM thumb_state WHERE video_id = :videoId AND sb_level = :sbLevel AND frame_index = :frameIndex")
     suspend fun deleteByKey(videoId: String, sbLevel: Int, frameIndex: Int)
 
+    @Query("SELECT COUNT(*) FROM thumb_state WHERE state = :state")
+    suspend fun countByState(state: String): Int
+
+    @Query("SELECT * FROM thumb_state WHERE state = 'lost'")
+    suspend fun lost(): List<ThumbStateEntity>
+
+    /** 【稍後重試】：把全部 lost 的格子重設成 missing，立刻可以重試（規格第十一節）。 */
+    @Query(
+        "UPDATE thumb_state SET state = 'missing', attempts = 0, next_try_at = :now, lost_reason = NULL " +
+            "WHERE state = 'lost'"
+    )
+    suspend fun resetLostToMissing(now: Long)
+
     @Query("DELETE FROM thumb_state")
     suspend fun clear()
 }

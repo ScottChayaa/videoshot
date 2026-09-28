@@ -8,6 +8,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -114,5 +115,45 @@ class CacheRepoTest {
         repo.clearAll()
         assertNull(repo.thumbState("v1", 3, 0))
         assertNull(repo.currentDraft())
+    }
+
+    @Test
+    fun 依狀態計數() = runTest {
+        repo.putThumbStates(
+            listOf(
+                ThumbStateEntity("v1", 3, 0, "ok", 0, 0L, null),
+                ThumbStateEntity("v1", 3, 1, "missing", 0, 0L, null),
+                ThumbStateEntity("v1", 3, 2, "lost", 6, 0L, "retries_exhausted"),
+            )
+        )
+        assertEquals(1, repo.countByState("ok"))
+        assertEquals(1, repo.countByState("missing"))
+        assertEquals(1, repo.countByState("lost"))
+        assertEquals(0, repo.countByState("不存在的狀態"))
+    }
+
+    @Test
+    fun 列出全部lost的格子() = runTest {
+        repo.putThumbStates(
+            listOf(
+                ThumbStateEntity("v1", 3, 0, "lost", 6, 0L, "retries_exhausted"),
+                ThumbStateEntity("v2", 2, 0, "lost", 1, 0L, "video_unavailable"),
+                ThumbStateEntity("v1", 3, 1, "ok", 0, 0L, null),
+            )
+        )
+        val lost = repo.lostThumbs()
+        assertEquals(2, lost.size)
+        assertTrue(lost.all { it.state == "lost" })
+    }
+
+    @Test
+    fun 稍後重試把lost重設成missing並清掉次數與原因() = runTest {
+        repo.putThumbStates(listOf(ThumbStateEntity("v1", 3, 0, "lost", 6, 0L, "retries_exhausted")))
+        repo.resetLostToMissing(now = 500L)
+        val reset = repo.thumbState("v1", 3, 0)!!
+        assertEquals("missing", reset.state)
+        assertEquals(0, reset.attempts)
+        assertEquals(500L, reset.nextTryAt)
+        assertNull(reset.lostReason)
     }
 }

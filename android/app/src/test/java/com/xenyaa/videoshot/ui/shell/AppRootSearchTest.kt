@@ -123,6 +123,9 @@ class AppRootSearchTest {
                 override suspend fun thumbsDueForRetry(now: Long, limit: Int): List<ThumbStateEntity> = emptyList()
                 override suspend fun forgetVideoThumbs(videoId: String) = Unit
                 override suspend fun forgetThumb(videoId: String, sbLevel: Int, frameIndex: Int) = Unit
+                override suspend fun countByState(state: String): Int = 0
+                override suspend fun lostThumbs(): List<ThumbStateEntity> = emptyList()
+                override suspend fun resetLostToMissing(now: Long) = Unit
                 override suspend fun saveDraft(draft: com.xenyaa.videoshot.data.cache.entity.DraftEntity) = Unit
                 override suspend fun currentDraft(): com.xenyaa.videoshot.data.cache.entity.DraftEntity? = null
                 override suspend fun clearDraft() = Unit
