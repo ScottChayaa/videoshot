@@ -158,7 +158,7 @@ class DetailViewModel(
 internal fun availabilityOf(page: WatchPage): DetailViewModel.PlayerAvailability {
     page.meta?.let { return DetailViewModel.PlayerAvailability.Ready(it.playableInEmbed) }
     return when (page.result) {
-        FetchResult.FETCH_FAILED ->
+        FetchResult.FETCH_FAILED, FetchResult.RATE_LIMITED ->
             DetailViewModel.PlayerAvailability.Unavailable("沒有網路，無法播放。", retryable = true)
         else ->
             DetailViewModel.PlayerAvailability.Unavailable(

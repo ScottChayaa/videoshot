@@ -291,7 +291,7 @@ class WizardViewModel(
         _status.value = Step1Status.Loading
         val page = data.watchPage(videoId)
         return when (page.result) {
-            FetchResult.FETCH_FAILED -> {
+            FetchResult.FETCH_FAILED, FetchResult.RATE_LIMITED -> {
                 _status.value = Step1Status.Error("取圖需要網路。"); null
             }
 
