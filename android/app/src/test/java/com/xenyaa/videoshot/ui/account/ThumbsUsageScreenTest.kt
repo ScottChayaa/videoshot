@@ -1,0 +1,83 @@
+package com.xenyaa.videoshot.ui.account
+
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import com.xenyaa.videoshot.backfill.BackfillProgress
+import com.xenyaa.videoshot.ui.theme.VideoshotTheme
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [35], qualifiers = "w411dp-h891dp")
+class ThumbsUsageScreenTest {
+
+    @get:Rule val compose = createComposeRule()
+
+    @Test
+    fun 顯示回填進度() {
+        compose.setContent {
+            VideoshotTheme {
+                ThumbsUsageScreen(
+                    usageBytes = 1024,
+                    backfillProgress = BackfillProgress(done = 320, total = 1200, lostCount = 0),
+                    backfillActionError = null,
+                    onBack = {},
+                    onRetryLost = {},
+                    onDeleteLost = {},
+                )
+            }
+        }
+        compose.onNodeWithText("縮圖回填中 320 / 1200").assertIsDisplayed()
+    }
+
+    @Test
+    fun 有無法取回的張數時顯示兩顆按鈕_點擊會呼叫callback() {
+        var retried = false
+        var deleted = false
+        compose.setContent {
+            VideoshotTheme {
+                ThumbsUsageScreen(
+                    usageBytes = 1024,
+                    backfillProgress = BackfillProgress(done = 100, total = 100, lostCount = 12),
+                    backfillActionError = null,
+                    onBack = {},
+                    onRetryLost = { retried = true },
+                    onDeleteLost = { deleted = true },
+                )
+            }
+        }
+        compose.onNodeWithText("無法取回 12 張").assertIsDisplayed()
+        compose.onNodeWithText("稍後重試").performClick()
+        assert(retried)
+        compose.onNodeWithText("刪除這些收藏").performClick()
+        // 「刪除這些收藏」先跳確認框，onDeleteLost 要等確認框裡的【刪除】按下去才觸發。
+        compose.onNodeWithText("刪除這些收藏？").assertIsDisplayed()
+        assert(!deleted)
+        compose.onNodeWithText("刪除").performClick()
+        assert(deleted)
+    }
+
+    @Test
+    fun 沒有無法取回的張數時不顯示這兩顆按鈕() {
+        compose.setContent {
+            VideoshotTheme {
+                ThumbsUsageScreen(
+                    usageBytes = 1024,
+                    backfillProgress = BackfillProgress(done = 100, total = 100, lostCount = 0),
+                    backfillActionError = null,
+                    onBack = {},
+                    onRetryLost = {},
+                    onDeleteLost = {},
+                )
+            }
+        }
+        compose.onNodeWithText("稍後重試").assertDoesNotExist()
+    }
+}

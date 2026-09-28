@@ -71,6 +71,7 @@ import com.xenyaa.videoshot.wizard.WizardScreen
 import com.xenyaa.videoshot.wizard.WizardViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -752,10 +753,22 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                 onBackupNowClick = accountVm::backupNow,
                                 onRestoreClick = { nav = nav.push(Dest.RestoreFlow) },
                             )
-                            AccountSection.THUMBS -> ThumbsUsageScreen(
-                                usageBytes = accountState.storageUsageBytes,
-                                onBack = { nav = nav.pop() ?: nav },
-                            )
+                            AccountSection.THUMBS -> {
+                                LaunchedEffect(Unit) {
+                                    while (true) {
+                                        accountVm.refreshBackfillProgress()
+                                        delay(3_000)
+                                    }
+                                }
+                                ThumbsUsageScreen(
+                                    usageBytes = accountState.storageUsageBytes,
+                                    backfillProgress = accountState.backfillProgress,
+                                    backfillActionError = accountState.backfillActionError,
+                                    onBack = { nav = nav.pop() ?: nav },
+                                    onRetryLost = accountVm::retryLostThumbs,
+                                    onDeleteLost = accountVm::deleteLostThumbs,
+                                )
+                            }
                             AccountSection.CAPTURE -> CaptureSettingScreen(
                                 current = accountState.filterStrength,
                                 onBack = { nav = nav.pop() ?: nav },
