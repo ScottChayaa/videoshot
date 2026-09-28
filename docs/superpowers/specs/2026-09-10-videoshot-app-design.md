@@ -1058,8 +1058,14 @@ storyboard 縮圖、`cache.db`、草稿、設定值、Gemini 金鑰都不備份�
   ⏳ 確認它屬於免安全審查的非敏感 scope。
 - 取捨：隱藏資料夾讓使用者不會誤刪誤改備份檔，代價是在 Drive 網頁上看不到它。
 - OAuth 同意畫面**必須發佈到 Production** —— 停在 Testing 狀態的 refresh token 7 天就失效，自動備份會悄悄停掉。
-- **OAuth client 所屬的 Google Cloud 專案要長期沿用。** appDataFolder 以 Cloud 專案為界，日後的 iOS 版或 Chrome 擴充功能
-  必須是**同一個專案**底下的另一個 OAuth client，才看得到這台手機的備份（⏳ 實作備份時確認；見第十八節）。
+- **OAuth client 所屬的 Google Cloud 專案要長期沿用。** appDataFolder 以「Google 帳號＋Cloud 專案」為界，
+  跟 OAuth client 的類型或個別 client 無關——**已實測確認**（2026-09-28）：同一個 Cloud 專案下，
+  Android app 用 `videoshot-dev` 這個 Android 類型 OAuth client 上傳的備份，換一個完全不同的
+  OAuth client（`videoshot-signin-audience`，網頁應用程式類型）透過 OAuth 2.0 Playground 走
+  `drive.appdata` scope 授權，一樣能在 `GET .../files?spaces=appDataFolder` 查到同一份檔案
+  （`library-20260928-1150.db.gz`，appProperties 完全對得上）。所以日後的 iOS 版或 Chrome
+  擴充功能只要掛在**同一個 Cloud 專案**底下（不論建立哪一種類型、哪一個 OAuth client），就能看到
+  這台手機的備份，不需要額外協調 client 層級的一致性。
 - **Google 連結是選用的**：不連結 app 也完整可用，只是沒有備份。
 
 ### 備份
@@ -1307,7 +1313,6 @@ OAuth client 綁定 APK 的簽章憑證，**debug 與 release 用不同的憑證
 | 項目 | 位置 | 何時確認 |
 |---|---|---|
 | `drive.appdata` 是否屬於非敏感 scope | 第十節 | 備份階段開工前 |
-| 同一 Cloud 專案的不同 OAuth client 是否共用 appDataFolder | 第十節、第十八節 | 備份階段 |
 | 回填節流參數 | 第十一節 | 回填階段 |
 | **廣告偵測 `.ad-showing` 是否有效** | 第五節、第十二節 | POC 未能觸發廣告。**階段 4c 已實作**（偵測得到就擋、偵測不到不擋流程），但驗收整輪仍未遇到廣告，**依舊未驗證**。embed 的 DOM 是行動版，但播放器容器**確實帶 `ytp-*` 類名**，所以選擇器仍有機會成立 —— 要實際觸發廣告才算數 |
 | 首頁月份標籤：換行 vs 橫向捲動 | 第六節 | 暫定橫向捲動（沿用原型） |
@@ -1321,6 +1326,10 @@ OAuth client 綁定 APK 的簽章憑證，**debug 與 release 用不同的憑證
 `geminiQueryPrompt()`，要求模型只回 JSON、欄位對齊 `ParsedQuery`。**尚未用真的 Gemini 金鑰
 實際跑過調品質**——帳號頁的金鑰輸入 UI 是階段 11 的範圍，屆時有金鑰可以測時再視實際回應
 品質調整 prompt 用詞。
+2026-09-28 由階段 12 實測解決：同一 Cloud 專案的不同 OAuth client 是否共用 appDataFolder——
+**共用**。用 OAuth 2.0 Playground 換一個完全不同的 OAuth client（網頁應用程式類型）授權
+`drive.appdata`，查得到 Android app（Android 類型 OAuth client）上傳的同一份備份檔案，
+appProperties 完全對得上。結論已寫回第十節。
 
 ---
 

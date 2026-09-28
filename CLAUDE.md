@@ -6,7 +6,7 @@
 - 舊名 **yt-space**（2026-09-11 改名）。舊名仍留在 `src/`、`static/`、`tests/`（web 版，清理階段整批刪除）
   與原型的 localStorage key `ytspace2_*`，這些刻意不改。
 
-**目前進度：階段 0～3 完成，階段 4a（精靈外殼與第一步）完成（2026-09-14）、階段 4b（縮圖牆與收斂）、階段 4c（截圖與效能閘門）完成（2026-09-15）、階段 6（第三步、完成、草稿）、階段 7（App 外殼、首頁、Lightbox）完成（2026-09-16）、階段 8（分類資料夾）完成（2026-09-23）、階段 9（詳情頁）完成並實機驗收（2026-09-24）、階段 10（查詢）完成（2026-09-25，2026-09-26 完成全分支最終審查修正）、階段 11（帳號頁、設定、標籤管理）完成（2026-09-27）、階段 12（Google Drive 備份與還原）完成程式碼與全分支審查修正（2026-09-28，實機驗收待 T12.1 手動設定）。
+**目前進度：階段 0～3 完成，階段 4a（精靈外殼與第一步）完成（2026-09-14）、階段 4b（縮圖牆與收斂）、階段 4c（截圖與效能閘門）完成（2026-09-15）、階段 6（第三步、完成、草稿）、階段 7（App 外殼、首頁、Lightbox）完成（2026-09-16）、階段 8（分類資料夾）完成（2026-09-23）、階段 9（詳情頁）完成並實機驗收（2026-09-24）、階段 10（查詢）完成（2026-09-25，2026-09-26 完成全分支最終審查修正）、階段 11（帳號頁、設定、標籤管理）完成（2026-09-27）、階段 12（Google Drive 備份與還原）完成並實機驗收（2026-09-28，含 T12.1 手動設定與 T12.7 appDataFolder 研究）。
 三套測試：JVM **653 個**（`:core:test` 143 ＋ `:app:testDebugUnitTest` 510，2026-09-26）全綠；
 **儀器測試 `OK (150 tests)`**（`am instrument`，2107113SG 實機，2026-09-24）——階段 9 Task 1 新增的 4 個 androidTest 方法已在實機上真的跑過並通過。
 階段 10 新增了約 23 個 androidTest 方法（`SearchRepoTest.kt`／`OkHttpGeminiClientTest.kt`／
@@ -108,8 +108,17 @@ API** 才會被完全略過的那種 bug，直到這次真機手動驗收才顯�
 `DriveBackupStoreTest` 的 OkHttp 連線重試問題）。往後幾個階段如果又有 Play Services／Drive／
 其他外部 SDK 呼叫只做到編譯驗證，收尾前應該提醒盡快找機會上真機手動走一次，不能只憑「編譯過＋
 單元測試綠燈」就當作完成。
-T12.7（同一個 Cloud 專案下不同 OAuth client 是否共用 appDataFolder）維持留到之後的研究項目，
-不算本階段疏漏。
+**T12.7（同一個 Cloud 專案下不同 OAuth client 是否共用 appDataFolder）已在 2026-09-28 實測解決：
+共用。** appDataFolder 是以「Google 帳號＋Cloud 專案」為界，跟 OAuth client 無關——用
+OAuth 2.0 Playground 換一個完全不同的 OAuth client（`videoshot-signin-audience`，網頁應用程式
+類型）授權 `drive.appdata`，一樣查得到 `videoshot-dev`（Android 類型 client）上傳的那份備份，
+appProperties 完全對得上。結論已回寫規格第十節與第十六節（開放項目索引該列已解除）、計畫文件
+Task 15。日後 iOS 版或 Chrome 擴充功能只要掛在同一個 Cloud 專案下即可看到同一份備份。
+**這個過程也讓 Task 0 的實際登記方式跟原計畫預期的不一樣**：Google Cloud 重新設計過的
+「Google Auth Platform」介面裡，Android 類型 OAuth client 的 SHA-1 欄位是單一欄位，沒有
+「新增指紋」這種多值做法，所以改成建立兩個獨立的 Android client（`videoshot-dev`／
+`videoshot-release`，套件名稱都是 `com.xenyaa.videoshot`）分別登記 debug／release 的 SHA-1，
+功能上等效（Play Services 執行期用套件名稱＋當下簽章憑證比對，跟哪個 client 無關）。
 **開發期間發現並修正的整合性問題**（都不是任何單一任務各自的實作偏離，是拆成 14 個任務後、
 組裝起來才會顯形的問題，全分支最終審查才抓到）：
 (1) 全新安裝點【從 Google Drive 還原】原本是條死路——沒有連結 Google 帳號的入口，直接去查

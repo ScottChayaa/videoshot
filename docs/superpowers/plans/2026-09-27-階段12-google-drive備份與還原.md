@@ -52,9 +52,18 @@
      ```
      2026-09-28 用這個指令取過一次，debug SHA-1 是 `A9:AB:05:0E:2B:60:8D:67:52:F6:1F:3E:3F:89:5F:8C:4D:0B:B5:2F`
      （Google Cloud Console 的 SHA-1 欄位含冒號或去掉冒號都收）。
-     release 憑證要等正式簽名 keystore 建好後再補登記（同一個指令、換成 release keystore 的路徑與密碼即可，
-     一樣會踩到同一個語系 bug，一樣加 `LANG=en_US.UTF-8`）；同一個 Android OAuth 用戶端可以登記多個
-     SHA-1 指紋，不必為 debug/release 分別建立兩個用戶端。
+     release 憑證用 `keytool -genkeypair` 另外建了一把獨立的 release keystore（不進 git，妥善保管，
+     遺失等於換 app 身分），取得的 SHA-1 是 `0B:A1:2B:8E:8C:2F:EB:89:5F:14:FB:A8:08:77:5B:DE:98:AA:BC:24`。
+
+     **實際登記方式跟原計畫預期的不一樣**：Google 重新設計過的新版「Google Auth Platform」介面
+     裡，Android 類型用戶端的 SHA-1 欄位是**單一欄位**，不是舊版介面那種「清單＋新增指紋」——
+     2026-09-28 實測這個新介面沒有找到能掛多組 SHA-1 的做法。改成**建立兩個獨立的 Android 類型
+     用戶端**，套件名稱都是 `com.xenyaa.videoshot`，分別命名 `videoshot-dev`（debug SHA-1）與
+     `videoshot-release`（release SHA-1）。這在功能上等效——Play Services 在執行期是用「套件
+     名稱＋當下 APK 的簽章憑證」去比對，debug 版跑起來會對上 `videoshot-dev`、release 版會對上
+     `videoshot-release`，程式碼裡完全不會出現任何 Android client 的 ID，不受影響。**但這個
+     做法讓 T12.7 的開放問題變得更直接相關**——appDataFolder 如果是以 OAuth client 為界而不是
+     以 Cloud 專案為界，debug 版備份的檔案可能在 release 版上看不到，見下面 Task 15 的說明。
 5. **再建立第二個 OAuth 用戶端 ID，應用程式類型「網頁應用程式」**（例如命名 `videoshot-signin-audience`，不需要填「已授權的重新導向 URI」）。這個 client ID **只用來當 Credential Manager「使用 Google 登入」的 ID token 受眾**，本身不是密鑰，可以直接寫進程式碼／resource（Task 7 會用到）。
 6. 把步驟 5 拿到的網頁用戶端 ID 交給實作者，寫入 `app/src/main/res/values/strings.xml` 的新字串資源 `google_signin_web_client_id`（Task 7 的 Step 1 會做這件事；沒有這個值前可以先填一個明顯的佔位字串，讓專案能編譯，但**帳號連結功能在真機上不會成功**，直到換成真的值）。
 
@@ -3769,34 +3778,38 @@ git commit -m "feat(帳號): 全新安裝的第一個畫面——從 Drive 還�
 
 ---
 
-## Task 15（後續、非本次合併的阻塞項）：T12.7——appDataFolder 是否跨 OAuth client 共用
+## Task 15（已解決）：T12.7——appDataFolder 是否跨 OAuth client 共用
 
-這不是一個程式碼 Task，是規格第十八節的一個 ⏳ 開放項目，**依賴 Task 0 真的建好兩個 OAuth
-client 之後才能實測**，跟 Task 1～14 的程式碼完成度無關，不擋這次的合併。
+**2026-09-28 實測完成，結論：共用。** 這原本是規格第十八節的一個 ⏳ 開放項目，Task 0 的
+Android OAuth client（`videoshot-dev`）真的建好、且上傳過一份真的備份之後，跟 scott 一起
+實測驗證掉了。
 
-**問題**：同一個 Google Cloud 專案下，Android OAuth client（本階段用）跟未來 iOS／Chrome 擴充功能
-會用的另一個 OAuth client，看到的 `appDataFolder` 是不是同一個？規格第十節：「日後的 iOS 版或
-Chrome 擴充功能必須是同一個專案底下的另一個 OAuth client，才看得到這台手機的備份」——這句話
-目前是**假設**，還沒有真的驗證過。
+**驗證過程**：
+1. 同一個 Cloud 專案下另外用到 `videoshot-signin-audience`（Task 0 步驟 5 建的網頁應用程式類型
+   client，跟上傳備份用的 `videoshot-dev` Android 類型 client 是完全不同的 client）。
+2. 用 [OAuth 2.0 Playground](https://developers.google.com/oauthplayground)（設定成使用
+   `videoshot-signin-audience` 的 client id／secret，並在它的「已授權的重新導向 URI」加上
+   `https://developers.google.com/oauthplayground`），走一次 `drive.appdata` scope 的授權碼
+   流程，登入同一個 Google 帳號（mmx112945@gmail.com）。
+3. 拿到 access token 後打 `GET https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&fields=files(id,name,createdTime,size,appProperties)`。
+4. **回應裡看得到** Android app 上傳的那份備份：`library-20260928-1150.db.gz`，
+   `appProperties` 的 `deviceName: 2107113SG`、`shotCount: 5` 完全對得上。
 
-**驗證方式**（Task 0 完成、且這份計畫的 Task 1～12 都做完、真的上傳過至少一份備份之後）：
+**結論**：appDataFolder 以「Google 帳號＋Cloud 專案」為界，跟 OAuth client 的類型或個別
+client 無關。日後的 iOS 版或 Chrome 擴充功能只要掛在同一個 Cloud 專案下即可看到同一份備份，
+不需要額外協調 OAuth client 層級的一致性。
 
-1. 在同一個 Google Cloud 專案下，額外建立第三個 OAuth client（型別「桌面應用程式」，
-   本地測試最方便）。
-2. 用 [OAuth 2.0 Playground](https://developers.google.com/oauthplayground) 或一段簡單的
-   Python／curl 腳本，拿這個桌面用戶端的 client id／secret，走一次 OAuth 授權碼流程，
-   scope 填 `https://www.googleapis.com/auth/drive.appdata`，同一個 Google 帳號登入。
-3. 拿到 access token 後打 `GET https://www.googleapis.com/drive/v3/files?spaces=appDataFolder`，
-   看看回傳的檔案清單裡**有沒有** Android app 上傳過的那份 `library-*.db.gz`。
-4. 兩種結果都要記錄下來：
-   - **看得到**：appDataFolder 以 Google 帳號＋Cloud 專案為界，跟 OAuth client 無關——
-     規格第十節「日後 iOS 版...另一個 OAuth client」這句話要**刪掉「另一個 OAuth client」
-     這個限定**，改成「同一個 Cloud 專案即可看到」。
-   - **看不到**：appDataFolder 確實以 OAuth client 為界——規格維持現有寫法即可，但要補一句
-     「已實測確認」並附上驗證日期，同時第十八節那一列的 ⏳ 標記要解除。
-5. 不管哪個結果，都要把 `docs/superpowers/specs/2026-09-10-videoshot-app-design.md` 第十節與
-   第十八節同步更新（CLAUDE.md「規格永遠是現況」的維護規則），並在 CLAUDE.md 的階段 12 進度段落
-   補上這次的實測結論。
+已回寫到 `docs/superpowers/specs/2026-09-10-videoshot-app-design.md` 第十節（Google 帳號與
+Drive 權限那一段）與第十六節（開放項目索引，該列已移出表格、記進解決紀錄）。
+
+**過程中的一個插曲，記下來給以後參考**：一開始誤以為「桌面應用程式」類型的 OAuth client 可以
+直接用在 OAuth Playground 上，結果被 Google 擋下 `redirect_uri_mismatch`——**OAuth Playground
+需要「網頁應用程式」類型的 client，並且要把 `https://developers.google.com/oauthplayground`
+登記成授權重新導向 URI**，桌面應用程式類型不支援這種固定 redirect URI 的驗證方式。另外，
+Google Cloud 重新設計過的「Google Auth Platform」介面裡，Android 類型 OAuth client 的
+SHA-1 憑證指紋欄位是單一欄位（不是舊版介面那種「清單＋新增指紋」按鈕），所以這個階段最後
+是用**兩個獨立的 Android client**（`videoshot-dev`／`videoshot-release`）分別登記 debug／
+release 的 SHA-1，不是原計畫預期的「一個 client 掛兩個指紋」——細節記在 Task 0 前置條件段落。
 
 ---
 
