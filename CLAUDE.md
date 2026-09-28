@@ -86,10 +86,28 @@ incremental 編譯的綠燈；下面「兩個開發期間發現的教訓」有�
 client）保留這個預設值不變——這是合理的韌性行為，不該跟著關掉。
 **實機驗收 T12.1（Google Cloud 專案、OAuth 同意畫面發佈到 Production、Android／網頁兩個 OAuth
 client、debug SHA-1 登記、`google_signin_web_client_id` 換成真的值）已經在 2026-09-28 做完**；
-release 憑證的 SHA-1 要等正式簽名 keystore 建好後再補登記。**帳號連結／備份／還原這條真的碰
-Google Drive 的完整路徑（連結帳號→立即備份→從 Drive 還原→中斷連結、全新安裝的首次開啟畫面）
-尚未在實機上手動走過一次**——T12.1 完成、androidTest 補測完成，但這段手動 UI 驗收還沒做，下次
-接上實機時可以直接走。
+release 憑證的 SHA-1 要等正式簽名 keystore 建好後再補登記。
+**2026-09-28 同一天，帳號連結／立即備份／從 Drive 還原／中斷連結、真的碰 Google Drive 的完整
+手動路徑也在 2107113SG 實機上走過一次，全部成功**：連結 Google 帳號（Credential Manager 選擇
+帳戶畫面第一次真的跳出來，選完帳號後直接進入已連結狀態，沒有另外跳出 Drive 授權同意畫面——
+代表 `drive.appdata` 這個窄 scope 首次要求時 Play Services 沒有另外插一個確認步驟）、hero 頭像
+字母（"Scott Lin" 顯示「S」）、【立即備份】（真的 `VACUUM INTO`→壓縮→上傳到 Drive appDataFolder，
+「上次備份」正確顯示「剛剛」）、【從 Drive 還原】（清單正確列出剛上傳那份的日期／張數／裝置名稱／
+大小，確認框文案正確，還原後 app 真的重啟、資料完整、連結狀態跨重啟保留）。
+**過程中發現並修掉一個真正的中斷連結 bug**：第一次按【中斷連結】炸了兩次，都顯示「中斷連結失敗」
+——`backupError` 有正確顯示在畫面上（驗證了前一輪修復波 I4 那個「錯誤要顯示在 BackupScreen」的
+修正確實有效，不然這個失敗會完全看不到）。這個套件刻意不寫 log，臨時加一行 `Log.e` 重新編譯安裝
+才抓到根因：`GisGoogleAuth.unlink()` 組 `RevokeAccessRequest` 時只呼叫了 `.setAccount(account)`
+就直接 `.build()`，沒呼叫 `.setScopes(...)`——Play Services 內部對沒設定的 scopes 欄位做
+`.toArray()` 直接 NullPointerException。程式碼裡的註解其實早就寫著「官方範例是
+`.setAccount(account).setScopes(scopes)`」，卻忘了真的加那一行——這個缺漏在編譯期完全看不出來
+（語法合法，只是執行期缺必要欄位），是 Task 7 做完當時**只編譯驗證過、從沒真的呼叫過 Play Services
+API** 才會被完全略過的那種 bug，直到這次真機手動驗收才顯形。修好後移除臨時的 debug log，重測
+通過，中斷連結正確回到「尚未設定備份」畫面。commit `52032c8`。
+**教訓**：這是階段 12 第二次「只編譯驗證過的 androidTest／程式碼在真機上才炸」的案例（第一次是
+`DriveBackupStoreTest` 的 OkHttp 連線重試問題）。往後幾個階段如果又有 Play Services／Drive／
+其他外部 SDK 呼叫只做到編譯驗證，收尾前應該提醒盡快找機會上真機手動走一次，不能只憑「編譯過＋
+單元測試綠燈」就當作完成。
 T12.7（同一個 Cloud 專案下不同 OAuth client 是否共用 appDataFolder）維持留到之後的研究項目，
 不算本階段疏漏。
 **開發期間發現並修正的整合性問題**（都不是任何單一任務各自的實作偏離，是拆成 14 個任務後、
