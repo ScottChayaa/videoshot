@@ -74,16 +74,24 @@ Gemini 金鑰輸入／清除（`GeminiKeyScreen`，沿用階段 10 就做好的 
 三套測試：JVM **766 個**（`:core:test` 167 ＋ `:app:testDebugUnitTest` 599，2026-09-28）全綠——
 比階段 11 完成時的 689 個多了 77 個，且已用**乾淨的 git worktree 獨立重跑**驗證過（不是只信
 incremental 編譯的綠燈；下面「兩個開發期間發現的教訓」有說明為什麼這件事本階段特別在意）。
-新增的 androidTest（`DriveBackupStoreTest.kt`／`BackupSnapshotterTest.kt`／`RestoreManagerTest.kt`
-等）**只編譯驗證過，尚未在實機上真的跑過**——這台開發機沒有連接的裝置（規格第十三節同樣的但書），
-下次接上實機時要照 CLAUDE.md 既有的三套測試流程補測。
-**實機驗收目前完全卡在 T12.1**：Google Cloud 專案、OAuth 同意畫面發佈到 Production、Android／
-網頁兩個 OAuth client、debug／release SHA-1 登記，這是 scott 要手動做的前置步驟（見計畫文件
-`docs/superpowers/plans/2026-09-27-階段12-google-drive備份與還原.md` 的「前置條件」段落），
-Claude 無法代為執行。做完之後才能把 `app/src/main/res/values/strings.xml` 的
-`google_signin_web_client_id` 換成真的值，帳號連結／備份／還原的整條路目前在真機上一定卡在第一步。
-T12.7（同一個 Cloud 專案下不同 OAuth client 是否共用 appDataFolder）也依賴 T12.1，是刻意留到
-之後的研究項目，不算本階段疏漏。
+**2026-09-28 補測，T12.1 完成後**：`DriveBackupStoreTest.kt`／`BackupSnapshotterTest.kt`／
+`RestoreManagerTest.kt` 共 13 個 androidTest 方法已在 2107113SG 實機上用 `am instrument` 真的
+跑過並全過（`OK (13 tests)`），不再只是編譯驗證。過程中抓到一個只有真機才會顯形的問題並修掉：
+`DriveBackupStoreTest` 用 `SocketEffect.CloseSocket()` 模擬上傳中途斷線的兩個測試，在真機的
+真實 TCP 環境下，OkHttp 預設的 `retryOnConnectionFailure`（連線失敗透明重試）會把模擬斷線自己
+吃掉、直接用新連線重送同一個請求拿到乾淨回應——導致測試真正要驗的
+`DriveBackupStore` 自己的 `catch(IOException)`／`queryResumeOffset` 續傳邏輯根本沒被觸發到。
+這不是續傳邏輯本身的 bug（實際上傳結果仍然成功，只是走的路徑跟測試預期的不一樣）；修法是**只在
+測試用的 `OkHttpClient` 關掉 `retryOnConnectionFailure`**，正式環境（`AppContainer` 組出來的那個
+client）保留這個預設值不變——這是合理的韌性行為，不該跟著關掉。
+**實機驗收 T12.1（Google Cloud 專案、OAuth 同意畫面發佈到 Production、Android／網頁兩個 OAuth
+client、debug SHA-1 登記、`google_signin_web_client_id` 換成真的值）已經在 2026-09-28 做完**；
+release 憑證的 SHA-1 要等正式簽名 keystore 建好後再補登記。**帳號連結／備份／還原這條真的碰
+Google Drive 的完整路徑（連結帳號→立即備份→從 Drive 還原→中斷連結、全新安裝的首次開啟畫面）
+尚未在實機上手動走過一次**——T12.1 完成、androidTest 補測完成，但這段手動 UI 驗收還沒做，下次
+接上實機時可以直接走。
+T12.7（同一個 Cloud 專案下不同 OAuth client 是否共用 appDataFolder）維持留到之後的研究項目，
+不算本階段疏漏。
 **開發期間發現並修正的整合性問題**（都不是任何單一任務各自的實作偏離，是拆成 14 個任務後、
 組裝起來才會顯形的問題，全分支最終審查才抓到）：
 (1) 全新安裝點【從 Google Drive 還原】原本是條死路——沒有連結 Google 帳號的入口，直接去查
