@@ -238,4 +238,25 @@ class BackfillManagerTest {
 
         assertEquals(listOf(1L), deletedIds)
     }
+
+    @Test
+    fun 重新定位找不到對應shot的格子照樣走退避而不是卡住() = runTest {
+        library = object : FakeLibraryRepo() {
+            override suspend fun shotsOfVideo(videoId: String): List<ShotRow> = emptyList()  // 孤兒：沒有對應的shot
+        }
+        cache = FakeCacheRepo()
+        // 用一個不存在於SPEC的sbLevel（9），強制觸發relocation分支
+        // （因為pickLevel會從available levels回落到不同的level）
+        cache.putThumbStates(listOf(ThumbStateEntity("v1", 9, 0, "missing", 0, 0L, null)))
+        thumbs = FakeThumbs()
+        watchPageAnswer = { WatchPage(FetchResult.OK, VideoMeta("v1", "t", "c", "2026-01-01T00:00:00Z", 60, "public", true), SPEC_STRING) }
+        harvestAnswer = HarvestResult(written = emptyList(), failed = emptyList(), degradedToCover = false)
+
+        manager().runBatch()
+
+        // 修復前：entry 會被 mapNotNull 悄悄丟掉，attempts 永遠不會增加（卡在 missing）
+        // 修復後：entry 應該被送進 markRetryOrGiveUp，attempts 應該增加到 1
+        val state = cache.thumbState("v1", 9, 0)!!
+        assertEquals(1, state.attempts)
+    }
 }
