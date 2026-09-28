@@ -65,7 +65,11 @@ class AccountViewModel(
             val stats = deps.stats(monthOf(today()))
             val tags = deps.tags()
             val usage = deps.storageUsageBytes()
-            _state.value = _state.value.copy(stats = stats, tags = tags, storageUsageBytes = usage, loading = false, error = null)
+            val backfill = deps.backfillProgress()
+            _state.value = _state.value.copy(
+                stats = stats, tags = tags, storageUsageBytes = usage,
+                backfillProgress = backfill, loading = false, error = null,
+            )
         }
     }
 
@@ -111,6 +115,46 @@ class AccountViewModel(
                 throw e
             } catch (e: Throwable) {
                 _state.value = _state.value.copy(backingUp = false, backupError = "備份失敗，請確認網路後再試一次")
+            }
+        }
+    }
+
+    /** 「縮圖」子畫面開著時輕量輪詢用——不影響 `loading`／`error`,只更新這一塊。 */
+    fun refreshBackfillProgress() {
+        viewModelScope.launch {
+            try {
+                _state.value = _state.value.copy(backfillProgress = deps.backfillProgress())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // 輪詢失敗不用打擾使用者——下一輪再試就好
+            }
+        }
+    }
+
+    fun retryLostThumbs() = launchBackfillActionGuarded {
+        deps.retryLostThumbs()
+        refreshBackfillProgress()
+    }
+
+    fun deleteLostThumbs() = launchBackfillActionGuarded {
+        deps.deleteLostThumbs()
+        refreshBackfillProgress()
+    }
+
+    fun continueBackfillOnMobileData() = launchBackfillActionGuarded {
+        deps.continueBackfillOnMobileData()
+    }
+
+    private fun launchBackfillActionGuarded(block: suspend () -> Unit): Job {
+        _state.value = _state.value.copy(backfillActionError = null)
+        return viewModelScope.launch {
+            try {
+                block()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                _state.value = _state.value.copy(backfillActionError = "操作失敗，請再試一次")
             }
         }
     }

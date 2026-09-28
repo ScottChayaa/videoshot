@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.ui.account
 
 import android.app.Activity
 import android.content.Intent
+import com.xenyaa.videoshot.backfill.BackfillProgress
 import com.xenyaa.videoshot.backup.LinkOutcome
 import com.xenyaa.videoshot.backup.LinkedGoogleAccount
 import com.xenyaa.videoshot.core.similarity.FilterStrength
@@ -41,4 +42,9 @@ open class FakeAccountDeps : AccountDeps {
 
     override val lastBackupAtEpochSec = MutableStateFlow(0L)
     override suspend fun backupNow(): Boolean = true
+
+    override suspend fun backfillProgress(): BackfillProgress = BackfillProgress(0, 0, 0)
+    override suspend fun retryLostThumbs() = Unit
+    override suspend fun deleteLostThumbs() = Unit
+    override suspend fun continueBackfillOnMobileData() = Unit
 }

@@ -335,6 +335,13 @@ class AppContainer(context: Context) : AppRootDeps {
 
             override val lastBackupAtEpochSec = settings.lastBackupAt
             override suspend fun backupNow() = backupManager.runIfDue(force = true)
+
+            override suspend fun backfillProgress() = backfillManager.progress()
+            override suspend fun retryLostThumbs() = backfillManager.retryLost()
+            override suspend fun deleteLostThumbs() = backfillManager.deleteLostShots()
+            override suspend fun continueBackfillOnMobileData() {
+                com.xenyaa.videoshot.backfill.scheduleBackfill(appContext, allowMobileData = true, replace = true)
+            }
         }
     }
 

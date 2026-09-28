@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.ui.account
 
 import android.app.Activity
 import android.content.Intent
+import com.xenyaa.videoshot.backfill.BackfillProgress
 import com.xenyaa.videoshot.backup.LinkOutcome
 import com.xenyaa.videoshot.backup.LinkedGoogleAccount
 import com.xenyaa.videoshot.core.similarity.FilterStrength
@@ -112,6 +113,22 @@ class AccountViewModelTest {
             lastBackupAtFlow.value = 12345L
             return true
         }
+
+        var backfillProgressValue = BackfillProgress(0, 0, 0)
+        override suspend fun backfillProgress(): BackfillProgress = backfillProgressValue
+
+        var retryLostThumbsCalled = false
+        override suspend fun retryLostThumbs() { retryLostThumbsCalled = true }
+
+        var deleteLostThumbsCalled = false
+        var failNextDeleteLostThumbs = false
+        override suspend fun deleteLostThumbs() {
+            deleteLostThumbsCalled = true
+            if (failNextDeleteLostThumbs) throw RuntimeException("刪除失敗")
+        }
+
+        var continueBackfillOnMobileDataCalled = false
+        override suspend fun continueBackfillOnMobileData() { continueBackfillOnMobileDataCalled = true }
     }
 
     private fun vm(deps: AccountDeps = FakeDeps()) = AccountViewModel(deps, today = { "2026-03-14" })
@@ -408,5 +425,42 @@ class AccountViewModelTest {
         viewModel.unlink()
         dispatcher.scheduler.advanceUntilIdle()
         assertNull(viewModel.state.value.backupError)
+    }
+
+    @Test
+    fun 稍後重試呼叫deps() = runTest {
+        val deps = FakeDeps()
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.retryLostThumbs()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(deps.retryLostThumbsCalled)
+    }
+
+    @Test
+    fun 刪除這些收藏失敗時顯示錯誤訊息() = runTest {
+        val deps = FakeDeps()
+        deps.failNextDeleteLostThumbs = true
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.deleteLostThumbs()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("操作失敗，請再試一次", viewModel.state.value.backfillActionError)
+    }
+
+    @Test
+    fun 用行動網路繼續呼叫deps() = runTest {
+        val deps = FakeDeps()
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.continueBackfillOnMobileData()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(deps.continueBackfillOnMobileDataCalled)
     }
 }

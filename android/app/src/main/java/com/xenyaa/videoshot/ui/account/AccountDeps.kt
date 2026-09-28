@@ -48,4 +48,16 @@ interface AccountDeps {
     val lastBackupAtEpochSec: Flow<Long>
     /** @return true 代表真的執行了一次上傳；false 代表（理論上不會發生，因為帳號頁的呼叫永遠是 force=true）什麼都沒做。 */
     suspend fun backupNow(): Boolean
+
+    /** 回填進度（規格第十一節；手冊 §一「回填看得到進度」）。 */
+    suspend fun backfillProgress(): com.xenyaa.videoshot.backfill.BackfillProgress
+
+    /** 【稍後重試】：全部 lost 的格子重設成 missing，立刻排進下一次回填。 */
+    suspend fun retryLostThumbs()
+
+    /** 【刪除這些收藏】：刪掉全部 lost 對應的 shot。 */
+    suspend fun deleteLostThumbs()
+
+    /** 【用行動網路繼續】：這次允許用行動網路,不持久化（規格第四節）。 */
+    suspend fun continueBackfillOnMobileData()
 }

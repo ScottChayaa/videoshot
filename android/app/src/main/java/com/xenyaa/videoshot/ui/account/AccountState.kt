@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.account
 
+import com.xenyaa.videoshot.backfill.BackfillProgress
 import com.xenyaa.videoshot.backup.LinkedGoogleAccount
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.tags.TagKind
@@ -18,6 +19,8 @@ data class AccountState(
     val aiRangeAfterSec: Int = 20,
     val geminiKeySet: Boolean = false,
     val storageUsageBytes: Long = 0L,
+    val backfillProgress: BackfillProgress = BackfillProgress(0, 0, 0),
+    val backfillActionError: String? = null,
     val tags: List<TagUsage> = emptyList(),
     val editor: TagEditor? = null,
     /** 儲存時發現會撞名——這裡放「撞到的那個名字」，畫面用它顯示確認文案。 */
