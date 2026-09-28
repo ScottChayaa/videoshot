@@ -31,6 +31,13 @@ class DriveBackupStoreTest {
             .connectTimeout(2, TimeUnit.SECONDS)
             .readTimeout(2, TimeUnit.SECONDS)
             .callTimeout(5, TimeUnit.SECONDS)
+            // 關掉 OkHttp 內建的連線失敗透明重試——在真機的真實 TCP 環境下，這個預設行為
+            // 會把我們用 SocketEffect.CloseSocket() 模擬的中途斷線自己吃掉、直接重送同一個
+            // request 拿到乾淨的回應，導致 DriveBackupStore 自己的 catch(IOException)／
+            // queryResumeOffset 續傳邏輯根本沒被觸發到——這正是這幾個測試要驗的東西。
+            // 只在測試關掉：正式環境（AppContainer 組出來的那個 OkHttpClient）保留這個
+            // 預設值是合理的韌性行為，不該跟著關掉。
+            .retryOnConnectionFailure(false)
             .build(),
         accessToken = { "fake-token" },
         io = Dispatchers.IO,
