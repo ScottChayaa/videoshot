@@ -17,7 +17,16 @@ enum class FetchResult {
     /** 連 videoDetails 與 playabilityStatus 都撈不到 —— 頁面結構變了，解析器失效 */
     PARSE_FAILED,
 
-    /** HTTP 非 2xx 或網路錯誤。這一類由 :app 的 youtube 模組產生，解析器不會回傳它 */
+    /**
+     * HTTP 429，或回應成功但不像正常的 watch page（規格第十一節「遇到 429 或
+     * 『確認你不是機器人』頁面」）。這一類跟 [PARSE_FAILED] 一樣由 :app 的 youtube
+     * 模組產生，解析器只有在判定是 429 時才會直接回這個值；一般的頁面結構改版
+     * 仍然走 [PARSE_FAILED]（回填層會把兩者一視同仁地當「整批暫停」處理，
+     * 見 `BackfillManager` 的 KDoc）。
+     */
+    RATE_LIMITED,
+
+    /** HTTP 非 2xx（429 除外）或網路錯誤。這一類由 :app 的 youtube 模組產生，解析器不會回傳它 */
     FETCH_FAILED,
 }
 
