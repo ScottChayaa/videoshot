@@ -73,6 +73,12 @@ class OkHttpYoutubeTest {
     }
 
     @Test
+    fun HTTP_429_回_rate_limited() = runTest {
+        server.enqueue(MockResponse(code = 429))
+        assertEquals(FetchResult.RATE_LIMITED, youtube.watchPage("v1").result)
+    }
+
+    @Test
     fun 連不上也回_fetch_failed() = runTest {
         server.close()
         assertEquals(FetchResult.FETCH_FAILED, youtube.watchPage("v1").result)

@@ -29,6 +29,9 @@ class OkHttpYoutube(
             .build()
         try {
             client.newCall(request).execute().use { response ->
+                if (response.code == 429) {
+                    return@use WatchPage(FetchResult.RATE_LIMITED, null, null)
+                }
                 if (!response.isSuccessful) {
                     return@use WatchPage(FetchResult.FETCH_FAILED, null, null)
                 }
