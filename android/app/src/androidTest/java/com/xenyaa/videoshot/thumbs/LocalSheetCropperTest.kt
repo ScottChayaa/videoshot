@@ -34,7 +34,7 @@ class LocalSheetCropperTest {
         root = File(ctx.cacheDir, "thumbs-test-${System.nanoTime()}")
         sheetsDir = File(ctx.cacheDir, "sheets-test-${System.nanoTime()}")
         sheetsDir.mkdirs()
-        thumbs = FileThumbs(root, Dispatchers.IO) { null }
+        thumbs = FileThumbs(root, Dispatchers.IO, { null })
         cropper = LocalSheetCropper(thumbs, Dispatchers.IO, Dispatchers.Default)
     }
 

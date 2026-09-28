@@ -48,7 +48,7 @@ class ShotDeleterTest {
         thumbsRoot = File(context.cacheDir, "thumbs-test-${System.nanoTime()}")
         library = RoomLibraryRepo(libraryDb, Dispatchers.IO)
         cache = RoomCacheRepo(cacheDb, Dispatchers.IO)
-        val thumbs = FileThumbs(thumbsRoot, Dispatchers.IO) { library.shotImage(it) }
+        val thumbs = FileThumbs(thumbsRoot, Dispatchers.IO, { library.shotImage(it) })
         deleter = ShotDeleter(library, thumbs, cache, Dispatchers.IO)
     }
 

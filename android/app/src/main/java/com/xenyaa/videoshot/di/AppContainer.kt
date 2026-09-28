@@ -128,7 +128,7 @@ class AppContainer(context: Context) : AppRootDeps {
     val youtube: Youtube by lazy { OkHttpYoutube(httpClient, Dispatchers.IO) }
 
     val thumbs: Thumbs by lazy {
-        FileThumbs(File(appContext.filesDir, "thumbs"), Dispatchers.IO) { libraryRepo.shotImage(it) }
+        FileThumbs(File(appContext.filesDir, "thumbs"), Dispatchers.IO, { libraryRepo.shotImage(it) })
     }
 
     /**

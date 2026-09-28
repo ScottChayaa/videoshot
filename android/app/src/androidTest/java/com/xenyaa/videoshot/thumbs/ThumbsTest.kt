@@ -24,7 +24,7 @@ class ThumbsTest {
             InstrumentationRegistry.getInstrumentation().targetContext.filesDir,
             "thumbs-test-${System.nanoTime()}",
         )
-        thumbs = FileThumbs(root, Dispatchers.IO) { id -> images[id] }
+        thumbs = FileThumbs(root, Dispatchers.IO, { id -> images[id] })
     }
 
     private fun shot(
@@ -88,5 +88,17 @@ class ThumbsTest {
     @Test
     fun 不同層級各自分開放() {
         assertTrue(thumbs.fileOf(ThumbKey("v1", 3, 0)) != thumbs.fileOf(ThumbKey("v1", 2, 0)))
+    }
+
+    @Test
+    fun 已確定lost的格子回預留圖而不是封面圖() = runTest {
+        val lostThumbs = FileThumbs(root, Dispatchers.IO, { id -> images[id] }, isLost = { it.frameIndex == 9 })
+        assertEquals(ThumbSource.Placeholder, lostThumbs.thumbFor(shot(frameIndex = 9)))
+    }
+
+    @Test
+    fun 還沒確定lost的缺圖仍然回封面圖() = runTest {
+        val stillWaiting = FileThumbs(root, Dispatchers.IO, { id -> images[id] }, isLost = { false })
+        assertEquals(ThumbSource.Cover("v1"), stillWaiting.thumbFor(shot(frameIndex = 9)))
     }
 }

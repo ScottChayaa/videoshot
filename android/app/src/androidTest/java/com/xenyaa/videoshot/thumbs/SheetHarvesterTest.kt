@@ -67,7 +67,7 @@ class SheetHarvesterTest {
             InstrumentationRegistry.getInstrumentation().targetContext.filesDir,
             "harvest-test-${System.nanoTime()}",
         )
-        thumbs = FileThumbs(root, Dispatchers.IO) { null }
+        thumbs = FileThumbs(root, Dispatchers.IO, { null })
     }
 
     @Test
