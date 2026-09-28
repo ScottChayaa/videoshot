@@ -11,6 +11,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -41,6 +42,46 @@ class LibraryRepoReadTest {
                 )
             )
         }
+    }
+
+    @Test
+    fun 查全部storyboard格子跨影片() = runTest {
+        db.videoDao().upsert(VideoEntity("v1", "t", "c", "2026-01-01T00:00:00Z", 600, "public", null, 1L))
+        db.videoDao().upsert(VideoEntity("v2", "t", "c", "2026-01-01T00:00:00Z", 600, "public", null, 1L))
+        db.shotDao().insert(
+            ShotEntity(
+                id = 0, videoId = "v1", atSec = 0.0, source = "storyboard",
+                frameIndex = 0, sbLevel = 3, eventDate = "2026-01-01", place = null, description = null,
+                aiTranscript = null, aiVisualDesc = null, aiRaw = null, createdAt = 1L,
+            )
+        )
+        db.shotDao().insert(
+            ShotEntity(
+                id = 0, videoId = "v1", atSec = 4.0, source = "storyboard",
+                frameIndex = 4, sbLevel = 3, eventDate = "2026-01-01", place = null, description = null,
+                aiTranscript = null, aiVisualDesc = null, aiRaw = null, createdAt = 1L,
+            )
+        )
+        db.shotDao().insert(
+            ShotEntity(
+                id = 0, videoId = "v2", atSec = 0.0, source = "storyboard",
+                frameIndex = 0, sbLevel = 2, eventDate = "2026-01-01", place = null, description = null,
+                aiTranscript = null, aiVisualDesc = null, aiRaw = null, createdAt = 1L,
+            )
+        )
+        db.shotDao().insert(
+            ShotEntity(
+                id = 0, videoId = "v2", atSec = 1.0, source = "manual",
+                frameIndex = null, sbLevel = null, eventDate = "2026-01-01", place = null, description = null,
+                aiTranscript = null, aiVisualDesc = null, aiRaw = null, createdAt = 1L,
+            )
+        )
+
+        val rows = repo.storyboardShots()
+
+        assertEquals(3, rows.size) // manual 的那筆不算
+        assertTrue(rows.all { it.source == "storyboard" })
+        assertEquals(setOf("v1", "v2"), rows.map { it.videoId }.toSet())
     }
 
     @Test

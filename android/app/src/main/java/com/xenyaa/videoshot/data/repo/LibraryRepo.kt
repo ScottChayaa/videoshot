@@ -127,6 +127,9 @@ interface LibraryRepo {
     /** 最近取過圖的影片，附各片的收藏張數。 */
     suspend fun recentVideos(limit: Int): List<RecentVideo>
 
+    /** 回填掃描用：全部 storyboard 來源的 shot，不分影片、不分頁。 */
+    suspend fun storyboardShots(): List<ShotRow>
+
     /**
      * 這支影片在**某個 storyboard 層級**已經收藏的格號 —— 第二步據此標示鎖定格。
      *

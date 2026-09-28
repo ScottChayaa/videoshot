@@ -193,6 +193,19 @@ interface ShotDao {
     suspend fun distinctPlaces(): List<String>
 
     /**
+     * 回填掃描用：全部 storyboard 來源的 shot（規格第十一節步驟 1）。
+     * 不分頁——一次全部撈出來跟 `thumbs/` 底下的檔案比對，10,000 張量級可以接受
+     * （附錄 A-8：全部縮圖約 60 MB，`shot` 表本身的列更小）。
+     */
+    @Query(
+        """
+        SELECT id, video_id, at_sec, source, frame_index, sb_level, event_date, place, description
+        FROM shot WHERE source = 'storyboard'
+        """
+    )
+    suspend fun allStoryboardShots(): List<ShotRowProjection>
+
+    /**
      * 帳號頁三格統計（規格第九節）。`distinctVideos` 直接數 `video` 表的列數，
      * 不對 `shot.video_id` 做 `COUNT(DISTINCT ...)`——`deleteShot` 刪掉一支影片最後一張時
      * 會連帶刪掉 `video` 列（規格第六節），兩種算法永遠同值，前者不必掃過整張 shot 表。

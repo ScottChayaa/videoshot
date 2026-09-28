@@ -178,6 +178,10 @@ class RoomLibraryRepo(
         db.videoDao().recent(limit).map { RecentVideo(it.videoId, it.title, it.addedAt, it.shotCount) }
     }
 
+    override suspend fun storyboardShots(): List<ShotRow> = withContext(io) {
+        db.shotDao().allStoryboardShots().map { it.toRow() }
+    }
+
     override suspend fun takenFrameIndexes(videoId: String, level: Int): Set<Int> = withContext(io) {
         db.videoDao().takenFrameIndexes(videoId, level).toSet()
     }
