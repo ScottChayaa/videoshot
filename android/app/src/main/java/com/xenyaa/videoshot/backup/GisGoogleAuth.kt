@@ -93,6 +93,7 @@ class GisGoogleAuth(
         val authClient = Identity.getAuthorizationClient(context)
         val revokeRequest = RevokeAccessRequest.builder()
             .setAccount(account)
+            .setScopes(listOf(Scope(DRIVE_APPDATA_SCOPE)))
             .build()
         Tasks.await(authClient.revokeAccess(revokeRequest))
         pendingAccount = null
