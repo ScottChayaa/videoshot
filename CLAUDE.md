@@ -6,7 +6,7 @@
 - 舊名 **yt-space**（2026-09-11 改名）。舊名仍留在 `src/`、`static/`、`tests/`（web 版，清理階段整批刪除）
   與原型的 localStorage key `ytspace2_*`，這些刻意不改。
 
-**目前進度：階段 0～3 完成，階段 4a（精靈外殼與第一步）完成（2026-09-14）、階段 4b（縮圖牆與收斂）、階段 4c（截圖與效能閘門）完成（2026-09-15）、階段 6（第三步、完成、草稿）、階段 7（App 外殼、首頁、Lightbox）完成（2026-09-16）、階段 8（分類資料夾）完成（2026-09-23）、階段 9（詳情頁）完成並實機驗收（2026-09-24）、階段 10（查詢）完成（2026-09-25，2026-09-26 完成全分支最終審查修正）、階段 11（帳號頁、設定、標籤管理）完成（2026-09-27）、階段 12（Google Drive 備份與還原）完成並實機驗收（2026-09-28，含 T12.1 手動設定與 T12.7 appDataFolder 研究）。
+**目前進度：階段 0～3 完成，階段 4a（精靈外殼與第一步）完成（2026-09-14）、階段 4b（縮圖牆與收斂）、階段 4c（截圖與效能閘門）完成（2026-09-15）、階段 6（第三步、完成、草稿）、階段 7（App 外殼、首頁、Lightbox）完成（2026-09-16）、階段 8（分類資料夾）完成（2026-09-23）、階段 9（詳情頁）完成並實機驗收（2026-09-24）、階段 10（查詢）完成（2026-09-25，2026-09-26 完成全分支最終審查修正）、階段 11（帳號頁、設定、標籤管理）完成（2026-09-27）、階段 12（Google Drive 備份與還原）完成並實機驗收（2026-09-28，含 T12.1 手動設定與 T12.7 appDataFolder 研究）、階段 13（縮圖回填）完成（2026-09-29，全分支最終審查修正一個 Critical 與六個 Important；WorkManager 排程路徑尚未實機驗過）。
 三套測試：JVM **653 個**（`:core:test` 143 ＋ `:app:testDebugUnitTest` 510，2026-09-26）全綠；
 **儀器測試 `OK (150 tests)`**（`am instrument`，2107113SG 實機，2026-09-24）——階段 9 Task 1 新增的 4 個 androidTest 方法已在實機上真的跑過並通過。
 階段 10 新增了約 23 個 androidTest 方法（`SearchRepoTest.kt`／`OkHttpGeminiClientTest.kt`／
@@ -148,6 +148,57 @@ incremental 編譯的綠燈——階段 12 最後兩次驗證（fix wave 前、f
 這句失敗訊息稍微說得比程式碼實際保證的更肯定（純理論風險）；還原清尾兩段例外處理對
 `CancellationException` 的處理不對稱（無害，只是不一致）；帳號頁頭像字母沒有做 TalkBack 語意
 清除，會多唸一個英文字母。
+
+**階段 13（縮圖回填）完成（2026-09-29）**，用 superpowers:subagent-driven-development 執行，
+12 個程式碼任務逐個經 subagent 實作與審查、再跑一次全分支最終審查（opus）＋一輪 fix wave：
+新增 `BackfillManager`（掃描缺圖→依 `(videoId, sbLevel)` 分組抓 watch page→呼叫
+`SheetHarvester` 下載裁切→依狀態機轉 `ok`／`missing` 退避／`lost`）、`BackfillWorker`
+（WorkManager 一次性作業鏈，自我接續，`DelegatingWorkerFactory` 跟既有的每日備份 worker
+共存）、`FetchResult.RATE_LIMITED`（HTTP 429 分類，回填層把它跟 `PARSE_FAILED` 一視同仁地
+「整批暫停」）、`SheetHarvester.harvestRelocated`（storyboard 層級消失時用 `at_sec` 在新層級
+重新定位，裁出來的圖仍寫回原識別碼）、`FileThumbs` 分辨「還在等回填」與「已確定 lost」
+（lost 顯示中性預留圖）、帳號頁「縮圖」子畫面顯示回填進度、【稍後重試】【刪除這些收藏】
+【用行動網路繼續】。
+三套測試：JVM **797 個**（`:core:test` 170 ＋ `:app:testDebugUnitTest` 627，2026-09-29）
+全綠，已用乾淨 `git worktree` 重新編譯驗證過兩次（fix wave 前、fix wave 後，延續階段 12
+立下的規矩）。新增的 androidTest（`CacheDbTest`／`LibraryRepoReadTest`／`SheetHarvesterTest`／
+`ThumbsTest`／`OkHttpYoutubeTest` 各補了幾個方法）**只編譯驗證過，沒有一個真的在實機上跑
+過**——這台開發機這次同樣沒有接裝置。
+**全分支最終審查抓到 1 個 Critical＋6 個 Important**，全部屬於「拆成 12 個任務後、組裝起來
+才會顯形」的整合性問題，不是任何單一任務各自的疏漏：
+(1) `SheetHarvester` 對「目標檔案已經存在」的格子完全不回報（既不在 written 也不在
+failed），`BackfillManager` 原本只處理這兩份清單，該格會永遠卡在 missing、每輪重抓一次
+watch page、`BackfillWorker` 因為 `remaining` 恆真而無限自我重排——唯一煞車是意外撞上
+YouTube 限流；已修成 `runBatch` 先用 `thumbs.exists()` 把到期格子裡檔案已經在的直接標
+ok，`harvestAtLevel` 收尾再補一層「沒被回報的一律當失敗處理」的保險。
+(2) 原本假設「同一支影片的 storyboard shot 一律共用同一個 sbLevel」，但這個假設會被同一支
+影片分兩次取圖、中間 YouTube 換過 spec 的情境打破（既有的 `takenFrameIndexes(videoId,
+level)` 帶層級參數正是同一個理由）；已修成依 `(videoId, sbLevel)` 分組處理，watch page
+仍然每支影片只抓一次。
+(3)【稍後重試】原本只重設 DB 狀態沒有排工作，要等下次開機才會真的處理；已修成同時呼叫
+`scheduleBackfill()`。
+(4) 手冊明文要求的【用行動網路繼續】按鈕，`AccountDeps`／`AccountViewModel`／
+`AppContainer` 的接線都做好了，但 `ThumbsUsageScreen.kt` 實際上從頭到尾沒有加這顆按鈕；
+已補上。
+(5) 進度文字「縮圖回填中 N/N」的顯示條件用 `total > 0`，但 `total = ok + missing` 裡的
+`ok` 只增不減，一般裝置上恆為真，進度文字會永久掛在畫面上；已改成 `total > done`（等同
+`missing > 0`）。
+(6)【刪除這些收藏】刪完不會通知首頁／分類／查詢／帳號頁重查，跟這個檔案其他刪除路徑的
+既有慣例不一致；已補上（含查詢分頁的 `phase == RESULTS` 才重查的保護，避免使用者只勾了
+條件還沒查詢就被硬拉進結果畫面）。
+(7) 跨層級重新定位的座標換算（規格第十一節步驟 2b，本功能最細節的一段邏輯）在
+`BackfillManager` 層完全沒有測試覆蓋（假物件把五個參數全部丟棄）；已補上會實際比對
+`Storyboard.frameAt` 換算結果的回歸測試。
+Fix wave 之後的 scoped re-review 又發現 3 個 Minor 並全部 park，判定不影響正確性，不擋
+收尾：`harvestAtLevel` 裡一段已經不會被讀取的死程式碼式 merge（可讀性瑕疵，不影響行為）；
+【刪除這些收藏】在文字查詢模式下會意外多觸發一次 Gemini 重新解析（有金鑰時，低頻操作，
+不是資料正確性問題）；進度卡片沒有進一步區分「到期」與「還在退避中」的缺圖，理論上使用者
+可能按了【用行動網路繼續】卻發現當下沒有東西可處理（`BackfillProgress` 模型本身的既有
+限制，不是這次修壞的）。
+**已知的、尚未在實機驗過的風險**（跟階段 12 記過的教訓同一類——「編譯過、真機才炸」的
+外部 API 呼叫）：【稍後重試】與【用行動網路繼續】兩條路徑呼叫 `scheduleBackfill()` 真的把
+WorkManager 工作排出去這件事，JVM／Robolectric 測不到，完全沒有自動化覆蓋，下一次有接
+實機時要優先手動走一次。
 
 **app 啟動後落在首頁**（階段 2 的資料層冒煙畫面已刪除，內容在 git 歷史），底部導覽五格
 （首頁／查詢／取圖／分類／帳號），取圖精靈在第三格。貼網址 → 挑畫面 → 填圖資 → 完成，

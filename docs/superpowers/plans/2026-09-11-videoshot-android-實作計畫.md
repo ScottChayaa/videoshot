@@ -52,7 +52,7 @@
 | **10** | **查詢**（facet、規則式、FTS／LIKE、Gemini） | L | 100% | 完成（見 [階段 10 計畫](2026-09-24-階段10-查詢.md)） |
 | **11** | **帳號頁、設定、標籤管理** | M | 98% | 完成，僅 T11.2 部分手冊條目待手動複驗（見 [階段 11 計畫](2026-09-27-階段11-帳號頁設定標籤管理.md)） |
 | **12** | **Google Drive 備份與還原** | L | 100% | 完成並實機驗收（見 [階段 12 計畫](2026-09-27-階段12-google-drive備份與還原.md)） |
-| 13 | 縮圖回填 | M | 0% | 計畫已產出，未開工（見 [階段 13 計畫](2026-09-28-階段13-縮圖回填.md)） |
+| **13** | **縮圖回填** | M | 100% | 完成，全分支最終審查修正 1 個 Critical＋6 個 Important（見 [階段 13 計畫](2026-09-28-階段13-縮圖回填.md)）；WorkManager 排程路徑尚未實機驗過 |
 | 14 | 清理 web 程式碼 | S | 0% | 待產出 |
 
 細節計畫只為「即將動工、且前置結論已確定」的階段撰寫 —— 階段 0 的 POC 結果會改變階段 2、3、5、13 的做法，
@@ -243,11 +243,13 @@
 
 | # | 任務 | 規模 | 驗收條件 | 完成度 | 上機驗證 | 備註 |
 |---|---|---|---|---|---|---|
-| T13.1 | 掃描缺圖寫 `thumb_state`；依影片分組；只下載有收藏格子的 sheet；層級不存在時以 `at_sec` 重新定位、寫回原路徑 | M | 案例 28 | 0% | 不適用 | 未開工 |
-| T13.2 | WorkManager 作業鏈；螢幕上缺圖的格子插隊 | M | 首頁捲到缺圖處會優先補上 | 0% | 不適用 | 未開工 |
-| T13.3 | 節流與退避；遇 429／機器人驗證整批暫停 | S | 見 R-4 | 0% | 不適用 | 未開工 |
-| T13.4 | 預設只在 Wi-Fi；【用行動網路繼續】單次授權 | S | 手冊 §一 回填條目 | 0% | 不適用 | 未開工 |
-| T13.5 | `lost` 狀態、預留圖、帳號頁「無法取回 N 張」＋【稍後重試】【刪除這些收藏】 | S | 手冊 §一 無法取回條目；案例 29 | 0% | 不適用 | 未開工 |
+| T13.1 | 掃描缺圖寫 `thumb_state`；依影片分組；只下載有收藏格子的 sheet；層級不存在時以 `at_sec` 重新定位、寫回原路徑 | M | 案例 28 | 100% | 未上機 | `BackfillManager.scanForMissing`／`harvestAtLevel`、`SheetHarvester.harvestRelocated`；`BackfillManagerTest` 17 個 JVM 測試涵蓋（含全分支審查後補的重新定位座標換算回歸測試），`SheetHarvesterTest`／`LibraryRepoReadTest` 等 androidTest 只編譯驗證過 |
+| T13.2 | WorkManager 作業鏈；螢幕上缺圖的格子插隊 | M | 首頁捲到缺圖處會優先補上 | 90% | 未上機 | `BackfillWorker`（一次性作業鏈，`Continued.remaining` 觸發自我接續，`DelegatingWorkerFactory` 跟每日備份共存）已完成；**螢幕可視格子插隊優先處理刻意沒做**（階段 13 計畫 Global Constraints 已記錄，需要接首頁捲動狀態，跟其餘部分是獨立的接線需求，留待之後決定要不要補） |
+| T13.3 | 節流與退避；遇 429／機器人驗證整批暫停 | S | 見 R-4 | 100% | 未上機 | `BackfillPolicy`（:core，退避以天為單位）＋ `FetchResult.RATE_LIMITED`／`PARSE_FAILED` 觸發整批暫停（不動 attempts，回 `Result.retry()` 交給 WorkManager 退避）；節流間隔（影片間隔秒數）沿用 3 秒預設值，規格標記待真機量測調整，非本階段疏漏 |
+| T13.4 | 預設只在 Wi-Fi；【用行動網路繼續】單次授權 | S | 手冊 §一 回填條目 | 100% | 未上機 | `scheduleBackfill(allowMobileData, replace)`；`ThumbsUsageScreen` 的【用行動網路繼續】按鈕在全分支最終審查才發現漏做，已補上；`allowMobileData` 不持久化，每次詢問 |
+| T13.5 | `lost` 狀態、預留圖、帳號頁「無法取回 N 張」＋【稍後重試】【刪除這些收藏】 | S | 手冊 §一 無法取回條目；案例 29 | 100% | 未上機 | `FileThumbs` 分辨 lost／還在等回填（lost 顯示 `ThumbSource.Placeholder`）；帳號頁【稍後重試】（全分支審查發現原本沒有排工作，已補 `scheduleBackfill()`）【刪除這些收藏】（已補刪除後通知首頁／分類／查詢／帳號頁重查） |
+
+**全分支最終審查與 fix wave**：12 個程式碼任務逐一 subagent 實作與審查後，再跑一次全分支最終審查（opus）抓到 1 個 Critical（未回報的 `thumb_state` 格子讓 `BackfillWorker` 無限自我重排）＋ 6 個 Important（見 CLAUDE.md 階段 13 段落的完整清單），全部屬於「拆成多個任務後、組裝起來才會顯形」的整合性問題；派一次 fix wave 修完並經 scoped re-review 確認全部解決，另 park 3 個不影響正確性的 Minor。三套測試 JVM 797 個（`:core:test` 170 ＋ `:app:testDebugUnitTest` 627）全綠，已用乾淨 `git worktree` 驗證過。**WorkManager 真的排出工作這件事完全沒有自動化測試覆蓋**（JVM／Robolectric 測不到這一層），下次有接實機時要優先手動走一次【稍後重試】與【用行動網路繼續】。
 
 ### 階段 14 —— 清理 web 程式碼
 
