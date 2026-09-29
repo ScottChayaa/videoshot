@@ -53,3 +53,35 @@ class BackfillWorkerTest {
         assertEquals(ListenableWorker.Result.success(), worker.doWork())
     }
 }
+
+/**
+ * 掃描不該被網路約束卡住——`BackfillScanWorker` 是這次實機驗收發現的缺口修法：
+ * `scanForMissing()` 原本只在 `runBatch()`（網路受限的 `BackfillWorker`）裡執行，裝置從來
+ * 沒連過 Wi-Fi 的話 `thumb_state` 永遠是空的，帳號頁連「有東西缺圖」都不知道，
+ * 【用行動網路繼續】按鈕的顯示條件（`total > done`）也永遠成立不了。這個 worker 沒有任何
+ * constraint，純粹是本機 DB／檔案掃描，不該被排除在外。
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
+class BackfillScanWorkerTest {
+
+    @Test
+    fun 掃描成功回success() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        var scanned = false
+        val factory = BackfillScanWorkerFactory(scanForMissing = { scanned = true })
+        val worker = TestListenableWorkerBuilder<BackfillScanWorker>(context).setWorkerFactory(factory).build()
+
+        assertEquals(ListenableWorker.Result.success(), worker.doWork())
+        assertEquals(true, scanned)
+    }
+
+    @Test
+    fun 掃描丟例外時回retry() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val factory = BackfillScanWorkerFactory(scanForMissing = { throw IllegalStateException("讀不到 DB") })
+        val worker = TestListenableWorkerBuilder<BackfillScanWorker>(context).setWorkerFactory(factory).build()
+
+        assertEquals(ListenableWorker.Result.retry(), worker.doWork())
+    }
+}

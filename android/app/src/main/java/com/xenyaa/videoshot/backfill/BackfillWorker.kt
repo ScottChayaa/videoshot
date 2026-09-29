@@ -17,6 +17,7 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 
 private const val BACKFILL_WORK_NAME = "thumbnail_backfill"
+private const val BACKFILL_SCAN_WORK_NAME = "thumbnail_backfill_scan"
 private const val KEY_ALLOW_MOBILE_DATA = "allow_mobile_data"
 
 /**
@@ -88,4 +89,46 @@ fun scheduleBackfill(context: Context, allowMobileData: Boolean = false, replace
         .build()
     val policy = if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP
     WorkManager.getInstance(context).enqueueUniqueWork(BACKFILL_WORK_NAME, policy, request)
+}
+
+/**
+ * 純掃描，**沒有任何 constraint**——`BackfillManager.scanForMissing()` 只讀 `library.db`／
+ * 檔案系統、寫 `cache.db`，完全不連網，不該跟著 [BackfillWorker] 一起被 Wi-Fi 約束卡住。
+ *
+ * 這是實機驗收才發現的缺口：[scanForMissing] 原本只在 [BackfillWorker.doWork]（透過
+ * [BackfillManager.runBatch]）裡執行，裝置從來沒連過 Wi-Fi 的話 `thumb_state` 永遠是空的——
+ * 帳號頁連「有幾張缺圖」都不知道，【用行動網路繼續】的顯示條件（`total > done`）也永遠不成立，
+ * 使用者完全看不到這個功能存在。拆成獨立、無約束的 worker 之後，不管有沒有連網，
+ * 每次開機都至少能讓帳號頁知道真實的缺圖數量。
+ */
+class BackfillScanWorker(
+    context: Context,
+    params: WorkerParameters,
+    private val scanForMissing: suspend () -> Unit,
+) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result = try {
+        scanForMissing()
+        Result.success()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.retry()
+    }
+}
+
+class BackfillScanWorkerFactory(private val scanForMissing: suspend () -> Unit) : WorkerFactory() {
+    override fun createWorker(
+        appContext: Context,
+        workerClassName: String,
+        workerParameters: WorkerParameters,
+    ): ListenableWorker? = when (workerClassName) {
+        BackfillScanWorker::class.java.name -> BackfillScanWorker(appContext, workerParameters, scanForMissing)
+        else -> null
+    }
+}
+
+/** app 開機時呼叫一次；`enqueueUniqueWork` 搭 `KEEP` 是 idempotent 的，重覆呼叫不會排出第二份工作。 */
+fun scheduleBackfillScan(context: Context) {
+    val request = OneTimeWorkRequestBuilder<BackfillScanWorker>().build()
+    WorkManager.getInstance(context).enqueueUniqueWork(BACKFILL_SCAN_WORK_NAME, ExistingWorkPolicy.KEEP, request)
 }
