@@ -56,6 +56,7 @@ import com.xenyaa.videoshot.ui.folders.FoldersScreen
 import com.xenyaa.videoshot.ui.folders.FoldersViewModel
 import com.xenyaa.videoshot.ui.home.HomeScreen
 import com.xenyaa.videoshot.ui.home.HomeViewModel
+import com.xenyaa.videoshot.ui.search.SearchPhase
 import com.xenyaa.videoshot.ui.search.SearchScreen
 import com.xenyaa.videoshot.ui.search.SearchViewModel
 import com.xenyaa.videoshot.ui.lightbox.LightboxActions
@@ -766,7 +767,28 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                     backfillActionError = accountState.backfillActionError,
                                     onBack = { nav = nav.pop() ?: nav },
                                     onRetryLost = accountVm::retryLostThumbs,
-                                    onDeleteLost = accountVm::deleteLostThumbs,
+                                    // 【刪除這些收藏】刪掉的是呼叫端不知道是哪幾張的一批 shot
+                                    // （可能跨多支影片），沒辦法像單張刪除那樣用 onShotDeleted(id)
+                                    // 就地拔列，只能等它做完再讓各分頁重查——首頁、分類、帳號頁
+                                    // 統計都可能在背景分頁活著、留著刪除前的資料（同這個檔案別處
+                                    // 刪除流程的既有理由；最終審查 Important 發現）
+                                    onDeleteLost = {
+                                        scope.launch {
+                                            accountVm.deleteLostThumbs().join()
+                                            homeVm.reload()
+                                            foldersVm.reload()
+                                            // 開著的資料夾頁本層張數與預覽拼貼都可能變了，
+                                            // 同 onDeleteVideo 的既有處理
+                                            folderVm?.reload()
+                                            // 查詢分頁只有在「正停在結果畫面」時才重查。一定要
+                                            // 用 phase 擋住：SearchStore.canQuery() 在使用者只是
+                                            // 勾了 chip、還沒按查詢時也是 true，無條件呼叫
+                                            // runSearch() 會把人從條件畫面硬拉進結果畫面
+                                            if (searchState.phase == SearchPhase.RESULTS) searchVm.runSearch()
+                                            accountVm.reload()
+                                        }
+                                    },
+                                    onContinueOnMobileData = accountVm::continueBackfillOnMobileData,
                                 )
                             }
                             AccountSection.CAPTURE -> CaptureSettingScreen(

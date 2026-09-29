@@ -32,6 +32,7 @@ fun ThumbsUsageScreen(
     onBack: () -> Unit,
     onRetryLost: () -> Unit,
     onDeleteLost: () -> Unit,
+    onContinueOnMobileData: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var confirmingDelete by remember { mutableStateOf(false) }
@@ -50,13 +51,19 @@ fun ThumbsUsageScreen(
                 color = AppTheme.colors.textDim,
             )
 
-            if (backfillProgress.total > 0) {
+            // 條件是「還有沒做完的」，不是「total > 0」——`BackfillProgress.total` 是
+            // ok ＋ missing，而 ok 會一直累積（取圖精靈每裁成功一張也寫一列 ok），所以
+            // 一般裝置上 total > 0 是永久成立的，用它當條件會讓「縮圖回填中 N / N」永遠
+            // 掛在畫面上（全分支最終審查 Important 發現）。
+            if (backfillProgress.total > backfillProgress.done) {
                 Text(
                     "縮圖回填中 ${backfillProgress.done} / ${backfillProgress.total}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = AppTheme.colors.text,
                     modifier = Modifier.padding(top = AppTheme.spacing.s2),
                 )
+                // 規格第四節：回填預設只在 Wi-Fi 下跑，要用行動網路得使用者每次明確同意。
+                TextButton(onClick = onContinueOnMobileData) { Text("用行動網路繼續") }
             }
 
             if (backfillProgress.lostCount > 0) {

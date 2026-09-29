@@ -337,7 +337,17 @@ class AppContainer(context: Context) : AppRootDeps {
             override suspend fun backupNow() = backupManager.runIfDue(force = true)
 
             override suspend fun backfillProgress() = backfillManager.progress()
-            override suspend fun retryLostThumbs() = backfillManager.retryLost()
+            /**
+             * 重設成 missing 之後**一定要再排一次回填作業**：開機時排的那個 work 在使用者按到
+             * 這顆按鈕時通常早就跑完進入終結狀態了，不重排的話這些剛變回 missing 的格子要等到
+             * 下次開 app 才有人處理（全分支最終審查 Important 發現）。用預設的 allowMobileData
+             * ＝false／replace＝false——【稍後重試】沒有承諾要用行動網路，也不該蓋掉已經在排隊
+             * 的工作。
+             */
+            override suspend fun retryLostThumbs() {
+                backfillManager.retryLost()
+                com.xenyaa.videoshot.backfill.scheduleBackfill(appContext)
+            }
             override suspend fun deleteLostThumbs() = backfillManager.deleteLostShots()
             override suspend fun continueBackfillOnMobileData() {
                 com.xenyaa.videoshot.backfill.scheduleBackfill(appContext, allowMobileData = true, replace = true)

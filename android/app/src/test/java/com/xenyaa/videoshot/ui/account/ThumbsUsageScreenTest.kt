@@ -21,7 +21,8 @@ class ThumbsUsageScreenTest {
     @get:Rule val compose = createComposeRule()
 
     @Test
-    fun 顯示回填進度() {
+    fun 顯示回填進度_並附上用行動網路繼續() {
+        var continued = false
         compose.setContent {
             VideoshotTheme {
                 ThumbsUsageScreen(
@@ -31,10 +32,13 @@ class ThumbsUsageScreenTest {
                     onBack = {},
                     onRetryLost = {},
                     onDeleteLost = {},
+                    onContinueOnMobileData = { continued = true },
                 )
             }
         }
         compose.onNodeWithText("縮圖回填中 320 / 1200").assertIsDisplayed()
+        compose.onNodeWithText("用行動網路繼續").performClick()
+        assert(continued)
     }
 
     @Test
@@ -50,6 +54,7 @@ class ThumbsUsageScreenTest {
                     onBack = {},
                     onRetryLost = { retried = true },
                     onDeleteLost = { deleted = true },
+                    onContinueOnMobileData = {},
                 )
             }
         }
@@ -75,9 +80,34 @@ class ThumbsUsageScreenTest {
                     onBack = {},
                     onRetryLost = {},
                     onDeleteLost = {},
+                    onContinueOnMobileData = {},
                 )
             }
         }
         compose.onNodeWithText("稍後重試").assertDoesNotExist()
+    }
+
+    /**
+     * `BackfillProgress.total` 是 ok ＋ missing，而 ok 會一直累積（取圖精靈裁成功的每一張也
+     * 算一列 ok），所以 total > 0 在一般裝置上永遠成立——條件必須是「還有沒做完的」，否則
+     * 「縮圖回填中 N / N」與【用行動網路繼續】會永久掛在畫面上（最終審查 Important 發現）。
+     */
+    @Test
+    fun 回填做完就不再顯示進度與用行動網路繼續() {
+        compose.setContent {
+            VideoshotTheme {
+                ThumbsUsageScreen(
+                    usageBytes = 1024,
+                    backfillProgress = BackfillProgress(done = 1200, total = 1200, lostCount = 0),
+                    backfillActionError = null,
+                    onBack = {},
+                    onRetryLost = {},
+                    onDeleteLost = {},
+                    onContinueOnMobileData = {},
+                )
+            }
+        }
+        compose.onNodeWithText("縮圖回填中 1200 / 1200").assertDoesNotExist()
+        compose.onNodeWithText("用行動網路繼續").assertDoesNotExist()
     }
 }
