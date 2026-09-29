@@ -6,7 +6,7 @@
 - 舊名 **yt-space**（2026-09-11 改名）。舊名仍留在 `src/`、`static/`、`tests/`（web 版，清理階段整批刪除）
   與原型的 localStorage key `ytspace2_*`，這些刻意不改。
 
-**目前進度：階段 0～3 完成，階段 4a（精靈外殼與第一步）完成（2026-09-14）、階段 4b（縮圖牆與收斂）、階段 4c（截圖與效能閘門）完成（2026-09-15）、階段 6（第三步、完成、草稿）、階段 7（App 外殼、首頁、Lightbox）完成（2026-09-16）、階段 8（分類資料夾）完成（2026-09-23）、階段 9（詳情頁）完成並實機驗收（2026-09-24）、階段 10（查詢）完成（2026-09-25，2026-09-26 完成全分支最終審查修正）、階段 11（帳號頁、設定、標籤管理）完成（2026-09-27）、階段 12（Google Drive 備份與還原）完成並實機驗收（2026-09-28，含 T12.1 手動設定與 T12.7 appDataFolder 研究）、階段 13（縮圖回填）完成（2026-09-29，全分支最終審查修正一個 Critical 與六個 Important；WorkManager 排程路徑尚未實機驗過）。
+**目前進度：階段 0～3 完成，階段 4a（精靈外殼與第一步）完成（2026-09-14）、階段 4b（縮圖牆與收斂）、階段 4c（截圖與效能閘門）完成（2026-09-15）、階段 6（第三步、完成、草稿）、階段 7（App 外殼、首頁、Lightbox）完成（2026-09-16）、階段 8（分類資料夾）完成（2026-09-23）、階段 9（詳情頁）完成並實機驗收（2026-09-24）、階段 10（查詢）完成（2026-09-25，2026-09-26 完成全分支最終審查修正）、階段 11（帳號頁、設定、標籤管理）完成（2026-09-27）、階段 12（Google Drive 備份與還原）完成並實機驗收（2026-09-28，含 T12.1 手動設定與 T12.7 appDataFolder 研究）、階段 13（縮圖回填）完成並實機驗收（2026-09-29～30，全分支最終審查修正一個 Critical 與六個 Important；實機驗收另外發現並修掉「純行動網路時掃描永遠不會跑」的缺口）。
 三套測試：JVM **653 個**（`:core:test` 143 ＋ `:app:testDebugUnitTest` 510，2026-09-26）全綠；
 **儀器測試 `OK (150 tests)`**（`am instrument`，2107113SG 實機，2026-09-24）——階段 9 Task 1 新增的 4 個 androidTest 方法已在實機上真的跑過並通過。
 階段 10 新增了約 23 個 androidTest 方法（`SearchRepoTest.kt`／`OkHttpGeminiClientTest.kt`／
@@ -195,10 +195,24 @@ Fix wave 之後的 scoped re-review 又發現 3 個 Minor 並全部 park，判�
 不是資料正確性問題）；進度卡片沒有進一步區分「到期」與「還在退避中」的缺圖，理論上使用者
 可能按了【用行動網路繼續】卻發現當下沒有東西可處理（`BackfillProgress` 模型本身的既有
 限制，不是這次修壞的）。
-**已知的、尚未在實機驗過的風險**（跟階段 12 記過的教訓同一類——「編譯過、真機才炸」的
-外部 API 呼叫）：【稍後重試】與【用行動網路繼續】兩條路徑呼叫 `scheduleBackfill()` 真的把
-WorkManager 工作排出去這件事，JVM／Robolectric 測不到，完全沒有自動化覆蓋，下一次有接
-實機時要優先手動走一次。
+**2026-09-30 實機驗收（2107113SG）**：全部 **210 個 androidTest 真的在裝置上跑過**
+（`am instrument` → `OK (210 tests)`），這階段新增的方法（`OkHttpYoutubeTest`／
+`CacheRepoTest`／`LibraryRepoReadTest`／`SheetHarvesterTest`／`ThumbsTest` 各補的案例）
+不再只是編譯驗證。手動走了完整的 WorkManager 排程路徑：裝置純行動網路（Wi-Fi 關）時
+`dumpsys jobscheduler` 確認回填工作真的排進去但 `Ready: false`（正確卡住等 Wi-Fi）；
+切到 Wi-Fi 後工作真的執行，對假造的 `seed001` videoId 真的打了一次 YouTube watch page、
+正確分類成 `VIDEO_UNAVAILABLE`、5 張全部轉 `lost`；按【稍後重試】時 job history 顯示
+新工作立即執行、重新走一次流程；按【刪除這些收藏】後**同一個 session、不用重開 app**，
+帳號頁統計與首頁列表立即同步更新（驗證了 Important 6 的修法）。
+**過程中發現一個新的缺口並已修掉**：`scanForMissing()` 原本只在受 Wi-Fi 約束的
+`BackfillWorker.doWork()` 裡執行——裝置純行動網路時實測 `cache.db` 的 `thumb_state`
+永遠是空的，帳號頁完全不知道有缺圖，連【用行動網路繼續】按鈕的顯示條件都成立不了，
+回填功能形同隱形。這是單元測試與全分支審查都測不到的情境（測試直接呼叫 `runBatch()`，
+不會模擬 WorkManager 的網路約束）。修法：新增 `BackfillScanWorker`（沒有任何
+constraint，純本機 DB／檔案掃描），開機時獨立排程，跟受 Wi-Fi 約束的 `BackfillWorker`
+分開；已在實機上（純行動網路、Wi-Fi 關閉）重新驗證：`thumb_state` 正確填入
+`missing` 列、帳號頁正確顯示「縮圖回填中 0/3」與【用行動網路繼續】按鈕。三套測試補到
+JVM **799 個**（`:core:test` 170 ＋ `:app:testDebugUnitTest` 629）。
 
 **app 啟動後落在首頁**（階段 2 的資料層冒煙畫面已刪除，內容在 git 歷史），底部導覽五格
 （首頁／查詢／取圖／分類／帳號），取圖精靈在第三格。貼網址 → 挑畫面 → 填圖資 → 完成，

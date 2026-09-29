@@ -52,7 +52,7 @@
 | **10** | **查詢**（facet、規則式、FTS／LIKE、Gemini） | L | 100% | 完成（見 [階段 10 計畫](2026-09-24-階段10-查詢.md)） |
 | **11** | **帳號頁、設定、標籤管理** | M | 98% | 完成，僅 T11.2 部分手冊條目待手動複驗（見 [階段 11 計畫](2026-09-27-階段11-帳號頁設定標籤管理.md)） |
 | **12** | **Google Drive 備份與還原** | L | 100% | 完成並實機驗收（見 [階段 12 計畫](2026-09-27-階段12-google-drive備份與還原.md)） |
-| **13** | **縮圖回填** | M | 100% | 完成，全分支最終審查修正 1 個 Critical＋6 個 Important（見 [階段 13 計畫](2026-09-28-階段13-縮圖回填.md)）；WorkManager 排程路徑尚未實機驗過 |
+| **13** | **縮圖回填** | M | 100% | 完成並實機驗收（見 [階段 13 計畫](2026-09-28-階段13-縮圖回填.md)）；全分支最終審查修正 1 個 Critical＋6 個 Important，實機驗收另修 1 個純行動網路時掃描不會跑的缺口 |
 | 14 | 清理 web 程式碼 | S | 0% | 待產出 |
 
 細節計畫只為「即將動工、且前置結論已確定」的階段撰寫 —— 階段 0 的 POC 結果會改變階段 2、3、5、13 的做法，
@@ -243,13 +243,15 @@
 
 | # | 任務 | 規模 | 驗收條件 | 完成度 | 上機驗證 | 備註 |
 |---|---|---|---|---|---|---|
-| T13.1 | 掃描缺圖寫 `thumb_state`；依影片分組；只下載有收藏格子的 sheet；層級不存在時以 `at_sec` 重新定位、寫回原路徑 | M | 案例 28 | 100% | 未上機 | `BackfillManager.scanForMissing`／`harvestAtLevel`、`SheetHarvester.harvestRelocated`；`BackfillManagerTest` 17 個 JVM 測試涵蓋（含全分支審查後補的重新定位座標換算回歸測試），`SheetHarvesterTest`／`LibraryRepoReadTest` 等 androidTest 只編譯驗證過 |
-| T13.2 | WorkManager 作業鏈；螢幕上缺圖的格子插隊 | M | 首頁捲到缺圖處會優先補上 | 90% | 未上機 | `BackfillWorker`（一次性作業鏈，`Continued.remaining` 觸發自我接續，`DelegatingWorkerFactory` 跟每日備份共存）已完成；**螢幕可視格子插隊優先處理刻意沒做**（階段 13 計畫 Global Constraints 已記錄，需要接首頁捲動狀態，跟其餘部分是獨立的接線需求，留待之後決定要不要補） |
-| T13.3 | 節流與退避；遇 429／機器人驗證整批暫停 | S | 見 R-4 | 100% | 未上機 | `BackfillPolicy`（:core，退避以天為單位）＋ `FetchResult.RATE_LIMITED`／`PARSE_FAILED` 觸發整批暫停（不動 attempts，回 `Result.retry()` 交給 WorkManager 退避）；節流間隔（影片間隔秒數）沿用 3 秒預設值，規格標記待真機量測調整，非本階段疏漏 |
-| T13.4 | 預設只在 Wi-Fi；【用行動網路繼續】單次授權 | S | 手冊 §一 回填條目 | 100% | 未上機 | `scheduleBackfill(allowMobileData, replace)`；`ThumbsUsageScreen` 的【用行動網路繼續】按鈕在全分支最終審查才發現漏做，已補上；`allowMobileData` 不持久化，每次詢問 |
-| T13.5 | `lost` 狀態、預留圖、帳號頁「無法取回 N 張」＋【稍後重試】【刪除這些收藏】 | S | 手冊 §一 無法取回條目；案例 29 | 100% | 未上機 | `FileThumbs` 分辨 lost／還在等回填（lost 顯示 `ThumbSource.Placeholder`）；帳號頁【稍後重試】（全分支審查發現原本沒有排工作，已補 `scheduleBackfill()`）【刪除這些收藏】（已補刪除後通知首頁／分類／查詢／帳號頁重查） |
+| T13.1 | 掃描缺圖寫 `thumb_state`；依影片分組；只下載有收藏格子的 sheet；層級不存在時以 `at_sec` 重新定位、寫回原路徑 | M | 案例 28 | 100% | 已上機 | `BackfillManager.scanForMissing`／`harvestAtLevel`、`SheetHarvester.harvestRelocated`；`BackfillManagerTest` 17 個 JVM 測試涵蓋，`SheetHarvesterTest`／`LibraryRepoReadTest` 等 androidTest 已於 2026-09-30 用 `am instrument` 在實機（2107113SG）跑過（`OK (210 tests)`）；`scanForMissing` 對真的種子資料在實機上驗過（真的打了一次 YouTube watch page，正確分類 `VIDEO_UNAVAILABLE`） |
+| T13.2 | WorkManager 作業鏈；螢幕上缺圖的格子插隊 | M | 首頁捲到缺圖處會優先補上 | 90% | 已上機（作業鏈部分） | `BackfillWorker`（一次性作業鏈，`Continued.remaining` 觸發自我接續）與新增的 `BackfillScanWorker`（見下方 2026-09-30 實機發現）皆已實機驗證真的排出工作、真的執行；`DelegatingWorkerFactory` 跟每日備份共存。**螢幕可視格子插隊優先處理刻意沒做**（留待之後決定要不要補） |
+| T13.3 | 節流與退避；遇 429／機器人驗證整批暫停 | S | 見 R-4 | 100% | 未上機 | `BackfillPolicy`（:core，退避以天為單位）＋ `FetchResult.RATE_LIMITED`／`PARSE_FAILED` 觸發整批暫停；節流間隔（影片間隔秒數）沿用 3 秒預設值，規格標記待真機量測調整，非本階段疏漏；429／機器人驗證的整批暫停行為本身未在實機遇到真的限流，無法驗證 |
+| T13.4 | 預設只在 Wi-Fi；【用行動網路繼續】單次授權 | S | 手冊 §一 回填條目 | 100% | 已上機 | `scheduleBackfill(allowMobileData, replace)`；2026-09-30 實機驗證：純行動網路時工作正確卡在 `Ready: false` 等 Wi-Fi，切到 Wi-Fi 後真的執行；按鈕點擊後 job history 確認立即排出新工作並執行 |
+| T13.5 | `lost` 狀態、預留圖、帳號頁「無法取回 N 張」＋【稍後重試】【刪除這些收藏】 | S | 手冊 §一 無法取回條目；案例 29 | 100% | 已上機 | `FileThumbs` 分辨 lost／還在等回填；2026-09-30 實機驗證：【稍後重試】job history 確認立即排出新工作；【刪除這些收藏】刪除後同一個 session 內帳號頁統計與首頁列表立即同步更新（不用重開 app） |
 
-**全分支最終審查與 fix wave**：12 個程式碼任務逐一 subagent 實作與審查後，再跑一次全分支最終審查（opus）抓到 1 個 Critical（未回報的 `thumb_state` 格子讓 `BackfillWorker` 無限自我重排）＋ 6 個 Important（見 CLAUDE.md 階段 13 段落的完整清單），全部屬於「拆成多個任務後、組裝起來才會顯形」的整合性問題；派一次 fix wave 修完並經 scoped re-review 確認全部解決，另 park 3 個不影響正確性的 Minor。三套測試 JVM 797 個（`:core:test` 170 ＋ `:app:testDebugUnitTest` 627）全綠，已用乾淨 `git worktree` 驗證過。**WorkManager 真的排出工作這件事完全沒有自動化測試覆蓋**（JVM／Robolectric 測不到這一層），下次有接實機時要優先手動走一次【稍後重試】與【用行動網路繼續】。
+**全分支最終審查與 fix wave**：12 個程式碼任務逐一 subagent 實作與審查後，再跑一次全分支最終審查（opus）抓到 1 個 Critical（未回報的 `thumb_state` 格子讓 `BackfillWorker` 無限自我重排）＋ 6 個 Important（見 CLAUDE.md 階段 13 段落的完整清單），全部屬於「拆成多個任務後、組裝起來才會顯形」的整合性問題；派一次 fix wave 修完並經 scoped re-review 確認全部解決，另 park 3 個不影響正確性的 Minor。
+
+**2026-09-30 實機驗收（2107113SG）**：全部 210 個 androidTest 用 `am instrument` 真的跑過並全過。手動走了完整 WorkManager 排程路徑（純行動網路卡住→切 Wi-Fi 真的執行→稍後重試→刪除這些收藏），過程中發現並修掉一個新缺口：`scanForMissing()` 原本只在受 Wi-Fi 約束的 `runBatch()` 裡執行，裝置純行動網路時 `thumb_state` 永遠是空的，帳號頁看不到任何進度、【用行動網路繼續】的顯示條件也永遠不成立——這是單元測試與全分支審查都測不到的情境。修法：新增無任何 constraint 的 `BackfillScanWorker`，開機時獨立排程。已在實機（純行動網路）重新驗證：`thumb_state` 正確填入、帳號頁正確顯示進度與按鈕。三套測試 JVM 799 個（`:core:test` 170 ＋ `:app:testDebugUnitTest` 629）全綠。
 
 ### 階段 14 —— 清理 web 程式碼
 
