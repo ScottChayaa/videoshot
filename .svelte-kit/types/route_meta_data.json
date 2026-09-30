@@ -1,0 +1,29 @@
+{
+	"/": [
+		"src/routes/+page.server.ts"
+	],
+	"/api/__reset": [
+		"src/routes/api/__reset/+server.ts"
+	],
+	"/api/clips": [
+		"src/routes/api/clips/+server.ts"
+	],
+	"/api/clips/[id]": [
+		"src/routes/api/clips/[id]/+server.ts"
+	],
+	"/api/search": [
+		"src/routes/api/search/+server.ts"
+	],
+	"/api/settings": [
+		"src/routes/api/settings/+server.ts"
+	],
+	"/inbox": [
+		"src/routes/inbox/+page.server.ts"
+	],
+	"/settings": [
+		"src/routes/settings/+page.server.ts"
+	],
+	"/v/[videoId]": [
+		"src/routes/v/[videoId]/+page.server.ts"
+	]
+}

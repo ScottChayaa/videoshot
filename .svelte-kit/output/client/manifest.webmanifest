@@ -1,0 +1,27 @@
+{
+	"name": "yt-space",
+	"short_name": "yt-space",
+	"description": "YouTube 片段標記與語意化檢索",
+	"lang": "zh-Hant",
+	"start_url": "/",
+	"scope": "/",
+	"display": "standalone",
+	"orientation": "portrait",
+	"background_color": "#111318",
+	"theme_color": "#111318",
+	"icons": [
+		{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+		{ "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+	],
+	"share_target": {
+		"action": "/share",
+		"method": "POST",
+		"enctype": "multipart/form-data",
+		"params": {
+			"title": "title",
+			"text": "text",
+			"url": "url",
+			"files": [{ "name": "image", "accept": ["image/*"] }]
+		}
+	}
+}

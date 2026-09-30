@@ -5,11 +5,8 @@ node_modules/
 # Build output
 dist/
 build/
-.svelte-kit/
 .turbo/
 
-# Cloudflare / Wrangler
-.wrangler/
 .dev.vars
 .env
 .env.*

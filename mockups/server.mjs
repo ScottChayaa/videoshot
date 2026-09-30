@@ -32,14 +32,14 @@ const MIME = {
   '.json': 'application/json; charset=utf-8'
 };
 
-// mockup 的 storyboard 解碼邏輯直接來自正式版 src/lib/storyboard.ts，不留手抄副本。
+// mockup 的 storyboard 解碼邏輯直接來自Kotlin 版 :core storyboard 的移植來源 mockups/shared/storyboard.ts，不留手抄副本。
 // 曾經兩份並存，改 frameAt 的取整規則時必須手動同步兩邊，漏改一份會靜默不一致。
 //
 // 轉譯用專案自己的 typescript（已是 devDependency），不是正則剝型別。
 // 輸出成 CommonJS 再包一層 IIFE，就能當成傳統 <script> 載入而不必把所有 mockup 頁面
 // 改成模組 —— 模組一律 defer，會排在 app.js 之後執行，順序會壞掉。
 async function buildStoryboardJs() {
-  const source = await readFile(join(ROOT, 'src', 'lib', 'storyboard.ts'), 'utf8');
+  const source = await readFile(join(DIR, 'shared', 'storyboard.ts'), 'utf8');
   const { outputText } = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
   });
@@ -49,7 +49,7 @@ async function buildStoryboardJs() {
   // 不能直接在同一層解構 —— TS 的 CommonJS 輸出保留了 `function parseStoryboardSpec` 宣告，
   // 同層再 `const { parseStoryboardSpec } = exports` 會撞名而整支腳本掛掉。
   return `// 自動產生，請勿直接編輯。
-// 核心來自 src/lib/storyboard.ts，frameStyle 來自 mockups/shared/frame-style.js。
+// 核心來自 mockups/shared/storyboard.ts，frameStyle 來自 mockups/shared/frame-style.js。
 (function () {
 const exports = {};
 ${outputText}

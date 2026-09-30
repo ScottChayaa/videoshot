@@ -10,8 +10,7 @@
 **尚未開始實作。** 2026-09-10 產品形態由 web（SvelteKit on Cloudflare）改為 Android 原生 app（Kotlin ＋ Jetpack Compose；iOS 暫不做），
 實作計畫的第一步是截圖功能的可行性 POC（階段 0），可與 Gradle 骨架（階段 1）平行。
 
-`src/` 是 2026-08-07 clip 版的 web 實作，不再是實作的輸入（只有 storyboard 解析演算法要移植成 Kotlin），
-會在計畫的清理階段一次刪除。
+web 版程式碼（`src/` 等）已於階段 14 刪除，內容留在 git 歷史；storyboard 解析演算法留在 `mockups/shared/storyboard.ts`。
 
 `mockups/uiux-v2/` 是已驗收的 UI 原型（假資料），仍是 UI 的目標狀態。
 
@@ -34,8 +33,7 @@ pnpm install
 pnpm mock         # http://localhost:8231/uiux-v2/login.html
 ```
 
-`pnpm mock` 會把 `src/lib/storyboard.ts` 即時轉譯成原型用的 `/shared/storyboard.js`，
-所以刪除 `src/` 之前必須先把這個檔案搬進 `mockups/`。
+`pnpm mock` 會把 `mockups/shared/storyboard.ts` 即時轉譯成原型用的 `/shared/storyboard.js`。
 
 ## 架構
 

@@ -27,7 +27,7 @@
 - **模組邊界**（規格第三節）：DB 只走 repo；縮圖只走 `thumbs`（畫面只呼叫 `thumbFor(shot)`）；YouTube 非官方端點只走 `youtube`；截圖藏在 `capture` 介面後；Drive 只在 `backup`
 - **重運算（裁切、dHash）放 `Dispatchers.Default`**；純邏輯放 `:core`（不依賴 Android SDK）
 - **commit message 用繁體中文**，格式 `類型(範圍): 描述`，不加 AI 生成標記
-- **`src/lib/storyboard.ts` 在階段 14 搬進 `mockups/` 之前不得刪除**（`mockups/server.mjs:42` 執行期讀取它）
+- **`mockups/shared/storyboard.ts` 不得刪除**（`mockups/server.mjs` 執行期讀取它；階段 14 已由 `src/lib/` 搬入）
 
 ---
 
@@ -53,7 +53,7 @@
 | **11** | **帳號頁、設定、標籤管理** | M | 98% | 完成，僅 T11.2 部分手冊條目待手動複驗（見 [階段 11 計畫](2026-09-27-階段11-帳號頁設定標籤管理.md)） |
 | **12** | **Google Drive 備份與還原** | L | 100% | 完成並實機驗收（見 [階段 12 計畫](2026-09-27-階段12-google-drive備份與還原.md)） |
 | **13** | **縮圖回填** | M | 100% | 完成並實機驗收（見 [階段 13 計畫](2026-09-28-階段13-縮圖回填.md)）；全分支最終審查修正 1 個 Critical＋6 個 Important，實機驗收另修 1 個純行動網路時掃描不會跑的缺口 |
-| 14 | 清理 web 程式碼 | S | 0% | 待產出 |
+| **14** | **清理 web 程式碼** | S | 100% | 完成（2026-09-30，無細節計畫） |
 
 細節計畫只為「即將動工、且前置結論已確定」的階段撰寫 —— 階段 0 的 POC 結果會改變階段 2、3、5、13 的做法，
 提前寫到程式碼層級只會白寫。
@@ -257,9 +257,9 @@
 
 | # | 任務 | 規模 | 驗收條件 | 完成度 | 上機驗證 | 備註 |
 |---|---|---|---|---|---|---|
-| T14.1 | `src/lib/storyboard.ts` 搬進 `mockups/shared/`，改 `mockups/server.mjs` 的讀取路徑 | S | `pnpm mock` 照常開啟，縮圖探測頁正常 | 0% | 不適用 | 未開工，隨時可做 |
-| T14.2 | 刪除 `src/`、`tests/`、`static/`、`svelte.config.js`、`vite.config.ts`、`playwright.config.ts`、`tsconfig.json`；`package.json` 只留 `mock` 腳本與其必要相依 | S | `pnpm install && pnpm mock` 正常；repo 內 grep 不到 SvelteKit 殘留 | 0% | 不適用 | 未開工 |
-| T14.3 | CLAUDE.md「不能刪的東西」與 README 同步更新 | S | 文件不再提及 `src/` | 0% | 不適用 | 未開工 |
+| T14.1 | `src/lib/storyboard.ts` 搬進 `mockups/shared/`，改 `mockups/server.mjs` 的讀取路徑 | S | `pnpm mock` 照常開啟，縮圖探測頁正常 | 100% | 不適用 | 完成；乾淨重裝後 login.html 與 /shared/storyboard.js 皆 200 |
+| T14.2 | 刪除 `src/`、`tests/`、`static/`、`svelte.config.js`、`vite.config.ts`、`playwright.config.ts`、`tsconfig.json`；`package.json` 只留 `mock` 腳本與其必要相依 | S | `pnpm install && pnpm mock` 正常；repo 內 grep 不到 SvelteKit 殘留 | 100% | 不適用 | 完成；`package.json` 只剩 `mock` 與 `typescript`，`pnpm-workspace.yaml` 一併刪除 |
+| T14.3 | CLAUDE.md「不能刪的東西」與 README 同步更新 | S | 文件不再提及 `src/` | 100% | 不適用 | 完成 |
 
 **時機**：與其他階段無依賴，**階段 1 完成後任何時候都可做**；建議早做，減少新舊程式碼並存的混淆。
 

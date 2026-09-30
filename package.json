@@ -5,23 +5,9 @@
   "packageManager": "pnpm@11.2.2",
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
-    "build": "vite build",
-    "preview": "vite preview",
-    "check": "svelte-check --tsconfig ./tsconfig.json",
-    "test:unit": "vitest run",
-    "test:e2e": "playwright test",
     "mock": "node mockups/server.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.1",
-    "@sveltejs/adapter-cloudflare": "^7.2.9",
-    "@sveltejs/kit": "^2.70.2",
-    "@sveltejs/vite-plugin-svelte": "^7.2.0",
-    "svelte": "^5.56.8",
-    "svelte-check": "^4.7.4",
-    "typescript": "^5.9.3",
-    "vite": "^8.2.0",
-    "vitest": "^4.1.10"
+    "typescript": "^5.9.3"
   }
 }

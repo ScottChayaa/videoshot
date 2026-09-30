@@ -3,8 +3,8 @@
 從任何 YouTube 影片挑出畫面，成為可依時間瀏覽、依標籤與語意檢索的個人圖庫（Android 原生 app，Kotlin ＋ Jetpack Compose；iOS 暫不做）。
 
 - **applicationId／Kotlin 套件：`com.xenyaa.videoshot`**（上線後不可改）。
-- 舊名 **yt-space**（2026-09-11 改名）。舊名仍留在 `src/`、`static/`、`tests/`（web 版，清理階段整批刪除）
-  與原型的 localStorage key `ytspace2_*`，這些刻意不改。
+- 舊名 **yt-space**（2026-09-11 改名）。web 版程式碼已於階段 14 刪除（2026-09-30，內容留在 git 歷史）；
+  舊名只剩原型的 localStorage key `ytspace2_*`，刻意不改。
 
 **目前進度：階段 0～3 完成，階段 4a（精靈外殼與第一步）完成（2026-09-14）、階段 4b（縮圖牆與收斂）、階段 4c（截圖與效能閘門）完成（2026-09-15）、階段 6（第三步、完成、草稿）、階段 7（App 外殼、首頁、Lightbox）完成（2026-09-16）、階段 8（分類資料夾）完成（2026-09-23）、階段 9（詳情頁）完成並實機驗收（2026-09-24）、階段 10（查詢）完成（2026-09-25，2026-09-26 完成全分支最終審查修正）、階段 11（帳號頁、設定、標籤管理）完成（2026-09-27）、階段 12（Google Drive 備份與還原）完成並實機驗收（2026-09-28，含 T12.1 手動設定與 T12.7 appDataFolder 研究）、階段 13（縮圖回填）完成並實機驗收（2026-09-29～30，全分支最終審查修正一個 Critical 與六個 Important；實機驗收另外發現並修掉「純行動網路時掃描永遠不會跑」的缺口）。
 三套測試：JVM **653 個**（`:core:test` 143 ＋ `:app:testDebugUnitTest` 510，2026-09-26）全綠；
@@ -271,7 +271,7 @@ storyboard 裁出真圖、收斂回報「119 張候選、隱藏 9 張」→ 挑 
 `android/` 有可建置的 `:app` 與 `:core`，共 **133 個測試**。
 資料層（`library.db`／`cache.db`／FTS5／`LibraryRepo`）、`youtube`（watch page 解析與五種失敗分類、OkHttp 抓取）、
 `thumbs`（`thumbFor` 單一讀取入口、sheet 下載裁切成 WebP）、dHash 與收斂演算法都已就緒。
-下一步是**階段 9**（詳情頁）；**階段 14**（清理 web 程式碼）也隨時可做。**原本的階段 5 已併入 4c**。
+**階段 14**（清理 web 程式碼）已於 2026-09-30 完成。**原本的階段 5 已併入 4c**。
 細節計畫只為即將動工的階段撰寫；沒有細節計畫的階段，先用 superpowers:writing-plans 產出再動工。
 
 階段 0 的結論已寫回規格（第二節第 5、7 點、第五節、第十一節、第十二節），POC 程式碼已刪除、內容留在 git 歷史。
@@ -320,14 +320,12 @@ storyboard 裁出真圖、收斂回報「119 張候選、隱藏 9 張」→ 挑 
 
 ## 不能刪的東西
 
-**`src/` 已不是實作的輸入**（web 版程式碼），會在計畫的清理階段**一次刪除**。在那之前不要零散刪除，特別是：
-
-- **`src/lib/storyboard.ts`** —— `mockups/server.mjs:42` **在執行期讀取它**並轉譯成
+- **`mockups/shared/storyboard.ts`** —— `mockups/server.mjs` **在執行期讀取它**並轉譯成
   `/shared/storyboard.js`。刪掉它 `pnpm mock` 就開不起來，UI 原型每一頁都會壞
-  （原型是驗收基準）。清理階段要**先把它搬進 `mockups/`** 再刪 `src/`。
-  它連同 `storyboard.test.ts` 也是 Kotlin 版 `storyboard`（`:core` 模組）的移植來源。
+  （原型是驗收基準）。它也是 Kotlin 版 `storyboard`（`:core` 模組）的移植來源
+  （2026-09-30 階段 14 由 `src/lib/` 搬入；web 版其餘程式碼已刪除，測試在 git 歷史）。
 
-`test-results/`、`tmp/`、`.svelte-kit/`、`.wrangler/` 都在 `.gitignore` 裡，隨時可刪。
+`test-results/`、`tmp/` 都在 `.gitignore` 裡，隨時可刪。
 
 ---
 
@@ -349,7 +347,7 @@ storyboard 裁出真圖、收斂回報「119 張候選、隱藏 9 張」→ 挑 
 ## 指令
 
 ```bash
-pnpm mock         # UI 原型（需要 src/lib/storyboard.ts 存在）
+pnpm mock         # UI 原型（需要 mockups/shared/storyboard.ts 存在）
 ```
 
 ```bash
