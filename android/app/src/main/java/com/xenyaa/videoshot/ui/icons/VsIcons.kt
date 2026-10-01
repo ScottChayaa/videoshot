@@ -197,4 +197,22 @@ object VsIcons {
 
     /** 標籤 kind＝其他（原型 `KIND.other`，菱形）。命名 `OtherKind` 避免跟 Kotlin 的一般用語混淆。 */
     val OtherKind: ImageVector by lazy { strokeIcon("other-kind", "M12 3 21 12 12 21 3 12z") }
+
+    /** 地點（原型 `KIND.place`）。 */
+    val MapPin: ImageVector by lazy {
+        strokeIcon(
+            "map-pin",
+            "M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0",
+            "M15 10a3 3 0 1 1-6 0a3 3 0 1 1 6 0",
+        )
+    }
+
+    /** 影片（原型 `ICONS.film`；取圖紀錄的列圖示，計畫 B 用）。 */
+    val Film: ImageVector by lazy {
+        strokeIcon(
+            "film",
+            "M4.18 2h15.64A2.18 2.18 0 0 1 22 4.18v15.64A2.18 2.18 0 0 1 19.82 22H4.18A2.18 2.18 0 0 1 2 19.82V4.18A2.18 2.18 0 0 1 4.18 2z",
+            "M7 2v20", "M17 2v20", "M2 12h20",
+        )
+    }
 }

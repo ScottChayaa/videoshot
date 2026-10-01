@@ -20,6 +20,12 @@ object Spacing {
 
     /** 底部導覽列高度（不含系統手勢區）。 */
     val navHeight: Dp = 58.dp
+
+    /**
+     * 頂欄高度（不含底部 1dp 分隔線）：44 觸控鈕＋上下各 8。
+     * 原型 `--head-h: 61px` 已含分隔線；有沒有按鈕的頁面都同高。
+     */
+    val topBarHeight: Dp = 60.dp
 }
 
 object Radii {
