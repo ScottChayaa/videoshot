@@ -6,9 +6,11 @@
   "type": "module",
   "scripts": {
     "mock": "node mockups/server.mjs",
-    "seed": "node mockups/tools/export-seed.mjs"
+    "seed": "node mockups/tools/export-seed.mjs",
+    "compare": "node mockups/tools/ui-compare.mjs"
   },
   "devDependencies": {
+    "playwright-core": "^1.63.0",
     "typescript": "^5.9.3"
   }
 }
