@@ -15,7 +15,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -33,6 +32,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.data.repo.model.FolderCard
+import com.xenyaa.videoshot.ui.common.TopBarIconButton
+import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
@@ -71,30 +72,9 @@ fun FoldersScreen(
 
     Column(modifier.fillMaxSize()) {
 
-        Row(
-            Modifier.fillMaxWidth().padding(
-                start = AppTheme.spacing.s4, end = AppTheme.spacing.s2, top = AppTheme.spacing.s2,
-            ),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                "分類",
-                style = MaterialTheme.typography.titleLarge,
-                color = AppTheme.colors.text,
-                modifier = Modifier.weight(1f),
-            )
-            IconButton(
-                onClick = { onSearching(!state.searching) },
-                modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape),
-            ) {
-                Icon(VsIcons.Search, contentDescription = "篩選分類名稱", tint = AppTheme.colors.textDim)
-            }
-            IconButton(
-                onClick = onStartCreate,
-                modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape),
-            ) {
-                Icon(VsIcons.FolderPlus, contentDescription = "新增資料夾", tint = AppTheme.colors.accent)
-            }
+        VsTopBar("分類") {
+            TopBarIconButton(VsIcons.Search, "篩選分類名稱", { onSearching(!state.searching) })
+            TopBarIconButton(VsIcons.FolderPlus, "新增資料夾", onStartCreate, tint = AppTheme.colors.accent)
         }
 
         if (state.searching) {

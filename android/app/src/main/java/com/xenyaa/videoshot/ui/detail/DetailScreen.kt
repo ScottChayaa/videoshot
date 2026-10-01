@@ -45,6 +45,10 @@ import com.xenyaa.videoshot.core.time.formatClock
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.player.Player
 import com.xenyaa.videoshot.player.PlayerSurface
+import com.xenyaa.videoshot.ui.common.TopBarIconButton
+import com.xenyaa.videoshot.ui.common.TopBarNav
+import com.xenyaa.videoshot.ui.common.TopBarTitle
+import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
@@ -79,24 +83,9 @@ fun DetailScreen(
         // 沒有 statusBarsPadding()——這支畫面掛在 AppShell 的 Scaffold 裡（比照 FolderScreen），
         // Scaffold 已經把系統列 inset 當 padding 傳進來了（見 AppRoot.kt 呼叫端），這裡再加
         // 一次會把狀態列的高度墊兩遍，標題上方多出一截真機才看得出來的空白（最終審查 Finding 4）
-        Row(
-            Modifier.fillMaxWidth().padding(AppTheme.spacing.s2),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onBack, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape)) {
-                Icon(VsIcons.Back, contentDescription = "返回", tint = AppTheme.colors.textDim)
-            }
-            Text(
-                state.title,
-                style = MaterialTheme.typography.titleLarge,
-                color = AppTheme.colors.text,
-                maxLines = 1,
-                modifier = Modifier.weight(1f).padding(horizontal = AppTheme.spacing.s2),
-            )
+        VsTopBar(state.title, nav = TopBarNav.Back(onBack), titleStyle = TopBarTitle.Small) {
             Box {
-                IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape)) {
-                    Icon(VsIcons.More, contentDescription = "這支影片的更多操作", tint = AppTheme.colors.textDim)
-                }
+                TopBarIconButton(VsIcons.More, "這支影片的更多操作", { menuOpen = true })
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(
                         text = { Text("繼續取這支的圖") },

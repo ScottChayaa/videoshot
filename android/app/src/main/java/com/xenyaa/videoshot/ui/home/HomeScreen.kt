@@ -40,6 +40,8 @@ import androidx.compose.ui.text.style.TextAlign
 import com.xenyaa.videoshot.core.home.homeColumnsFor
 import com.xenyaa.videoshot.core.home.monthLabel
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
+import com.xenyaa.videoshot.ui.common.TopBarIconButton
+import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import androidx.compose.foundation.shape.CircleShape
 import com.xenyaa.videoshot.ui.theme.AppTheme
@@ -198,21 +200,8 @@ fun HomeScreen(
 
 @Composable
 private fun HomeTopBar(onOpenFilter: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(
-            start = AppTheme.spacing.s4, end = AppTheme.spacing.s2, top = AppTheme.spacing.s2,
-        ),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            "收藏",
-            style = MaterialTheme.typography.titleLarge,
-            color = AppTheme.colors.text,
-            modifier = Modifier.weight(1f),
-        )
-        IconButton(onClick = onOpenFilter, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape)) {
-            Icon(VsIcons.Calendar, contentDescription = "依時間篩選", tint = AppTheme.colors.textDim)
-        }
+    VsTopBar("收藏") {
+        TopBarIconButton(VsIcons.Calendar, "依時間篩選", onOpenFilter)
     }
 }
 

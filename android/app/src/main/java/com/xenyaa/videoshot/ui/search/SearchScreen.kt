@@ -3,14 +3,12 @@ package com.xenyaa.videoshot.ui.search
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.clickable
@@ -20,7 +18,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AssistChip
@@ -28,7 +25,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -54,6 +50,8 @@ import com.xenyaa.videoshot.core.home.homeColumnsFor
 import com.xenyaa.videoshot.core.home.monthLabel
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.ui.home.MonthPickerSheet
+import com.xenyaa.videoshot.ui.common.TopBarNav
+import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
@@ -133,23 +131,10 @@ fun SearchScreen(
 
 @Composable
 private fun SearchTopBar(showingResults: Boolean, onBack: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.s2, vertical = AppTheme.spacing.s2),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (showingResults) {
-            IconButton(onClick = onBack, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape)) {
-                Icon(VsIcons.Back, contentDescription = "改條件", tint = AppTheme.colors.text)
-            }
-        } else {
-            Spacer(Modifier.width(AppTheme.spacing.tap))
-        }
-        Text(
-            if (showingResults) "查詢結果" else "查詢",
-            style = MaterialTheme.typography.titleLarge,
-            color = AppTheme.colors.text,
-            modifier = Modifier.weight(1f).padding(start = AppTheme.spacing.s2),
-        )
+    if (showingResults) {
+        VsTopBar("查詢結果", nav = TopBarNav.Back(onBack, label = "改條件"))
+    } else {
+        VsTopBar("查詢")
     }
 }
 

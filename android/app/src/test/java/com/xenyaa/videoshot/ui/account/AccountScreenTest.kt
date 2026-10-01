@@ -44,6 +44,13 @@ class AccountScreenTest {
         compose.onNodeWithText("12").assertIsDisplayed()
     }
 
+    /** 原型帳號頁 hero 上方有頂欄（原型寫「設定」，正式詞彙是「帳號」，見設計文件偏離清單）。 */
+    @Test
+    fun 有帳號頂欄() {
+        setContent(state)
+        compose.onNodeWithText("帳號").assertIsDisplayed()
+    }
+
     @Test
     fun 沒連結時hero顯示尚未設定備份() {
         setContent(state)

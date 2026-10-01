@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,12 +17,10 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,6 +36,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.data.repo.model.FolderCard
+import com.xenyaa.videoshot.ui.common.TopBarIconButton
+import com.xenyaa.videoshot.ui.common.TopBarNav
+import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
@@ -102,26 +102,9 @@ fun FolderScreen(
 
     Column(modifier.fillMaxSize()) {
 
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.s2, vertical = AppTheme.spacing.s2),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onBack, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape)) {
-                Icon(VsIcons.Back, contentDescription = "返回", tint = AppTheme.colors.textDim)
-            }
-            Text(
-                state.node?.name.orEmpty(),
-                style = MaterialTheme.typography.titleLarge,
-                color = AppTheme.colors.text,
-                modifier = Modifier.weight(1f).padding(horizontal = AppTheme.spacing.s2),
-            )
+        VsTopBar(state.node?.name.orEmpty(), nav = TopBarNav.Back(onBack)) {
             Box {
-                IconButton(
-                    onClick = { menuOpen = true },
-                    modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape),
-                ) {
-                    Icon(VsIcons.More, contentDescription = "這個資料夾的更多操作", tint = AppTheme.colors.textDim)
-                }
+                TopBarIconButton(VsIcons.More, "這個資料夾的更多操作", { menuOpen = true })
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(
                         text = { Text("新增子資料夾") },

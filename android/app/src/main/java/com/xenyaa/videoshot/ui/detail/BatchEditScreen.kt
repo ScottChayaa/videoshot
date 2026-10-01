@@ -2,17 +2,10 @@ package com.xenyaa.videoshot.ui.detail
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -20,9 +13,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.xenyaa.videoshot.ui.icons.VsIcons
-import com.xenyaa.videoshot.ui.theme.AppTheme
-import com.xenyaa.videoshot.ui.theme.focusRing
+import com.xenyaa.videoshot.ui.common.TopBarNav
+import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.wizard.Step3DetailsScreen
 
 /**
@@ -59,20 +51,8 @@ fun BatchEditScreen(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxSize().navigationBarsPadding()) {
-        Row(
-            Modifier.fillMaxWidth().statusBarsPadding().padding(AppTheme.spacing.s2),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onClose, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape)) {
-                Icon(VsIcons.Close, contentDescription = "關閉", tint = AppTheme.colors.text)
-            }
-            Text(
-                "批次編輯圖資",
-                style = MaterialTheme.typography.titleMedium,
-                color = AppTheme.colors.text,
-                modifier = Modifier.padding(start = AppTheme.spacing.s2),
-            )
-        }
+        // 不在 Scaffold 裡，系統列 inset 要自己墊（VsTopBar 本身不處理）
+        VsTopBar("批次編輯圖資", Modifier.statusBarsPadding(), nav = TopBarNav.Close(onClose))
 
         when (state) {
             BatchEditState.Loading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
