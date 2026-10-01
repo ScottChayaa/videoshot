@@ -5,7 +5,8 @@
   "packageManager": "pnpm@11.2.2",
   "type": "module",
   "scripts": {
-    "mock": "node mockups/server.mjs"
+    "mock": "node mockups/server.mjs",
+    "seed": "node mockups/tools/export-seed.mjs"
   },
   "devDependencies": {
     "typescript": "^5.9.3"
