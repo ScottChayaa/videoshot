@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.core.format.formatBytes
 import com.xenyaa.videoshot.core.similarity.FilterStrength
+import com.xenyaa.videoshot.ui.common.avatarInitialOf
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.shell.AccountSection
 import com.xenyaa.videoshot.ui.theme.AppTheme
@@ -63,7 +64,7 @@ fun AccountScreen(
                         val linked = state.linkedAccount
                         if (linked != null) {
                             Text(
-                                linked.displayName.firstOrNull()?.uppercase() ?: "?",
+                                avatarInitialOf(linked.displayName)?.toString() ?: "?",
                                 style = MaterialTheme.typography.titleLarge,
                                 color = AppTheme.colors.accentInk,
                             )

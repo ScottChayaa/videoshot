@@ -63,6 +63,7 @@ import com.xenyaa.videoshot.ui.lightbox.LightboxActions
 import com.xenyaa.videoshot.ui.lightbox.LightboxScreen
 import com.xenyaa.videoshot.ui.lightbox.shareTextOf
 import com.xenyaa.videoshot.ui.onboarding.FirstRunChooserScreen
+import com.xenyaa.videoshot.ui.common.avatarInitialOf
 import com.xenyaa.videoshot.ui.detail.BatchEditScreen
 import com.xenyaa.videoshot.ui.detail.BatchEditState
 import com.xenyaa.videoshot.ui.detail.BatchEditViewModel
@@ -601,7 +602,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             )
         }
 
-        Dest.Root, is Dest.Folder, is Dest.Detail, is Dest.AccountSetting -> AppShell(nav = nav, onSelectTab = { nav = nav.select(it) }, snackbarHostState = snackbarHostState) { tab ->
+        Dest.Root, is Dest.Folder, is Dest.Detail, is Dest.AccountSetting -> AppShell(nav = nav, onSelectTab = { nav = nav.select(it) }, snackbarHostState = snackbarHostState, accountInitial = avatarInitialOf(accountState.linkedAccount?.displayName)) { tab ->
             when (val current = nav.current) {
                 is Dest.Detail -> {
                     val vm = detailVm!!
