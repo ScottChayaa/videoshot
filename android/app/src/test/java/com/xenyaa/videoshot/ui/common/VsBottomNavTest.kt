@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.ui.common
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -46,10 +47,12 @@ class VsBottomNavTest {
     }
 
     /** 設計文件決定 4：連結後第五格顯示頭像字母，文字仍是「帳號」。 */
-    @Test fun 有頭像字母就顯示字母() {
+    @Test fun 有頭像字母時第五格的無障礙名稱仍只有帳號() {
         show(initial = 'S')
-        compose.onNodeWithText("S").assertIsDisplayed()
-        compose.onNodeWithText("帳號").assertIsDisplayed()
+        // 字母只是視覺頭像（clearAndSetSemantics 清掉了它的語意，所以語意樹裡找不到字母本身）；
+        // 重點是第五格合併後的文字只剩「帳號」，TalkBack 不會唸成「S，帳號」
+        compose.onNodeWithText("S", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText("帳號").assertIsDisplayed().assertTextEquals("帳號")
     }
 
     @Test fun 沒連結不顯示任何字母() {

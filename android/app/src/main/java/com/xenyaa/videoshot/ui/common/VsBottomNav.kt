@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -95,8 +96,10 @@ private fun NavItem(tab: Tab, selected: Boolean, accountInitial: Char?, onClick:
                     Modifier.size(24.dp).clip(CircleShape).background(AppTheme.colors.accent),
                     contentAlignment = Alignment.Center,
                 ) {
+                    // 字母只是視覺頭像，從無障礙樹清掉，TalkBack 才不會多唸一個英文字母
                     Text(
                         accountInitial.toString(),
+                        modifier = Modifier.clearAndSetSemantics {},
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         color = AppTheme.colors.accentInk,
                     )
