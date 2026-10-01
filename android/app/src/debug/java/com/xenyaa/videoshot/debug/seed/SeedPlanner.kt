@@ -4,9 +4,12 @@ import com.xenyaa.videoshot.core.storyboard.Storyboard
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.NewShot
 
-/** 假資料 → 寫入計畫。純函式，不碰 DB（寫入在 [SeedImporter]）。 */
+/**
+ * 假資料 → 寫入計畫。純函式，不碰 DB（寫入在 [SeedImporter]）。
+ * [nowSec] 是「現在」的 **epoch 秒**（不是毫秒），會寫進 `VideoEntity.addedAt`，與正式資料同單位。
+ */
 object SeedPlanner {
-    fun plan(file: SeedFile, now: Long): SeedPlan {
+    fun plan(file: SeedFile, nowSec: Long): SeedPlan {
         val byVideo = file.shots.groupBy { it.videoId }
         val batches = file.videos.mapNotNull { v ->
             val shots = byVideo[v.id] ?: return@mapNotNull null
@@ -15,7 +18,7 @@ object SeedPlanner {
                 video = VideoEntity(
                     id = v.id, title = v.title, channelTitle = v.channelTitle,
                     publishedAt = shots.minOf { it.eventDate }, durationSec = v.durationSec,
-                    privacy = "public", sbSpec = v.sbSpec, addedAt = now,
+                    privacy = "public", sbSpec = v.sbSpec, addedAt = nowSec,
                 ),
                 shotKeys = shots.map { it.key },
                 picks = shots.map { s ->

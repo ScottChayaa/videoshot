@@ -25,7 +25,7 @@ class SeedReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val text = app.assets.open("seed/mock-seed.json").bufferedReader().use { it.readText() }
-                val plan = SeedPlanner.plan(Json.decodeFromString<SeedFile>(text), System.currentTimeMillis())
+                val plan = SeedPlanner.plan(Json.decodeFromString<SeedFile>(text), System.currentTimeMillis() / 1000)
                 val container = (app as VideoshotApp).container
                 val r = SeedImporter(container.libraryRepo, container.shotDeleter::deleteVideo).import(plan)
                 // 假資料要立刻看到縮圖，不等 Wi-Fi

@@ -11,12 +11,18 @@ import java.io.File
 class SeedPlannerTest {
     // 單元測試的工作目錄是 android/app
     private val file: SeedFile = Json.decodeFromString(File("src/debug/assets/seed/mock-seed.json").readText())
-    private val plan = SeedPlanner.plan(file, now = 1_000L)
+    private val plan = SeedPlanner.plan(file, nowSec = 1_000L)
 
     // 原型的 13 個 clip 實際分布在 11 支影片（mock-data.js 的 VIDEOS 另有未使用的影片，不會匯入）。
     @Test fun 十三張分在十一支影片() {
         assertEquals(11, plan.batches.size)
         assertEquals(13, plan.batches.sumOf { it.picks.size })
+    }
+
+    // addedAt 的單位是秒（與 WizardViewModel 一致）；用真實的秒數值，傳成毫秒會變成 58720 年的日期
+    @Test fun 加入時間直接用傳入的秒數() {
+        val p = SeedPlanner.plan(file, nowSec = 1_790_000_000L)
+        assertEquals(setOf(1_790_000_000L), p.batches.map { it.video.addedAt }.toSet())
     }
 
     @Test fun 影片id用真實id() {
@@ -50,7 +56,7 @@ class SeedPlannerTest {
 
     @Test fun 解不出spec就不給格子編號() {
         val broken = file.copy(videos = file.videos.map { it.copy(sbSpec = null) })
-        val p = SeedPlanner.plan(broken, now = 0L)
+        val p = SeedPlanner.plan(broken, nowSec = 0L)
         assertNull(p.batches.first().picks.first().frameIndex)
     }
 }
