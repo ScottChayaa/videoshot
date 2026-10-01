@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -41,7 +42,8 @@ fun VsStepIndicator(steps: List<String>, current: Int, modifier: Modifier = Modi
                 val done = i < current
                 val now = i == current
                 val canGoBack = done && onStepClick != null
-                var m = Modifier.weight(1f)
+                // 每段至少 44dp 高（可點的步驟觸控區達標，也讓各段的條高一致）；放在 clickable 之前才會被點擊區涵蓋
+                var m = Modifier.weight(1f).defaultMinSize(minHeight = AppTheme.spacing.tap)
                 if (canGoBack) m = m.focusRing().clickable(role = Role.Button) { onStepClick?.invoke(i) }
                 Column(
                     m.semantics(mergeDescendants = true) { selected = now },

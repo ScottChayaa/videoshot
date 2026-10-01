@@ -44,6 +44,11 @@ class VsWizardPartsTest {
         assertEquals(0, went)
     }
 
+    @Test fun 可點的步驟觸控區至少44() {
+        compose.setContent { VideoshotTheme { VsStepIndicator(steps, current = 2, onStepClick = {}) } }
+        compose.onNodeWithText("1. 貼網址", substring = true).assertHeightIsAtLeast(44.dp)
+    }
+
     @Test fun 底線分頁標出選中並回報() {
         var picked = -1
         compose.setContent { VideoshotTheme { VsUnderlineTabs(listOf("標籤與地點", "描述"), selected = 0, onSelect = { picked = it }) } }
