@@ -175,7 +175,7 @@ private fun EmptyStateSection() = Section("空狀態") {
 
 @Composable
 private fun StepSection() = Section("步驟條") {
-    val steps = listOf("貼網址", "挑畫面", "填圖資") // 元件自己會加「1. 」編號
+    val steps = listOf("貼網址", "挑畫面", "填資料") // 元件自己會加「1. 」編號
     VsStepIndicator(steps, current = 0)
     VsStepIndicator(steps, current = 1, onStepClick = {})
     VsStepIndicator(steps, current = 2, onStepClick = {})

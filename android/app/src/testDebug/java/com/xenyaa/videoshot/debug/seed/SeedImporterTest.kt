@@ -19,6 +19,10 @@ class SeedImporterTest {
         val kindChanges = mutableMapOf<String, String>()
         val folders = mutableMapOf<Long, String>()
         val links = mutableListOf<Pair<Long, Long>>()
+        /** 圖庫裡現有的標籤：一開始是兩個舊標籤，deleteTag 會移除，commitPicks 會依 tagNames 重建（kind 預設 other，同真 repo） */
+        val tags = mutableListOf(TagUsage(1L, "夜潛", "other", emptyList(), 1), TagUsage(2L, "舊標籤", "other", emptyList(), 1))
+        val deletedTagIds = mutableListOf<Long>()
+        private var nextTag = 1000L
         private var nextShot = 100L
         private var nextFolder = 1L
         override suspend fun recentVideos(limit: Int) = listOf(RecentVideo("old1", "舊片", 0L, 3))
@@ -26,9 +30,11 @@ class SeedImporterTest {
         override suspend fun deleteFolder(id: Long) { deletedFolders += id }
         override suspend fun commitPicks(video: VideoEntity, picks: List<NewShot>): List<Long> {
             committed += video to picks
+            for (name in picks.flatMap { it.tagNames }) if (tags.none { it.name == name }) tags += TagUsage(nextTag++, name, "other", emptyList(), 1)
             return picks.map { nextShot++ }
         }
-        override suspend fun allTagsWithUsage() = listOf(TagUsage(1L, "夜潛", "other", emptyList(), 1), TagUsage(2L, "龍蝦", "other", emptyList(), 1))
+        override suspend fun allTagsWithUsage() = tags.toList()
+        override suspend fun deleteTag(id: Long) { deletedTagIds += id; tags.removeAll { it.id == id } }
         override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>) { kindChanges[name] = kind }
         override suspend fun createFolder(parentId: Long?, name: String): Long = nextFolder++.also { folders[it] = name }
         override suspend fun addShotToFolder(shotId: Long, folderId: Long, atSec: Long) { links += shotId to folderId }
@@ -44,6 +50,13 @@ class SeedImporterTest {
         assertEquals(listOf(9L), repo.deletedFolders) // 只刪根層，子層跟著刪
         assertEquals(13, r.shots)
         assertEquals(11, repo.committed.size)
+    }
+
+    @Test fun 舊標籤一併清掉() = runBlocking {
+        val repo = Recorder()
+        SeedImporter(repo) {}.import(plan)
+        assertEquals(listOf(1L, 2L), repo.deletedTagIds)
+        assertEquals(false, repo.tags.any { it.name == "舊標籤" })
     }
 
     @Test fun 標籤kind改成原型的種類() = runBlocking {

@@ -17,6 +17,9 @@ class SeedImporter(
         for (v in library.recentVideos(Int.MAX_VALUE)) deleteVideo(v.videoId)
         for (f in library.folderTree()) if (f.parentId == null) library.deleteFolder(f.id)
 
+        // 刪影片只解關聯、不會刪標籤，舊標籤要另外清，不然會跟假資料的標籤混在一起
+        for (t in library.allTagsWithUsage()) library.deleteTag(t.id)
+
         // 2. 寫入；commitPicks 回傳的 id 依序對應 shotKeys
         val shotIds = HashMap<String, Long>()
         for (b in plan.batches) {

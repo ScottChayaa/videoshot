@@ -7,9 +7,11 @@
             android:exported="true"
             android:theme="@style/Theme.Videoshot" />
         <!-- 開發測試版專用：匯入原型假資料（計畫 15A Task 10），會取代現有圖庫。
+             要求 DUMP 權限：只有 adb shell（以及系統）持有，裝置上其他 app 不能觸發。
              adb shell am broadcast -a com.xenyaa.videoshot.debug.SEED -n com.xenyaa.videoshot/.debug.seed.SeedReceiver -->
         <receiver
             android:name=".debug.seed.SeedReceiver"
+            android:permission="android.permission.DUMP"
             android:exported="true">
             <intent-filter>
                 <action android:name="com.xenyaa.videoshot.debug.SEED" />
