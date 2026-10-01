@@ -214,6 +214,35 @@ constraint，純本機 DB／檔案掃描），開機時獨立排程，跟受 Wi-
 `missing` 列、帳號頁正確顯示「縮圖回填中 0/3」與【用行動網路繼續】按鈕。三套測試補到
 JVM **799 個**（`:core:test` 170 ＋ `:app:testDebugUnitTest` 629）。
 
+**階段 15A（UI 對齊原型：共用元件層與驗收工具）完成（2026-10-01）**，是階段 15 四份計畫（15A～15D）的第一份，
+設計見 `docs/superpowers/specs/2026-10-01-UI對齊原型-design.md`。`ui/common/` 新增共用元件：
+`VsTopBar`（含 `TopBarIconButton`／`TopBarNav`／`TopBarTitle`）、`VsBottomNav`（含 `avatarInitialOf`）、
+`VsTagChip`（`ChipKind`／`ChipSize`）、`VsButton`（`ButtonVariant`）、`VsListRow`、`VsEmptyState`、
+`VsActionDock`、`VsStepIndicator`、`VsUnderlineTabs`、`VsToolbarPill`（`PillStyle`）、`VsHintCard`；
+主題補 `KindColors`、`Spacing.topBarHeight`，圖示補 `MapPin`、`Film`。
+**現在看得到的 UI 改動**：首頁、查詢、分類、資料夾內容、詳情、批次編輯、帳號與其子畫面全部換成共用頂欄
+（固定 60dp 高＋1dp 分隔線，標題 20 粗體）；底部導覽的「取圖」格是主色實心方塊、帳號格連結 Google 後
+顯示頭像字母；帳號頁在 hero 上方多了一條「帳號」頂欄。**取圖精靈與 Lightbox 沒動**（留給 15B／15C）。
+**開發測試版專用工具**（`app/src/debug/`，正式版不含，已用 release APK 的 dex 驗證不含任何 debug 類別）：
+元件總覽頁、假資料匯入（`pnpm seed` 從原型轉出 JSON，`SeedReceiver` 一個 adb broadcast 就能取代
+整個圖庫，13 張／11 支影片／5 個資料夾／21 個標籤，匯入後自動排縮圖回填）、
+`pnpm compare` 原型與實機對照截圖；用法見下方「指令」。
+**執行期間的裁定**：步驟列每段最小高 44dp（觸控目標），所以比原型鬆；假資料是 11 支影片（計畫原寫 12）；
+假資料的加入時間用秒，與正式資料一致。
+三套測試：JVM **846 個**（`:core:test` 170 ＋ `:app:testDebugUnitTest` 676，2026-10-01）全綠——
+比階段 13 完成時的 799 個多 47 個（`:core` 數量不變，`:app` +47）；已用乾淨 `git worktree` 全新編譯
+重跑一次（`:core:test` 170／`:app:testDebugUnitTest` 676／`:app:assembleRelease`，84 個 task 全部重新執行），
+數字一致。**儀器測試 `OK (210 tests)`**（`am instrument`，2107113SG 實機，2026-10-01；本階段沒改 DB／網路，
+確認 `AppRoot` 的改動沒有波及）。這次跑完照規矩把假資料重新匯入裝置（`VsSeed done shots=13 folders=5`），
+裝置現在是假資料狀態、首頁可直接看到。
+**實機驗收發現、尚未修的兩個問題**（已交由獨立任務處理，15C 動工前必須解決）：
+(1) 從 Lightbox 按【播放這一段】進詳情頁後，詳情頁一直停在「正在載入…」不會結束；
+(2) 由假資料匯入的 receiver 啟動的 process 之後再開 app，畫面白屏 90 秒以上，要強制停止後重開才正常。
+這兩個症狀跟階段 9 記錄過的「詳情頁偶爾卡 16 秒」同源的可能性很高，**推翻了當時「是外部塞資料的
+邊界情況」的研判**（上方階段 9 段落已改）。
+**階段 15 剩下**：15B 取圖精靈、15C 首頁／Lightbox／詳情／資料夾內容（卡在上述卡死問題）、
+15D 查詢／分類／帳號；都還沒有細節計畫。
+
 **app 啟動後落在首頁**（階段 2 的資料層冒煙畫面已刪除，內容在 git 歷史），底部導覽五格
 （首頁／查詢／取圖／分類／帳號），取圖精靈在第三格。貼網址 → 挑畫面 → 填圖資 → 完成，
 這一整段的接線已經做完，圖會真的寫進 `library.db`。
@@ -227,9 +256,10 @@ Lightbox（手冊 §三，含刪除後自動停在下一張）、深色模式、
 點不到、鍵盤 Tab 也切不進去（`BatchEditScreen.kt` 少包一層 `navigationBarsPadding()`，精靈
 第三步的同一顆按鈕靠外層 `Scaffold` 的預設 inset 沒事，這裡沒有 `Scaffold` 就露餡了）——
 已修好並在實機上重新點過確認可以按。**手勢導覽的裝置沒有這個問題，只有三鍵／兩鍵導覽列會踩到。**
-另外詳情頁第一次進入時偶爾（只發生過一次）卡在「正在載入…」約 16 秒，之後兩次乾淨重裝都沒再
-重現、也沒有 logcat 錯誤，研判是那次驗收用外部組好的 SQLite 檔案直接塞進 `library.db`（不是透過
-App 自己寫入）才踩到的邊界情況，非透過此方式塞資料則尚未再遇到，先記錄觀察。
+另外詳情頁第一次進入時偶爾（只發生過一次）卡在「正在載入…」約 16 秒，當時研判是那次驗收用外部
+組好的 SQLite 檔案直接塞進 `library.db` 才踩到的邊界情況——**這個研判在 2026-10-01 階段 15A 的
+實機驗收被推翻**：見下方階段 15A 段落，詳情頁卡「正在載入…」與匯入後白畫面都用 app 自己的
+流程重現了，是真的缺陷，不是外部塞資料的邊界情況。
 **手冊 §零 也在 2026-09-18 驗完**：平板寬度加欄（`wm size 1280x800` ＋ `wm density 240` ＝ 853dp → 5 欄，
 驗完 `wm size reset`／`wm density reset`）、TalkBack 要唸的名稱（`uiautomator dump` 每張縮圖都有
 「片段縮圖 MM:SS」或它的描述）、實體鍵盤焦點框（首頁縮圖、導覽五格、Lightbox 的關閉與動作鈕都看得到框）。
@@ -349,6 +379,22 @@ storyboard 裁出真圖、收斂回報「119 張候選、隱藏 9 張」→ 挑 
 ```bash
 pnpm mock         # UI 原型（需要 mockups/shared/storyboard.ts 存在）
 ```
+
+```bash
+pnpm seed                   # 從原型重新產生 android/app/src/debug/assets/seed/mock-seed.json（假資料）
+pnpm compare [--seed] [--dark] [--only 首頁,查詢]   # 原型與實機對照截圖（需先開 pnpm mock；輸出 tmp/ui-compare/<時間>/；--seed 約 2.5 分鐘）
+```
+
+開發測試版專用的實機工具（正式版不含）：
+
+```bash
+# 元件總覽頁（所有共用元件、淺色／深色）
+adb shell am start -n com.xenyaa.videoshot/.debug.ComponentCatalogActivity
+# 匯入假資料：會「取代」裝置上的整個圖庫（13 張／11 支影片／5 個資料夾／21 個標籤），匯入後自動排縮圖回填
+adb shell am broadcast -a com.xenyaa.videoshot.debug.SEED -n com.xenyaa.videoshot/.debug.seed.SeedReceiver
+```
+
+匯入完成的訊號是 logcat 出現 `VsSeed done`；之後先 `force-stop` 再重新啟動 app（見階段 15A 段落的白畫面問題）。
 
 ```bash
 cd android
