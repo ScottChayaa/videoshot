@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -38,8 +40,10 @@ fun RestoreScreen(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.fillMaxSize()) {
-        AccountSettingHeader("從 Google Drive 還原", onBack)
+    // 這個畫面掛在 AppShell 的 Scaffold 外面（AppRoot 的 RestoreFlow 與首次開啟兩條路），
+    // 系統列 inset 要自己墊：頂欄讓開狀態列、清單底部讓開導覽列（VsTopBar 的 KDoc 規則）
+    Column(modifier.fillMaxSize().navigationBarsPadding()) {
+        AccountSettingHeader("從 Google Drive 還原", onBack, Modifier.statusBarsPadding())
         when (step) {
             is RestoreStep.Loading, is RestoreStep.Restoring -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
