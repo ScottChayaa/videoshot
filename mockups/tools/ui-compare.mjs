@@ -1,6 +1,7 @@
 // 原型｜實機對照截圖：同一個畫面各截一張，左原型、右實機，並排存成 PNG。
 // 用法：pnpm compare [--dark] [--only 首頁,查詢] [--seed]
-// 需要：另一個終端機跑著 pnpm mock（port 8231）、adb 連著一台裝上 debug 版的手機。
+// 需要：另一個終端機跑著 pnpm mock（port 8231）、adb 連著一台裝上 debug 版的手機、本機有 Chrome
+// （預設 /usr/bin/google-chrome，位置不同就設 CHROME 環境變數）。
 import { chromium } from 'playwright-core';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
@@ -13,7 +14,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const BASE = 'http://localhost:8231/uiux-v2/';
 const PKG = 'com.xenyaa.videoshot';
 const ADB = path.join(process.env.ANDROID_HOME || path.join(os.homedir(), 'Android/Sdk'), 'platform-tools', 'adb');
-const CHROME = '/usr/bin/google-chrome';
+const CHROME = process.env.CHROME || '/usr/bin/google-chrome';
 
 // ---- 參數 ----
 const args = process.argv.slice(2);
@@ -30,6 +31,18 @@ const adbText = (...a) => adb(...a).toString('utf8');
 function die(msg) {
   console.error(msg);
   process.exit(1);
+}
+
+// ---- 深色模式：記下原本的設定，結束時還原 ----
+let originalNight = null;
+function readNightMode() {
+  // 輸出像 "Night mode: no"；auto／custom_schedule／custom_bedtime 也是 cmd uimode night 接受的值
+  const m = adbText('shell', 'cmd', 'uimode', 'night').match(/Night mode:\s*(\S+)/i);
+  return m ? m[1].toLowerCase() : null;
+}
+function restoreNightMode() {
+  if (originalNight == null) return;
+  try { adb('shell', 'cmd', 'uimode', 'night', originalNight); } catch { /* 裝置可能已斷線 */ }
 }
 
 // ---- 前置檢查 ----
@@ -55,12 +68,14 @@ async function preflight() {
 async function runSeed() {
   console.log('--seed：匯入假資料…');
   adb('shell', 'am', 'force-stop', PKG);
-  adb('logcat', '-c');
+  // 不清 logcat（那是整個裝置共用的緩衝區）：記下裝置現在的時間，之後只看這個時間點以後的 VsSeed
+  // date 整串當一個 shell 指令，不然空格會把它拆開
+  const since = adbText('shell', "date '+%m-%d %H:%M:%S.000'").trim();
   adb('shell', 'am', 'broadcast', '-a', `${PKG}.debug.SEED`, '-n', `${PKG}/.debug.seed.SeedReceiver`);
   let done = false;
   for (let i = 0; i < 30 && !done; i++) {
     await sleep(1000);
-    done = /\bdone\b/.test(adbText('logcat', '-d', '-s', 'VsSeed'));
+    done = /\bdone\b/.test(adbText('logcat', '-d', '-s', 'VsSeed', '-T', since));
   }
   if (!done) die('--seed：30 秒內沒有在 logcat（VsSeed）看到 done');
   // 由接收器啟動的行程直接開 app 可能白畫面，先停掉再正常啟動一次
@@ -194,6 +209,7 @@ async function main() {
   const failures = [];
   const browser = await chromium.launch({ executablePath: CHROME, headless: true });
   try {
+    originalNight = readNightMode();
     adb('shell', 'cmd', 'uimode', 'night', dark ? 'yes' : 'no');
     await sleep(1500);
 
@@ -249,7 +265,7 @@ async function main() {
     if (done.length) await compose(browser, outDir, 'all.png', 'all', done, 3, 360);
   } finally {
     await browser.close();
-    try { adb('shell', 'cmd', 'uimode', 'night', 'no'); } catch { /* 裝置可能已斷線 */ }
+    restoreNightMode();
   }
 
   console.log(`\n輸出資料夾：${outDir}`);
@@ -261,6 +277,6 @@ async function main() {
 }
 
 main().catch((e) => {
-  try { adb('shell', 'cmd', 'uimode', 'night', 'no'); } catch { /* ignore */ }
+  restoreNightMode();
   die(e.stack || String(e));
 });

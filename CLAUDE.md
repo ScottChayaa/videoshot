@@ -225,7 +225,7 @@ JVM **799 個**（`:core:test` 170 ＋ `:app:testDebugUnitTest` 629）。
 顯示頭像字母；帳號頁在 hero 上方多了一條「帳號」頂欄。**取圖精靈與 Lightbox 沒動**（留給 15B／15C）。
 **開發測試版專用工具**（`app/src/debug/`，正式版不含，已用 release APK 的 dex 驗證不含任何 debug 類別）：
 元件總覽頁、假資料匯入（`pnpm seed` 從原型轉出 JSON，`SeedReceiver` 一個 adb broadcast 就能取代
-整個圖庫，13 張／11 支影片／5 個資料夾／21 個標籤，匯入後自動排縮圖回填）、
+整個圖庫，13 張／11 支影片／5 個資料夾／20 個標籤，匯入後自動排縮圖回填）、
 `pnpm compare` 原型與實機對照截圖；用法見下方「指令」。
 **執行期間的裁定**：步驟列每段最小高 44dp（觸控目標），所以比原型鬆；假資料是 11 支影片（計畫原寫 12）；
 假資料的加入時間用秒，與正式資料一致。
@@ -386,7 +386,7 @@ pnpm mock         # UI 原型（需要 mockups/shared/storyboard.ts 存在）
 
 ```bash
 pnpm seed                   # 從原型重新產生 android/app/src/debug/assets/seed/mock-seed.json（假資料）
-pnpm compare [--seed] [--dark] [--only 首頁,查詢]   # 原型與實機對照截圖（需先開 pnpm mock；輸出 tmp/ui-compare/<時間>/；--seed 約 2.5 分鐘）
+pnpm compare [--seed] [--dark] [--only 首頁,查詢]   # 原型與實機對照截圖（需先開 pnpm mock、本機要有 Chrome——位置不是 /usr/bin/google-chrome 就設 CHROME=路徑；輸出 tmp/ui-compare/<時間>/；--seed 約 2.5 分鐘）
 ```
 
 開發測試版專用的實機工具（正式版不含）：
@@ -394,7 +394,7 @@ pnpm compare [--seed] [--dark] [--only 首頁,查詢]   # 原型與實機對照�
 ```bash
 # 元件總覽頁（所有共用元件、淺色／深色）
 adb shell am start -n com.xenyaa.videoshot/.debug.ComponentCatalogActivity
-# 匯入假資料：會「取代」裝置上的整個圖庫（13 張／11 支影片／5 個資料夾／21 個標籤），匯入後自動排縮圖回填
+# 匯入假資料：會「取代」裝置上的整個圖庫（13 張／11 支影片／5 個資料夾／20 個標籤），匯入後自動排縮圖回填
 adb shell am broadcast -a com.xenyaa.videoshot.debug.SEED -n com.xenyaa.videoshot/.debug.seed.SeedReceiver
 ```
 
