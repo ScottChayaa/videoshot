@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:networkSecurityConfig="@xml/network_security_config" />
+    <application android:networkSecurityConfig="@xml/network_security_config">
+        <!-- 開發測試版專用：元件總覽頁（計畫 15A Task 8）。exported 才能用 adb am start 開 -->
+        <activity
+            android:name=".debug.ComponentCatalogActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Videoshot" />
+    </application>
 </manifest>
