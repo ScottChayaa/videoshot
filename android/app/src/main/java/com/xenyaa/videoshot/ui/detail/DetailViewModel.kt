@@ -13,6 +13,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -97,7 +98,11 @@ class DetailViewModel(
     fun loadPlayerInfo() {
         _state.value = _state.value.copy(player = PlayerAvailability.Loading)
         viewModelScope.launch {
-            _state.value = _state.value.copy(player = availabilityOf(watchPage(videoId)))
+            // 先等網路、再以「當下」的狀態更新——不能寫成 `_state.value = _state.value.copy(player = …watchPage…)`：
+            // Kotlin 會先取那時的舊快照（loading 還是 true）才去等網路，回來後整份寫回，
+            // 把圖資讀取早就寫好的 loading = false／shots／title 全蓋掉（2026-10-01 實機「永遠正在載入」）
+            val availability = availabilityOf(watchPage(videoId))
+            _state.update { it.copy(player = availability) }
         }
     }
 
@@ -132,7 +137,8 @@ class DetailViewModel(
         // 輔助性質的讀取(跟 AppRoot.EditingSheet 的 produceState 同一個取捨)：查不到就沒有建議,
         // 不該讓整頁跳錯誤
         tagsJob = viewModelScope.launch {
-            _state.value = _state.value.copy(focusedTags = runCatching { library.tagsOfShot(id) }.getOrDefault(emptyList()))
+            val tags = runCatching { library.tagsOfShot(id) }.getOrDefault(emptyList())
+            _state.update { it.copy(focusedTags = tags) }
         }
     }
 

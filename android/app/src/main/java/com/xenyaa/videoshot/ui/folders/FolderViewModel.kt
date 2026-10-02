@@ -15,6 +15,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class FolderState(
@@ -115,7 +116,11 @@ class FolderViewModel(
             items = current.items.filterNot { it.id == id },
             total = (current.total - 1).coerceAtLeast(0),
         )
-        launchGuarded { _state.value = _state.value.copy(children = loadChildren()) }
+        // 先等 repo 再以當下狀態更新——理由見 DetailViewModel.loadPlayerInfo
+        launchGuarded {
+            val children = loadChildren()
+            _state.update { it.copy(children = children) }
+        }
     }
 
     /** 子資料夾列固定名稱升冪（`FolderSort` 的 KDoc：清單頁與資料夾頁共用同一組排序）。 */

@@ -60,7 +60,13 @@ class HomeViewModelTest {
             return Page(itemsByMonth[upToMonth].orEmpty(), null)
         }
 
-        override suspend fun monthCounts(): List<MonthCount> = monthCounts
+        /** 非 null 時 `monthCounts` 會卡到它完成為止。 */
+        var monthCountsGate: CompletableDeferred<Unit>? = null
+
+        override suspend fun monthCounts(): List<MonthCount> {
+            monthCountsGate?.await()
+            return monthCounts
+        }
         override suspend fun shotCount(upToMonth: String?): Int = itemsByMonth[upToMonth].orEmpty().size
     }
 
@@ -142,5 +148,31 @@ class HomeViewModelTest {
         vm.onShotChanged(row(1, "2026-04-01"))
         advanceUntilIdle()
         assertEquals(listOf(MonthCount("2026-04", 1)), vm.state.value.months)
+    }
+
+    /**
+     * 月份選項跟第一頁是同時發出去的兩個讀取。原本寫成
+     * `_state.value = _state.value.copy(months = repo.monthCounts())`——先取了「還在載入、沒有任何列」
+     * 的舊快照才去等 repo，月份比第一頁晚回來時會把已經載入的列表整份蓋回載入中
+     * （跟詳情頁 2026-10-01「永遠正在載入」同一個根因）。
+     */
+    @Test
+    fun 月份選項比第一頁晚回來時不會把已載入的列表蓋掉() = runTest(dispatcher) {
+        val repo = FakeLibraryRepo().apply {
+            itemsByMonth = mapOf(null to listOf(row(1, "2026-03-05")))
+            monthCounts = listOf(MonthCount("2026-03", 1))
+        }
+        val gate = CompletableDeferred<Unit>()
+        repo.monthCountsGate = gate
+        val vm = HomeViewModel(repo, pageSize = 10)
+        advanceUntilIdle()
+        assertEquals(listOf(1L), vm.state.value.items.map { it.id })   // 第一頁先到
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertFalse(vm.state.value.loading)
+        assertEquals(listOf(1L), vm.state.value.items.map { it.id })
+        assertEquals(listOf(MonthCount("2026-03", 1)), vm.state.value.months)
     }
 }

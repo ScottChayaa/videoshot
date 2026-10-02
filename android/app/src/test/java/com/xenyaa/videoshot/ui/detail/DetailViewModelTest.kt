@@ -7,6 +7,7 @@ import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.player.FakePlayer
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -41,12 +42,22 @@ class DetailViewModelTest {
         var tagsById: Map<Long, List<String>> = emptyMap()
         var throwOnShots = false
 
+        /** 非 null 時 `tagsOfShot` 會卡到它完成為止——用來製造「讀標籤期間狀態被別處改過」的競態。 */
+        var tagsGate: CompletableDeferred<Unit>? = null
+
+        /** 非 null 時 `shotsOfVideo` 會卡到它完成為止——實機上 DB 讀取在 IO 執行緒上真的會暫停。 */
+        var shotsGate: CompletableDeferred<Unit>? = null
+
         override suspend fun shotsOfVideo(videoId: String): List<ShotRow> {
+            shotsGate?.await()
             if (throwOnShots) throw RuntimeException("模擬讀取失敗")
             return shots
         }
         override suspend fun videoById(videoId: String) = video
-        override suspend fun tagsOfShot(shotId: Long): List<String> = tagsById[shotId].orEmpty()
+        override suspend fun tagsOfShot(shotId: Long): List<String> {
+            tagsGate?.await()
+            return tagsById[shotId].orEmpty()
+        }
     }
 
     private fun okPage(playableInEmbed: Boolean = true) = WatchPage(
@@ -189,5 +200,54 @@ class DetailViewModelTest {
         advanceUntilIdle()
 
         assertEquals(2L, vm.state.value.focusedShotId)
+    }
+
+    /**
+     * 2026-10-01 實機回報「詳情頁永遠停在正在載入」的回歸測試。
+     * watch page 走網路，幾乎一定比 library.db 的讀取晚回來；原本寫成
+     * `_state.value = _state.value.copy(player = availabilityOf(watchPage(videoId)))`——
+     * Kotlin 先取 `_state.value`（那時 `loading` 還是 true）才去等網路，回來後把那份舊快照整份寫回，
+     * 圖資讀取早就寫好的 `loading = false`／shots／title 全被蓋掉。
+     */
+    @Test
+    fun 播放器資訊比圖資晚回來時不會把畫面蓋回載入中() = runTest(dispatcher) {
+        val shotsGate = CompletableDeferred<Unit>()
+        val repo = Repo().apply { shots = listOf(shot(1, 10.0), shot(2, 20.0)); this.shotsGate = shotsGate }
+        val pageGate = CompletableDeferred<WatchPage>()
+        val vm = DetailViewModel("v1", initialFocusShotId = 1L, library = repo, watchPage = { pageGate.await() })
+        advanceUntilIdle()                    // 兩個讀取都已發出、都還沒回來
+        shotsGate.complete(Unit)
+        advanceUntilIdle()
+        assertFalse(vm.state.value.loading)   // 圖資先到
+
+        pageGate.complete(okPage())
+        advanceUntilIdle()
+
+        val s = vm.state.value
+        assertFalse(s.loading)
+        assertEquals("旅行影片", s.title)
+        assertEquals(2, s.shots.size)
+        assertEquals(DetailViewModel.PlayerAvailability.Ready(playableInEmbed = true), s.player)
+    }
+
+    @Test
+    fun 讀聚焦張標籤期間的編輯不會被讀完的標籤蓋掉() = runTest(dispatcher) {
+        val repo = Repo().apply {
+            shots = listOf(shot(1, 10.0), shot(2, 20.0))
+            tagsById = mapOf(1L to listOf("海邊"))
+        }
+        val vm = DetailViewModel("v1", initialFocusShotId = 1L, library = repo, watchPage = { okPage() })
+        advanceUntilIdle()
+
+        val gate = CompletableDeferred<Unit>()
+        repo.tagsGate = gate
+        vm.focus(vm.state.value.shots[0])          // 開始讀標籤，卡在 gate
+        advanceUntilIdle()
+        vm.onShotChanged(shot(2, 20.0, place = "台北"))   // 標籤還沒回來前，另一張被編輯
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("台北", vm.state.value.shots.first { it.id == 2L }.place)
+        assertEquals(listOf("海邊"), vm.state.value.focusedTags)
     }
 }

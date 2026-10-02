@@ -11,6 +11,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -40,7 +41,7 @@ class HomeViewModel(
     /** 重新載入目前的篩選條件（完成取圖、刪除整支、還原備份之後都要叫）。 */
     fun reload() {
         _state.value = HomeStore.reset(_state.value, _state.value.upToMonth)
-        launchGuarded { _state.value = _state.value.copy(months = repo.monthCounts()) }
+        refreshMonths()
         loadMore()
     }
 
@@ -77,8 +78,12 @@ class HomeViewModel(
         refreshMonths()
     }
 
+    /** 先等 repo 再以當下狀態更新——理由見 `DetailViewModel.loadPlayerInfo`：跟 [loadMore] 同時在跑，先取快照會把剛載入的列表蓋掉。 */
     private fun refreshMonths() {
-        launchGuarded { _state.value = _state.value.copy(months = repo.monthCounts()) }
+        launchGuarded {
+            val months = repo.monthCounts()
+            _state.update { it.copy(months = months) }
+        }
     }
 
     /** 新出現的月份才去查標籤列 —— 每捲一頁就整份重查的話，同一個月會查很多次。 */

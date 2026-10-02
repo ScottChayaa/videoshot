@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -123,7 +124,9 @@ class AccountViewModel(
     fun refreshBackfillProgress() {
         viewModelScope.launch {
             try {
-                _state.value = _state.value.copy(backfillProgress = deps.backfillProgress())
+                // 先等結果再以當下狀態更新——理由見 DetailViewModel.loadPlayerInfo
+                val progress = deps.backfillProgress()
+                _state.update { it.copy(backfillProgress = progress) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {

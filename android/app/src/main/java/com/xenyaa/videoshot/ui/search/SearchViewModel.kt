@@ -14,6 +14,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private const val FACET_PAGE_LIMIT = 30
@@ -81,7 +82,11 @@ class SearchViewModel(
     init {
         loadFacets()
         // 日期選擇器的選項，跟首頁看的是同一份「有收藏的月份」清單，只查一次不必跟著時間篩選重查
-        launchGuarded { _state.value = _state.value.copy(months = repo.monthCounts()) }
+        // 先等 repo 再以當下狀態更新——跟 loadFacets() 同時在跑，理由見 DetailViewModel.loadPlayerInfo
+        launchGuarded {
+            val months = repo.monthCounts()
+            _state.update { it.copy(months = months) }
+        }
     }
 
     fun setMode(mode: SearchMode) { _state.value = SearchStore.setMode(_state.value, mode) }
