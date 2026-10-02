@@ -143,8 +143,8 @@ Task 15。日後 iOS 版或 Chrome 擴充功能只要掛在同一個 Cloud 專�
 從那之後每個大階段收尾前都會多開一個乾淨的 `git worktree` 重跑一次完整測試，不能只信
 incremental 編譯的綠燈——階段 12 最後兩次驗證（fix wave 前、fix wave 後）都是這樣做的。
 **四項刻意擱置、留待之後的次要項目**（全分支最終審查發現，裁定不影響正確性、不擋這次收尾）：
-首次開啟畫面新增的本機資料偵測沒有 timeout／loading 提示（Room 開啟異常慢時會白畫面，跟階段 9
-記過的那次 16 秒卡住是同一種風險）；還原換檔前刪 WAL／SHM 側車檔案的順序讓「原本的圖庫沒有變動」
+首次開啟畫面新增的本機資料偵測沒有 timeout／loading 提示（Room 開啟異常慢時會白畫面；
+階段 9 記過的那次 16 秒卡住後來查明不是 Room 慢，見階段 15A 段落）；還原換檔前刪 WAL／SHM 側車檔案的順序讓「原本的圖庫沒有變動」
 這句失敗訊息稍微說得比程式碼實際保證的更肯定（純理論風險）；還原清尾兩段例外處理對
 `CancellationException` 的處理不對稱（無害，只是不一致）；帳號頁頭像字母沒有做 TalkBack 語意
 清除，會多唸一個英文字母。
@@ -235,17 +235,34 @@ JVM **799 個**（`:core:test` 170 ＋ `:app:testDebugUnitTest` 629）。
 數字一致。**儀器測試 `OK (210 tests)`**（`am instrument`，2107113SG 實機，2026-10-01；本階段沒改 DB／網路，
 確認 `AppRoot` 的改動沒有波及）。這次跑完照規矩把假資料重新匯入裝置（`VsSeed done shots=13 folders=5`），
 裝置現在是假資料狀態、首頁可直接看到。
-**實機驗收發現、尚未修的兩個問題**（已交由獨立任務處理，15C 動工前必須解決）：
-(1) 從 Lightbox 按【播放這一段】進詳情頁後，詳情頁一直停在「正在載入…」不會結束。2026-10-01 由
-控制端重現：資料是 **app 自己透過取圖精靈寫入的**（Big Buck Bunny `aqz-KE-bpKQ`，4 張），**還沒匯入任何
-假資料之前**就卡 90 秒以上——所以階段 9 當時「是外部塞資料的邊界情況」的研判，對詳情頁而言**已被
-推翻**（階段 9 段落已改）。
-(2) 由假資料匯入的 receiver（debug `SeedReceiver`）啟動的 process 之後再開 app，畫面白屏 90 秒以上；
-**只在匯入路徑觀察到**，強制停止後重開就正常。這一項只能說是現象，還不能斷定是 app 本身的缺陷。
-**兩個現象是否同源、跟階段 9 記錄的「詳情頁偶爾卡 16 秒」是否同一件事：推測（尚未查出根因，已另開
-任務）。**
-**階段 15 剩下**：15B 取圖精靈、15C 首頁／Lightbox／詳情／資料夾內容（卡在上述卡死問題）、
-15D 查詢／分類／帳號；都還沒有細節計畫。
+**實機驗收發現的兩個卡住問題，2026-10-02 已查出根因並修正**（兩者**不同源**，也**都跟資料庫無關**——
+卡住時所有執行緒閒置、DB 讀取 10 毫秒內就回來）：
+(1) **詳情頁永遠停在「正在載入…」**（commit `4832d60`）：`DetailViewModel.loadPlayerInfo` 寫成
+`_state.value = _state.value.copy(player = …watchPage…)`——Kotlin 先取當下的舊狀態（`loading` 還是 true）
+才去等網路，watch page 約 1 秒後回來把那份舊快照整份寫回，蓋掉圖資讀取早就寫好的 `loading = false`。
+同樣「先取快照、再等讀取、最後整份寫回」的寫法另有五處一併修掉（詳情頁標籤、首頁／查詢頁月份選項、
+資料夾頁子資料夾、帳號頁回填進度；首頁那處會讓晚到的月份把已載入的列表蓋回載入中）。
+**慣例：非同步讀取回來要先算結果、再 `_state.update { it.copy(…) }`，不要把 suspend 呼叫寫在
+`.copy(…)` 的參數裡。** 階段 9 記的「偶爾卡 16 秒」就是這一個（見階段 9 段落）。
+(2) **白畫面不動**（commit `7e1eb2c`）：MIUI 13（Android 12）的「背景 app 停用動畫」
+（系統屬性 `persist.sys.disable_bganimate`，預設開）改了 `Choreographer`：行程還沒有可見 surface 時，
+動畫類型的 frame callback 只排進佇列、**不要求下一幀**。Compose 在第一幀的 traversal 裡
+（`ComposeView.onAttachedToWindow` 建立 Recomposer）就發出第一個幀請求，早於 `relayoutWindow` 建出
+surface，被吞掉；`AndroidUiDispatcher` 以為已經排過就不再排，畫面停在第一次組合。
+**DataStore 已在記憶體裡時才會踩到**（值在那一刻立刻回來、需要重組），所以不只假資料匯入——
+**同一個行程剛被背景工作（備份、回填）喚醒過再開 App，正式版使用者也可能遇到**；`force-stop` 後
+DataStore 要重讀檔，值晚一點才到，所以「強制停止再開就正常」。修法：`FrameStallGuard`，`MainActivity`
+取得視窗焦點時補要一個空幀。實機同條件對照：拿掉這一行 6 次有 1 次白畫面，修正後 30 次全部正常。
+證據是用 jdb 在卡住當下讀 `Choreographer`／`AndroidUiDispatcher` 內部欄位、對 `disableAnimation` 下斷點
+抓到呼叫堆疊，並從手機拉 `framework.jar`／`miui-framework.jar` 反組譯確認的（細節見 commit 說明）。
+三套測試：JVM **854 個**（`:core:test` 170 ＋ `:app:testDebugUnitTest` 684，2026-10-02）全綠，
+新增 7 個回歸測試修正前全部失敗。
+**實機實驗的教訓**：這台手機 10 分鐘無操作就會熄螢幕上鎖，上鎖時 Activity 被暫停、vsync 停止，
+看起來跟「畫面卡住」一模一樣——一度把上鎖期間的數據當成有效樣本。**每一輪實驗都要確認
+`dumpsys window` 的 `isKeyguardShowing=false` 與 `dumpsys power` 的 `mWakefulness=Awake`**，
+不符的樣本作廢；`KEYCODE_WAKEUP` 只會亮到鎖定畫面，有密碼鎖時要請 scott 解鎖。
+**階段 15 剩下**：15B 取圖精靈、15C 首頁／Lightbox／詳情／資料夾內容、15D 查詢／分類／帳號；
+都還沒有細節計畫。
 
 **app 啟動後落在首頁**（階段 2 的資料層冒煙畫面已刪除，內容在 git 歷史），底部導覽五格
 （首頁／查詢／取圖／分類／帳號），取圖精靈在第三格。貼網址 → 挑畫面 → 填圖資 → 完成，
@@ -261,9 +278,9 @@ Lightbox（手冊 §三，含刪除後自動停在下一張）、深色模式、
 第三步的同一顆按鈕靠外層 `Scaffold` 的預設 inset 沒事，這裡沒有 `Scaffold` 就露餡了）——
 已修好並在實機上重新點過確認可以按。**手勢導覽的裝置沒有這個問題，只有三鍵／兩鍵導覽列會踩到。**
 另外詳情頁第一次進入時偶爾（只發生過一次）卡在「正在載入…」約 16 秒，當時研判是那次驗收用外部
-組好的 SQLite 檔案直接塞進 `library.db` 才踩到的邊界情況——**這個研判在 2026-10-01 階段 15A 的
-實機驗收被推翻**：見階段 15A 段落：詳情頁卡「正在載入…」用 app 自己（取圖精靈）寫入的資料就
-重現了，不是外部塞資料的邊界情況（匯入後白畫面是另一個只在匯入路徑觀察到的現象，根因尚未查出）。
+組好的 SQLite 檔案直接塞進 `library.db` 才踩到的邊界情況——**這個研判是錯的**：2026-10-02 查出是
+`DetailViewModel` 把晚到的播放器資訊連同舊快照一起寫回、蓋掉已載入的狀態（見階段 15A 段落，已修）；
+當時為什麼 16 秒後自己恢復沒有查證（推測是之後另一次重查又寫回了狀態）。
 **手冊 §零 也在 2026-09-18 驗完**：平板寬度加欄（`wm size 1280x800` ＋ `wm density 240` ＝ 853dp → 5 欄，
 驗完 `wm size reset`／`wm density reset`）、TalkBack 要唸的名稱（`uiautomator dump` 每張縮圖都有
 「片段縮圖 MM:SS」或它的描述）、實體鍵盤焦點框（首頁縮圖、導覽五格、Lightbox 的關閉與動作鈕都看得到框）。
@@ -398,7 +415,7 @@ adb shell am start -n com.xenyaa.videoshot/.debug.ComponentCatalogActivity
 adb shell am broadcast -a com.xenyaa.videoshot.debug.SEED -n com.xenyaa.videoshot/.debug.seed.SeedReceiver
 ```
 
-匯入完成的訊號是 logcat 出現 `VsSeed done`；之後先 `force-stop` 再重新啟動 app（見階段 15A 段落的白畫面問題）。
+匯入完成的訊號是 logcat 出現 `VsSeed done`；之後直接開 app 即可（2026-10-02 修掉白畫面問題前要先 `force-stop`，見階段 15A 段落）。
 
 ```bash
 cd android
