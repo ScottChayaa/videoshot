@@ -3,11 +3,14 @@ package com.xenyaa.videoshot.ui.common
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -47,6 +50,39 @@ class VsWizardPartsTest {
     @Test fun 可點的步驟觸控區至少44() {
         compose.setContent { VideoshotTheme { VsStepIndicator(steps, current = 2, onStepClick = {}) } }
         compose.onNodeWithText("1. 貼網址", substring = true).assertHeightIsAtLeast(44.dp)
+    }
+
+    /** 沿用既有精靈行為：已到達過的後面步驟也能點（WizardViewModel.jumpTo + furthest）。 */
+    @Test fun 已到達的後面步驟可以點() {
+        var went = -1
+        compose.setContent { VideoshotTheme { VsStepIndicator(steps, current = 0, furthest = 2, onStepClick = { went = it }) } }
+        compose.onNodeWithText("3. 填資料", substring = true).performClick()
+        assertEquals(2, went)
+    }
+
+    @Test fun 沒到達的步驟不能點() {
+        var went = -1
+        compose.setContent { VideoshotTheme { VsStepIndicator(steps, current = 0, furthest = 1, onStepClick = { went = it }) } }
+        compose.onNodeWithText("3. 填資料", substring = true).assertHasNoClickAction()
+    }
+
+    /** 15A 最終審查：「‹」不該被 TalkBack 唸出來。 */
+    @Test fun 返回箭頭不進語意() {
+        compose.setContent { VideoshotTheme { VsStepIndicator(steps, current = 2, onStepClick = {}) } }
+        compose.onNodeWithContentDescription("回到 1. 貼網址").assertExists()
+        compose.onAllNodesWithText("‹", substring = true).assertCountEquals(0)
+    }
+
+    /** 往後跳的步驟 TalkBack 唸「前往 …」。 */
+    @Test fun 往後跳的步驟唸前往() {
+        compose.setContent { VideoshotTheme { VsStepIndicator(steps, current = 0, furthest = 2, onStepClick = {}) } }
+        compose.onNodeWithContentDescription("前往 3. 填資料").assertExists()
+    }
+
+    /** 15A 最終審查：切換型小按鈕的開關狀態要進語意。 */
+    @Test fun 工具列小按鈕的選取狀態進語意() {
+        compose.setContent { VideoshotTheme { VsToolbarPill("只看已選", {}, selected = true) } }
+        compose.onNodeWithText("只看已選").assertIsSelected()
     }
 
     @Test fun 底線分頁標出選中並回報() {

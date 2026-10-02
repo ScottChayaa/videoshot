@@ -21,6 +21,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
@@ -60,6 +62,8 @@ fun VsToolbarPill(
             .alpha(if (enabled) 1f else 0.5f)
             .focusRing(shape)
             .clip(shape)
+            // 切換型按鈕的開關狀態要讓 TalkBack 唸得出來（不只靠主色底）
+            .semantics { this.selected = selected }
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {

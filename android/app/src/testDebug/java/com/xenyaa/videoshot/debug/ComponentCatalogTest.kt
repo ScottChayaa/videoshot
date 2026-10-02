@@ -19,7 +19,7 @@ class ComponentCatalogTest {
 
     @Test fun 總覽頁列出每一區() {
         compose.setContent { VideoshotTheme { ComponentCatalog() } }
-        for (section in listOf("頂欄", "底部導覽", "標籤小膠囊", "按鈕", "清單列", "空狀態", "步驟條", "底線分頁", "工具列小按鈕", "提示卡", "底部動作列")) {
+        for (section in listOf("頂欄", "底部導覽", "標籤小膠囊", "按鈕", "清單列", "空狀態", "步驟條", "輸入欄", "底線分頁", "工具列小按鈕", "提示卡", "底部動作列")) {
             compose.onAllNodesWithText(section, useUnmergedTree = true).onFirst().assertExists()
         }
     }

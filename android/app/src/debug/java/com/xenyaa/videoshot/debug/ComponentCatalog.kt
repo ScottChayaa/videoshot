@@ -27,6 +27,7 @@ import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.ChipKind
 import com.xenyaa.videoshot.ui.common.ChipSize
 import com.xenyaa.videoshot.ui.common.PillStyle
+import com.xenyaa.videoshot.ui.common.TextFieldSize
 import com.xenyaa.videoshot.ui.common.TopBarNav
 import com.xenyaa.videoshot.ui.common.TopBarTitle
 import com.xenyaa.videoshot.ui.common.TopBarIconButton
@@ -38,6 +39,7 @@ import com.xenyaa.videoshot.ui.common.VsHintCard
 import com.xenyaa.videoshot.ui.common.VsListRow
 import com.xenyaa.videoshot.ui.common.VsStepIndicator
 import com.xenyaa.videoshot.ui.common.VsTagChip
+import com.xenyaa.videoshot.ui.common.VsTextField
 import com.xenyaa.videoshot.ui.common.VsToolbarPill
 import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.ui.common.VsUnderlineTabs
@@ -67,6 +69,7 @@ fun ComponentCatalog(modifier: Modifier = Modifier) {
                 ListRowSection()
                 EmptyStateSection()
                 StepSection()
+                TextFieldSection()
                 TabsPillsHintSection()
             }
             DockSection()
@@ -179,6 +182,24 @@ private fun StepSection() = Section("步驟條") {
     VsStepIndicator(steps, current = 0)
     VsStepIndicator(steps, current = 1, onStepClick = {})
     VsStepIndicator(steps, current = 2, onStepClick = {})
+    VsStepIndicator(steps, current = 0, furthest = 2, onStepClick = {}) // 已到達過第 3 步，回到第 1 步後可以往後跳
+}
+
+@Composable
+private fun TextFieldSection() = Section("輸入欄") {
+    var place by remember { mutableStateOf("") }
+    VsTextField(
+        place, { place = it }, label = "地點", placeholder = "例如：加勒比海",
+        supporting = "留空就不寫入",
+    )
+    var dense by remember { mutableStateOf("加勒比海") }
+    VsTextField(dense, { dense = it }, label = "地點", labelAccent = true, size = TextFieldSize.Dense)
+    VsTextField(
+        "", {}, label = "描述", placeholder = "〈多個值〉", mixedPlaceholder = true,
+        size = TextFieldSize.Dense,
+    )
+    var bad by remember { mutableStateOf("12:99") }
+    VsTextField(bad, { bad = it }, label = "時間", isError = true, supporting = "格式不對，請輸入 mm:ss")
 }
 
 @Composable
