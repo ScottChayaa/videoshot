@@ -30,7 +30,11 @@ import com.xenyaa.videoshot.ui.theme.focusRing
 /** [Outline]＝原型 `.wz-tools button`；[Quiet]＝`.wz-tools.pick button`（灰底小鈕，不搶主按鈕的視線）。 */
 enum class PillStyle { Outline, Quiet }
 
-/** 工具列小按鈕。[selected] 時換成主色底；停用時透明度 0.5。 */
+/**
+ * 工具列小按鈕。[selected] 時換成主色底；停用時透明度 0.5。
+ * 只有切換型按鈕（[isToggle]＝true）才把開關狀態寫進語意（TalkBack 唸「已選取／未選取」）；
+ * 一般動作鈕（全選、清除…）不帶 Selected 屬性，免得被唸成「未選取」。
+ */
 @Composable
 fun VsToolbarPill(
     text: String,
@@ -38,6 +42,7 @@ fun VsToolbarPill(
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
     selected: Boolean = false,
+    isToggle: Boolean = false,
     enabled: Boolean = true,
     style: PillStyle = PillStyle.Outline,
 ) {
@@ -63,7 +68,7 @@ fun VsToolbarPill(
             .focusRing(shape)
             .clip(shape)
             // 切換型按鈕的開關狀態要讓 TalkBack 唸得出來（不只靠主色底）
-            .semantics { this.selected = selected }
+            .then(if (isToggle) Modifier.semantics { this.selected = selected } else Modifier)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {

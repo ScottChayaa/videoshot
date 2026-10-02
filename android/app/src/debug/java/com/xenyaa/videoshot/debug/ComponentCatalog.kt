@@ -213,8 +213,8 @@ private fun TabsPillsHintSection() {
         var on by remember { mutableStateOf(false) }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(s2), verticalArrangement = Arrangement.spacedBy(s2)) {
             VsToolbarPill("全選", onClick = {})
-            VsToolbarPill("隱藏相似", onClick = { on = !on }, icon = VsIcons.Filter, selected = on)
-            VsToolbarPill("已選取", onClick = {}, selected = true)
+            VsToolbarPill("隱藏相似", onClick = { on = !on }, icon = VsIcons.Filter, selected = on, isToggle = true)
+            VsToolbarPill("已選取", onClick = {}, selected = true, isToggle = true)
             VsToolbarPill("清除", onClick = {}, style = PillStyle.Quiet)
             VsToolbarPill("停用", onClick = {}, enabled = false)
         }

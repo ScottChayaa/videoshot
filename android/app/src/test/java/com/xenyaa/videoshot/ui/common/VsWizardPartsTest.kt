@@ -3,6 +3,9 @@ package com.xenyaa.videoshot.ui.common
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertHeightIsAtLeast
@@ -81,8 +84,14 @@ class VsWizardPartsTest {
 
     /** 15A 最終審查：切換型小按鈕的開關狀態要進語意。 */
     @Test fun 工具列小按鈕的選取狀態進語意() {
-        compose.setContent { VideoshotTheme { VsToolbarPill("只看已選", {}, selected = true) } }
+        compose.setContent { VideoshotTheme { VsToolbarPill("只看已選", {}, selected = true, isToggle = true) } }
         compose.onNodeWithText("只看已選").assertIsSelected()
+    }
+
+    /** 一般動作鈕不帶 Selected，免得被唸成「未選取」。 */
+    @Test fun 一般動作鈕不帶選取語意() {
+        compose.setContent { VideoshotTheme { VsToolbarPill("全選", {}) } }
+        compose.onNodeWithText("全選").assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Selected))
     }
 
     @Test fun 底線分頁標出選中並回報() {
