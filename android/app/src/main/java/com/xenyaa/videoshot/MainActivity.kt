@@ -10,10 +10,20 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xenyaa.videoshot.data.settings.NightMode
 import com.xenyaa.videoshot.data.settings.isDark
 import com.xenyaa.videoshot.ui.shell.AppRoot
+import com.xenyaa.videoshot.ui.shell.FrameStallGuard
 import com.xenyaa.videoshot.ui.theme.Palettes
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
 
 class MainActivity : ComponentActivity() {
+    /** 測試會換掉它——見 `MainActivityFrameStallTest`。 */
+    internal var frameStallGuard = FrameStallGuard()
+
+    /** MIUI 13 會吞掉 surface 建出來之前的 Compose 幀請求，取得焦點時補要一幀（見 [FrameStallGuard]）。 */
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        frameStallGuard.onWindowFocusChanged(hasFocus)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
