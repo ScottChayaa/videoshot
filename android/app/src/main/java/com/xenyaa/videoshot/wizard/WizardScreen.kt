@@ -1,22 +1,16 @@
 package com.xenyaa.videoshot.wizard
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,12 +21,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xenyaa.videoshot.player.PlayerSurface
+import com.xenyaa.videoshot.ui.common.ButtonVariant
+import com.xenyaa.videoshot.ui.common.TopBarNav
+import com.xenyaa.videoshot.ui.common.TopBarTitle
+import com.xenyaa.videoshot.ui.common.VsButton
+import com.xenyaa.videoshot.ui.common.VsStepIndicator
+import com.xenyaa.videoshot.ui.common.VsTopBar
+import com.xenyaa.videoshot.ui.theme.AppTheme
 
 /**
  * 取圖精靈的外殼：三段進度、【✕】、返回鍵、離開確認。
@@ -60,33 +57,26 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
     // 返回鍵先給精靈消化；在第一步才讓系統關掉整個流程
     BackHandler { if (!vm.back()) onExit() }
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        topBar = {
-            Column(Modifier.statusBarsPadding()) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // 用文字的 ✕ 而不是 material-icons 的向量圖：少一個相依。
-                    // IconButton 沒有 contentDescription 參數，改由 semantics 提供。
-                    IconButton(
-                        onClick = {
-                            // 第一步還沒有任何投入，直接走；之後要問草稿怎麼辦
-                            if (step == WizardStep.URL) onExit() else askExit = true
-                        },
-                        modifier = Modifier.semantics { contentDescription = "關閉" },
-                    ) {
-                        Text("✕", style = MaterialTheme.typography.titleLarge)
-                    }
-                }
-                StepIndicator(
-                    current = step,
-                    furthest = furthest,
-                    onJump = { vm.jumpTo(it) },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                )
-            }
-        },
-    ) { inner ->
-        Box(Modifier.padding(inner).fillMaxSize()) {
+    val loadedForTitle by vm.loaded.collectAsStateWithLifecycle()
+    // 原型 .wz-top：第一步標題是「取圖」，之後換成影片標題（取不到時退回「取圖」）
+    val title = if (step == WizardStep.URL) "取圖" else loadedForTitle?.page?.meta?.title ?: "取圖"
+
+    // 不用 Scaffold：這裡沒有底部導覽，內容區的底部 inset 交給各步自己的 VsActionDock
+    Column(Modifier.fillMaxSize().background(AppTheme.colors.bg)) {
+        VsTopBar(
+            title = title,
+            modifier = Modifier.statusBarsPadding(),
+            // 第一步還沒有任何投入，直接走；之後要問草稿怎麼辦
+            nav = TopBarNav.Close(onClick = { if (step == WizardStep.URL) onExit() else askExit = true }),
+            titleStyle = TopBarTitle.Small,
+        )
+        VsStepIndicator(
+            steps = WizardStep.entries.map { it.label },
+            current = step.order - 1,
+            furthest = furthest.order - 1,
+            onStepClick = { vm.jumpTo(WizardStep.entries[it]) },
+        )
+        Box(Modifier.weight(1f).fillMaxWidth()) {
             when (step) {
                 WizardStep.URL -> {
                     val status by vm.status.collectAsStateWithLifecycle()
@@ -103,7 +93,7 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                     val loaded by vm.loaded.collectAsStateWithLifecycle()
                     val current = store
                     if (current == null) {
-                        Text("正在載入縮圖…")
+                        LoadingText("正在載入縮圖…")
                     } else {
                         val state by current.state.collectAsStateWithLifecycle()
                         val captureError by vm.captureError.collectAsStateWithLifecycle()
@@ -153,7 +143,7 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                     val suggestions by vm.suggestions.collectAsStateWithLifecycle()
                     val current = store
                     if (current == null) {
-                        Text("正在準備縮圖…")
+                        LoadingText("正在準備縮圖…")
                     } else {
                         val state by current.state.collectAsStateWithLifecycle()
                         // 圖仍然由第二步的狀態機供應 —— 它同時認得 storyboard 格與手動格
@@ -198,8 +188,8 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
             onDismissRequest = {},
             title = { Text("上次做到「$stepName」，要繼續嗎？") },
             text = { Text("選【重新開始】會把上次的選擇與補圖一起清掉。") },
-            confirmButton = { TextButton(onClick = { vm.resumeDraft() }) { Text("繼續") } },
-            dismissButton = { TextButton(onClick = { vm.startOver() }) { Text("重新開始") } },
+            confirmButton = { VsButton("繼續", { vm.resumeDraft() }) },
+            dismissButton = { VsButton("重新開始", { vm.startOver() }, variant = ButtonVariant.Quiet) },
         )
     }
 
@@ -208,7 +198,7 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
             onDismissRequest = { takenTapped = null },
             title = { Text("這一格已經收藏過了") },
             text = { Text("長按或按 ▶ 仍然可以跳到那一段看看。") },
-            confirmButton = { TextButton(onClick = { takenTapped = null }) { Text("知道了") } },
+            confirmButton = { VsButton("知道了", { takenTapped = null }) },
         )
     }
 
@@ -219,8 +209,8 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
             title = { Text("還有 $count 張沒填資料，仍要完成嗎？") },
             // 提醒但不阻擋（規格第五節「完成」）—— 圖本身已經有價值，圖資可以之後補
             text = { Text("沒填的圖仍然會進圖庫，之後可以在詳情頁補上。") },
-            confirmButton = { TextButton(onClick = { vm.finish(force = true) }) { Text("仍要完成") } },
-            dismissButton = { TextButton(onClick = { vm.dismissPendingFinish() }) { Text("回去填") } },
+            confirmButton = { VsButton("仍要完成", { vm.finish(force = true) }) },
+            dismissButton = { VsButton("回去填", { vm.dismissPendingFinish() }, variant = ButtonVariant.Quiet) },
         )
     }
 
@@ -231,34 +221,16 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
             title = { Text("存不進圖庫") },
             // 草稿還在 —— 這是使用者現在最需要知道的事
             text = { Text("剛才的選擇都還留著，可以再試一次。") },
-            confirmButton = { TextButton(onClick = { vm.dismissCommitFailed() }) { Text("知道了") } },
+            confirmButton = { VsButton("知道了", { vm.dismissCommitFailed() }) },
         )
     }
 }
 
-/** 帶文字的三段進度。已完成的步驟可點回去，未到達的點不動。 */
+/** 步驟內容還沒備妥時的置中提示（原型沒有對應畫面，沿用 15 textDim）。 */
 @Composable
-private fun StepIndicator(
-    current: WizardStep,
-    furthest: WizardStep,
-    onJump: (WizardStep) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        WizardStep.entries.forEach { s ->
-            val reachable = s.order <= furthest.order
-            Text(
-                text = s.indicator,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = if (s == current) FontWeight.Bold else FontWeight.Normal,
-                color = if (reachable) {
-                    MaterialTheme.colorScheme.onSurface
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                modifier = Modifier.clickable(enabled = reachable) { onJump(s) },
-            )
-        }
+private fun LoadingText(text: String) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = AppTheme.colors.textDim)
     }
 }
 
@@ -272,7 +244,7 @@ private fun ExitDialog(onKeep: () -> Unit, onDiscard: () -> Unit, onDismiss: () 
         onDismissRequest = onDismiss,
         title = { Text("要離開取圖嗎？") },
         text = { Text("保留草稿的話，下次按【取圖】可以接著做。") },
-        confirmButton = { TextButton(onClick = onKeep) { Text("保留草稿並離開") } },
-        dismissButton = { TextButton(onClick = onDiscard) { Text("捨棄草稿") } },
+        confirmButton = { VsButton("保留草稿並離開", onKeep) },
+        dismissButton = { VsButton("捨棄草稿", onDiscard, variant = ButtonVariant.DangerQuiet) },
     )
 }

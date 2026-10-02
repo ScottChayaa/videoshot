@@ -1,6 +1,7 @@
 package com.xenyaa.videoshot.wizard
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -160,5 +161,29 @@ class WizardShellTest {
         show()
         compose.onNodeWithText("首頁").assertDoesNotExist()
         compose.onNodeWithText("分類").assertDoesNotExist()
+    }
+
+    /** 原型 .wz-top：第一步的頂欄標題是「取圖」，左邊是【✕】。 */
+    @Test
+    fun 第一步頂欄顯示取圖與關閉鈕() {
+        show()
+        compose.onNodeWithText("取圖").assertIsDisplayed()
+        compose.onNodeWithContentDescription("關閉").assertIsDisplayed()
+    }
+
+    /** 手冊 §四：進度指示有文字；目前步驟標成已選。 */
+    @Test
+    fun 步驟條標出目前步驟() {
+        show()
+        compose.onNodeWithText("1. 貼網址", substring = true).assertIsSelected()
+    }
+
+    /** 影片標題還沒載入（第二步但 loaded 為空）時，頂欄退回「取圖」。 */
+    @Test
+    fun 第二步取不到影片標題時頂欄退回取圖() {
+        val vm = newVm()
+        vm.goTo(WizardStep.PICK)
+        show(vm)
+        compose.onNodeWithText("取圖").assertIsDisplayed()
     }
 }
