@@ -282,7 +282,7 @@ private fun DetailGridTile(
                 .combinedClickable(onClick = onFocus, onLongClick = onEdit)
                 .semantics { contentDescription = labelOf(shot) },
         ) {
-            ThumbImage(shot = shot, loader = loader, modifier = Modifier.fillMaxSize())
+            ThumbImage(shot = shot, loader = loader, modifier = Modifier.fillMaxSize(), showTimeOnPlaceholder = false)
             Text(
                 formatClock(shot.atSec),
                 style = MaterialTheme.typography.labelSmall,

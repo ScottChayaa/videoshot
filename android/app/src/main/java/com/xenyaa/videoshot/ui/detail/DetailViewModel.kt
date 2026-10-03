@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 
 /**
@@ -147,6 +148,8 @@ class DetailViewModel(
                     .associate { it.name to it.kind }
                 tags.mapNotNull { name -> kindByName[name]?.let { name to it } }.toMap()
             }
+            // runCatching 會把取消例外也吞掉；被取消的舊工作（連點兩張圖）不能再寫入過期的標籤
+            ensureActive()
             _state.update { it.copy(focusedTags = tags, focusedTagKinds = kinds) }
         }
     }

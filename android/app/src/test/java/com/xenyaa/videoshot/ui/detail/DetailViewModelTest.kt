@@ -60,8 +60,14 @@ class DetailViewModelTest {
             if (throwOnUsage) throw RuntimeException("模擬讀取失敗")
             return usage
         }
+        /** true 時 `tagsOfShot` 等 gate 的那段不理會取消——模擬「取消了但舊工作仍在跑完」（Room 的查詢就是這樣）。 */
+        var tagsGateIgnoresCancel = false
+
         override suspend fun tagsOfShot(shotId: Long): List<String> {
-            tagsGate?.await()
+            val g = tagsGate
+            if (g != null) {
+                if (tagsGateIgnoresCancel) kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { g.await() } else g.await()
+            }
             return tagsById[shotId].orEmpty()
         }
     }
@@ -255,6 +261,30 @@ class DetailViewModelTest {
 
         assertEquals("台北", vm.state.value.shots.first { it.id == 2L }.place)
         assertEquals(listOf("海邊"), vm.state.value.focusedTags)
+    }
+
+    /** 連點兩張：第一張的讀取還卡著就換成第二張，被取消的舊工作不能再把（空的）標籤寫回去。 */
+    @Test fun 連續聚焦兩張時最後的狀態是後點那張的標籤() = runTest(dispatcher) {
+        val repo = Repo().apply {
+            shots = listOf(shot(1, 10.0), shot(2, 20.0))
+            tagsById = mapOf(1L to listOf("海邊"), 2L to listOf("夜潛"))
+        }
+        val vm = DetailViewModel("v1", initialFocusShotId = 1L, library = repo, watchPage = { okPage() })
+        advanceUntilIdle()
+
+        val gate = CompletableDeferred<Unit>()
+        repo.tagsGate = gate
+        repo.tagsGateIgnoresCancel = true
+        vm.focus(vm.state.value.shots[0])          // A：讀標籤卡在 gate
+        advanceUntilIdle()
+        repo.tagsGate = null
+        vm.focus(vm.state.value.shots[1])          // B：立刻讀完（A 被取消，但它的查詢還卡著）
+        advanceUntilIdle()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(2L, vm.state.value.focusedShotId)
+        assertEquals(listOf("夜潛"), vm.state.value.focusedTags)
     }
 
     private fun usage(id: Long, name: String, kind: String) =
