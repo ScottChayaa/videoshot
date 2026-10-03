@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,9 +21,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -36,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -43,7 +46,11 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
+import com.xenyaa.videoshot.ui.common.PillStyle
+import com.xenyaa.videoshot.ui.common.VsToolbarPill
+import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
+import com.xenyaa.videoshot.ui.theme.focusRing
 import com.xenyaa.videoshot.core.details.Common
 import com.xenyaa.videoshot.core.time.formatClock
 
@@ -77,9 +84,10 @@ fun Step3DetailsScreen(
 ) {
     Column(modifier.fillMaxSize()) {
 
+        // 「N 張 · M 已完成」先留在這裡，Task 6 會收進底部 dock 的狀態文字
         Text(
             state.headerText,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         )
 
@@ -88,26 +96,36 @@ fun Step3DetailsScreen(
             Text(
                 it,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppTheme.colors.textDim,
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
         }
 
-        // FlowRow：與第二步的工具列同理，**換行不截斷**（手冊 §四）
+        // 快速選取列（原型 .wz-tools.pick）。FlowRow：與第二步的工具列同理，**換行不截斷**（手冊 §四）
         FlowRow(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            itemVerticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(onClick = onSelectAll) { Text("全選") }
-            TextButton(onClick = onSelectNone) { Text("全不選") }
-            TextButton(onClick = onInvert) { Text("反選") }
-            // 收尾時用的：一鍵勾選所有沒有綠點的（規格第五節快捷列）
-            TextButton(onClick = onSelectUnapplied) { Text("未填的") }
+            Text(
+                "選取",
+                style = MaterialTheme.typography.bodySmall,
+                color = AppTheme.colors.textDim,
+                modifier = Modifier.padding(end = 4.dp),
+            )
+            VsToolbarPill("全選", onSelectAll, style = PillStyle.Quiet)
+            VsToolbarPill("全不選", onSelectNone, style = PillStyle.Quiet)
+            VsToolbarPill("反選", onInvert, style = PillStyle.Quiet)
+            // 收尾時用的：一鍵勾選所有還沒套用過的（規格第五節快捷列）；全都套用過就沒有東西可勾
+            val unapplied = state.unappliedCells.size
+            VsToolbarPill("未填 $unapplied", onSelectUnapplied, enabled = unapplied > 0, style = PillStyle.Quiet)
         }
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(4),
-            modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp),
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = PaddingValues(4.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
@@ -137,8 +155,9 @@ fun Step3DetailsScreen(
 }
 
 /**
- * 一格。**綠點與紅框分開表達**（規格第五節的線框）：
- * 綠點＝這張的圖資套用過了，紅框＝現在勾選中。兩件事會同時成立，用同一個記號說不清楚。
+ * 一格（原型 .wz-cell.sel／.done-mark）。**「已選」與「已套用」分開表達**：
+ * 已選＝3dp 主色內框＋左上打勾圓徽章（同第二步），已套用＝右上打勾方塊，還沒套用的整格蓋暗層。
+ * 兩件事會同時成立，用同一個記號說不清楚。紅色只留給破壞性操作（手冊 §零），這裡不用。
  *
  * 顏色不是唯一的訊號 —— 兩者都寫進 `contentDescription`，輔助技術也讀得到（手冊 §零）。
  */
@@ -156,14 +175,13 @@ private fun Step3Thumb(
         if (applied) append("・已套用")
         if (selected) append("・已勾選")
     }
+    val shape = RoundedCornerShape(AppTheme.radii.sm)
     Box(
         Modifier
             .aspectRatio(16f / 9f)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .border(
-                width = if (selected) 2.dp else 0.dp,
-                color = if (selected) MaterialTheme.colorScheme.error else Color.Transparent,
-            )
+            .clip(shape)
+            .background(AppTheme.colors.surface2)
+            .focusRing(shape)
             .clickable { onToggle() }
             .semantics { contentDescription = label },
     ) {
@@ -178,20 +196,40 @@ private fun Step3Thumb(
                 modifier = Modifier.fillMaxSize(),
             )
         }
+        // 還沒套用的整格壓暗，已套用的維持原色（原型 .wz-cell:not(.done)）
+        if (!applied) Box(Modifier.fillMaxSize().background(AppTheme.colors.overlay))
         // 時間標籤同時是測試點得到的目標，也是使用者辨認「這是哪一張」的依據
         Text(
             formatClock(cell.atSec),
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.align(Alignment.BottomStart).padding(2.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(AppTheme.spacing.s1)
+                .clip(shape)
+                .background(AppTheme.colors.scrim)
+                .padding(horizontal = AppTheme.spacing.s1),
         )
+        if (selected) {
+            // 外框畫在格子內緣、疊在圖上
+            Box(Modifier.fillMaxSize().border(3.dp, AppTheme.colors.accent, shape))
+            SelectedBadge(Modifier.align(Alignment.TopStart))
+        }
         if (applied) {
+            // 右上 22dp ok 色圓角方塊、白色打勾、外圈 2dp 白邊（原型 .done-mark）
             Box(
                 Modifier
-                    .align(Alignment.TopStart)
+                    .align(Alignment.TopEnd)
                     .padding(4.dp)
-                    .size(8.dp)
-                    .background(AppTheme.colors.ok, CircleShape),
-            )
+                    .size(22.dp)
+                    .clip(shape)
+                    .background(AppTheme.colors.ok)
+                    .border(2.dp, Color.White, shape)
+                    .semantics { contentDescription = "已套用" },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(VsIcons.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+            }
         }
     }
 }

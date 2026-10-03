@@ -356,22 +356,7 @@ private fun FrameCell(
             }
 
             if (selected) {
-                // 左上 20dp 主色圓形打勾徽章，外圈 2dp 白邊（原型 .wz-cell.sel::before）
-                Box(
-                    Modifier
-                        .align(Alignment.TopStart)
-                        .padding(2.dp)
-                        .size(24.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.92f))
-                        .padding(2.dp)
-                        .clip(CircleShape)
-                        .background(accent)
-                        .semantics { contentDescription = "已選" },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(VsIcons.Check, contentDescription = null, tint = AppTheme.colors.accentInk, modifier = Modifier.size(12.dp))
-                }
+                SelectedBadge(Modifier.align(Alignment.TopStart))
             }
 
             if (taken) {
@@ -493,3 +478,25 @@ private fun FrameImage(
     }
 }
 
+
+/**
+ * 左上 20dp 主色圓形打勾徽章，外圈 2dp 白邊（原型 .wz-cell.sel::before）。
+ * 第二步與第三步的「已選」共用同一個外觀；語意名稱「已選」讓輔助技術不只靠顏色辨識。
+ */
+@Composable
+internal fun SelectedBadge(modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .padding(2.dp)
+            .size(24.dp)
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.92f))
+            .padding(2.dp)
+            .clip(CircleShape)
+            .background(AppTheme.colors.accent)
+            .semantics { contentDescription = "已選" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(VsIcons.Check, contentDescription = null, tint = AppTheme.colors.accentInk, modifier = Modifier.size(12.dp))
+    }
+}

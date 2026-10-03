@@ -1,6 +1,9 @@
 package com.xenyaa.videoshot.wizard
 
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -102,7 +105,7 @@ class Step3GridTest {
         compose.onNodeWithText("全選").assertIsDisplayed()
         compose.onNodeWithText("全不選").assertIsDisplayed()
         compose.onNodeWithText("反選").assertIsDisplayed()
-        compose.onNodeWithText("未填的").assertIsDisplayed()
+        compose.onNodeWithText("未填", substring = true).assertIsDisplayed()
     }
 
     @Test
@@ -118,8 +121,42 @@ class Step3GridTest {
         compose.onNodeWithText("全選").performClick()
         compose.onNodeWithText("全不選").performClick()
         compose.onNodeWithText("反選").performClick()
-        compose.onNodeWithText("未填的").performClick()
+        compose.onNodeWithText("未填", substring = true).performClick()
         assertEquals(listOf("all", "none", "invert", "unapplied"), log)
+    }
+
+    /** 原型 .wz-tools.pick：「未填 N」帶張數；原本的「未填的」文字改成「未填 N」，故既有案例改用子字串定位。 */
+    @Test
+    fun 未填按鈕帶張數() {
+        show(stateOf(applied = setOf(0, 1)))
+        compose.onNodeWithText("未填 2").assertIsEnabled()
+    }
+
+    @Test
+    fun 全部套用過未填按鈕停用() {
+        show(stateOf(applied = setOf(0, 1, 2, 3)))
+        compose.onNodeWithText("未填 0").assertIsNotEnabled()
+    }
+
+    /** 手冊 §零：已勾選不用紅框；有打勾徽章（同第二步）。 */
+    @Test
+    fun 已勾選的格子有打勾徽章() {
+        show(stateOf(selected = setOf(0)))
+        compose.onAllNodesWithContentDescription("已選", useUnmergedTree = true).onFirst().assertExists()
+    }
+
+    @Test
+    fun 沒勾選就沒有打勾徽章() {
+        show(stateOf(selected = emptySet()))
+        compose.onAllNodesWithContentDescription("已選", useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    /** 原型 .done-mark：已套用是右上角打勾方塊，不再是綠點；仍講得出「已套用」。 */
+    @Test
+    fun 已套用的格子有打勾標記() {
+        show(stateOf(applied = setOf(0, 2)))
+        // 精確比對：只算打勾標記本身（整格的描述是「第三步的格子 …・已套用」，不會被算進來）
+        compose.onAllNodesWithContentDescription("已套用", useUnmergedTree = true).assertCountEquals(2)
     }
 
     @Test
