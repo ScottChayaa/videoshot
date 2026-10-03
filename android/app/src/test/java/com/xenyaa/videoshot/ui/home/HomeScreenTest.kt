@@ -12,6 +12,9 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.assertHasClickAction
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.ShotRow
@@ -129,6 +132,86 @@ class HomeScreenTest {
         compose.onNodeWithText("宜蘭").performClick()
         assertEquals("2026-03", picked?.first)
         assertEquals("宜蘭", picked?.second?.name)
+    }
+
+    /** 設計文件決定 5：首頁縮圖是正方形。 */
+    @Test
+    fun 首頁縮圖是正方形() {
+        show(stateOf(row(3, "2026-03-05"), row(2, "2026-03-01"), row(1, "2026-01-09")))
+        val b = compose.onAllNodesWithContentDescription("片段縮圖 01:05").onFirst().getUnclippedBoundsInRoot()
+        assertEquals((b.right - b.left).value, (b.bottom - b.top).value, 0.5f)
+    }
+
+    /** 原型 .month-tags：地點與一般標籤的小膠囊都可以點，並回報完整的 MonthFacet（含 kind）。 */
+    @Test
+    fun 月份地點與人物標籤都能點且回報種類() {
+        val picked = mutableListOf<MonthFacet>()
+        show(
+            stateOf(
+                row(1, "2026-03-05"),
+                facets = mapOf(
+                    "2026-03" to listOf(MonthFacet("加勒比海", "place", 3), MonthFacet("小明", "person", 2)),
+                ),
+            ),
+            onFacet = { _, f -> picked += f },
+        )
+        compose.onNodeWithText("加勒比海").assertHasClickAction().performClick()
+        compose.onNodeWithText("小明").assertHasClickAction().performClick()
+        assertEquals(listOf("place", "person"), picked.map { it.kind })
+    }
+
+    @Test
+    fun 套用篩選時顯示可清除的狀態列() {
+        var cleared = false
+        compose.setContent {
+            VideoshotTheme {
+                HomeScreen(
+                    state = HomeStore.appendPage(
+                        HomeState(upToMonth = "2026-03"),
+                        Page(listOf(row(1, "2026-03-05")), null), 1,
+                    ),
+                    loader = loader, listState = rememberLazyGridState(), onOpen = {}, onLoadMore = {},
+                    onPickMonth = { if (it == null) cleared = true }, onFacetClick = { _, _ -> },
+                )
+            }
+        }
+        compose.onNodeWithText("只顯示 2026年3月 以前的收藏").assertIsDisplayed()
+        compose.onNodeWithContentDescription("清除時間篩選").performClick()
+        assertEquals(true, cleared)
+    }
+
+    @Test
+    fun 篩選後沒有收藏時空狀態帶清除按鈕() {
+        var cleared = false
+        compose.setContent {
+            VideoshotTheme {
+                HomeScreen(
+                    state = HomeState(upToMonth = "2020-01", endReached = true),
+                    loader = loader, listState = rememberLazyGridState(), onOpen = {}, onLoadMore = {},
+                    onPickMonth = { if (it == null) cleared = true }, onFacetClick = { _, _ -> },
+                )
+            }
+        }
+        compose.onNodeWithText("這個時間點以前沒有收藏").assertIsDisplayed()
+        // 狀態列與空狀態各有一個「清除時間篩選」：點文字那顆（空狀態的按鈕）
+        compose.onNodeWithText("清除時間篩選").performClick()
+        assertEquals(true, cleared)
+    }
+
+    @Test
+    fun 讀取失敗列的重試可以點() {
+        var retried = false
+        compose.setContent {
+            VideoshotTheme {
+                HomeScreen(
+                    state = HomeState(error = "讀取失敗", endReached = true),
+                    loader = loader, listState = rememberLazyGridState(), onOpen = {}, onLoadMore = { retried = true },
+                    onPickMonth = {}, onFacetClick = { _, _ -> },
+                )
+            }
+        }
+        compose.onNodeWithText("重試").performClick()
+        assertEquals(true, retried)
     }
 
     @Test
