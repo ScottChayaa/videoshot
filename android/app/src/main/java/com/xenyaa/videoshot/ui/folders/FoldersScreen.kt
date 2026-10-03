@@ -1,25 +1,30 @@
 package com.xenyaa.videoshot.ui.folders
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -28,11 +33,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.data.repo.model.FolderCard
+import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.TopBarIconButton
+import com.xenyaa.videoshot.ui.common.VsButton
+import com.xenyaa.videoshot.ui.common.VsEmptyState
+import com.xenyaa.videoshot.ui.common.VsRadioRow
+import com.xenyaa.videoshot.ui.common.VsTextField
 import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
@@ -78,33 +86,49 @@ fun FoldersScreen(
         }
 
         if (state.searching) {
+            // 原型 `.fd-search`：內距 上 8／左右 12／下 0，間距 8
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.s3),
+                Modifier.fillMaxWidth().padding(start = AppTheme.spacing.s3, top = AppTheme.spacing.s2, end = AppTheme.spacing.s3),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
             ) {
-                OutlinedTextField(
+                VsTextField(
                     value = state.query,
                     onValueChange = onQuery,
-                    singleLine = true,
-                    placeholder = { Text("搜尋分類名稱") },
-                    modifier = Modifier.weight(1f).semantics { contentDescription = "搜尋分類名稱" },
+                    placeholder = "搜尋分類名稱",
+                    semanticLabel = "搜尋分類名稱",
+                    leadingIcon = VsIcons.Search,
+                    modifier = Modifier.weight(1f),
                 )
-                TextButton(onClick = { onSearching(false) }) { Text("取消") }
+                VsButton("取消", { onSearching(false) }, variant = ButtonVariant.Quiet)
             }
         }
 
+        // 狀態列（原型 `.fd-status`）：內距 上 8／左右 12／下 0。排序鍵右側往外 8（margin-right: -8），
+        // 好讓文字右緣跟版面對齊；視覺高度不變，但觸控區撐到 44dp。
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s2),
+            Modifier.fillMaxWidth().padding(start = AppTheme.spacing.s3, top = AppTheme.spacing.s2, end = AppTheme.spacing.s1),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 if (state.query.isBlank()) "${state.cards.size} 個分類" else "符合 ${visible.size} 個",
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = AppTheme.colors.textDim,
                 modifier = Modifier.weight(1f),
             )
-            TextButton(onClick = { sortPicking = true }, modifier = Modifier.focusRing()) {
-                Text(state.sort.label)
+            val sortShape = RoundedCornerShape(AppTheme.radii.sm)
+            Row(
+                Modifier
+                    .focusRing(sortShape)
+                    .clip(sortShape)
+                    .clickable(role = Role.Button) { sortPicking = true }
+                    .defaultMinSize(minHeight = AppTheme.spacing.tap)
+                    .padding(horizontal = AppTheme.spacing.s2),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
+            ) {
+                Text(state.sort.label, style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.text)
+                Icon(VsIcons.ChevronDown, contentDescription = null, tint = AppTheme.colors.textDim, modifier = Modifier.size(14.dp))
             }
         }
 
@@ -115,20 +139,27 @@ fun FoldersScreen(
         }
 
         when (FoldersStore.emptyKind(state)) {
-            FoldersEmpty.NO_FOLDERS -> EmptyBlock(
+            FoldersEmpty.NO_FOLDERS -> VsEmptyState(
                 message = "還沒有任何分類",
-                actionLabel = "新增資料夾",
+                modifier = Modifier.fillMaxSize().wrapContentHeight(Alignment.CenterVertically),
+                icon = VsIcons.Folder,
+                actionText = "新增資料夾",
                 onAction = onStartCreate,
             )
-            FoldersEmpty.NO_MATCH -> EmptyBlock(
+            FoldersEmpty.NO_MATCH -> VsEmptyState(
                 message = "沒有符合的分類",
-                actionLabel = "清除篩選",
+                modifier = Modifier.fillMaxSize().wrapContentHeight(Alignment.CenterVertically),
+                icon = VsIcons.Folder,
+                actionText = "清除篩選",
                 onAction = { onQuery("") },
+                actionVariant = ButtonVariant.Secondary,
             )
             null -> LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
-                modifier = Modifier.fillMaxSize().padding(horizontal = AppTheme.spacing.s3),
-                horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s3),
+                modifier = Modifier.fillMaxSize(),
+                // 原型 `.fd-grid`：欄距 8、列距 12；狀態列後面上內距收成 8（`.fd-status + .fd-grid`）
+                contentPadding = PaddingValues(start = AppTheme.spacing.s3, top = AppTheme.spacing.s2, end = AppTheme.spacing.s3, bottom = AppTheme.spacing.s3),
+                horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
                 verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s3),
             ) {
                 items(visible, key = { it.id }) { card ->
@@ -153,28 +184,18 @@ fun FoldersScreen(
             Column(Modifier.fillMaxWidth().padding(bottom = AppTheme.spacing.s5)) {
                 Text(
                     "排序方式",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = AppTheme.colors.text,
                     modifier = Modifier.padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s2),
                 )
-                for (option in FolderSort.entries) {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .focusRing()
-                            .clickable { sortPicking = false; onSort(option) }
-                            .padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            option.label,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = if (option == state.sort) AppTheme.colors.accent else AppTheme.colors.text,
-                            modifier = Modifier.weight(1f),
+                // selectableGroup：TalkBack 唸「第 N 個，共 M 個」
+                Column(Modifier.selectableGroup()) {
+                    for (option in FolderSort.entries) {
+                        VsRadioRow(
+                            title = option.label,
+                            selected = option == state.sort,
+                            onSelect = { sortPicking = false; onSort(option) },
                         )
-                        if (option == state.sort) {
-                            Icon(VsIcons.Check, contentDescription = "目前的排序", tint = AppTheme.colors.accent)
-                        }
                     }
                 }
             }
@@ -194,20 +215,5 @@ fun FoldersScreen(
 
     state.deleting?.let { card ->
         DeleteFolderDialog(card = card, onConfirm = { onDelete(card) }, onDismiss = onDismissDelete)
-    }
-}
-
-@Composable
-private fun EmptyBlock(message: String, actionLabel: String, onAction: () -> Unit) {
-    Column(
-        Modifier.fillMaxSize().padding(AppTheme.spacing.s6),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text(message, style = MaterialTheme.typography.bodyLarge, color = AppTheme.colors.textDim)
-        Button(
-            onClick = onAction,
-            modifier = Modifier.padding(top = AppTheme.spacing.s4).focusRing(CircleShape),
-        ) { Text(actionLabel) }
     }
 }
