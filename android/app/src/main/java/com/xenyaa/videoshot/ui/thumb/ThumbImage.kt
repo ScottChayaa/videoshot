@@ -3,7 +3,10 @@ package com.xenyaa.videoshot.ui.thumb
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,8 +18,10 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.core.time.formatClock
 import com.xenyaa.videoshot.data.repo.model.ShotRow
+import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 
 /**
@@ -59,12 +64,23 @@ fun ThumbImage(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
-        } else if (showTimeOnPlaceholder) {
-            Text(
-                formatClock(shot.atSec),
-                style = MaterialTheme.typography.labelSmall,
-                color = AppTheme.colors.textDim,
-            )
+        } else {
+            // 預留圖：中性圖示＋影片秒數（手冊 §一，不是破圖）。showTimeOnPlaceholder = false 時只畫圖示
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    VsIcons.ImagePlus,
+                    contentDescription = null,
+                    tint = AppTheme.colors.textFaint,
+                    modifier = Modifier.size(20.dp),
+                )
+                if (showTimeOnPlaceholder) {
+                    Text(
+                        formatClock(shot.atSec),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AppTheme.colors.textDim,
+                    )
+                }
+            }
         }
     }
 }

@@ -3,6 +3,7 @@ package com.xenyaa.videoshot.ui.common
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
@@ -55,8 +56,11 @@ fun VsTagChip(
     val pad = if (regular) PaddingValues(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s2)
     else PaddingValues(horizontal = AppTheme.spacing.s2, vertical = 2.dp)
 
-    var m = modifier
-    if (onClick != null) {
+    // 迷你＋可點：視覺膠囊維持迷你，但可點的那一層是至少 44dp 高的透明外框、膠囊置中（手冊 §零 觸控區）。
+    // 一般尺寸本來就夠高；不可點的迷你不需要觸控區，維持緊湊。
+    val tapWrapper = !regular && onClick != null
+    var m = if (tapWrapper) Modifier else modifier
+    if (onClick != null && !tapWrapper) {
         m = m.focusRing(shape).clip(shape)
             .selectable(selected = selected, role = Role.Checkbox, onClick = onClick)
     }
@@ -67,28 +71,41 @@ fun VsTagChip(
         .then(if (regular && onClick != null) Modifier.defaultMinSize(minHeight = AppTheme.spacing.tap) else Modifier)
         .padding(pad)
 
-    Row(m, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1)) {
-        Icon(kind.icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(iconSize))
-        Text(
-            buildAnnotatedString {
-                append(name)
-                if (count != null) {
-                    append(' ')
-                    withStyle(SpanStyle(color = if (selected) AppTheme.colors.accentInk else AppTheme.colors.textDim)) {
-                        append(count.toString())
+    val chip: @Composable () -> Unit = {
+        Row(m, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1)) {
+            Icon(kind.icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(iconSize))
+            Text(
+                buildAnnotatedString {
+                    append(name)
+                    if (count != null) {
+                        append(' ')
+                        withStyle(SpanStyle(color = if (selected) AppTheme.colors.accentInk else AppTheme.colors.textDim)) {
+                            append(count.toString())
+                        }
                     }
-                }
-            },
-            style = textStyle,
-            color = ink,
-        )
-        if (selected) {
-            Icon(
-                VsIcons.Check,
-                contentDescription = "已選",
-                tint = AppTheme.colors.accentInk,
-                modifier = Modifier.size(if (regular) 14.dp else 12.dp),
+                },
+                style = textStyle,
+                color = ink,
             )
+            if (selected) {
+                Icon(
+                    VsIcons.Check,
+                    contentDescription = "已選",
+                    tint = AppTheme.colors.accentInk,
+                    modifier = Modifier.size(if (regular) 14.dp else 12.dp),
+                )
+            }
         }
+    }
+    if (tapWrapper) {
+        Box(
+            modifier
+                .defaultMinSize(minHeight = AppTheme.spacing.tap)
+                .focusRing(shape).clip(shape)
+                .selectable(selected = selected, role = Role.Checkbox, onClick = onClick!!),
+            contentAlignment = Alignment.Center,
+        ) { chip() }
+    } else {
+        chip()
     }
 }

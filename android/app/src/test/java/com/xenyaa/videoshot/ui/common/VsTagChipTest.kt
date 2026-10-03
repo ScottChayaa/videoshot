@@ -56,4 +56,17 @@ class VsTagChipTest {
         compose.setContent { VideoshotTheme { VsTagChip("龍蝦", ChipKind.OTHER, Modifier.testTag("m"), size = ChipSize.Mini) } }
         compose.onNodeWithTag("m").assertHasNoClickAction()
     }
+
+    /** 首頁月份標籤是迷你外觀但可點——觸控區仍要 44dp（手冊 §零）。 */
+    @Test fun 可點的迷你尺寸觸控區至少44() {
+        compose.setContent { VideoshotTheme { VsTagChip("加勒比海", ChipKind.PLACE, Modifier.testTag("m"), size = ChipSize.Mini, onClick = {}) } }
+        compose.onNodeWithTag("m").assertHeightIsAtLeast(44.dp)
+    }
+
+    @Test fun 可點的迷你尺寸點一下會回呼() {
+        var clicked = false
+        compose.setContent { VideoshotTheme { VsTagChip("加勒比海", ChipKind.PLACE, size = ChipSize.Mini, onClick = { clicked = true }) } }
+        compose.onNodeWithText("加勒比海", substring = true).performClick()
+        assertTrue(clicked)
+    }
 }

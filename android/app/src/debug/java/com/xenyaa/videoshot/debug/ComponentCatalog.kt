@@ -140,6 +140,12 @@ private fun ChipSection() = Section("標籤小膠囊") {
         VsTagChip("夜潛", ChipKind.TOPIC, size = ChipSize.Mini)
         VsTagChip("龍蝦", ChipKind.OTHER, size = ChipSize.Mini)
     }
+    // 可點的迷你小膠囊（首頁月份標籤）：外觀維持迷你，觸控區 44dp
+    var miniPicked by remember { mutableStateOf(false) }
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(s2), verticalArrangement = Arrangement.spacedBy(s2)) {
+        VsTagChip("加勒比海", ChipKind.PLACE, size = ChipSize.Mini, selected = miniPicked, onClick = { miniPicked = !miniPicked })
+        VsTagChip("夜潛", ChipKind.TOPIC, size = ChipSize.Mini, onClick = {})
+    }
 }
 
 @Composable
