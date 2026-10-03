@@ -3,7 +3,10 @@ package com.xenyaa.videoshot.ui.common
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -68,5 +71,18 @@ class VsTagChipTest {
         compose.setContent { VideoshotTheme { VsTagChip("加勒比海", ChipKind.PLACE, size = ChipSize.Mini, onClick = { clicked = true }) } }
         compose.onNodeWithText("加勒比海", substring = true).performClick()
         assertTrue(clicked)
+    }
+
+    /** 外框是唯一的語意節點：TalkBack 停在這一個，要有名字、選取狀態與點擊。 */
+    @Test fun 可點的迷你外框節點帶有文字() {
+        compose.setContent { VideoshotTheme { VsTagChip("加勒比海", ChipKind.PLACE, Modifier.testTag("m"), size = ChipSize.Mini, onClick = {}) } }
+        compose.onNodeWithTag("m").assertTextContains("加勒比海", substring = true)
+        compose.onAllNodesWithText("加勒比海", substring = true).assertCountEquals(1)
+    }
+
+    @Test fun 選取的可點迷你外框節點是選取狀態() {
+        compose.setContent { VideoshotTheme { VsTagChip("加勒比海", ChipKind.PLACE, Modifier.testTag("m"), size = ChipSize.Mini, selected = true, onClick = {}) } }
+        compose.onNodeWithTag("m").assertIsSelected().assertTextContains("加勒比海", substring = true)
+        compose.onAllNodesWithText("加勒比海", substring = true).assertCountEquals(1)
     }
 }

@@ -74,5 +74,6 @@ class ThumbTileTest {
             VideoshotTheme { ThumbImage(shot, loader, Modifier.width(120.dp), showTimeOnPlaceholder = false) }
         }
         compose.onNodeWithText("01:05").assertDoesNotExist()
+        compose.onNodeWithTag(PLACEHOLDER_ICON_TAG, useUnmergedTree = true).assertExists()
     }
 }

@@ -58,14 +58,16 @@ fun VsTagChip(
 
     // 迷你＋可點：視覺膠囊維持迷你，但可點的那一層是至少 44dp 高的透明外框、膠囊置中（手冊 §零 觸控區）。
     // 一般尺寸本來就夠高；不可點的迷你不需要觸控區，維持緊湊。
-    val tapWrapper = !regular && onClick != null
-    var m = if (tapWrapper) Modifier else modifier
-    if (onClick != null && !tapWrapper) {
+    val wrapperClick = if (regular) null else onClick
+    var m = if (wrapperClick != null) Modifier else modifier
+    if (onClick != null && wrapperClick == null) {
         m = m.focusRing(shape).clip(shape)
             .selectable(selected = selected, role = Role.Checkbox, onClick = onClick)
     }
-    m = m.semantics(mergeDescendants = true) {}
-        .clip(shape)
+    // 有外框時，外框的 selectable 是唯一的合併點（文字＋選取＋點擊）；
+    // 內層再合併一次會讓內層自成一個節點，外框反而沒有文字
+    if (wrapperClick == null) m = m.semantics(mergeDescendants = true) {}
+    m = m.clip(shape)
         .background(bg)
         .border(1.dp, line, shape)
         .then(if (regular && onClick != null) Modifier.defaultMinSize(minHeight = AppTheme.spacing.tap) else Modifier)
@@ -97,12 +99,12 @@ fun VsTagChip(
             }
         }
     }
-    if (tapWrapper) {
+    if (wrapperClick != null) {
         Box(
             modifier
                 .defaultMinSize(minHeight = AppTheme.spacing.tap)
                 .focusRing(shape).clip(shape)
-                .selectable(selected = selected, role = Role.Checkbox, onClick = onClick!!),
+                .selectable(selected = selected, role = Role.Checkbox, onClick = wrapperClick),
             contentAlignment = Alignment.Center,
         ) { chip() }
     } else {

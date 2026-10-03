@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -71,7 +72,7 @@ fun ThumbImage(
                     VsIcons.ImagePlus,
                     contentDescription = null,
                     tint = AppTheme.colors.textFaint,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(20.dp).testTag(PLACEHOLDER_ICON_TAG),
                 )
                 if (showTimeOnPlaceholder) {
                     Text(
@@ -84,3 +85,6 @@ fun ThumbImage(
         }
     }
 }
+
+/** 預留圖圖示的測試標籤。 */
+internal const val PLACEHOLDER_ICON_TAG = "thumb-placeholder-icon"
