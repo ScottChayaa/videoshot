@@ -178,7 +178,8 @@ class AppRootSearchTest {
         compose.onNodeWithText("宜蘭 1").performClick() // chip
         compose.onNodeWithText("查詢 1 個條件").performClick()
 
-        compose.onNodeWithText("1 張").assertIsDisplayed()
+        // 結果列第一行改成單一文字「N 張 · 時間」，不能再精確比對「1 張」，改用子字串比對
+        compose.onNodeWithText("1 張", substring = true).assertIsDisplayed()
     }
 
     @Test
@@ -189,7 +190,8 @@ class AppRootSearchTest {
         // 首頁縮圖牆的月份標籤列——HomeScreen 的 MonthFacetRow,chip 文字就是地點名
         compose.onNodeWithText("宜蘭").performClick()
 
-        compose.onNodeWithText("1 張").assertIsDisplayed()
+        // 結果列第一行改成單一文字「N 張 · 時間」，不能再精確比對「1 張」，改用子字串比對
+        compose.onNodeWithText("1 張", substring = true).assertIsDisplayed()
     }
 
     @Test
@@ -218,7 +220,8 @@ class AppRootSearchTest {
         compose.onNodeWithText("查詢").performClick()
         compose.onNodeWithText("宜蘭 1").performClick()
         compose.onNodeWithText("查詢 1 個條件").performClick()
-        compose.onNodeWithText("1 張").assertIsDisplayed()
+        // 結果列第一行改成單一文字「N 張 · 時間」，不能再精確比對「1 張」，改用子字串比對
+        compose.onNodeWithText("1 張", substring = true).assertIsDisplayed()
 
         compose.onNodeWithContentDescription("片段縮圖 00:01", substring = true).performClick()
         compose.onNodeWithText("播放這一段").performClick()
