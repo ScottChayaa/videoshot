@@ -130,7 +130,8 @@ function tapNode(n) {
 }
 
 // 找不到時等一下再試幾次（畫面還在載入）。多個符合時取最靠下的（底部導覽優先於頁面標題）。
-async function findAndTap(pred, label) {
+// optional 為真時，找不到就略過（回傳 false、不算失敗）：例如「上次做到…要繼續嗎？」只有留過草稿才會出現。
+async function findAndTap(pred, label, optional = false) {
   let lastSeen = '';
   for (let attempt = 0; attempt < 4; attempt++) {
     const nodes = dumpNodes();
@@ -139,10 +140,11 @@ async function findAndTap(pred, label) {
     if (hits.length) {
       hits.sort((a, b) => b.y1 - a.y1);
       tapNode(hits[0]);
-      return;
+      return true;
     }
     await sleep(1000);
   }
+  if (optional) return false;
   throw new Error(`實機畫面上找不到：${label}（畫面上有：${lastSeen}）`);
 }
 
@@ -150,8 +152,12 @@ async function runDeviceSteps(steps) {
   for (const s of steps) {
     if (s.wait != null) await sleep(s.wait);
     else if (s.tapText != null) {
-      await findAndTap((n) => n.text === s.tapText || n.desc === s.tapText, `文字「${s.tapText}」`);
-      await sleep(800);
+      const ok = await findAndTap((n) => n.text === s.tapText || n.desc === s.tapText, `文字「${s.tapText}」`, s.optional);
+      if (ok !== false) await sleep(800);
+    } else if (s.tapTextPrefix != null) {
+      // text 或 content-desc 以該字串開頭的第一個節點（取圖紀錄卡片的標題這類會被截斷的長字串用）
+      const ok = await findAndTap((n) => n.text.startsWith(s.tapTextPrefix) || n.desc.startsWith(s.tapTextPrefix), `文字開頭「${s.tapTextPrefix}」`, s.optional);
+      if (ok !== false) await sleep(800);
     } else if (s.tapDescPrefix != null) {
       await findAndTap((n) => n.desc.startsWith(s.tapDescPrefix), `描述開頭「${s.tapDescPrefix}」`);
       await sleep(800);

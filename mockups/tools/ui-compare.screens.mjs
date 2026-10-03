@@ -4,7 +4,20 @@ export default [
   { name: '首頁', mockup: { path: 'home.html' }, device: { steps: [] } },
   { name: 'Lightbox', mockup: { path: 'home.html', steps: [{ click: '.thumb' }] }, device: { steps: [{ tapDescPrefix: '夜潛第一次見到巨型犀牛蝦' }] } },
   { name: '查詢', mockup: { path: 'tags.html' }, device: { steps: [{ tapText: '查詢' }] } },
-  { name: '取圖第一步', mockup: { path: 'capture.html' }, device: { steps: [{ tapText: '取圖' }] } },
+  { name: '取圖第一步', mockup: { path: 'capture.html?new=1' }, device: { steps: [{ tapText: '取圖' }, { wait: 800 }, { tapText: '重新開始', optional: true }] } },
+  {
+    name: '取圖第二步',
+    // ?new=1：不要跳出「上次做到…要接著做嗎？」（前一個畫面會在 localStorage 留草稿）
+    mockup: { path: 'capture.html?new=1', steps: [{ click: '.wz-hist .hrow' }, { wait: 800 }] },
+    // 實機點取圖紀錄後要連網抓 watch page 與縮圖，所以等 6 秒；舊草稿的詢問框出現時選重新開始
+    device: { steps: [{ tapText: '取圖' }, { wait: 800 }, { tapText: '重新開始', optional: true }, { tapTextPrefix: '80後老登勇闖加勒比海無人島' }, { wait: 6000 }] },
+  },
+  {
+    name: '取圖第三步',
+    mockup: { path: 'capture.html?new=1', steps: [{ click: '.wz-hist .hrow' }, { wait: 800 }, { click: '.wz-cell:not(.locked) >> nth=1' }, { click: '.wz-foot .btn' }, { wait: 800 }] },
+    device: { steps: [{ tapText: '取圖' }, { wait: 800 }, { tapText: '重新開始', optional: true }, { tapTextPrefix: '80後老登勇闖加勒比海無人島' }, { wait: 6000 },
+                      { tapDescPrefix: '第 2 格' }, { tapTextPrefix: '下一步' }, { wait: 1500 }] },
+  },
   { name: '分類', mockup: { path: 'folders.html' }, device: { steps: [{ tapText: '分類' }] } },
   { name: '資料夾內容', mockup: { path: 'folder.html?id=f3' }, device: { steps: [{ tapText: '分類' }, { wait: 800 }, { tapText: '加勒比海之旅' }] } },
   { name: '帳號', mockup: { path: 'account.html' }, device: { steps: [{ tapText: '帳號' }] } },
