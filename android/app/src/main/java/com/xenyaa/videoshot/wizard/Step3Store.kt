@@ -33,14 +33,22 @@ data class Step3State(
     val cropping: Boolean = true,
     val cropDone: Int = 0,
     val cropTotal: Int = 0,
+    /**
+     * 剛剛那一下【套用】套到幾張；`null`＝沒有提示。**是「剛剛那一下」的回饋**：
+     * 使用者一動欄位或勾選就清回 `null`（設計文件決定 6），所以只有 [Step3Store.applyPatch] 會設它。
+     */
+    val lastAppliedCount: Int? = null,
 ) {
     val appliedCount: Int get() = details.count { (cell, d) -> d.applied && cells.any { it.cell == cell } }
 
     val unappliedCells: Set<Int>
         get() = cells.map { it.cell }.filterNot { details[it]?.applied == true }.toSet()
 
-    /** 頂部的「18 張 · 8 已完成」（規格第五節第三步的線框）。 */
+    /** 底部 dock 的狀態文字「18 張 · 8 已完成」（規格第五節第三步的線框；沒有 [appliedNotice] 時顯示）。 */
     val headerText: String get() = "${cells.size} 張 · $appliedCount 已完成"
+
+    /** 套用後的短暫提示「已套用到 N 張」。沒有剛套用過就是 `null`。 */
+    val appliedNotice: String? get() = lastAppliedCount?.let { "已套用到 $it 張" }
 
     /**
      * 抽屜標題。只勾一張時**帶上時間** —— 那就是規格所說的「單張編輯」，
@@ -114,7 +122,7 @@ class Step3Store(
      * 按下【套用到 N 張】就會把上一組的意圖套到這一組身上。
      */
     private fun select(next: Set<Int>) {
-        _state.value = _state.value.copy(selected = next, patch = DetailsPatch())
+        _state.value = _state.value.copy(selected = next, patch = DetailsPatch(), lastAppliedCount = null)
     }
 
     fun toggle(cell: Int) {
@@ -143,7 +151,7 @@ class Step3Store(
     fun editTags(value: List<String>) = edit { it.copy(tags = normalizeTags(value)) }
 
     private fun edit(block: (DetailsPatch) -> DetailsPatch) {
-        _state.value = _state.value.copy(patch = block(_state.value.patch))
+        _state.value = _state.value.copy(patch = block(_state.value.patch), lastAppliedCount = null)
     }
 
     /** 【套用到 N 張】。套完就把抽屜的差異清掉 —— 主按鈕跟著變回【完成】。 */
@@ -153,6 +161,7 @@ class Step3Store(
         _state.value = current.copy(
             details = applyToCells(current.details, current.selected, current.patch),
             patch = DetailsPatch(),
+            lastAppliedCount = current.selected.size,
         )
     }
 

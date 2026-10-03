@@ -1,10 +1,14 @@
 package com.xenyaa.videoshot.wizard
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import com.xenyaa.videoshot.core.details.DetailsPatch
@@ -33,12 +37,14 @@ class Step3DockTest {
         details: Map<Int, ShotDetails> = (0..1).associateWith { ShotDetails("2026-01-01") },
         selected: Set<Int> = setOf(0, 1),
         patch: DetailsPatch = DetailsPatch(),
+        lastAppliedCount: Int? = null,
     ) = Step3State(
         cells = details.keys.sorted().map { Step3Cell(it, it * 70.0, manual = false) },
         details = details,
         selected = selected,
         patch = patch,
         cropping = false,
+        lastAppliedCount = lastAppliedCount,
     )
 
     private fun show(
@@ -138,11 +144,12 @@ class Step3DockTest {
     }
 
     @Test
-    fun 標籤以chip呈現按加號把輸入的字變成一個標籤() {
+    fun 標籤以chip呈現按加入把輸入的字變成一個標籤() {
         var tags: List<String>? = null
         show(stateOf(), onEditTags = { tags = it })
         compose.onNodeWithContentDescription("新增標籤").performTextInput("玩水")
-        compose.onNodeWithText("＋").performClick()
+        // 原本的「＋」文字鈕改成【加入】（原型 .dock 的新增標籤列）
+        compose.onNodeWithText("加入").performClick()
         assertEquals(listOf("玩水"), tags)
     }
 
@@ -151,5 +158,73 @@ class Step3DockTest {
         show(stateOf(selected = emptySet()))
         compose.onNodeWithContentDescription("地點").assertDoesNotExist()
         compose.onNodeWithText("完成").assertIsDisplayed()
+    }
+
+    /** 設計文件決定 6：套用後提示「已套用到 N 張」。 */
+    @Test
+    fun 套用後狀態列顯示已套用() {
+        show(stateOf(lastAppliedCount = 4))
+        compose.onNodeWithText("已套用到 4 張").assertIsDisplayed()
+        // 提示出現時，原本的「N 張 · M 已完成」讓位
+        compose.onNodeWithText("2 張 · 0 已完成").assertDoesNotExist()
+    }
+
+    @Test
+    fun 沒有套用提示時狀態列顯示張數與已完成() {
+        show(stateOf())
+        compose.onNodeWithText("2 張 · 0 已完成").assertIsDisplayed()
+    }
+
+    /** 設計文件第五節：鍵盤的 Enter（完成）就能加入標籤。 */
+    @Test
+    fun 按完成鍵加入標籤() {
+        var tags: List<String>? = null
+        show(stateOf(), onEditTags = { tags = it })
+        compose.onNodeWithContentDescription("新增標籤").performTextInput("夜潛")
+        compose.onNodeWithContentDescription("新增標籤").performImeAction()
+        assertEquals(listOf("夜潛"), tags)
+    }
+
+    /** 空白不能加成標籤，Enter 也一樣。 */
+    @Test
+    fun 按完成鍵但沒打字不會加標籤() {
+        var tags: List<String>? = null
+        show(stateOf(), onEditTags = { tags = it })
+        compose.onNodeWithContentDescription("新增標籤").performImeAction()
+        assertEquals(null, tags)
+    }
+
+    /** 原型 .will-write：動過的欄位標題變主色並亮點。 */
+    @Test
+    fun 動過的欄位標題有提示點() {
+        show(stateOf(patch = DetailsPatch(place = "加勒比海")))
+        compose.onAllNodesWithContentDescription("將寫入", useUnmergedTree = true).assertCountEquals(1)
+    }
+
+    @Test
+    fun 沒動過欄位時沒有提示點() {
+        show(stateOf())
+        compose.onNodeWithContentDescription("將寫入", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    /** 已選的標籤可以點掉（移除鈕名稱「移除標籤 X」）。 */
+    @Test
+    fun 點已選標籤的移除鈕會把它拿掉() {
+        var tags: List<String>? = null
+        show(
+            stateOf(details = (0..1).associateWith { ShotDetails("2026-01-01", tags = listOf("玩水", "夜潛")) }),
+            onEditTags = { tags = it },
+        )
+        compose.onNodeWithContentDescription("移除標籤 玩水").performClick()
+        assertEquals(listOf("夜潛"), tags)
+    }
+
+    /** 只勾一張時，標題旁邊接時間。 */
+    @Test
+    fun 只勾一張時抽屜標題旁有時間() {
+        show(stateOf(selected = setOf(1)))
+        compose.onNodeWithText("套用到已選的 1 張").assertIsDisplayed()
+        // 時間字樣會出現兩次：格子右下角的標籤＋抽屜標題旁
+        compose.onAllNodesWithText("01:10", useUnmergedTree = true).assertCountEquals(2)
     }
 }

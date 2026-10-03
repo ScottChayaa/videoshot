@@ -4,6 +4,7 @@ import com.xenyaa.videoshot.core.details.Common
 import com.xenyaa.videoshot.core.details.DetailsPatch
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -175,5 +176,40 @@ class Step3StoreTest {
         assertEquals("冬山河", s.state.value.details[0]!!.place)
         // 草稿沒記到的格子仍要有預設值，否則入庫時 event_date 會是 null
         assertEquals("2026-01-01", s.state.value.details[3]!!.eventDate)
+    }
+
+    /** 設計文件決定 6：套用後提示「已套用到 N 張」，N 是剛剛那一下套用的張數。 */
+    @Test
+    fun 套用後出現已套用到幾張() {
+        val s = store(3)
+        s.editPlace("加勒比海")
+        s.applyPatch()
+        assertEquals("已套用到 3 張", s.state.value.appliedNotice)
+    }
+
+    @Test
+    fun 一動欄位或勾選就清掉已套用提示() {
+        val s = store(3)
+        s.editPlace("加勒比海"); s.applyPatch()
+        s.toggle(s.state.value.cells.first().cell)
+        assertNull(s.state.value.appliedNotice)
+        s.selectAll(); s.editPlace("南寧"); s.applyPatch()
+        s.editDescription("x")
+        assertNull(s.state.value.appliedNotice)
+        // 其餘會改變勾選的操作同理
+        s.editPlace("y"); s.applyPatch()
+        s.selectNone()
+        assertNull(s.state.value.appliedNotice)
+        s.selectAll(); s.editPlace("z"); s.applyPatch()
+        s.invert()
+        assertNull(s.state.value.appliedNotice)
+        s.selectAll(); s.editPlace("w"); s.applyPatch()
+        s.selectUnapplied()
+        assertNull(s.state.value.appliedNotice)
+    }
+
+    @Test
+    fun 還沒套用過沒有提示() {
+        assertNull(store().state.value.appliedNotice)
     }
 }
