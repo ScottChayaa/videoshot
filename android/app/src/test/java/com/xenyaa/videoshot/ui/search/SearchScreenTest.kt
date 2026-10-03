@@ -2,7 +2,10 @@ package com.xenyaa.videoshot.ui.search
 
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
@@ -195,7 +198,8 @@ class SearchScreenTest {
             selected = setOf("place:宜蘭"),
         )
         show(state)
-        compose.onNode(hasText("宜蘭") and hasClickAction()).assertIsDisplayed()
+        // 條件小膠囊是純顯示（沒有點擊動作），所以不再用 hasClickAction() 鎖定
+        compose.onNodeWithText("宜蘭").assertIsDisplayed()
     }
 
     @Test
@@ -210,7 +214,8 @@ class SearchScreenTest {
         // 「大蝦」單獨成一個節點的只有結果列的條件 chip——「聽懂了：…大蝦（本機解析）」
         // 是同一個 Text 裡的完整句子，onNodeWithText 預設精確比對不會跟它撞在一起，
         // 但還是用 hasClickAction() 明確鎖定 chip，跟前面「查詢」二字的處理手法一致。
-        compose.onNode(hasText("大蝦") and hasClickAction()).assertIsDisplayed()
+        // 條件小膠囊改成純顯示（沒有點擊動作），改用精確文字比對鎖定它
+        compose.onNodeWithText("大蝦").assertIsDisplayed()
     }
 
     @Test
@@ -235,5 +240,54 @@ class SearchScreenTest {
         }
         compose.onNodeWithContentDescription("改條件").performClick()
         assert(backClicked)
+    }
+
+    /** 設計文件決定 5：查詢結果縮圖也是正方形（比照首頁）。 */
+    @Test
+    fun 結果縮圖是正方形() {
+        val row = ShotRow(1, "v1", 65.0, "storyboard", 1, 3, "2026-03-01", null, null)
+        show(SearchState(phase = SearchPhase.RESULTS, results = listOf(row), total = 1))
+        val b = compose.onAllNodesWithContentDescription("片段縮圖 01:05").onFirst().getUnclippedBoundsInRoot()
+        assertEquals((b.right - b.left).value, (b.bottom - b.top).value, 0.5f)
+    }
+
+    /** 條件小膠囊純顯示：改條件要靠返回鍵，小膠囊不能點。 */
+    @Test
+    fun 結果列的條件小膠囊是純顯示() {
+        show(
+            SearchState(
+                phase = SearchPhase.RESULTS, mode = SearchMode.TAG,
+                facets = listOf(MonthFacet("加勒比海", "place", 3), MonthFacet("小明", "tag", 2, "person")),
+                selected = setOf("place:加勒比海", "tag:小明"),
+            ),
+        )
+        compose.onNodeWithText("加勒比海").assertHasNoClickAction()
+        compose.onNodeWithText("小明").assertHasNoClickAction()
+    }
+
+    @Test
+    fun 文字模式的條件小膠囊也是純顯示() {
+        show(SearchState(phase = SearchPhase.RESULTS, mode = SearchMode.TEXT, textQuery = "大蝦"))
+        compose.onNodeWithText("大蝦").assertHasNoClickAction()
+    }
+
+    /** 地點條件的小膠囊帶地點圖示（MapPin），不是其他種類的圖示——種類由 key 前綴決定，不必反查 facets。 */
+    @Test
+    fun 地點條件帶地點種類而即使facets被修剪也不消失() {
+        show(
+            SearchState(
+                phase = SearchPhase.RESULTS, mode = SearchMode.TAG,
+                facets = emptyList(), selected = setOf("place:加勒比海"),
+            ),
+        )
+        compose.onNodeWithText("加勒比海").assertIsDisplayed()
+        // 條件列的種類圖示沒有語意名稱，改驗證小膠囊存在且不是切換型（沒有「已選」打勾）
+        compose.onAllNodesWithContentDescription("已選", useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun 結果階段沒有結果時空狀態有搜尋圖示文案() {
+        show(SearchState(phase = SearchPhase.RESULTS, results = emptyList(), total = 0))
+        compose.onNodeWithText("沒有符合的收藏").assertIsDisplayed()
     }
 }
