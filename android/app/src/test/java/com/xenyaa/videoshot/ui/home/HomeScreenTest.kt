@@ -5,6 +5,9 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -150,14 +153,24 @@ class HomeScreenTest {
             stateOf(
                 row(1, "2026-03-05"),
                 facets = mapOf(
-                    "2026-03" to listOf(MonthFacet("加勒比海", "place", 3), MonthFacet("小明", "person", 2)),
+                    "2026-03" to listOf(MonthFacet("加勒比海", "place", 3), MonthFacet("小明", "tag", 2, "person")),
                 ),
             ),
             onFacet = { _, f -> picked += f },
         )
         compose.onNodeWithText("加勒比海").assertHasClickAction().performClick()
         compose.onNodeWithText("小明").assertHasClickAction().performClick()
-        assertEquals(listOf("place", "person"), picked.map { it.kind })
+        assertEquals(listOf("place", "tag"), picked.map { it.kind })
+        assertEquals("person", picked[1].tagKind)
+    }
+
+    /** 月份標籤是導覽動作、不是切換：不帶選取語意（TalkBack 不唸「未勾選，核取方塊」）。 */
+    @Test
+    fun 月份標籤是按鈕而不帶選取語意() {
+        show(stateOf(row(1, "2026-03-05"), facets = mapOf("2026-03" to listOf(MonthFacet("宜蘭", "place", 3)))))
+        compose.onNodeWithText("宜蘭")
+            .assertHasClickAction()
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Selected))
     }
 
     @Test
