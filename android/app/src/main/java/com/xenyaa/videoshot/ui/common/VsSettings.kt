@@ -28,7 +28,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -152,7 +154,11 @@ fun VsStepper(
         StepperButton("−", decreaseDescription, enabled = value > range.first) { onChange(value - 1) }
         Text(
             value.toString(),
-            Modifier.widthIn(min = 48.dp).clearAndSetSemantics { contentDescription = "$label $value" },
+            Modifier.widthIn(min = 48.dp).clearAndSetSemantics {
+                contentDescription = "$label $value"
+                // 按 ＋／− 後數值改變，焦點仍在按鈕上：用 liveRegion 讓 TalkBack 唸出新值
+                liveRegion = LiveRegionMode.Polite
+            },
             style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum"),
             color = AppTheme.colors.text,
             textAlign = TextAlign.Center,

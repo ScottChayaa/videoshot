@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.search
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -88,6 +89,10 @@ fun SearchScreen(
 ) {
     var picking by rememberSaveable { mutableStateOf(false) }
     val showingResults = state.phase == SearchPhase.RESULTS
+
+    // 結果頁的系統返回（返回鍵／手勢）與頂欄左上角的箭頭同一個去處：回條件頁，不是直接回首頁。
+    // 比 AppRoot 的全域 BackHandler 晚註冊，所以優先處理；條件頁不啟用，返回照舊走到首頁。
+    BackHandler(enabled = showingResults, onBack = onShowConditions)
 
     // 捲到接近底部就補下一頁——寫法照 HomeScreen.kt／FolderScreen.kt：`nearEnd` 用
     // derivedStateOf 算，LaunchedEffect 的 block 不是常駐的 collector，而是每次 key 換了

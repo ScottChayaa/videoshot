@@ -7,14 +7,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,72 +53,74 @@ fun ThumbsUsageScreen(
 ) {
     var confirmingDelete by remember { mutableStateOf(false) }
 
-    Column(modifier.fillMaxWidth()) {
+    Column(modifier.fillMaxSize()) {
         AccountSettingHeader("縮圖", onBack)
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
 
-        VsSettingGroup(title = "儲存用量") {
-            Row(
-                Modifier.fillMaxWidth()
-                    .defaultMinSize(minHeight = AppTheme.spacing.tap)
-                    .padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s3),
-            ) {
-                Text("已使用", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, color = AppTheme.colors.text)
-                Text(formatBytes(usageBytes), style = MaterialTheme.typography.bodyMedium, color = AppTheme.colors.textDim)
-            }
-        }
-        VsSettingNote("已收藏的縮圖沒有容量上限；這裡只顯示目前佔用的空間。")
-
-        // 條件是「還有沒做完的」，不是「total > 0」——`BackfillProgress.total` 是
-        // ok ＋ missing，而 ok 會一直累積（取圖精靈每裁成功一張也寫一列 ok），所以
-        // 一般裝置上 total > 0 是永久成立的，用它當條件會讓「縮圖回填中 N / N」永遠
-        // 掛在畫面上（全分支最終審查 Important 發現）。
-        if (backfillProgress.total > backfillProgress.done) {
-            VsSettingGroup {
-                Column(
-                    Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
-                    verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
-                ) {
-                    Text(
-                        "縮圖回填中 ${backfillProgress.done} / ${backfillProgress.total}",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = AppTheme.colors.text,
-                    )
-                    BackfillBar(backfillProgress.done, backfillProgress.total)
-                    // 規格第四節：回填預設只在 Wi-Fi 下跑，要用行動網路得使用者每次明確同意。
-                    VsButton(
-                        text = "用行動網路繼續",
-                        onClick = onContinueOnMobileData,
-                        modifier = Modifier.fillMaxWidth(),
-                        variant = ButtonVariant.Secondary,
-                    )
-                }
-            }
-        }
-
-        if (backfillProgress.lostCount > 0) {
-            VsSettingGroup {
-                Text(
-                    "無法取回 ${backfillProgress.lostCount} 張",
-                    Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = AppTheme.colors.warn,
-                )
-                VsSettingDivider()
+            VsSettingGroup(title = "儲存用量") {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
-                    horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
+                    Modifier.fillMaxWidth()
+                        .defaultMinSize(minHeight = AppTheme.spacing.tap)
+                        .padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s3),
                 ) {
-                    VsButton("稍後重試", onRetryLost, Modifier.weight(1f), variant = ButtonVariant.Secondary)
-                    // 刪除收藏是破壞性動作:DangerQuiet(確認框另跳)
-                    VsButton("刪除這些收藏", { confirmingDelete = true }, Modifier.weight(1f), variant = ButtonVariant.DangerQuiet)
+                    Text("已使用", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, color = AppTheme.colors.text)
+                    Text(formatBytes(usageBytes), style = MaterialTheme.typography.bodyMedium, color = AppTheme.colors.textDim)
                 }
             }
-        }
+            VsSettingNote("已收藏的縮圖沒有容量上限；這裡只顯示目前佔用的空間。")
 
-        if (backfillActionError != null) {
-            VsSettingNote(backfillActionError)
+            // 條件是「還有沒做完的」，不是「total > 0」——`BackfillProgress.total` 是
+            // ok ＋ missing，而 ok 會一直累積（取圖精靈每裁成功一張也寫一列 ok），所以
+            // 一般裝置上 total > 0 是永久成立的，用它當條件會讓「縮圖回填中 N / N」永遠
+            // 掛在畫面上（全分支最終審查 Important 發現）。
+            if (backfillProgress.total > backfillProgress.done) {
+                VsSettingGroup {
+                    Column(
+                        Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
+                        verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
+                    ) {
+                        Text(
+                            "縮圖回填中 ${backfillProgress.done} / ${backfillProgress.total}",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = AppTheme.colors.text,
+                        )
+                        BackfillBar(backfillProgress.done, backfillProgress.total)
+                        // 規格第四節：回填預設只在 Wi-Fi 下跑，要用行動網路得使用者每次明確同意。
+                        VsButton(
+                            text = "用行動網路繼續",
+                            onClick = onContinueOnMobileData,
+                            modifier = Modifier.fillMaxWidth(),
+                            variant = ButtonVariant.Secondary,
+                        )
+                    }
+                }
+            }
+
+            if (backfillProgress.lostCount > 0) {
+                VsSettingGroup {
+                    Text(
+                        "無法取回 ${backfillProgress.lostCount} 張",
+                        Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = AppTheme.colors.warn,
+                    )
+                    VsSettingDivider()
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
+                        horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
+                    ) {
+                        VsButton("稍後重試", onRetryLost, Modifier.weight(1f), variant = ButtonVariant.Secondary)
+                        // 刪除收藏是破壞性動作:DangerQuiet(確認框另跳)
+                        VsButton("刪除這些收藏", { confirmingDelete = true }, Modifier.weight(1f), variant = ButtonVariant.DangerQuiet)
+                    }
+                }
+            }
+
+            if (backfillActionError != null) {
+                VsSettingNote(backfillActionError)
+            }
         }
     }
 
@@ -126,11 +130,9 @@ fun ThumbsUsageScreen(
             title = { Text("刪除這些收藏？") },
             text = { Text("這 ${backfillProgress.lostCount} 張已經確定抓不回原始畫面，刪除後圖資與標籤都會一併移除。") },
             confirmButton = {
-                TextButton(onClick = { confirmingDelete = false; onDeleteLost() }) {
-                    Text("刪除", color = AppTheme.colors.danger)
-                }
+                VsButton("刪除", { confirmingDelete = false; onDeleteLost() }, variant = ButtonVariant.Danger)
             },
-            dismissButton = { TextButton(onClick = { confirmingDelete = false }) { Text("取消") } },
+            dismissButton = { VsButton("取消", { confirmingDelete = false }, variant = ButtonVariant.Quiet) },
         )
     }
 }

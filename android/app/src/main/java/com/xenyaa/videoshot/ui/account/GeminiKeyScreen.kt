@@ -3,8 +3,11 @@ package com.xenyaa.videoshot.ui.account
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,51 +39,53 @@ fun GeminiKeyScreen(
 ) {
     var input by remember { mutableStateOf("") }
 
-    Column(modifier.fillMaxWidth().padding(bottom = AppTheme.spacing.s4)) {
+    Column(modifier.fillMaxSize()) {
         AccountSettingHeader("查詢", onBack)
-        VsSettingGroup {
-            Column(
-                Modifier.padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
-                verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s3),
-            ) {
-                Row {
-                    Text(
-                        "目前狀態：",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = AppTheme.colors.text,
-                    )
-                    Text(
-                        if (keySet) "已設定" else "尚未設定",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = AppTheme.colors.text,
-                    )
-                }
-                VsTextField(
-                    value = input,
-                    onValueChange = { input = it },
-                    label = "Gemini 金鑰",
-                    visualTransformation = PasswordVisualTransformation(),
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
-                    VsButton(
-                        text = "儲存",
-                        onClick = { onSave(input); input = "" },
-                        modifier = Modifier.weight(1f),
-                        variant = ButtonVariant.Primary,
-                        enabled = input.isNotBlank(),
-                    )
-                    if (keySet) {
-                        // 清除金鑰是破壞性動作:唯一可以用紅色的按鈕變體
-                        VsButton(
-                            text = "清除",
-                            onClick = onClear,
-                            modifier = Modifier.weight(1f),
-                            variant = ButtonVariant.DangerQuiet,
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = AppTheme.spacing.s4)) {
+            VsSettingGroup {
+                Column(
+                    Modifier.padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
+                    verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s3),
+                ) {
+                    Row {
+                        Text(
+                            "目前狀態：",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = AppTheme.colors.text,
                         )
+                        Text(
+                            if (keySet) "已設定" else "尚未設定",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = AppTheme.colors.text,
+                        )
+                    }
+                    VsTextField(
+                        value = input,
+                        onValueChange = { input = it },
+                        label = "Gemini 金鑰",
+                        visualTransformation = PasswordVisualTransformation(),
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
+                        VsButton(
+                            text = "儲存",
+                            onClick = { onSave(input); input = "" },
+                            modifier = Modifier.weight(1f),
+                            variant = ButtonVariant.Primary,
+                            enabled = input.isNotBlank(),
+                        )
+                        if (keySet) {
+                            // 清除金鑰是破壞性動作:唯一可以用紅色的按鈕變體
+                            VsButton(
+                                text = "清除",
+                                onClick = onClear,
+                                modifier = Modifier.weight(1f),
+                                variant = ButtonVariant.DangerQuiet,
+                            )
+                        }
                     }
                 }
             }
+            VsSettingNote("只用於查詢解析、只存在這台手機；換手機要重新輸入。建議在 Google Cloud 把這把金鑰限縮為只能呼叫 Generative Language API。")
         }
-        VsSettingNote("只用於查詢解析、只存在這台手機；換手機要重新輸入。建議在 Google Cloud 把這把金鑰限縮為只能呼叫 Generative Language API。")
     }
 }

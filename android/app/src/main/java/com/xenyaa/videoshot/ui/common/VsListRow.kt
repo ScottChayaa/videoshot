@@ -29,9 +29,11 @@ import com.xenyaa.videoshot.ui.theme.focusRing
  *
  * [iconTint] 預設 `textDim`；標籤清單列用種類色（[ChipKind.color]）。
  *
- * 預設把整列的語意合併成一個節點（TalkBack 一次唸完標題與副標）。**[trailing] 若是可互動元件
- * （Switch、按鈕），整列不要給 [onClick]，否則語意合併會把它吃掉**——它在無障礙樹裡不再是獨立的
- * 可點節點。這種列同時要把 [mergeSemantics] 設成 `false`，尾端元件才會自己保有語意。
+ * 預設把整列的語意合併成一個節點（TalkBack 一次唸完標題與副標）。尾端放 `clickable`／`IconButton`／
+ * `Switch`／`toggleable` 這類自己就是語意合併邊界的元件沒有問題——它們在合併後仍是獨立的可點節點，
+ * 整列同時給 [onClick] 也一樣（資料夾內容的子資料夾列就是整列可點加尾端 ⋯ 按鈕）。
+ * 只有尾端元件是「只掛 `semantics { onClick }`、自己不合併」的自訂寫法時，才會被整列合併吃掉，
+ * 這時把 [mergeSemantics] 設成 `false`，尾端元件才保有自己的語意。
  */
 @Composable
 fun VsListRow(

@@ -2,6 +2,9 @@ package com.xenyaa.videoshot.ui.account
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,14 +33,16 @@ fun AiRangeScreen(
     onChange: (beforeSec: Int, afterSec: Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.fillMaxWidth()) {
+    Column(modifier.fillMaxSize()) {
         AccountSettingHeader("AI 分析", onBack)
-        VsSettingGroup(title = "分析區間") {
-            StepperRow("往前秒數", "送 AI 分析時，從時間點往前涵蓋的秒數", beforeSec) { onChange(it, afterSec) }
-            VsSettingDivider()
-            StepperRow("往後秒數", "往後涵蓋的秒數", afterSec) { onChange(beforeSec, it) }
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            VsSettingGroup(title = "分析區間") {
+                StepperRow("往前秒數", "送 AI 分析時，從時間點往前涵蓋的秒數", beforeSec) { onChange(it, afterSec) }
+                VsSettingDivider()
+                StepperRow("往後秒數", "往後涵蓋的秒數", afterSec) { onChange(beforeSec, it) }
+            }
+            VsSettingNote("AI 補充功能還沒上線，這裡的設定會先存著，上線後才會送出分析。")
         }
-        VsSettingNote("AI 補充功能還沒上線，這裡的設定會先存著，上線後才會送出分析。")
     }
 }
 

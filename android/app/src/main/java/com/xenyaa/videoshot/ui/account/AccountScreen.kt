@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -176,7 +177,9 @@ private fun AccountHero(state: AccountState, onOpenSection: (AccountSection) -> 
                         Modifier
                             .focusRing()
                             .clickable(role = Role.Button, onClick = openBackup)
-                            .padding(top = AppTheme.spacing.s1)
+                            // 觸控區至少 44dp；文字在這個高度裡垂直置中
+                            .defaultMinSize(minHeight = AppTheme.spacing.tap)
+                            .wrapContentHeight(Alignment.CenterVertically)
                     } else {
                         Modifier.padding(top = AppTheme.spacing.s1)
                     },

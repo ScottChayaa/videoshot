@@ -3,6 +3,7 @@ package com.xenyaa.videoshot.ui.common
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
@@ -96,6 +97,13 @@ class VsSettingsTest {
     @Test fun 步進器數值唸出標籤() {
         compose.setContent { VideoshotTheme { VsStepper(12, {}, 0..30, Modifier.testTag("s"), label = "往後秒數") } }
         compose.onNodeWithContentDescription("往後秒數 12").assertIsDisplayed().assertWidthIsAtLeast(48.dp)
+    }
+
+    /** 按＋／−後焦點仍在按鈕上，數值節點要是 liveRegion，TalkBack 才會唸出新值（最終審查 M2）。 */
+    @Test fun 步進器數值是liveRegion() {
+        compose.setContent { VideoshotTheme { VsStepper(12, {}, 0..30, label = "往後秒數") } }
+        compose.onNodeWithContentDescription("往後秒數 12")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
     }
 
     @Test fun 下拉欄位唸得出標籤與值() {

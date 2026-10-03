@@ -212,10 +212,8 @@ class SearchScreenTest {
             heard = ResolvedSummary("加勒比海・夜潛・大蝦", local = true),
         )
         show(state)
-        // 「大蝦」單獨成一個節點的只有結果列的條件 chip——「聽懂了：…大蝦（本機解析）」
-        // 是同一個 Text 裡的完整句子，onNodeWithText 預設精確比對不會跟它撞在一起，
-        // 但還是用 hasClickAction() 明確鎖定 chip，跟前面「查詢」二字的處理手法一致。
-        // 條件小膠囊改成純顯示（沒有點擊動作），改用精確文字比對鎖定它
+        // 「大蝦」單獨成一個節點的只有結果列的條件小膠囊(純顯示，沒有點擊動作)——
+        // 「聽懂了：…大蝦（本機解析）」是同一個 Text 裡的完整句子，精確文字比對不會跟它撞在一起。
         compose.onNodeWithText("大蝦").assertIsDisplayed()
     }
 
