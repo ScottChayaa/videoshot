@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -128,6 +129,7 @@ private fun RecentCard(video: RecentVideo, onClick: () -> Unit) {
             .focusRing(shape)
             .background(AppTheme.colors.surface, shape)
             .border(1.dp, AppTheme.colors.border, shape)
+            .clip(shape) // 波紋要裁在圓角內
             .clickable(role = Role.Button, onClick = onClick)
             .semantics(mergeDescendants = true) {}
             .defaultMinSize(minHeight = AppTheme.spacing.tap)

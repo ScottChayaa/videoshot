@@ -80,7 +80,7 @@ class Step3GridTest {
     }
 
     @Test
-    fun 套用過的格子有綠點() {
+    fun 套用過的格子講得出已套用() {
         show(stateOf(applied = setOf(0, 2)))
         compose.onAllNodesWithContentDescription("已套用", substring = true).assertCountEquals(2)
     }
@@ -138,25 +138,30 @@ class Step3GridTest {
         compose.onNodeWithText("未填 0").assertIsNotEnabled()
     }
 
-    /** 手冊 §零：已勾選不用紅框；有打勾徽章（同第二步）。 */
+    /**
+     * 手冊 §零：已勾選不用紅框；有打勾徽章（同第二步）。徽章是純裝飾（M-2：整格描述已含「已勾選」，
+     * 徽章再報一次 TalkBack 會唸兩次），所以名稱只在整格的合併描述裡，不再有獨立的「已選」節點。
+     */
     @Test
-    fun 已勾選的格子有打勾徽章() {
+    fun 已勾選的格子名稱含已勾選且徽章不重複報() {
         show(stateOf(selected = setOf(0)))
-        compose.onAllNodesWithContentDescription("已選", useUnmergedTree = true).onFirst().assertExists()
-    }
-
-    @Test
-    fun 沒勾選就沒有打勾徽章() {
-        show(stateOf(selected = emptySet()))
+        compose.onAllNodesWithContentDescription("已勾選", substring = true, useUnmergedTree = true).assertCountEquals(1)
         compose.onAllNodesWithContentDescription("已選", useUnmergedTree = true).assertCountEquals(0)
     }
 
-    /** 原型 .done-mark：已套用是右上角打勾方塊，不再是綠點；仍講得出「已套用」。 */
     @Test
-    fun 已套用的格子有打勾標記() {
+    fun 沒勾選就沒有勾選描述() {
+        show(stateOf(selected = emptySet()))
+        compose.onAllNodesWithContentDescription("已勾選", substring = true, useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    /** 原型 .done-mark：已套用是右上角打勾方塊（純裝飾）；「已套用」只由整格描述講一次。 */
+    @Test
+    fun 已套用的格子打勾標記不重複報() {
         show(stateOf(applied = setOf(0, 2)))
-        // 精確比對：只算打勾標記本身（整格的描述是「第三步的格子 …・已套用」，不會被算進來）
-        compose.onAllNodesWithContentDescription("已套用", useUnmergedTree = true).assertCountEquals(2)
+        compose.onAllNodesWithContentDescription("已套用", substring = true, useUnmergedTree = true).assertCountEquals(2)
+        // 精確比對「已套用」＝獨立的打勾標記節點，現在不該有
+        compose.onAllNodesWithContentDescription("已套用", useUnmergedTree = true).assertCountEquals(0)
     }
 
     @Test

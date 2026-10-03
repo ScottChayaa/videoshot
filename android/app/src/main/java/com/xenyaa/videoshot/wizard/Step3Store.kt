@@ -139,7 +139,7 @@ class Step3Store(
         select(current.cells.map { it.cell }.filterNot { it in current.selected }.toSet())
     }
 
-    /** 【未填的】：一鍵勾選所有沒有綠點的，收尾時用（規格第五節快捷列）。 */
+    /** 【未填的】：一鍵勾選所有還沒套用（沒有打勾標記）的，收尾時用（規格第五節快捷列）。 */
     fun selectUnapplied() = select(_state.value.unappliedCells)
 
     fun editEventDate(value: String) = edit { it.copy(eventDate = value) }
