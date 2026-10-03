@@ -254,13 +254,15 @@ class AppRootDetailTest {
 
         compose.onNodeWithContentDescription("片段縮圖 00:30").performClick()
         compose.onNodeWithText("播放這一段").performClick()
-        compose.onNodeWithText("影片 00:30").assertIsDisplayed()
+        // 資訊列改成「{中文日期} · 影片 MM:SS」一整句（階段 15C），所以改用 substring 定位
+        compose.onNodeWithText("影片 00:30", substring = true).assertIsDisplayed()
 
         // 返回首頁，播第二張——同一支影片（v1），detailVm 是同一個快取實例
         compose.onNodeWithContentDescription("返回").performClick()
         compose.onNodeWithContentDescription("片段縮圖 01:30").performClick()
         compose.onNodeWithText("播放這一段").performClick()
 
-        compose.onNodeWithText("影片 01:30").assertIsDisplayed()
+        // 資訊列改成「{中文日期} · 影片 MM:SS」一整句（階段 15C），所以改用 substring 定位
+        compose.onNodeWithText("影片 01:30", substring = true).assertIsDisplayed()
     }
 }

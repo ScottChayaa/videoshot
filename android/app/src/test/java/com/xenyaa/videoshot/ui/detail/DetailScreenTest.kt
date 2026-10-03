@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.detail
 
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -172,5 +173,84 @@ class DetailScreenTest {
         compose.onNodeWithContentDescription("這支影片的更多操作").performClick()
         compose.onNodeWithText("刪除整支收藏").performClick()
         compose.onNodeWithText("將刪除這支影片的 2 張收藏(含 1 張截圖)，YouTube 原片不受影響。").assertIsDisplayed()
+    }
+
+    /** 原本是 AssistChip(onClick = {})，假裝可點；純顯示的小膠囊不該有點擊動作。 */
+    @Test
+    fun 圖資卡的標籤不可點() {
+        show(
+            DetailViewModel.State(
+                loading = false, title = "t", shots = listOf(shot(1, 10.0, desc = "下水前")), focusedShotId = 1L,
+                focusedTags = listOf("夜潛"), focusedTagKinds = mapOf("夜潛" to "topic"),
+                player = DetailViewModel.PlayerAvailability.Ready(true),
+            )
+        )
+        compose.onNodeWithText("夜潛", substring = true).assertIsDisplayed().assertHasNoClickAction()
+        compose.onNodeWithText("宜蘭", substring = true).assertHasNoClickAction()
+    }
+
+    @Test
+    fun 區塊標題帶張數() {
+        show(
+            DetailViewModel.State(
+                loading = false, title = "t", shots = listOf(shot(1, 10.0), shot(2, 20.0), shot(3, 30.0)),
+                focusedShotId = 1L, player = DetailViewModel.PlayerAvailability.Ready(true),
+            )
+        )
+        compose.onNodeWithText("這支影片的收藏", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("(3)", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun 資訊列是中文日期加影片時間() {
+        show(
+            DetailViewModel.State(
+                loading = false, title = "t", shots = listOf(shot(1, 132.0)), focusedShotId = 1L,
+                player = DetailViewModel.PlayerAvailability.Ready(true),
+            )
+        )
+        compose.onNodeWithText("2026年3月1日 · 影片 02:12").assertIsDisplayed()
+    }
+
+    @Test
+    fun 日期解析不了就原樣顯示() {
+        show(
+            DetailViewModel.State(
+                loading = false, title = "t", shots = listOf(shot(1, 10.0).copy(eventDate = "不是日期")),
+                focusedShotId = 1L, player = DetailViewModel.PlayerAvailability.Ready(true),
+            )
+        )
+        compose.onNodeWithText("不是日期 · 影片 00:10").assertIsDisplayed()
+    }
+
+    @Test
+    fun 錯誤訊息仍然顯示() {
+        show(
+            DetailViewModel.State(
+                loading = false, title = "t", shots = listOf(shot(1, 10.0)), focusedShotId = 1L,
+                error = "讀取失敗，請再試一次", player = DetailViewModel.PlayerAvailability.Ready(true),
+            )
+        )
+        compose.onNodeWithText("讀取失敗，請再試一次").assertIsDisplayed()
+    }
+
+    @Test
+    fun 可重試時播放器區有重試鈕() {
+        var retried = false
+        compose.setContent {
+            VideoshotTheme {
+                DetailScreen(
+                    state = DetailViewModel.State(
+                        loading = false, title = "t", shots = listOf(shot(1, 10.0)), focusedShotId = 1L,
+                        player = DetailViewModel.PlayerAvailability.Unavailable("沒有網路，無法播放。", retryable = true),
+                    ),
+                    loader = loader, onBack = {}, onPlayerReady = {}, onPlayerReleased = {},
+                    onRetryPlayer = { retried = true }, onFocus = {}, onEdit = {},
+                    onContinueCapture = {}, onBatchEdit = {}, onDeleteVideo = {},
+                )
+            }
+        }
+        compose.onNodeWithText("重試").performClick()
+        assertEquals(true, retried)
     }
 }

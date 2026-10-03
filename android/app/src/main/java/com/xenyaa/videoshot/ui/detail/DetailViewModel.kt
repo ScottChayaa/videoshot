@@ -37,6 +37,8 @@ class DetailViewModel(
         val shots: List<ShotRow> = emptyList(),
         val focusedShotId: Long? = null,
         val focusedTags: List<String> = emptyList(),
+        /** 聚焦那張的標籤名 → kind（`tag.kind` 原始字串），圖資卡的小膠囊用來上色；對不到的當 other。 */
+        val focusedTagKinds: Map<String, String> = emptyMap(),
         val player: PlayerAvailability = PlayerAvailability.Loading,
         val error: String? = null,
     ) {
@@ -131,14 +133,21 @@ class DetailViewModel(
         tagsJob?.cancel()
         val id = _state.value.focusedShotId
         if (id == null) {
-            _state.value = _state.value.copy(focusedTags = emptyList())
+            _state.update { it.copy(focusedTags = emptyList(), focusedTagKinds = emptyMap()) }
             return
         }
         // 輔助性質的讀取(跟 AppRoot.EditingSheet 的 produceState 同一個取捨)：查不到就沒有建議,
         // 不該讓整頁跳錯誤
         tagsJob = viewModelScope.launch {
             val tags = runCatching { library.tagsOfShot(id) }.getOrDefault(emptyList())
-            _state.update { it.copy(focusedTags = tags) }
+            // 種類同樣是輔助資訊：讀不到就空 map（小膠囊退回 other 色），標籤本身照樣顯示。
+            // 先全部算好再一次 update，不把 suspend 呼叫寫進 copy(…)（2026-10-02 的慣例）
+            val kinds = if (tags.isEmpty()) emptyMap() else {
+                val kindByName = runCatching { library.allTagsWithUsage() }.getOrDefault(emptyList())
+                    .associate { it.name to it.kind }
+                tags.mapNotNull { name -> kindByName[name]?.let { name to it } }.toMap()
+            }
+            _state.update { it.copy(focusedTags = tags, focusedTagKinds = kinds) }
         }
     }
 

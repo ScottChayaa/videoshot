@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,17 +19,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,17 +35,27 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.core.time.formatClock
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.player.Player
 import com.xenyaa.videoshot.player.PlayerSurface
+import com.xenyaa.videoshot.ui.common.ButtonVariant
+import com.xenyaa.videoshot.ui.common.ChipKind
+import com.xenyaa.videoshot.ui.common.ChipSize
 import com.xenyaa.videoshot.ui.common.TopBarIconButton
 import com.xenyaa.videoshot.ui.common.TopBarNav
 import com.xenyaa.videoshot.ui.common.TopBarTitle
+import com.xenyaa.videoshot.ui.common.VsButton
+import com.xenyaa.videoshot.ui.common.VsTagChip
 import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
@@ -55,6 +63,8 @@ import com.xenyaa.videoshot.ui.theme.focusRing
 import com.xenyaa.videoshot.ui.thumb.ThumbImage
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
 import com.xenyaa.videoshot.ui.thumb.labelOf
+import java.time.LocalDate
+import java.time.format.DateTimeParseException
 
 /**
  * 詳情頁（規格第六節）。保留底部導覽，由呼叫端疊在 `AppShell` 裡（比照資料夾頁）。
@@ -112,7 +122,8 @@ fun DetailScreen(
             if (state.error != null) {
                 Text(
                     state.error,
-                    color = AppTheme.colors.danger,
+                    // 讀取失敗不是破壞性動作，不用紅色（紅色只留給刪除）
+                    color = AppTheme.colors.warn,
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s2),
                 )
@@ -138,56 +149,76 @@ fun DetailScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(AppTheme.spacing.s4),
                     )
-                    if (player.retryable) TextButton(onClick = onRetryPlayer) { Text("重試") }
+                    if (player.retryable) VsButton("重試", onRetryPlayer, variant = ButtonVariant.Secondary)
                 }
                 DetailViewModel.PlayerAvailability.Loading ->
                     Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(AppTheme.colors.surface2))
             }
 
-            // 目前這一張的圖資（手冊 §七第一條）
+            // 目前這一張的圖資（手冊 §七第一條；原型 `.clip-meta`）
             state.focused?.let { focused ->
-                Column(Modifier.fillMaxWidth().padding(AppTheme.spacing.s4)) {
+                val shape = RoundedCornerShape(AppTheme.radii.md)
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(start = AppTheme.spacing.s4, end = AppTheme.spacing.s4, top = AppTheme.spacing.s3, bottom = AppTheme.spacing.s4)
+                        .clip(shape)
+                        .background(AppTheme.colors.surface)
+                        .border(1.dp, AppTheme.colors.border, shape)
+                        .padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
+                    verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
+                ) {
                     val hasDesc = !focused.description.isNullOrBlank()
                     Text(
                         if (hasDesc) focused.description!! else "還沒有描述",
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodyLarge,
                         color = if (hasDesc) AppTheme.colors.text else AppTheme.colors.textFaint,
                     )
-                    val chips = listOfNotNull(focused.place) + state.focusedTags
-                    if (chips.isNotEmpty()) {
+                    // 純顯示的小膠囊：沒有 onClick，也就不會有點擊語意（原本的 AssistChip(onClick = {}) 假裝可點）
+                    if (focused.place != null || state.focusedTags.isNotEmpty()) {
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
-                            modifier = Modifier.padding(top = AppTheme.spacing.s2),
+                            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
                         ) {
-                            chips.forEach { chip -> AssistChip(onClick = {}, label = { Text(chip) }) }
+                            focused.place?.let { VsTagChip(it, ChipKind.PLACE, size = ChipSize.Mini) }
+                            state.focusedTags.forEach { tag ->
+                                VsTagChip(tag, ChipKind.ofTagKind(state.focusedTagKinds[tag] ?: "other"), size = ChipSize.Mini)
+                            }
                         }
                     }
-                    Row(
-                        Modifier.fillMaxWidth().padding(top = AppTheme.spacing.s2),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(focused.eventDate, style = MaterialTheme.typography.labelSmall, color = AppTheme.colors.textFaint)
-                        Text("影片 ${formatClock(focused.atSec)}", style = MaterialTheme.typography.labelSmall, color = AppTheme.colors.textFaint)
-                    }
-                    TextButton(onClick = { onEdit(focused) }, modifier = Modifier.padding(top = AppTheme.spacing.s1)) {
-                        Icon(VsIcons.Edit, contentDescription = null)
-                        Text("編輯這張的圖資", modifier = Modifier.padding(start = AppTheme.spacing.s2))
-                    }
+                    Text(
+                        "${chineseDate(focused.eventDate)} · 影片 ${formatClock(focused.atSec)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AppTheme.colors.textDim,
+                    )
+                    VsButton(
+                        "編輯這張的圖資", { onEdit(focused) },
+                        modifier = Modifier.fillMaxWidth(),
+                        variant = ButtonVariant.Secondary,
+                        icon = VsIcons.Edit,
+                    )
                 }
             }
 
+            // 區塊標題（原型 `.section h3`）：「(N)」同一行、小一階、淡一階，單一 Text 讓朗讀也是一句
             Text(
-                "這支影片的收藏 (${state.shots.size})",
-                style = MaterialTheme.typography.titleSmall,
+                buildAnnotatedString {
+                    append("這支影片的收藏")
+                    withStyle(SpanStyle(fontSize = MaterialTheme.typography.bodyMedium.fontSize, fontWeight = FontWeight.Normal, color = AppTheme.colors.textDim)) {
+                        append(" (${state.shots.size})")
+                    }
+                },
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = AppTheme.colors.text,
-                modifier = Modifier.padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s2),
+                modifier = Modifier.padding(start = AppTheme.spacing.s4, end = AppTheme.spacing.s4, top = AppTheme.spacing.s2, bottom = AppTheme.spacing.s3),
             )
 
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
-                modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = AppTheme.spacing.s3),
-                horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
-                verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentPadding = PaddingValues(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s1),
+                horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
+                verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
             ) {
                 items(state.shots, key = { it.id }) { shot ->
                     DetailGridTile(
@@ -215,11 +246,9 @@ fun DetailScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = { confirmingDelete = false; onDeleteVideo() }) {
-                    Text("刪除", color = AppTheme.colors.danger)
-                }
+                VsButton("刪除", { confirmingDelete = false; onDeleteVideo() }, variant = ButtonVariant.Danger)
             },
-            dismissButton = { TextButton(onClick = { confirmingDelete = false }) { Text("取消") } },
+            dismissButton = { VsButton("取消", { confirmingDelete = false }, variant = ButtonVariant.Quiet) },
         )
     }
 }
@@ -239,14 +268,13 @@ private fun DetailGridTile(
     onFocus: () -> Unit,
     onEdit: () -> Unit,
 ) {
+    val shape = RoundedCornerShape(AppTheme.radii.sm)
     Box(
         Modifier
             .aspectRatio(16f / 9f)
-            .border(
-                width = if (focused) 2.dp else 0.dp,
-                color = if (focused) AppTheme.colors.accent else Color.Transparent,
-            )
-            .clip(RoundedCornerShape(AppTheme.radii.sm)),
+            .shadow(1.dp, shape)
+            .clip(shape)
+            .background(AppTheme.colors.surface2),
     ) {
         Box(
             Modifier
@@ -255,16 +283,44 @@ private fun DetailGridTile(
                 .semantics { contentDescription = labelOf(shot) },
         ) {
             ThumbImage(shot = shot, loader = loader, modifier = Modifier.fillMaxSize())
+            Text(
+                formatClock(shot.atSec),
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(AppTheme.spacing.s1)
+                    .clip(shape)
+                    .background(AppTheme.colors.scrim)
+                    .padding(horizontal = AppTheme.spacing.s1),
+            )
         }
+        // 聚焦那格的 3dp 內框（畫在縮圖上方，不吃點擊）
+        if (focused) Box(Modifier.fillMaxSize().border(3.dp, AppTheme.colors.accent, shape))
+        // 觸控 44dp，視覺是 28dp 的 scrim 方塊＋白色圖示——白色而不是 accentInk：
+        // accentInk 在深色模式是深色，疊在縮圖上看不見（同 Lightbox／首頁的處理）
         IconButton(
             onClick = onEdit,
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .size(AppTheme.spacing.tap)
-                .focusRing(CircleShape)
+                .focusRing(shape)
                 .semantics { contentDescription = "編輯 ${formatClock(shot.atSec)} 的圖資" },
         ) {
-            Icon(VsIcons.Edit, contentDescription = null, tint = AppTheme.colors.accentInk)
+            Box(
+                Modifier.size(28.dp).clip(shape).background(AppTheme.colors.scrim),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(VsIcons.Edit, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
+            }
         }
     }
+}
+
+/** 「2026-08-03」→「2026年8月3日」；解析不了就原樣顯示，不為了格式讓整頁失敗。 */
+private fun chineseDate(iso: String): String = try {
+    val d = LocalDate.parse(iso)
+    "${d.year}年${d.monthValue}月${d.dayOfMonth}日"
+} catch (_: DateTimeParseException) {
+    iso
 }

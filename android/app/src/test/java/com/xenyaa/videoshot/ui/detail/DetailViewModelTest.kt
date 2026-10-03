@@ -41,6 +41,8 @@ class DetailViewModelTest {
         var video: VideoEntity? = VideoEntity("v1", "旅行影片", "c", "2026-03-01T00:00:00Z", 600, "public", null, 1L)
         var tagsById: Map<Long, List<String>> = emptyMap()
         var throwOnShots = false
+        var usage: List<com.xenyaa.videoshot.data.repo.model.TagUsage> = emptyList()
+        var throwOnUsage = false
 
         /** 非 null 時 `tagsOfShot` 會卡到它完成為止——用來製造「讀標籤期間狀態被別處改過」的競態。 */
         var tagsGate: CompletableDeferred<Unit>? = null
@@ -54,6 +56,10 @@ class DetailViewModelTest {
             return shots
         }
         override suspend fun videoById(videoId: String) = video
+        override suspend fun allTagsWithUsage(): List<com.xenyaa.videoshot.data.repo.model.TagUsage> {
+            if (throwOnUsage) throw RuntimeException("模擬讀取失敗")
+            return usage
+        }
         override suspend fun tagsOfShot(shotId: Long): List<String> {
             tagsGate?.await()
             return tagsById[shotId].orEmpty()
@@ -249,5 +255,35 @@ class DetailViewModelTest {
 
         assertEquals("台北", vm.state.value.shots.first { it.id == 2L }.place)
         assertEquals(listOf("海邊"), vm.state.value.focusedTags)
+    }
+
+    private fun usage(id: Long, name: String, kind: String) =
+        com.xenyaa.videoshot.data.repo.model.TagUsage(id, name, kind, emptyList(), 1)
+
+    /** 圖資卡的標籤小膠囊要帶種類，kind 從既有的 allTagsWithUsage 對出來，不加新 SQL。 */
+    @Test fun 聚焦那張的標籤帶種類() = runTest(dispatcher) {
+        val repo = Repo().apply {
+            shots = listOf(shot(1, 10.0))
+            tagsById = mapOf(1L to listOf("夜潛", "龍蝦"))
+            usage = listOf(usage(1, "夜潛", "topic"), usage(2, "龍蝦", "other"), usage(3, "別張的", "person"))
+        }
+        val vm = DetailViewModel("v1", initialFocusShotId = 1L, library = repo, watchPage = { okPage() })
+        advanceUntilIdle()
+        assertEquals(listOf("夜潛", "龍蝦"), vm.state.value.focusedTags)
+        assertEquals(mapOf("夜潛" to "topic", "龍蝦" to "other"), vm.state.value.focusedTagKinds)
+    }
+
+    /** 種類只是輔助資訊：讀不到不能讓標籤本身也消失，更不能讓整頁跳錯誤。 */
+    @Test fun 讀不到種類時標籤照樣顯示且不跳錯() = runTest(dispatcher) {
+        val repo = Repo().apply {
+            shots = listOf(shot(1, 10.0))
+            tagsById = mapOf(1L to listOf("夜潛"))
+            throwOnUsage = true
+        }
+        val vm = DetailViewModel("v1", initialFocusShotId = 1L, library = repo, watchPage = { okPage() })
+        advanceUntilIdle()
+        assertEquals(listOf("夜潛"), vm.state.value.focusedTags)
+        assertEquals(emptyMap<String, String>(), vm.state.value.focusedTagKinds)
+        assertNull(vm.state.value.error)
     }
 }
