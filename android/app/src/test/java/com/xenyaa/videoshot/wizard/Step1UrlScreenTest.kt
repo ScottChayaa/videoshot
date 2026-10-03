@@ -3,8 +3,10 @@ package com.xenyaa.videoshot.wizard
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
 import org.junit.Assert.assertEquals
@@ -62,7 +64,8 @@ class Step1UrlScreenTest {
     @Test
     fun 送出會把輸入原樣交給呼叫端() {
         show()
-        compose.onNodeWithText("貼上 YouTube 網址").performTextInput("https://youtu.be/abcdefghijk")
+        // 欄位標籤改成「…網址或 videoId」顯示在欄位上方；可編輯節點以 semanticLabel「貼上 YouTube 網址」定位
+        compose.onNodeWithContentDescription("貼上 YouTube 網址").performTextInput("https://youtu.be/abcdefghijk")
         compose.onNodeWithText("下一步").performClick()
         assertEquals("https://youtu.be/abcdefghijk", opened)
     }
@@ -78,5 +81,21 @@ class Step1UrlScreenTest {
     fun 讀取中時下一步不能按() {
         show(status = Step1Status.Loading)
         compose.onNodeWithText("下一步").assertIsNotEnabled()
+    }
+
+    /** 原型 .wz-hist：副標是「日期 · 取了 N 張」。 */
+    @Test
+    fun 取圖紀錄副標寫取了幾張() {
+        show(recent = listOf(RecentVideo("v3", "京都", 1_790_000_000L, 3)))
+        compose.onNodeWithText("取了 3 張", substring = true).assertIsDisplayed()
+    }
+
+    /** 鍵盤的「前往」等同按【下一步】。 */
+    @Test
+    fun 鍵盤前往會送出() {
+        show()
+        compose.onNodeWithContentDescription("貼上 YouTube 網址").performTextInput("https://youtu.be/aqz-KE-bpKQ")
+        compose.onNodeWithContentDescription("貼上 YouTube 網址").performImeAction()
+        assertEquals("https://youtu.be/aqz-KE-bpKQ", opened)
     }
 }
