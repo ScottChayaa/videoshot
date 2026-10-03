@@ -9,9 +9,12 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.dp
+import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -70,5 +73,23 @@ class VsTextFieldTest {
     @Test fun 沒亮起時沒有將寫入語意() {
         compose.setContent { VideoshotTheme { VsTextField("", {}, label = "地點") } }
         compose.onNodeWithContentDescription("將寫入").assertDoesNotExist()
+    }
+
+    /** 左側圖示（查詢頁文字框的放大鏡）：圖示佔位，佔位字樣被推向右邊，輸入照常運作。 */
+    @Test fun 左側圖示把內容往右推且仍可輸入() {
+        var text by mutableStateOf("")
+        compose.setContent {
+            VideoshotTheme {
+                androidx.compose.foundation.layout.Column {
+                    VsTextField("", {}, placeholder = "沒圖示", semanticLabel = "A")
+                    VsTextField(text, { text = it }, placeholder = "有圖示", leadingIcon = VsIcons.Search, semanticLabel = "B")
+                }
+            }
+        }
+        val plain = compose.onNodeWithText("沒圖示", useUnmergedTree = true).getUnclippedBoundsInRoot().left
+        val withIcon = compose.onNodeWithText("有圖示", useUnmergedTree = true).getUnclippedBoundsInRoot().left
+        assertTrue(withIcon >= plain + 20.dp)
+        compose.onNodeWithContentDescription("B").performTextInput("海龜")
+        assertEquals("海龜", text)
     }
 }

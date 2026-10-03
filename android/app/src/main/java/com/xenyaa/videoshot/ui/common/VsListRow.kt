@@ -23,7 +23,13 @@ import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
 
-/** 清單列（原型 `styles.css`「設定／清單列」的 `.set-row`）。可點時尾端自動畫 › 。 */
+/**
+ * 清單列（原型 `styles.css`「設定／清單列」的 `.set-row`）。可點時尾端自動畫 › 。
+ *
+ * 預設把整列的語意合併成一個節點（TalkBack 一次唸完標題與副標）。**[trailing] 若是可互動元件
+ * （Switch、按鈕），整列不要給 [onClick]，否則語意合併會把它吃掉**——它在無障礙樹裡不再是獨立的
+ * 可點節點。這種列同時要把 [mergeSemantics] 設成 `false`，尾端元件才會自己保有語意。
+ */
 @Composable
 fun VsListRow(
     title: String,
@@ -33,11 +39,12 @@ fun VsListRow(
     danger: Boolean = false,
     onClick: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
+    mergeSemantics: Boolean = true,
 ) {
     var m = modifier.fillMaxWidth()
     if (onClick != null) m = m.focusRing().clickable(role = Role.Button, onClick = onClick)
-    m = m.semantics(mergeDescendants = true) {}
-        .defaultMinSize(minHeight = AppTheme.spacing.tap)
+    if (mergeSemantics) m = m.semantics(mergeDescendants = true) {}
+    m = m.defaultMinSize(minHeight = AppTheme.spacing.tap)
         .padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3)
     Row(m, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s3)) {
         if (icon != null) Icon(icon, null, tint = AppTheme.colors.textDim, modifier = Modifier.size(22.dp))

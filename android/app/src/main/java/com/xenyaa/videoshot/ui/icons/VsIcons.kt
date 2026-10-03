@@ -138,6 +138,9 @@ object VsIcons {
 
     val Check: ImageVector by lazy { strokeIcon("check", "M20 6 9 17l-5-5") }
 
+    /** 下拉欄位的箭頭（原型 `chevronDown`）。 */
+    val ChevronDown: ImageVector by lazy { strokeIcon("chevron-down", "m6 9 6 6 6-6") }
+
     /** 帳號頁選單列的箭頭（原型 `chevronRight`）。 */
     val ChevronRight: ImageVector by lazy { strokeIcon("chevron-right", "m9 18 6-6-6-6") }
 

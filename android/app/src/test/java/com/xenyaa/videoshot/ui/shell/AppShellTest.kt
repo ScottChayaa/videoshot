@@ -1,8 +1,18 @@
 package com.xenyaa.videoshot.ui.shell
 
+import androidx.core.graphics.Insets
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.material3.Text
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import com.xenyaa.videoshot.ui.common.VsActionDock
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
@@ -19,7 +29,7 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [35], qualifiers = "w411dp-h891dp")
 class AppShellTest {
 
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createAndroidComposeRule<androidx.activity.ComponentActivity>()
 
     private fun show(nav: NavState = NavState(), onSelectTab: (Tab) -> Unit = {}) {
         compose.setContent {
@@ -72,5 +82,42 @@ class AppShellTest {
             }
         }
         compose.onNodeWithText("已新增 8 張").assertIsDisplayed()
+    }
+
+    /**
+     * 15A 最終審查 Minor 2：Scaffold 把導覽列 inset 換成 padding 給內容，但沒標記成已消耗，
+     * 內容裡的 VsActionDock（自己 navigationBarsPadding）會再墊一次導覽列高度。
+     * 先量沒有 inset 時 dock 的高度，再用 ViewCompat 派一個導覽列 inset，dock 高度不該變。
+     */
+    @Test
+    fun 內容裡的動作列不重複墊導覽列() {
+        var navBottomPx = 0
+        compose.setContent {
+            VideoshotTheme {
+                AppShell(nav = NavState(), onSelectTab = {}) {
+                    navBottomPx = WindowInsets.navigationBars.getBottom(LocalDensity.current)
+                    VsActionDock(Modifier.testTag("dock")) { Text("按鈕") }
+                }
+            }
+        }
+        compose.waitForIdle()
+        val before = compose.onNodeWithTag("dock").fetchSemanticsNode().size.height
+        assertEquals(0, navBottomPx)
+
+        val inset = 120 // px
+        compose.runOnUiThread {
+            val decor = compose.activity.window.decorView
+            ViewCompat.dispatchApplyWindowInsets(
+                decor,
+                WindowInsetsCompat.Builder()
+                    .setInsets(WindowInsetsCompat.Type.navigationBars(), Insets.of(0, 0, 0, inset))
+                    .build(),
+            )
+        }
+        compose.waitForIdle()
+        // 守門：確認 inset 真的派進了 Compose，不然下面的相等斷言是空的
+        assertEquals(inset, navBottomPx)
+        val after = compose.onNodeWithTag("dock").fetchSemanticsNode().size.height
+        assertEquals("導覽列 inset 已由外殼的 padding 處理，動作列不能再墊一次", before, after)
     }
 }

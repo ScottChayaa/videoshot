@@ -9,6 +9,7 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
@@ -100,6 +101,12 @@ class VsWizardPartsTest {
         compose.onNodeWithText("標籤與地點").assertIsSelected()
         compose.onNodeWithText("描述").performClick()
         assertEquals(1, picked)
+    }
+
+    /** 計畫 15D Task 1：兩個字的分頁（約 34dp 寬）觸控區也要有 44dp。 */
+    @Test fun 兩個字的分頁觸控區至少44寬() {
+        compose.setContent { VideoshotTheme { VsUnderlineTabs(listOf("標籤與地點", "描述"), 0, {}) } }
+        compose.onNodeWithText("描述").assertWidthIsAtLeast(44.dp)
     }
 
     @Test fun 工具列小按鈕可點且觸控區至少44() {

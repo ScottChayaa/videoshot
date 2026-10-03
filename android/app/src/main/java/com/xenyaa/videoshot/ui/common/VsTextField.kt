@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,6 +36,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -52,6 +54,7 @@ enum class TextFieldSize { Regular, Dense }
  * [mixedPlaceholder]＝多張的值不一致，佔位字樣用斜體 `textDim`（顯示〈多個值〉）。
  * [isError] 用 `warn` 色，不用紅（紅只留給破壞性動作）。
  * 整個欄位的 `contentDescription` 取 [semanticLabel]（預設同 [label]）——既有精靈測試用它定位欄位。
+ * [leadingIcon]＝欄位內左側的圖示（查詢頁文字框的放大鏡，原型 `.search .ic`）：20dp、`textDim`，不進語意樹。
  * 聚焦的 3dp `accentWeak` 外圈用 `drawBehind` 畫在框外（原型 `box-shadow` 不佔版面），聚焦與否不會讓版面位移。
  */
 @Composable
@@ -70,6 +73,7 @@ fun VsTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     semanticLabel: String? = label,
+    leadingIcon: ImageVector? = null,
 ) {
     val colors = AppTheme.colors
     val dense = size == TextFieldSize.Dense
@@ -146,16 +150,23 @@ fun VsTextField(
                         ),
                     contentAlignment = Alignment.CenterStart,
                 ) {
-                    if (value.isEmpty() && placeholder != null) {
-                        Text(
-                            placeholder,
-                            style = textStyle.copy(
-                                color = if (mixedPlaceholder) colors.textDim else colors.textFaint,
-                                fontStyle = if (mixedPlaceholder) FontStyle.Italic else FontStyle.Normal,
-                            ),
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
+                        if (leadingIcon != null) {
+                            Icon(leadingIcon, null, tint = colors.textDim, modifier = Modifier.size(20.dp))
+                        }
+                        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                            if (value.isEmpty() && placeholder != null) {
+                                Text(
+                                    placeholder,
+                                    style = textStyle.copy(
+                                        color = if (mixedPlaceholder) colors.textDim else colors.textFaint,
+                                        fontStyle = if (mixedPlaceholder) FontStyle.Italic else FontStyle.Normal,
+                                    ),
+                                )
+                            }
+                            inner()
+                        }
                     }
-                    inner()
                 }
             },
         )
