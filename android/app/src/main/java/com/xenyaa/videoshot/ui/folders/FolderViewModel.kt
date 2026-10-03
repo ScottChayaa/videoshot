@@ -20,6 +20,8 @@ import kotlinx.coroutines.launch
 
 data class FolderState(
     val node: FolderNode? = null,
+    /** 從根到目前這層的資料夾名稱（含自己，不含「分類」前綴——那是畫面加的）。讀不到樹時只有自己。 */
+    val breadcrumb: List<String> = emptyList(),
     val children: List<FolderCard> = emptyList(),
     /** 本層已載入的圖。從這一頁開 Lightbox 時，左右滑動的範圍就是它 */
     val items: List<ShotRow> = emptyList(),
@@ -67,16 +69,21 @@ class FolderViewModel(
             val children = loadChildren()
             val total = repo.folderShotCount(folderId)
             val page = repo.folderShots(folderId, null, pageSize)
-            _state.value = _state.value.copy(
-                node = node,
-                children = children,
-                total = total,
-                items = page.items,
-                cursor = page.next,
-                endReached = page.next == null,
-                loading = false,
-                error = null,
-            )
+            val breadcrumb = loadBreadcrumb(node)
+            // 先算好再一次寫入（CLAUDE.md 2026-10-02 的非同步狀態慣例）
+            _state.update {
+                it.copy(
+                    node = node,
+                    breadcrumb = breadcrumb,
+                    children = children,
+                    total = total,
+                    items = page.items,
+                    cursor = page.next,
+                    endReached = page.next == null,
+                    loading = false,
+                    error = null,
+                )
+            }
         }
     }
 
@@ -120,6 +127,30 @@ class FolderViewModel(
         launchGuarded {
             val children = loadChildren()
             _state.update { it.copy(children = children) }
+        }
+    }
+
+    /**
+     * 沿 `parentId` 往上組出根到目前這層的名稱。麵包屑只是輔助資訊：讀樹失敗（或樹裡找不到
+     * 自己）就退回只放目前名稱，不能讓整頁因此顯示「載入失敗」。`visited` 擋壞資料造成的環。
+     */
+    private suspend fun loadBreadcrumb(node: FolderNode?): List<String> {
+        if (node == null) return emptyList()
+        return try {
+            val byId = repo.folderTree().associateBy { it.id }
+            val path = ArrayDeque<String>()
+            val visited = mutableSetOf<Long>()
+            var cursor: FolderNode? = byId[node.id]
+            while (cursor != null && visited.add(cursor.id)) {
+                path.addFirst(cursor.name)
+                cursor = cursor.parentId?.let { byId[it] }
+            }
+            // 樹裡沒有自己（理論上不會）：至少要有目前名稱
+            if (path.isEmpty()) listOf(node.name) else path.toList()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            listOf(node.name)
         }
     }
 

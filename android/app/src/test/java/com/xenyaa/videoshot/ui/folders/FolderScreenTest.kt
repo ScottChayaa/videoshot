@@ -153,7 +153,8 @@ class FolderScreenTest {
                 children = listOf(card(2, "宜蘭", 3)),
             )
         )
-        compose.onNodeWithContentDescription("「宜蘭」的更多操作").performClick()
+        // 子資料夾改成清單列（15C Task 5）：按鈕名稱改成「{名稱} 的更多操作」（原型風格，不再帶角括號）
+        compose.onNodeWithContentDescription("宜蘭 的更多操作").performClick()
         compose.onNodeWithText("改名").performClick()
         assertEquals(2L, renamedChild?.id)
         assertEquals("宜蘭", renamedChild?.name)
@@ -168,7 +169,8 @@ class FolderScreenTest {
                 children = listOf(card(2, "宜蘭", 3)),
             )
         )
-        compose.onNodeWithContentDescription("「宜蘭」的更多操作").performClick()
+        // 子資料夾改成清單列（15C Task 5）：按鈕名稱改成「{名稱} 的更多操作」（原型風格，不再帶角括號）
+        compose.onNodeWithContentDescription("宜蘭 的更多操作").performClick()
         compose.onNodeWithText("刪除資料夾").performClick()
         assertEquals(2L, deleteAskedChild?.id)
         assertEquals("宜蘭", deleteAskedChild?.name)
@@ -189,5 +191,55 @@ class FolderScreenTest {
         val before = loadMoreCalls
         compose.onNodeWithText("重試").performClick()
         assertEquals(before + 1, loadMoreCalls)
+    }
+
+    @Test
+    fun 顯示麵包屑() {
+        show(FolderState(node = FolderNode(2, 1, "加勒比海之旅", 2), breadcrumb = listOf("加勒比海之旅")))
+        compose.onNodeWithText("分類 / 加勒比海之旅").assertIsDisplayed()
+    }
+
+    @Test
+    fun 多層麵包屑用斜線串起來() {
+        show(FolderState(node = FolderNode(3, 2, "夜潛", 3), breadcrumb = listOf("旅行", "宜蘭", "夜潛")))
+        compose.onNodeWithText("分類 / 旅行 / 宜蘭 / 夜潛").assertIsDisplayed()
+    }
+
+    @Test
+    fun 子資料夾是清單列且有更多操作() {
+        show(
+            FolderState(
+                node = FolderNode(1, null, "旅行", 1),
+                children = listOf(card(2, "夜潛", 7)),
+            )
+        )
+        compose.onNodeWithText("夜潛").assertIsDisplayed()
+        compose.onNodeWithText("7 張").assertIsDisplayed()
+        compose.onNodeWithContentDescription("夜潛 的更多操作").assertIsDisplayed()
+    }
+
+    @Test
+    fun 點子資料夾整列會進入那個子資料夾() {
+        var opened: FolderCard? = null
+        compose.setContent {
+            VideoshotTheme {
+                FolderScreen(
+                    state = FolderState(node = FolderNode(1, null, "旅行", 1), children = listOf(card(2, "夜潛", 7))),
+                    loader = loader, onBack = {}, onOpenChild = { opened = it }, onOpenShot = {}, onLoadMore = {},
+                    onStartCreateChild = {}, onStartRename = {}, onAskDeleteSelf = {}, onRenameChild = {},
+                    onAskDeleteChild = {}, onEditorName = {}, onConfirmEditor = {}, onDismissEditor = {},
+                    onConfirmDelete = {}, onDismissDelete = {},
+                )
+            }
+        }
+        compose.onNodeWithText("夜潛").performClick()
+        assertEquals(2L, opened?.id)
+    }
+
+    @Test
+    fun 有子資料夾沒有圖時仍顯示空狀態() {
+        show(FolderState(node = FolderNode(1, null, "旅行", 1), children = listOf(card(2, "夜潛", 0))))
+        compose.onNodeWithText("夜潛").assertIsDisplayed()
+        compose.onNodeWithText("這個資料夾還沒有圖片").assertIsDisplayed()
     }
 }
