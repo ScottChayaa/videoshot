@@ -232,10 +232,10 @@ class Step2GridScreenTest {
                 kept = emptyList(),
             ),
         )
-        // 階段 15B：標記從 📷 圖示移到時間標籤，語意是「截圖 MM:SS」，所以改用子字串比對
-        // （原本是整串等於「截圖」）。工具列【截圖】鈕只有文字、沒有 contentDescription，不會被算進來。
-        compose.onAllNodesWithContentDescription("截圖", substring = true).assertCountEquals(1)
-        compose.onNodeWithContentDescription("截圖 00:15", useUnmergedTree = true).assertExists()
+        // 階段 15B：標記從 📷 圖示移到時間標籤「截圖 MM:SS」。標籤的文字本身就是無障礙名稱
+        // （最終審查 M-3：不再另設相同的 contentDescription，免得唸兩次），所以改用文字比對。
+        compose.onAllNodesWithText("截圖 00:15", useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithContentDescription("截圖", substring = true).assertCountEquals(0)
     }
 
     @Test

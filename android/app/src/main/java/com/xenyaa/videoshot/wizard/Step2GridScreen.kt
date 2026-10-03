@@ -8,6 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -307,7 +308,7 @@ private fun FrameCell(
     // 合併進自己（無障礙用途），子孫若也是可點擊節點，合併時它的 OnClick 會蓋掉
     // 整格自己的 OnClick，點下去就變成播放而不是勾選。讓 ▶ 當外層 Box 的手足、
     // 不落在「整格」的合併子樹裡，兩個語意節點才不會互相吃掉。
-    Box(
+    BoxWithConstraints(
         Modifier
             .aspectRatio(16f / 9f)
             // 已收藏：整格半透明（原型 .wz-cell.locked），不再蓋黑色遮罩與鎖頭
@@ -315,6 +316,7 @@ private fun FrameCell(
             .clip(cellShape)
             .background(AppTheme.colors.surface2)
     ) {
+        val compact = maxWidth < NUDGE_COMPACT_WIDTH
         Box(
             Modifier
                 .fillMaxSize()
@@ -374,25 +376,13 @@ private fun FrameCell(
                 )
             }
 
-            if (nudgable) {
-                // ±1 秒微調：**只有相簿選來的圖有**。截圖的圖與秒數是同一瞬間取的，
-                // 給了微調鈕等於承諾一件做不到的事（規格第五節、手冊第 93 行）。
-                // 格子很小，按鈕寬 28、高 32（觸控區高度至少 32dp）
-                Row(
-                    Modifier.align(Alignment.BottomStart).padding(AppTheme.spacing.s1),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    NudgeButton("−", "往前 1 秒", scrimPill) { onNudge(-1.0) }
-                    NudgeButton("＋", "往後 1 秒", scrimPill) { onNudge(1.0) }
-                }
-            }
-
             Text(
                 // 手動格前面加「截圖」，取代原本的 📷 標記（這一格是使用者自己補的，不是 YouTube 的
-                // storyboard，規格第五節）；語意上也要有「截圖」可被找到，所以把 contentDescription
-                // 設成「截圖 MM:SS」。放右下角 —— 右上角是 ▶，左上角是徽章
-                if (manual) "截圖 $clock" else clock,
+                // storyboard，規格第五節）；文字本身就是無障礙名稱（不另設 contentDescription，
+                // 否則輔助技術會唸兩次）。放右下角 —— 右上角是 ▶，左上角是徽章。
+                // 相簿來的手動格左下角還有 ±1 秒微調鈕，格子窄（< NUDGE_COMPACT_WIDTH）時兩者放不下，
+                // 這時只留時間 —— 有微調鈕就已經看得出這是自己補的圖。
+                if (manual && !(nudgable && compact)) "截圖 $clock" else clock,
                 style = MaterialTheme.typography.labelSmall,
                 color = Color.White,
                 modifier = Modifier
@@ -400,9 +390,25 @@ private fun FrameCell(
                     .padding(AppTheme.spacing.s1)
                     .clip(scrimPill)
                     .background(AppTheme.colors.scrim)
-                    .padding(horizontal = AppTheme.spacing.s1)
-                    .then(if (manual) Modifier.semantics { contentDescription = "截圖 $clock" } else Modifier),
+                    .padding(horizontal = AppTheme.spacing.s1),
             )
+        }
+
+        if (nudgable) {
+            // ±1 秒微調：**只有相簿選來的圖有**。截圖的圖與秒數是同一瞬間取的，
+            // 給了微調鈕等於承諾一件做不到的事（規格第五節、手冊第 93 行）。
+            // 跟 ▶ 一樣是外層 Box 的手足，不在整格點擊的合併子樹裡；而且**實際尺寸（24×22dp）
+            // 不蓋到格子中心**：Compose 會把小於 48dp 的觸控目標往外擴，但「實際範圍內的命中」
+            // 一律贏過「擴張範圍內的命中」，所以只要實際範圍避開中心，點中心就是整格的勾選。
+            // 格高最矮約 57dp（320dp 寬），鈕頂在 57−2−22＝33dp，中心在 28.5dp，留 4dp 餘裕。
+            Row(
+                Modifier.align(Alignment.BottomStart).padding(start = AppTheme.spacing.s1, bottom = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                NudgeButton("−", "往前 1 秒", scrimPill) { onNudge(-1.0) }
+                NudgeButton("＋", "往後 1 秒", scrimPill) { onNudge(1.0) }
+            }
         }
 
         // ▶ 與長按是同一件事。**長按不是唯一入口** —— 鍵盤與輔助技術到不了長按（規格第五節）
@@ -438,12 +444,18 @@ private fun FrameCell(
     }
 }
 
-/** ±1 秒微調的小鈕：scrim 底白字，觸控區至少 28×32dp。名稱由呼叫端給（測試與無障礙靠它定位）。 */
+/**
+ * 相簿手動格的格寬低於這個值時，右下角時間標籤不加「截圖 」前綴：
+ * 左下角微調鈕（約 54dp）＋「截圖 MM:SS」標籤（約 60dp）＋邊距放不下。
+ */
+private val NUDGE_COMPACT_WIDTH = 122.dp
+
+/** ±1 秒微調的小鈕：scrim 底白字，實際尺寸 24×22dp（觸控區由 Compose 擴到 48dp）。名稱由呼叫端給（測試與無障礙靠它定位）。 */
 @Composable
 private fun NudgeButton(glyph: String, label: String, shape: RoundedCornerShape, onClick: () -> Unit) {
     Box(
         Modifier
-            .defaultMinSize(minWidth = 28.dp, minHeight = 32.dp)
+            .size(width = 24.dp, height = 22.dp)
             .clip(shape)
             .background(AppTheme.colors.scrim)
             .semantics { contentDescription = label }
@@ -482,9 +494,10 @@ private fun FrameImage(
 /**
  * 左上 20dp 主色圓形打勾徽章，外圈 2dp 白邊（原型 .wz-cell.sel::before）。
  * 第二步與第三步的「已選」共用同一個外觀；語意名稱「已選」讓輔助技術不只靠顏色辨識。
+ * 第三步整格的名稱已經含「已勾選」，徽章傳 null 當純裝飾，避免唸兩次。
  */
 @Composable
-internal fun SelectedBadge(modifier: Modifier = Modifier) {
+internal fun SelectedBadge(modifier: Modifier = Modifier, semanticLabel: String? = "已選") {
     Box(
         modifier
             .padding(2.dp)
@@ -494,7 +507,7 @@ internal fun SelectedBadge(modifier: Modifier = Modifier) {
             .padding(2.dp)
             .clip(CircleShape)
             .background(AppTheme.colors.accent)
-            .semantics { contentDescription = "已選" },
+            .then(if (semanticLabel != null) Modifier.semantics { contentDescription = semanticLabel } else Modifier),
         contentAlignment = Alignment.Center,
     ) {
         Icon(VsIcons.Check, contentDescription = null, tint = AppTheme.colors.accentInk, modifier = Modifier.size(12.dp))

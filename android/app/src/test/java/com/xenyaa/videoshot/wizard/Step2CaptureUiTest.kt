@@ -57,7 +57,11 @@ class Step2CaptureUiTest {
         }
     }
 
-    private fun showCell(fromGallery: Boolean, onNudge: (Int, Double) -> Unit = { _, _ -> }) {
+    private fun showCell(
+        fromGallery: Boolean,
+        onNudge: (Int, Double) -> Unit = { _, _ -> },
+        onToggle: (Int) -> Unit = {},
+    ) {
         val plan = source.plan
         val cell = plan.frameCount
         compose.setContent {
@@ -71,7 +75,7 @@ class Step2CaptureUiTest {
                 ),
                 bitmapFor = { null },
                 haptics = FakeHaptics(),
-                onToggle = {},
+                onToggle = onToggle,
                 onTakenTap = {},
                 onPlayFrame = {},
                 onSelectAll = {},
@@ -158,5 +162,43 @@ class Step2CaptureUiTest {
         show(CaptureError.BLACK_FRAME, onDismissCaptureError = { dismissed = true })
         compose.onNodeWithContentDescription("關閉").performClick()
         assertTrue(dismissed)
+    }
+
+    /**
+     * 回歸（最終審查 I-2）：±1 秒鈕原本在整格點擊區裡面，Compose 把小目標擴到 48dp，
+     * 「＋」蓋到格子中心，點中心變成「往後 1 秒」而不是勾選（資料正確性：秒數被偷偷改掉）。
+     * 現在微調鈕是整格的手足、實際範圍避開中心；點中心一律是勾選。
+     */
+    private fun assertCentreTapToggles() {
+        val toggled = mutableListOf<Int>()
+        val nudged = mutableListOf<Double>()
+        showCell(fromGallery = true, onNudge = { _, d -> nudged += d }, onToggle = { toggled += it })
+        compose.onNodeWithContentDescription("第 5 格 00:20").performClick()
+        assertEquals(listOf(source.plan.frameCount), toggled)
+        assertEquals("點中心不該觸發微調", emptyList<Double>(), nudged)
+    }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "w320dp-h640dp")
+    fun 相簿手動格點中心是勾選_320寬() = assertCentreTapToggles()
+
+    @Test
+    @Config(sdk = [35], qualifiers = "w360dp-h800dp")
+    fun 相簿手動格點中心是勾選_360寬() = assertCentreTapToggles()
+
+    @Test
+    @Config(sdk = [35], qualifiers = "w411dp-h891dp")
+    fun 相簿手動格點中心是勾選_411寬() = assertCentreTapToggles()
+
+    @Test
+    @Config(sdk = [35], qualifiers = "w360dp-h800dp")
+    fun 微調鈕在窄格子上仍然點得到而且不順便勾選() {
+        val toggled = mutableListOf<Int>()
+        val nudged = mutableListOf<Double>()
+        showCell(fromGallery = true, onNudge = { _, d -> nudged += d }, onToggle = { toggled += it })
+        compose.onNodeWithContentDescription("往後 1 秒").performClick()
+        compose.onNodeWithContentDescription("往前 1 秒").performClick()
+        assertEquals(listOf(1.0, -1.0), nudged)
+        assertEquals(emptyList<Int>(), toggled)
     }
 }
