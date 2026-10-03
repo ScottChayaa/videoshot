@@ -2,6 +2,10 @@ package com.xenyaa.videoshot.wizard
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -64,6 +68,7 @@ class Step2GridScreenTest {
         taken: Set<Int> = emptySet(),
         showAll: Boolean = false,
         lowQuality: Boolean = false,
+        onlySelected: Boolean = false,
     ) = Step2State(
         plan = FramePlan("v", 3, List(frameCount) { it * 10.0 }, lowQuality),
         ready = (0 until frameCount).toSet(),
@@ -73,6 +78,7 @@ class Step2GridScreenTest {
         selected = selected,
         taken = taken,
         showAll = showAll,
+        onlySelected = onlySelected,
         hintSeen = true,
     )
 
@@ -226,14 +232,17 @@ class Step2GridScreenTest {
                 kept = emptyList(),
             ),
         )
-        compose.onAllNodesWithContentDescription("截圖").assertCountEquals(1)
+        // 階段 15B：標記從 📷 圖示移到時間標籤，語意是「截圖 MM:SS」，所以改用子字串比對
+        // （原本是整串等於「截圖」）。工具列【截圖】鈕只有文字、沒有 contentDescription，不會被算進來。
+        compose.onAllNodesWithContentDescription("截圖", substring = true).assertCountEquals(1)
+        compose.onNodeWithContentDescription("截圖 00:15", useUnmergedTree = true).assertExists()
     }
 
     @Test
     fun storyboard格沒有截圖標記() {
         val base = Step2State(plan = source.plan, converging = false)
         show(base.copy(ready = (0 until base.plan.frameCount).toSet(), kept = (0 until base.plan.frameCount).toList()))
-        compose.onAllNodesWithContentDescription("截圖").assertCountEquals(0)
+        compose.onAllNodesWithContentDescription("截圖", substring = true).assertCountEquals(0)
     }
 
     @Test
@@ -251,5 +260,70 @@ class Step2GridScreenTest {
         )
         compose.waitForIdle()
         assertTrue(asked.toString(), asked.contains(cell))
+    }
+
+    // ---- 階段 15B：原型版面 ----
+
+    /** 手冊 §零：已選不能用紅色；原型用主色框＋打勾徽章。 */
+    @Test
+    fun 已選的格子有打勾徽章() {
+        show(loaded(selected = setOf(1)))
+        compose.onAllNodesWithContentDescription("已選", useUnmergedTree = true).assertCountEquals(1)
+    }
+
+    @Test
+    fun 沒選的格子沒有徽章() {
+        show(loaded())
+        compose.onAllNodesWithContentDescription("已選", useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    /** 原型 .wz-cell.locked：已收藏的格子標「已收藏」，不是鎖頭圖示。 */
+    @Test
+    fun 已收藏的格子標已收藏() {
+        show(loaded(taken = setOf(2)))
+        compose.onNodeWithText("已收藏", useUnmergedTree = true).assertExists()
+        compose.onAllNodesWithText("🔒", useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    /** 【只看已選】是切換型按鈕，狀態進語意；文字固定，不再在「看全部」間切換。 */
+    @Test
+    fun 只看已選是切換狀態() {
+        show(loaded(onlySelected = true))
+        compose.onNodeWithText("只看已選").assertIsSelected()
+        compose.onAllNodesWithText("看全部").assertCountEquals(0)
+    }
+
+    @Test
+    fun 沒開只看已選時是未選取() {
+        show(loaded(onlySelected = false))
+        compose.onNodeWithText("只看已選").assertIsNotSelected()
+    }
+
+    @Test
+    fun 按只看已選會回報相反值() {
+        var got: Boolean? = null
+        show(loaded(onlySelected = true), onOnlySelected = { got = it })
+        compose.onNodeWithText("只看已選").performClick()
+        assertEquals(false, got)
+    }
+
+    @Test
+    fun 手動格的時間標籤前面有截圖二字() {
+        val base = Step2State(plan = source.plan, converging = false, hintSeen = true)
+        show(
+            base.copy(
+                manual = listOf(ManualCell(base.plan.frameCount, 15.0, java.io.File("/tmp/a.webp"), fromGallery = false)),
+                ready = base.ready + base.plan.frameCount,
+            ),
+        )
+        compose.onNodeWithText("截圖 00:15", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun 沒看過提示時顯示新版提示卡() {
+        val s = loaded().copy(hintSeen = false)
+        show(s)
+        compose.onNodeWithText("點一下就收藏；每格右上角的 ▶ 可以跳到那一段看看。").assertIsDisplayed()
+        compose.onNodeWithContentDescription("一次性提示").assertExists()
     }
 }

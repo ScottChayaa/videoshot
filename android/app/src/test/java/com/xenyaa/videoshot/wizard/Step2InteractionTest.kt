@@ -119,16 +119,18 @@ class Step2InteractionTest {
         assertEquals(listOf(0), played)
     }
 
+    // 階段 15B：提示卡文案跟著原型換成「點一下就收藏；每格右上角的 ▶ …」（原本是「點一下收藏・長按看看那一段」），
+    // 下面三條只改定位文字，斷言的行為（出現／不出現／點格子即消失）不變。
     @Test
     fun 一次性提示沒看過時會出現() {
         show(hintSeen = false)
-        compose.onNodeWithText("點一下收藏・長按看看那一段").assertIsDisplayed()
+        compose.onNodeWithText("點一下就收藏；每格右上角的 ▶ 可以跳到那一段看看。").assertIsDisplayed()
     }
 
     @Test
     fun 一次性提示看過就不出現() {
         show(hintSeen = true)
-        compose.onNodeWithText("點一下收藏・長按看看那一段").assertDoesNotExist()
+        compose.onNodeWithText("點一下就收藏；每格右上角的 ▶ 可以跳到那一段看看。").assertDoesNotExist()
     }
 
     @Test
