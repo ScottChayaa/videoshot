@@ -48,6 +48,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.platform.LocalDensity
@@ -182,7 +184,8 @@ fun Step3DetailsScreen(
  * 已選＝3dp 主色內框＋左上打勾圓徽章（同第二步），已套用＝右上打勾方塊，還沒套用的整格蓋暗層。
  * 兩件事會同時成立，用同一個記號說不清楚。紅色只留給破壞性操作（手冊 §零），這裡不用。
  *
- * 顏色不是唯一的訊號 —— 兩者都寫進 `contentDescription`，輔助技術也讀得到（手冊 §零）。
+ * 顏色不是唯一的訊號 —— 兩者都寫進整格的 `contentDescription`，輔助技術也讀得到（手冊 §零）；
+ * 徽章與打勾方塊本身是純裝飾，不另設名稱，免得 TalkBack 把同一件事唸兩次。
  */
 @Composable
 private fun Step3Thumb(
@@ -236,7 +239,7 @@ private fun Step3Thumb(
         if (selected) {
             // 外框畫在格子內緣、疊在圖上
             Box(Modifier.fillMaxSize().border(3.dp, AppTheme.colors.accent, shape))
-            SelectedBadge(Modifier.align(Alignment.TopStart))
+            SelectedBadge(Modifier.align(Alignment.TopStart), semanticLabel = null)
         }
         if (applied) {
             // 右上 22dp ok 色圓角方塊、白色打勾、外圈 2dp 白邊（原型 .done-mark）
@@ -247,8 +250,7 @@ private fun Step3Thumb(
                     .size(22.dp)
                     .clip(shape)
                     .background(AppTheme.colors.ok)
-                    .border(2.dp, Color.White, shape)
-                    .semantics { contentDescription = "已套用" },
+                    .border(2.dp, Color.White, shape),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(VsIcons.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
@@ -257,8 +259,12 @@ private fun Step3Thumb(
     }
 }
 
-/** 抽屜以外、鍵盤開著時仍要留住的高度：頂欄＋步驟條＋工具列＋標題＋提示行＋按鈕列＋一排縮圖（粗估，寧可略大）。 */
-private val DOCK_RESERVED = 380.dp
+/**
+ * 抽屜以外、鍵盤開著時仍要留住的高度。[Step3DetailsScreen] 的外層高度已經扣掉頂欄與步驟條，
+ * 所以只算本體裡的：快速選取列（約 60）＋一排縮圖（約 56）＋標題列（約 44）＋提示行（約 36）
+ * ＋ dock 的狀態文字與按鈕列（約 84）（粗估，寧可略大）。
+ */
+private val DOCK_RESERVED = 280.dp
 
 /**
  * 底部的**單一 dock**：抽屜、提示行、主按鈕**收成同一塊**（手冊 §四第三步第一條）。
@@ -288,12 +294,19 @@ private fun Step3Dock(
     availableHeight: Dp,
 ) {
     val topShape = RoundedCornerShape(topStart = AppTheme.radii.md, topEnd = AppTheme.radii.md)
+    val borderColor = AppTheme.colors.border
     Column(
         Modifier
             .fillMaxWidth()
             .shadow(8.dp, topShape)
             .background(AppTheme.colors.surface, topShape)
-            .border(1.dp, AppTheme.colors.border, topShape),
+            // 原型 .wz-dock 只有上緣一條線；四邊都描會在左右下緣多出細框。
+            // 先依上圓角裁切，這條線在圓角處就會順著弧線收掉，不會伸出背景之外
+            .clip(topShape)
+            .drawBehind {
+                val w = 1.dp.toPx()
+                drawLine(borderColor, Offset(0f, w / 2), Offset(size.width, w / 2), strokeWidth = w)
+            },
     ) {
         if (state.selected.isNotEmpty()) {
             // 標題列不跟著捲動：捲到下面的欄位時，還是看得到現在在編輯哪幾張
@@ -319,14 +332,17 @@ private fun Step3Dock(
             // 同時擠下所有東西；輸入框可以捲動找，但「按下去會發生什麼事」永遠要摸得到，
             // 不能因為欄位太多就被擠出畫面外（規格第五節、手冊 §四第三步）。
             // 最大高度：扣掉鍵盤後可用高度的 46%（原型 .meta-drawer 的 max-height: 46vh）。
-            // 另外再封頂在「可用高度 − 頂欄／步驟條／工具列／標題／提示行／按鈕列／最少一排縮圖」之外：
+            // 另外再封頂在「可用高度 − 工具列／標題／提示行／按鈕列／最少一排縮圖」之外：
             // dock 自己帶著 imePadding（高度含鍵盤），鍵盤開著時只用 46% 的話，抽屜加上這些
             // 固定列會比畫面剩下的空間還高，縮圖網格被擠到 0 高、按鈕列被截（實機 2107113SG 看到過）。
+            // `weight(1f, fill = false)`：提示行與主按鈕先量，抽屜只拿剩下的空間 ——
+            // 橫向或矮螢幕加鍵盤時，抽屜縮短（自己捲動），按鈕不會被擠成 0 高。
             val imeDp = with(LocalDensity.current) { WindowInsets.ime.getBottom(this).toDp() }
             val visible = availableHeight - imeDp
             val maxDrawer = minOf(visible * 0.46f, visible - DOCK_RESERVED).coerceAtLeast(120.dp)
             Column(
                 Modifier
+                    .weight(1f, fill = false)
                     .heightIn(max = maxDrawer)
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp),
