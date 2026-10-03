@@ -6,10 +6,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -19,18 +17,14 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -44,14 +38,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import com.xenyaa.videoshot.core.home.homeColumnsFor
 import com.xenyaa.videoshot.core.home.monthLabel
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.ui.home.MonthPickerSheet
+import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.TopBarNav
+import com.xenyaa.videoshot.ui.common.VsActionDock
+import com.xenyaa.videoshot.ui.common.VsButton
+import com.xenyaa.videoshot.ui.common.VsSelectField
+import com.xenyaa.videoshot.ui.common.VsTagChip
+import com.xenyaa.videoshot.ui.common.VsTextField
 import com.xenyaa.videoshot.ui.common.VsTopBar
+import com.xenyaa.videoshot.ui.common.VsUnderlineTabs
+import com.xenyaa.videoshot.ui.common.chipKindOf
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
@@ -105,13 +107,19 @@ fun SearchScreen(
                 onOpen = onOpen, modifier = Modifier.weight(1f),
             )
         } else {
+            // 模式分頁固定在頂欄正下方、不在捲動區內（原型 `.qtabs`）
+            VsUnderlineTabs(
+                tabs = listOf("標籤與地點", "描述"),
+                selected = if (state.mode == SearchMode.TAG) 0 else 1,
+                onSelect = { onSetMode(if (it == 0) SearchMode.TAG else SearchMode.TEXT) },
+            )
             ConditionsPane(
                 state = state,
-                onSetMode = onSetMode,
                 onSetTextQuery = onSetTextQuery,
                 onToggleFacet = onToggleFacet,
                 onShowMoreFacets = onShowMoreFacets,
                 onOpenDatePicker = { picking = true },
+                onRunSearch = onRunSearch,
                 modifier = Modifier.weight(1f),
             )
             SearchActionBar(state = state, onClick = onRunSearch)
@@ -138,14 +146,6 @@ private fun SearchTopBar(showingResults: Boolean, onBack: () -> Unit) {
     }
 }
 
-@Composable
-private fun ModeTabs(mode: SearchMode, onSetMode: (SearchMode) -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
-        FilterChip(selected = mode == SearchMode.TAG, onClick = { onSetMode(SearchMode.TAG) }, label = { Text("標籤與地點") })
-        FilterChip(selected = mode == SearchMode.TEXT, onClick = { onSetMode(SearchMode.TEXT) }, label = { Text("描述") })
-    }
-}
-
 private fun dateLabelOf(upToMonth: String?): String =
     if (upToMonth == null) "全部日期" else "${monthLabel(upToMonth)} 以前"
 
@@ -153,39 +153,34 @@ private fun dateLabelOf(upToMonth: String?): String =
 private fun ConditionsPane(
     state: SearchState,
     modifier: Modifier = Modifier,
-    onSetMode: (SearchMode) -> Unit,
     onSetTextQuery: (String) -> Unit,
     onToggleFacet: (MonthFacet) -> Unit,
     onShowMoreFacets: () -> Unit,
     onOpenDatePicker: () -> Unit,
+    onRunSearch: () -> Unit,
 ) {
-    Column(
-        modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = AppTheme.spacing.s3),
-        verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s3),
-    ) {
-        ModeTabs(mode = state.mode, onSetMode = onSetMode)
-
-        Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1)) {
-            Text("時間", style = MaterialTheme.typography.labelLarge, color = AppTheme.colors.textDim)
-            OutlinedButton(onClick = onOpenDatePicker) {
-                Text(dateLabelOf(state.upToMonth))
-                Icon(VsIcons.Calendar, contentDescription = null, modifier = Modifier.padding(start = AppTheme.spacing.s1))
-            }
-        }
+    Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+        // 時間欄位區塊內距 16/16/0（原型 `.qfield`）
+        VsSelectField(
+            label = "時間",
+            value = dateLabelOf(state.upToMonth),
+            onClick = onOpenDatePicker,
+            modifier = Modifier.padding(start = AppTheme.spacing.s4, top = AppTheme.spacing.s4, end = AppTheme.spacing.s4),
+        )
 
         when (state.mode) {
             SearchMode.TAG -> TagCloudPane(state = state, onToggleFacet = onToggleFacet, onShowMore = onShowMoreFacets)
-            SearchMode.TEXT -> TextQueryPane(query = state.textQuery, onQueryChange = onSetTextQuery)
+            SearchMode.TEXT -> TextQueryPane(state = state, onQueryChange = onSetTextQuery, onRunSearch = onRunSearch)
         }
     }
 }
 
 @Composable
 private fun TagCloudPane(state: SearchState, onToggleFacet: (MonthFacet) -> Unit, onShowMore: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
+    Column(Modifier.fillMaxWidth().padding(AppTheme.spacing.s4), verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
         Text(
             "標籤與地點（${state.facets.size}${if (state.facetsHasMore) "+" else ""}）",
-            style = MaterialTheme.typography.labelLarge,
+            style = MaterialTheme.typography.titleSmall,
             color = AppTheme.colors.textDim,
         )
         when {
@@ -193,27 +188,23 @@ private fun TagCloudPane(state: SearchState, onToggleFacet: (MonthFacet) -> Unit
             state.facets.isEmpty() -> Text("這個時間以前沒有標籤", color = AppTheme.colors.textDim)
             else -> {
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
-                    verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
+                    horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
+                    verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
                 ) {
                     for (facet in state.facets) {
-                        val key = facetKey(facet)
-                        val isSelected = key in state.selected
-                        InputChip(
-                            selected = isSelected,
+                        // 切換型小膠囊：帶種類圖示／顏色與張數，選取狀態與打勾由 VsTagChip 自己負責
+                        VsTagChip(
+                            name = facet.name,
+                            kind = chipKindOf(facet),
+                            selected = facetKey(facet) in state.selected,
+                            isToggle = true,
+                            count = facet.count,
                             onClick = { onToggleFacet(facet) },
-                            label = { Text("${facet.name} ${facet.count}") },
-                            // Material3 1.4.0 的 InputChip 選取狀態只換底色，不會自己畫勾勾
-                            // （反編譯過 1.4.0 原始碼確認：leadingIcon 完全交給呼叫端決定，
-                            // KDoc 也建議選取時放打勾圖示）——手冊要求看得到勾勾，不是只換顏色。
-                            leadingIcon = if (isSelected) {
-                                { Icon(VsIcons.Check, contentDescription = null, modifier = Modifier.testTag("chipCheck")) }
-                            } else null,
                         )
                     }
                 }
                 if (state.facetsHasMore) {
-                    TextButton(onClick = onShowMore) { Text("顯示更多") }
+                    VsButton("顯示更多", onShowMore, variant = ButtonVariant.Quiet)
                 }
             }
         }
@@ -221,35 +212,41 @@ private fun TagCloudPane(state: SearchState, onToggleFacet: (MonthFacet) -> Unit
 }
 
 @Composable
-private fun TextQueryPane(query: String, onQueryChange: (String) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1)) {
-        Text("描述關鍵字", style = MaterialTheme.typography.labelLarge, color = AppTheme.colors.textDim)
-        OutlinedTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            placeholder = { Text("例：加勒比海夜潛看到的大蝦") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-        )
-    }
+private fun TextQueryPane(state: SearchState, onQueryChange: (String) -> Unit, onRunSearch: () -> Unit) {
+    VsTextField(
+        value = state.textQuery,
+        onValueChange = onQueryChange,
+        modifier = Modifier.padding(AppTheme.spacing.s4),
+        label = "描述關鍵字",
+        placeholder = "例：加勒比海夜潛看到的大蝦",
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        // 鍵盤搜尋鍵等同按【查詢】，但一樣要先過「能不能查」的檢查（沒字時按鈕是停用的）
+        keyboardActions = KeyboardActions(onSearch = { if (SearchStore.canQuery(state)) onRunSearch() }),
+    )
 }
 
 @Composable
 private fun SearchActionBar(state: SearchState, onClick: () -> Unit) {
     val reason = SearchStore.disabledReason(state)
-    Column(
-        Modifier.fillMaxWidth().padding(AppTheme.spacing.s3),
-        verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
-    ) {
-        Button(
-            onClick = onClick,
-            enabled = SearchStore.canQuery(state),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(SearchStore.queryButtonLabel(state))
-        }
-        if (reason != null) {
-            Text(reason, style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.textDim, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+    // 釘在導覽列正上方（手冊 §五）：AppShell 已 consumeWindowInsets，VsActionDock 的
+    // navigationBarsPadding() 不會再墊一次
+    VsActionDock {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
+            VsButton(
+                SearchStore.queryButtonLabel(state),
+                onClick,
+                Modifier.fillMaxWidth(),
+                enabled = SearchStore.canQuery(state),
+            )
+            if (reason != null) {
+                Text(
+                    reason,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppTheme.colors.textDim,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
     }
 }

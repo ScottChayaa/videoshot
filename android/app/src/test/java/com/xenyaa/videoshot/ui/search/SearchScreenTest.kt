@@ -7,7 +7,10 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -19,6 +22,7 @@ import com.xenyaa.videoshot.thumbs.ThumbSource
 import com.xenyaa.videoshot.thumbs.Thumbs
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -45,12 +49,17 @@ class SearchScreenTest {
         decodeFile = { null }, decodeBytes = { null }, cover = { null },
     )
 
-    private fun show(state: SearchState, onToggleFacet: (MonthFacet) -> Unit = {}, onRunSearch: () -> Unit = {}) {
+    private fun show(
+        state: SearchState,
+        onToggleFacet: (MonthFacet) -> Unit = {},
+        onRunSearch: () -> Unit = {},
+        onSetMode: (SearchMode) -> Unit = {},
+    ) {
         compose.setContent {
             VideoshotTheme {
                 SearchScreen(
                     state = state, loader = loader, listState = rememberLazyGridState(),
-                    onSetMode = {}, onSetTextQuery = {}, onToggleFacet = onToggleFacet,
+                    onSetMode = onSetMode, onSetTextQuery = {}, onToggleFacet = onToggleFacet,
                     onShowMoreFacets = {}, onPickMonth = {}, onRunSearch = onRunSearch,
                     onLoadMore = {}, onShowConditions = {}, onOpen = {},
                 )
@@ -83,11 +92,8 @@ class SearchScreenTest {
     }
 
     /**
-     * Material3 1.4.0 的 InputChip 選取狀態不會自己畫勾勾（反編譯過原始碼確認），必須自己
-     * 傳 leadingIcon（最終審查 Critical 1）。用 testTag 鎖定那顆 Icon——它的 contentDescription
-     * 是 null（打勾這件事已經由 chip 本身的 selected 語意唸出來，圖示不必再唸一次），
-     * 沒有內容可以拿來當 onNodeWithContentDescription 的比對依據，所以借 testTag 當測試掛勾，
-     * 跟 `AddToFolderSheet.kt` 的 "folderRow" 是同一種手法。
+     * 打勾圖示現在是 `VsTagChip` 自己畫的（`contentDescription = "已選"`），不再是查詢頁手畫、
+     * 掛 `testTag("chipCheck")` 的 Icon。小膠囊是可點的合併語意節點，圖示的描述要用未合併樹才找得到。
      */
     @Test
     fun 選取的chip顯示打勾圖示未選取的不顯示() {
@@ -96,9 +102,57 @@ class SearchScreenTest {
             selected = setOf("place:宜蘭"),
         )
         show(state)
-        // InputChip 本身是可點的合併語意節點，會把子節點的語意併上去——用未合併樹才找得到
-        // 這個只掛 testTag、沒有其他語意內容的 Icon 節點。
-        compose.onAllNodesWithTag("chipCheck", useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithContentDescription("已選", useUnmergedTree = true).assertCountEquals(1)
+    }
+
+    @Test
+    fun 標籤雲的小膠囊是切換型選中時帶選取狀態() {
+        val state = SearchState(
+            facets = listOf(MonthFacet("宜蘭", "place", 3), MonthFacet("台北", "place", 2)),
+            selected = setOf("place:宜蘭"),
+        )
+        show(state)
+        compose.onNodeWithText("宜蘭 3").assertIsSelected()
+        compose.onNodeWithText("台北 2").assertIsNotSelected()
+    }
+
+    @Test
+    fun 標籤雲的標籤帶張數() {
+        show(SearchState(facets = listOf(MonthFacet("夜潛", "tag", 3, "topic"))))
+        compose.onNodeWithText("夜潛 3").assertIsDisplayed()
+    }
+
+    @Test
+    fun 模式分頁是底線分頁點描述回報TEXT() {
+        var mode: SearchMode? = null
+        show(SearchState(), onSetMode = { mode = it })
+        compose.onNodeWithText("標籤與地點").assertIsSelected()
+        compose.onNodeWithText("描述").assertIsNotSelected()
+        compose.onNodeWithText("描述").performClick()
+        assertEquals(SearchMode.TEXT, mode)
+    }
+
+    @Test
+    fun 時間欄位顯示目前範圍且點了會開月份選擇() {
+        show(SearchState())
+        compose.onNodeWithContentDescription("時間：全部日期").assertIsDisplayed().performClick()
+        compose.onNodeWithText("只顯示這個月以前").assertIsDisplayed()
+    }
+
+    @Test
+    fun 描述模式按鍵盤搜尋鍵在能查時觸發查詢() {
+        var runs = 0
+        show(SearchState(mode = SearchMode.TEXT, textQuery = "大蝦"), onRunSearch = { runs++ })
+        compose.onNodeWithContentDescription("描述關鍵字").performImeAction()
+        assertEquals(1, runs)
+    }
+
+    @Test
+    fun 描述模式沒有字時按鍵盤搜尋鍵不觸發查詢() {
+        var runs = 0
+        show(SearchState(mode = SearchMode.TEXT, textQuery = ""), onRunSearch = { runs++ })
+        compose.onNodeWithContentDescription("描述關鍵字").performImeAction()
+        assertEquals(0, runs)
     }
 
     @Test
