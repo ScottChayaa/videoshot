@@ -75,17 +75,17 @@ interface ShotDao {
      */
     @Query(
         """
-        SELECT name, kind, COUNT(*) AS cnt FROM (
-            SELECT place AS name, 'place' AS kind
+        SELECT name, kind, tag_kind, COUNT(*) AS cnt FROM (
+            SELECT place AS name, 'place' AS kind, 'other' AS tag_kind
             FROM shot WHERE substr(event_date, 1, 7) = :month AND place IS NOT NULL
             UNION ALL
-            SELECT t.name AS name, 'tag' AS kind
+            SELECT t.name AS name, 'tag' AS kind, t.kind AS tag_kind
             FROM shot_tag st
             JOIN tag t ON t.id = st.tag_id
             JOIN shot s ON s.id = st.shot_id
             WHERE substr(s.event_date, 1, 7) = :month
         )
-        GROUP BY name, kind ORDER BY cnt DESC, name
+        GROUP BY name, kind, tag_kind ORDER BY cnt DESC, name
         """
     )
     suspend fun monthFacets(month: String): List<MonthFacetProjection>
@@ -101,17 +101,17 @@ interface ShotDao {
      */
     @Query(
         """
-        SELECT name, kind, COUNT(*) AS cnt FROM (
-            SELECT place AS name, 'place' AS kind
+        SELECT name, kind, tag_kind, COUNT(*) AS cnt FROM (
+            SELECT place AS name, 'place' AS kind, 'other' AS tag_kind
             FROM shot WHERE event_date < :before AND place IS NOT NULL
             UNION ALL
-            SELECT t.name AS name, 'tag' AS kind
+            SELECT t.name AS name, 'tag' AS kind, t.kind AS tag_kind
             FROM shot_tag st
             JOIN tag t ON t.id = st.tag_id
             JOIN shot s ON s.id = st.shot_id
             WHERE s.event_date < :before
         )
-        GROUP BY name, kind ORDER BY cnt DESC, name
+        GROUP BY name, kind, tag_kind ORDER BY cnt DESC, name
         LIMIT :limit
         """
     )
@@ -242,6 +242,8 @@ data class MonthCountProjection(
 data class MonthFacetProjection(
     @ColumnInfo(name = "name") val name: String,
     @ColumnInfo(name = "kind") val kind: String,
+    /** 標籤本身的 `tag.kind`（人物／動物／主題／其他）；地點列固定 `'other'`，畫面端以 [kind] 先判斷地點。 */
+    @ColumnInfo(name = "tag_kind") val tagKind: String,
     @ColumnInfo(name = "cnt") val count: Int,
 )
 

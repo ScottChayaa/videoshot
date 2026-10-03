@@ -67,11 +67,11 @@ class RoomLibraryRepo(
     }
 
     override suspend fun monthFacets(month: String): List<MonthFacet> = withContext(io) {
-        db.shotDao().monthFacets(month).map { MonthFacet(it.name, it.kind, it.count) }
+        db.shotDao().monthFacets(month).map { MonthFacet(it.name, it.kind, it.count, it.tagKind) }
     }
 
     override suspend fun searchFacets(upToMonth: String?, limit: Int): List<MonthFacet> = withContext(io) {
-        db.shotDao().facetsInRange(boundOf(upToMonth), limit).map { MonthFacet(it.name, it.kind, it.count) }
+        db.shotDao().facetsInRange(boundOf(upToMonth), limit).map { MonthFacet(it.name, it.kind, it.count, it.tagKind) }
     }
 
     override suspend fun searchByFacets(

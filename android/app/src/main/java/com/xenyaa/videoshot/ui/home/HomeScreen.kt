@@ -258,7 +258,7 @@ private fun HomeErrorRow(message: String, onRetry: () -> Unit) {
 
 /**
  * 該月出現過的地點與標籤（原型 `.month-tags`）。⏳ 單行橫向捲動（規格第六節；換行排列尚未確認）。
- * 迷你小膠囊帶種類圖示與顏色；[MonthFacet.kind] 是 `"place"` 或標籤本身的 kind。
+ * 迷你小膠囊帶種類圖示與顏色；[MonthFacet.kind] 是 `"place"` 或 `"tag"`，標籤的種類看 [MonthFacet.tagKind]。
  */
 @Composable
 private fun MonthFacetRow(facets: List<MonthFacet>, onClick: (MonthFacet) -> Unit) {
@@ -270,7 +270,7 @@ private fun MonthFacetRow(facets: List<MonthFacet>, onClick: (MonthFacet) -> Uni
         for (facet in facets) {
             VsTagChip(
                 name = facet.name,
-                kind = if (facet.kind == "place") ChipKind.PLACE else ChipKind.ofTagKind(facet.kind),
+                kind = if (facet.kind == "place") ChipKind.PLACE else ChipKind.ofTagKind(facet.tagKind),
                 size = ChipSize.Mini,
                 onClick = { onClick(facet) },
             )

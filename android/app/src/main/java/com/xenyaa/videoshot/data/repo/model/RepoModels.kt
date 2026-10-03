@@ -70,8 +70,12 @@ data class ShotPatch(
     val tagNames: List<String>? = null,
 )
 
-/** 首頁月份標籤列的一個項目。kind 是 `'place'` 或 `'tag'`（規格第四節：tag.kind 不再有 place）。 */
-data class MonthFacet(val name: String, val kind: String, val count: Int)
+/**
+ * 首頁月份標籤列的一個項目。kind 是 `'place'` 或 `'tag'`（規格第四節：tag.kind 不再有 place）；
+ * [tagKind] 是標籤本身的 `tag.kind`（`person`／`pet`／`topic`／`other`），畫面用它挑種類圖示與顏色，
+ * 地點列不看它。
+ */
+data class MonthFacet(val name: String, val kind: String, val count: Int, val tagKind: String = "other")
 
 /** 「最近取過的影片」清單的一列。資料直接查 video 表，不另存一份歷史（規格第五節第一步）。 */
 data class RecentVideo(

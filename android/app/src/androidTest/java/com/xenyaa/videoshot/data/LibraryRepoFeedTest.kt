@@ -90,6 +90,8 @@ class LibraryRepoFeedTest {
         val facets = repo.monthFacets("2026-03")
         assertEquals(listOf("宜蘭" to 3, "露營" to 2), facets.map { it.name to it.count })
         assertEquals(listOf("place", "tag"), facets.map { it.kind })
+        // 標籤列要帶標籤本身的種類，首頁小膠囊才挑得到對的圖示（階段 15C 實機對照時發現原本全部是「其他」）
+        assertEquals("topic", facets[1].tagKind)
     }
 
     @Test
