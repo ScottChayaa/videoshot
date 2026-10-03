@@ -3,6 +3,12 @@
 export default [
   { name: '首頁', mockup: { path: 'home.html' }, device: { steps: [] } },
   { name: 'Lightbox', mockup: { path: 'home.html', steps: [{ click: '.thumb' }] }, device: { steps: [{ tapDescPrefix: '夜潛第一次見到巨型犀牛蝦' }] } },
+  {
+    name: '詳情',
+    // 原型從首頁開 Lightbox 再按【播放這一段】進詳情，跟實機同一條路（聚焦的是同一張，不用猜 videoId）
+    mockup: { path: 'home.html', steps: [{ click: '.thumb' }, { click: '#lb-play' }, { wait: 1200 }] },
+    device: { steps: [{ tapDescPrefix: '夜潛第一次見到巨型犀牛蝦' }, { wait: 800 }, { tapText: '播放這一段' }, { wait: 4000 }] },
+  },
   { name: '查詢', mockup: { path: 'tags.html' }, device: { steps: [{ tapText: '查詢' }] } },
   { name: '取圖第一步', mockup: { path: 'capture.html?new=1' }, device: { steps: [{ tapText: '取圖' }, { wait: 800 }, { tapText: '重新開始', optional: true }] } },
   {
