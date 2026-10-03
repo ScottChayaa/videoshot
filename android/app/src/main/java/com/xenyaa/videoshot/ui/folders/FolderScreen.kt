@@ -290,7 +290,7 @@ private fun ChildFolderRow(
                 onClick = { menuOpen = true },
                 modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape),
             ) {
-                Icon(VsIcons.More, contentDescription = "${card.name} 的更多操作", tint = AppTheme.colors.textDim)
+                Icon(VsIcons.More, contentDescription = "「${card.name}」的更多操作", tint = AppTheme.colors.textDim)
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 DropdownMenuItem(

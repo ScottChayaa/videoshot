@@ -153,8 +153,7 @@ class FolderScreenTest {
                 children = listOf(card(2, "宜蘭", 3)),
             )
         )
-        // 子資料夾改成清單列（15C Task 5）：按鈕名稱改成「{名稱} 的更多操作」（原型風格，不再帶角括號）
-        compose.onNodeWithContentDescription("宜蘭 的更多操作").performClick()
+        compose.onNodeWithContentDescription("「宜蘭」的更多操作").performClick()
         compose.onNodeWithText("改名").performClick()
         assertEquals(2L, renamedChild?.id)
         assertEquals("宜蘭", renamedChild?.name)
@@ -169,8 +168,7 @@ class FolderScreenTest {
                 children = listOf(card(2, "宜蘭", 3)),
             )
         )
-        // 子資料夾改成清單列（15C Task 5）：按鈕名稱改成「{名稱} 的更多操作」（原型風格，不再帶角括號）
-        compose.onNodeWithContentDescription("宜蘭 的更多操作").performClick()
+        compose.onNodeWithContentDescription("「宜蘭」的更多操作").performClick()
         compose.onNodeWithText("刪除資料夾").performClick()
         assertEquals(2L, deleteAskedChild?.id)
         assertEquals("宜蘭", deleteAskedChild?.name)
@@ -215,7 +213,7 @@ class FolderScreenTest {
         )
         compose.onNodeWithText("夜潛").assertIsDisplayed()
         compose.onNodeWithText("7 張").assertIsDisplayed()
-        compose.onNodeWithContentDescription("夜潛 的更多操作").assertIsDisplayed()
+        compose.onNodeWithContentDescription("「夜潛」的更多操作").assertIsDisplayed()
     }
 
     @Test
