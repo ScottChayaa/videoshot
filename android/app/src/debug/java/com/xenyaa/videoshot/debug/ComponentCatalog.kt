@@ -129,7 +129,7 @@ private fun ChipSection() = Section("標籤小膠囊") {
     }
     var picked by remember { mutableStateOf(true) }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(s2), verticalArrangement = Arrangement.spacedBy(s2)) {
-        VsTagChip("夜潛", ChipKind.TOPIC, selected = picked, onClick = { picked = !picked })
+        VsTagChip("夜潛", ChipKind.TOPIC, selected = picked, isToggle = true, onClick = { picked = !picked })
         VsTagChip("加勒比海", ChipKind.PLACE, count = 12)
         VsTagChip("阿明", ChipKind.PERSON, selected = true, count = 3)
     }
@@ -143,7 +143,7 @@ private fun ChipSection() = Section("標籤小膠囊") {
     // 可點的迷你小膠囊（首頁月份標籤）：外觀維持迷你，觸控區 44dp
     var miniPicked by remember { mutableStateOf(false) }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(s2), verticalArrangement = Arrangement.spacedBy(s2)) {
-        VsTagChip("加勒比海", ChipKind.PLACE, size = ChipSize.Mini, selected = miniPicked, onClick = { miniPicked = !miniPicked })
+        VsTagChip("加勒比海", ChipKind.PLACE, size = ChipSize.Mini, selected = miniPicked, isToggle = true, onClick = { miniPicked = !miniPicked })
         VsTagChip("夜潛", ChipKind.TOPIC, size = ChipSize.Mini, onClick = {})
     }
 }

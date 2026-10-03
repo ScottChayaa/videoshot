@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.ui.common
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,6 +35,11 @@ enum class ChipSize { Regular, Mini }
  * 標籤／地點小膠囊（原型 `styles.css`「chip」＋ `app.js` 的 `tagChip`）。
  *
  * 種類靠**圖示＋顏色**兩者一起區分；選取靠**變色＋打勾**兩者一起表示——都不只靠顏色（手冊 §五）。
+ *
+ * 可點的小膠囊分兩種（設計 §八，與 [VsToolbarPill] 的 `isToggle` 同一條規則）：
+ * - [isToggle] = false（預設）：動作／導覽（首頁月份標籤、第三步的建議標籤），當成按鈕，**不帶選取語意**，
+ *   TalkBack 不會唸「未勾選，核取方塊」；
+ * - [isToggle] = true：可切換選取（核取方塊語意，[selected] 才有意義）。
  */
 @Composable
 fun VsTagChip(
@@ -41,6 +47,7 @@ fun VsTagChip(
     kind: ChipKind,
     modifier: Modifier = Modifier,
     selected: Boolean = false,
+    isToggle: Boolean = false,
     count: Int? = null,
     size: ChipSize = ChipSize.Regular,
     onClick: (() -> Unit)? = null,
@@ -62,7 +69,7 @@ fun VsTagChip(
     var m = if (wrapperClick != null) Modifier else modifier
     if (onClick != null && wrapperClick == null) {
         m = m.focusRing(shape).clip(shape)
-            .selectable(selected = selected, role = Role.Checkbox, onClick = onClick)
+            .chipClickable(isToggle, selected, onClick)
     }
     // 有外框時，外框的 selectable 是唯一的合併點（文字＋選取＋點擊）；
     // 內層再合併一次會讓內層自成一個節點，外框反而沒有文字
@@ -104,10 +111,15 @@ fun VsTagChip(
             modifier
                 .defaultMinSize(minHeight = AppTheme.spacing.tap)
                 .focusRing(shape).clip(shape)
-                .selectable(selected = selected, role = Role.Checkbox, onClick = wrapperClick),
+                .chipClickable(isToggle, selected, wrapperClick),
             contentAlignment = Alignment.Center,
         ) { chip() }
     } else {
         chip()
     }
 }
+
+/** 切換型用核取方塊語意（帶選取狀態）；動作型只是按鈕，沒有選取語意。 */
+private fun Modifier.chipClickable(isToggle: Boolean, selected: Boolean, onClick: () -> Unit): Modifier =
+    if (isToggle) selectable(selected = selected, role = Role.Checkbox, onClick = onClick)
+    else clickable(role = Role.Button, onClick = onClick)
