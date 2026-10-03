@@ -1,13 +1,16 @@
 package com.xenyaa.videoshot.ui.lightbox
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
+import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import com.xenyaa.videoshot.ui.testing.pixelsAround
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.thumbs.ThumbKey
 import com.xenyaa.videoshot.thumbs.ThumbSource
@@ -28,7 +31,7 @@ import java.io.File
 @Config(sdk = [35], qualifiers = "w411dp-h891dp")
 class LightboxScreenTest {
 
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
     private val loader = ThumbLoader(
         thumbs = object : Thumbs {
@@ -58,9 +61,10 @@ class LightboxScreenTest {
         startIndex: Int = 0,
         hintSeen: Boolean = true,
         onHintSeen: () -> Unit = {},
+        darkTheme: Boolean = false,
     ) {
         compose.setContent {
-            VideoshotTheme {
+            VideoshotTheme(darkTheme = darkTheme) {
                 LightboxScreen(
                     items = items,
                     total = total,
@@ -157,5 +161,37 @@ class LightboxScreenTest {
     fun 顯示這一張的影片秒數() {
         show(items = rows(3), startIndex = 2)
         compose.onNodeWithText("01:30").assertIsDisplayed()
+    }
+
+    /** 階段 15A 對照截圖發現：深色模式下 Lightbox 的圖示幾乎看不見——圖示色要固定是白色。 */
+    @Test
+    fun 深色模式的圖示用白色() {
+        show(darkTheme = true)
+        // 不用 captureToImage()（Robolectric 下 forceRedraw 逾時），改用 FocusProbe 的 pixelsAround
+        val pixels = compose.pixelsAround(compose.onNodeWithContentDescription("加入分類"), margin = 0)
+        var maxBrightness = 0f
+        for (x in 0 until pixels.width) for (y in 0 until pixels.height) {
+            val c = pixels[x, y]
+            maxBrightness = maxOf(maxBrightness, (c.red + c.green + c.blue) / 3f)
+        }
+        assert(maxBrightness > 0.9f) { "加入分類圖示最亮像素只有 $maxBrightness，深底上看不見" }
+    }
+
+    @Test
+    fun 計數文字置中顯示() {
+        show(items = rows(3), startIndex = 0)
+        val node = compose.onNodeWithText("第 1 / 共 3 張")
+        node.assertIsDisplayed()
+        // 節點框是整段可用寬度，不能代表字畫在哪裡——用排版結果的第一行左右緣才量得到字本身的位置
+        val results = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        compose.runOnUiThread {
+            node.fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult]
+                .action?.invoke(results)
+        }
+        val layout = results.single()
+        val bounds = node.fetchSemanticsNode().boundsInRoot
+        val textCenter = bounds.left + (layout.getLineLeft(0) + layout.getLineRight(0)) / 2
+        val rootCenter = compose.onRoot().fetchSemanticsNode().boundsInRoot.center.x
+        assert(kotlin.math.abs(textCenter - rootCenter) < 2f) { "字的中心 $textCenter 偏離畫面中心 $rootCenter" }
     }
 }

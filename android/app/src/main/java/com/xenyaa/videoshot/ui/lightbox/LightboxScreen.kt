@@ -15,14 +15,12 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
@@ -40,6 +38,14 @@ import com.xenyaa.videoshot.core.time.formatClock
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import com.xenyaa.videoshot.ui.common.ButtonVariant
+import com.xenyaa.videoshot.ui.common.VsButton
+import com.xenyaa.videoshot.ui.theme.OnDarkColors
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
 import com.xenyaa.videoshot.ui.thumb.ThumbImage
@@ -129,6 +135,7 @@ fun LightboxScreen(
     val shot = items[pager.currentPage.coerceAtMost(items.lastIndex)]
     var menuOpen by remember { mutableStateOf(false) }
     var confirmingDelete by remember { mutableStateOf(false) }
+    val iconShape = RoundedCornerShape(AppTheme.radii.sm)
 
     Box(modifier.fillMaxSize().background(AppTheme.colors.lightboxBg)) {
         Column(Modifier.fillMaxSize()) {
@@ -137,18 +144,21 @@ fun LightboxScreen(
                 Modifier.fillMaxWidth().statusBarsPadding().padding(AppTheme.spacing.s2),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onClose, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape)) {
-                    Icon(VsIcons.Close, contentDescription = "關閉", tint = AppTheme.colors.accentInk)
+                // 圖示色用 OnDarkColors：Lightbox 底色不隨主題變，前景也不能隨主題變
+                // （原本用 accentInk，深色模式下是近黑色，疊在黑底上看不見）
+                IconButton(onClick = onClose, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(iconShape)) {
+                    Icon(VsIcons.Close, contentDescription = "關閉", tint = OnDarkColors.primary)
                 }
                 Text(
                     "第 ${pager.currentPage + 1} / 共 $total 張",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = AppTheme.colors.accentInk,
+                    color = OnDarkColors.secondary,
+                    textAlign = TextAlign.Center,
                     modifier = Modifier.weight(1f).padding(horizontal = AppTheme.spacing.s2),
                 )
                 Box {
-                    IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape)) {
-                        Icon(VsIcons.More, contentDescription = "更多", tint = AppTheme.colors.accentInk)
+                    IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(iconShape)) {
+                        Icon(VsIcons.More, contentDescription = "更多", tint = OnDarkColors.primary)
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                         DropdownMenuItem(
@@ -191,15 +201,17 @@ fun LightboxScreen(
                 if (!hintDone) {
                     Text(
                         "左右滑動看上一張／下一張",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = AppTheme.colors.accentInk,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = OnDarkColors.primary,
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
-                            .padding(bottom = AppTheme.spacing.s4)
-                            .background(AppTheme.colors.overlay)
-                            .padding(AppTheme.spacing.s3)
+                            .padding(bottom = AppTheme.spacing.s3)
+                            // 膠囊(原型 .lb-swipe)：半透明黑底、全圓角、上下 4 左右 12
+                            .clip(CircleShape)
+                            .background(OnDarkColors.hint)
                             // 點它也可以關掉 —— 擋到畫面的東西一定要有辦法立刻收掉
-                            .clickable { hintDone = true; onHintSeen() },
+                            .clickable { hintDone = true; onHintSeen() }
+                            .padding(horizontal = AppTheme.spacing.s3, vertical = AppTheme.spacing.s1),
                     )
                 }
             }
@@ -211,7 +223,7 @@ fun LightboxScreen(
                 Text(
                     formatClock(shot.atSec),
                     style = MaterialTheme.typography.labelSmall,
-                    color = AppTheme.colors.textFaint,
+                    color = OnDarkColors.tertiary,
                     modifier = Modifier.padding(horizontal = AppTheme.spacing.s4),
                 )
 
@@ -222,16 +234,15 @@ fun LightboxScreen(
                     horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Button(onClick = { actions.onPlay(shot) }, modifier = Modifier.weight(1f).focusRing(CircleShape)) {
-                        Icon(VsIcons.Play, contentDescription = null)
-                        Text("播放這一段", modifier = Modifier.padding(start = AppTheme.spacing.s2))
-                    }
-                    IconButton(onClick = { actions.onAddToFolder(shot) }, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape)) {
-                        Icon(VsIcons.FolderPlus, contentDescription = "加入分類", tint = AppTheme.colors.accentInk)
-                    }
-                    IconButton(onClick = { actions.onShare(shot) }, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape)) {
-                        Icon(VsIcons.Share, contentDescription = "分享", tint = AppTheme.colors.accentInk)
-                    }
+                    VsButton(
+                        text = "播放這一段",
+                        onClick = { actions.onPlay(shot) },
+                        modifier = Modifier.weight(1f),
+                        variant = ButtonVariant.Primary,
+                        icon = VsIcons.Play,
+                    )
+                    DarkIconButton(VsIcons.FolderPlus, "加入分類") { actions.onAddToFolder(shot) }
+                    DarkIconButton(VsIcons.Share, "分享") { actions.onShare(shot) }
                 }
             }
         }
@@ -242,12 +253,32 @@ fun LightboxScreen(
                 title = { Text("刪除這張收藏？") },
                 text = { Text("YouTube 原片不受影響") },
                 confirmButton = {
-                    TextButton(onClick = { confirmingDelete = false; actions.onDelete(shot) }) {
-                        Text("刪除", color = AppTheme.colors.danger)
-                    }
+                    VsButton(
+                        text = "刪除",
+                        onClick = { confirmingDelete = false; actions.onDelete(shot) },
+                        variant = ButtonVariant.Danger,
+                    )
                 },
-                dismissButton = { TextButton(onClick = { confirmingDelete = false }) { Text("取消") } },
+                dismissButton = {
+                    VsButton(text = "取消", onClick = { confirmingDelete = false }, variant = ButtonVariant.Quiet)
+                },
             )
         }
+    }
+}
+
+/** 動作列的次要圖示鈕(原型 `.btn.on-dark`)：44×44、白 12% 底、圓角 8、20dp 白色圖示。 */
+@Composable
+private fun DarkIconButton(icon: ImageVector, label: String, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(AppTheme.radii.sm)
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(AppTheme.spacing.tap)
+            .clip(shape)
+            .background(OnDarkColors.fill)
+            .focusRing(shape),
+    ) {
+        Icon(icon, contentDescription = label, tint = OnDarkColors.primary, modifier = Modifier.size(20.dp))
     }
 }
