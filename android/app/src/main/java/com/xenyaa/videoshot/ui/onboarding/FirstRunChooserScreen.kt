@@ -5,14 +5,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import com.xenyaa.videoshot.ui.common.ButtonVariant
+import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.theme.AppTheme
 
 /**
@@ -39,24 +39,31 @@ fun FirstRunChooserScreen(
         verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s3, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("歡迎使用 videoshot", style = MaterialTheme.typography.headlineSmall, color = AppTheme.colors.text)
+        Text(
+            "歡迎使用 videoshot",
+            style = MaterialTheme.typography.titleLarge, // 24 Bold
+            color = AppTheme.colors.text,
+            textAlign = TextAlign.Center,
+        )
         Text(
             "如果你之前備份過圖庫，可以直接還原；也可以先略過，之後隨時能在帳號頁連結。",
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyMedium, // 15
             color = AppTheme.colors.textDim,
             textAlign = TextAlign.Center,
         )
-        Button(onClick = onRestoreClick, enabled = !linking, modifier = Modifier.fillMaxWidth()) {
-            Text(if (linking) "連結中…" else "從 Google Drive 還原")
-        }
-        TextButton(onClick = onStartFreshClick, enabled = !linking, modifier = Modifier.fillMaxWidth()) {
-            Text("全新開始")
-        }
+        VsButton(
+            if (linking) "連結中…" else "從 Google Drive 還原",
+            onRestoreClick,
+            Modifier.fillMaxWidth(),
+            variant = ButtonVariant.Primary,
+            enabled = !linking,
+        )
+        VsButton("全新開始", onStartFreshClick, Modifier.fillMaxWidth(), variant = ButtonVariant.Secondary, enabled = !linking)
         if (error != null) {
             Text(
                 error,
                 style = MaterialTheme.typography.bodySmall,
-                color = AppTheme.colors.danger,
+                color = AppTheme.colors.warn,
                 textAlign = TextAlign.Center,
             )
         }
