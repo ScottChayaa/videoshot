@@ -36,9 +36,14 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.xenyaa.videoshot.core.home.homeColumnsFor
 import com.xenyaa.videoshot.core.home.monthLabel
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
@@ -301,11 +306,18 @@ private fun ResultBar(state: SearchState) {
             .padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
         verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
-            Text("${state.total} 張", style = MaterialTheme.typography.titleMedium, color = AppTheme.colors.text)
-            Text("·", style = MaterialTheme.typography.bodyMedium, color = AppTheme.colors.textDim)
-            Text(dateLabelOf(state.upToMonth), style = MaterialTheme.typography.bodyMedium, color = AppTheme.colors.textDim)
-        }
+        // 第一行是同一個 Text：張數 17 Bold `text`，其餘 15 `textDim`（原型 `.result-bar strong`）
+        val textColor = AppTheme.colors.text
+        Text(
+            buildAnnotatedString {
+                withStyle(SpanStyle(fontSize = 17.sp, fontWeight = FontWeight.Bold, color = textColor)) {
+                    append(state.total.toString())
+                }
+                append(" 張 · ${dateLabelOf(state.upToMonth)}")
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = AppTheme.colors.textDim,
+        )
         ConditionChipsRow(state)
         state.heard?.let { heard ->
             Text(
@@ -356,7 +368,7 @@ private fun ConditionChipsRow(state: SearchState) {
 }
 
 /** 條件 key → 小膠囊種類：`place:` 前綴就是地點；標籤在 [facets] 找得到才取它的 `tagKind`，否則 [ChipKind.OTHER]。 */
-private fun kindOfFacetKey(key: String, facets: List<MonthFacet>): ChipKind {
+internal fun kindOfFacetKey(key: String, facets: List<MonthFacet>): ChipKind {
     if (key.startsWith("place:")) return ChipKind.PLACE
     val facet = facets.firstOrNull { facetKey(it) == key }
     return if (facet == null) ChipKind.OTHER else chipKindOf(facet)

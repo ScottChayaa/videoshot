@@ -21,6 +21,7 @@ import androidx.compose.ui.test.performTextInput
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.thumbs.ThumbKey
+import com.xenyaa.videoshot.ui.common.ChipKind
 import com.xenyaa.videoshot.thumbs.ThumbSource
 import com.xenyaa.videoshot.thumbs.Thumbs
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
@@ -166,7 +167,7 @@ class SearchScreenTest {
             heard = ResolvedSummary("加勒比海・夜潛・大蝦", local = true),
         )
         show(state)
-        compose.onNodeWithText("1 張").assertIsDisplayed()
+        compose.onNodeWithText("1 張 · 全部日期").assertIsDisplayed()
         compose.onNodeWithText("聽懂了：加勒比海・夜潛・大蝦（本機解析）").assertIsDisplayed()
     }
 
@@ -271,9 +272,9 @@ class SearchScreenTest {
         compose.onNodeWithText("大蝦").assertHasNoClickAction()
     }
 
-    /** 地點條件的小膠囊帶地點圖示（MapPin），不是其他種類的圖示——種類由 key 前綴決定，不必反查 facets。 */
+    /** 條件小膠囊不反查 facets 也能顯示（種類對應見下面的 kindOfFacetKey 單元測試）。 */
     @Test
-    fun 地點條件帶地點種類而即使facets被修剪也不消失() {
+    fun 地點條件即使facets被修剪也不消失且不帶打勾() {
         show(
             SearchState(
                 phase = SearchPhase.RESULTS, mode = SearchMode.TAG,
@@ -281,8 +282,23 @@ class SearchScreenTest {
             ),
         )
         compose.onNodeWithText("加勒比海").assertIsDisplayed()
-        // 條件列的種類圖示沒有語意名稱，改驗證小膠囊存在且不是切換型（沒有「已選」打勾）
+        // 純顯示的小膠囊不是切換型：沒有「已選」打勾
         compose.onAllNodesWithContentDescription("已選", useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    /** 結果列第一行是同一段文字「N 張 · 時間」（張數 17 Bold、其餘 15 textDim 是字型樣式，語意文字只有一段）。 */
+    @Test
+    fun 結果列第一行是N張加時間() {
+        show(SearchState(phase = SearchPhase.RESULTS, total = 12))
+        compose.onNodeWithText("12 張 · 全部日期").assertIsDisplayed()
+    }
+
+    @Test
+    fun 條件key對應小膠囊種類() {
+        val facets = listOf(MonthFacet("小明", "tag", 2, "person"))
+        assertEquals(ChipKind.PLACE, kindOfFacetKey("place:宜蘭", facets))
+        assertEquals(ChipKind.PERSON, kindOfFacetKey("tag:小明", facets))
+        assertEquals(ChipKind.OTHER, kindOfFacetKey("tag:不在清單", facets))
     }
 
     @Test
