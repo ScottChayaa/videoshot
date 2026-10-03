@@ -135,7 +135,8 @@ fun VsRadioRow(
 /**
  * 步進器（原型 `.stepper`）：−／＋ 兩顆 44×44 `surface2` 底、1dp `border`、圓角 8、字 20 `accent`；
  * 中間數值最小寬 48、Bold、等寬數字。到 [range] 邊界時對應的鈕停用。
- * TalkBack：−「減少 {label}」、＋「增加 {label}」，數值節點唸「{label} {value}」。
+ * TalkBack：−「減少 {label}」、＋「增加 {label}」，數值節點唸「{label} {value}」；
+ * 搬進既有畫面而要保留舊名稱時，用 [decreaseDescription]／[increaseDescription] 覆寫鈕的名稱。
  */
 @Composable
 fun VsStepper(
@@ -144,9 +145,11 @@ fun VsStepper(
     range: IntRange,
     modifier: Modifier = Modifier,
     label: String,
+    decreaseDescription: String = "減少 $label",
+    increaseDescription: String = "增加 $label",
 ) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
-        StepperButton("−", "減少 $label", enabled = value > range.first) { onChange(value - 1) }
+        StepperButton("−", decreaseDescription, enabled = value > range.first) { onChange(value - 1) }
         Text(
             value.toString(),
             Modifier.widthIn(min = 48.dp).clearAndSetSemantics { contentDescription = "$label $value" },
@@ -154,7 +157,7 @@ fun VsStepper(
             color = AppTheme.colors.text,
             textAlign = TextAlign.Center,
         )
-        StepperButton("＋", "增加 $label", enabled = value < range.last) { onChange(value + 1) }
+        StepperButton("＋", increaseDescription, enabled = value < range.last) { onChange(value + 1) }
     }
 }
 

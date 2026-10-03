@@ -1,6 +1,12 @@
 package com.xenyaa.videoshot.ui.account
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -45,8 +51,31 @@ class GeminiKeyScreenTest {
         compose.setContent {
             VideoshotTheme { GeminiKeyScreen(keySet = false, onBack = {}, onSave = { saved = it }, onClear = {}) }
         }
-        compose.onNodeWithText("Gemini 金鑰").performTextInput("AIzaSy-fake")
+        // 共用輸入欄的標籤是欄位上方的獨立文字,輸入動作要打在欄位本身(以 contentDescription 定位)。
+        compose.onNodeWithContentDescription("Gemini 金鑰").performTextInput("AIzaSy-fake")
         compose.onNodeWithText("儲存").performClick()
         assert(saved == "AIzaSy-fake")
+    }
+
+    @Test
+    fun 輸入框是密碼欄_空白時儲存停用_有字才啟用() {
+        compose.setContent {
+            VideoshotTheme { GeminiKeyScreen(keySet = false, onBack = {}, onSave = {}, onClear = {}) }
+        }
+        compose.onNodeWithContentDescription("Gemini 金鑰")
+            .assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Password))
+        compose.onNodeWithText("儲存").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Gemini 金鑰").performTextInput("abc")
+        compose.onNodeWithText("儲存").assertIsEnabled()
+    }
+
+    @Test
+    fun 顯示說明文字() {
+        compose.setContent {
+            VideoshotTheme { GeminiKeyScreen(keySet = false, onBack = {}, onSave = {}, onClear = {}) }
+        }
+        compose.onNodeWithText(
+            "只用於查詢解析、只存在這台手機；換手機要重新輸入。建議在 Google Cloud 把這把金鑰限縮為只能呼叫 Generative Language API。",
+        ).assertIsDisplayed()
     }
 }

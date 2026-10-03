@@ -1,19 +1,15 @@
 package com.xenyaa.videoshot.ui.account
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Text
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.xenyaa.videoshot.core.similarity.FilterStrength
-import com.xenyaa.videoshot.ui.theme.AppTheme
-import com.xenyaa.videoshot.ui.theme.focusRing
+import com.xenyaa.videoshot.ui.common.VsRadioRow
+import com.xenyaa.videoshot.ui.common.VsSettingDivider
+import com.xenyaa.videoshot.ui.common.VsSettingGroup
+import com.xenyaa.videoshot.ui.common.VsSettingNote
 
 private data class StrengthOption(val value: FilterStrength, val label: String, val note: String)
 
@@ -33,35 +29,21 @@ fun CaptureSettingScreen(
 ) {
     Column(modifier.fillMaxWidth()) {
         AccountSettingHeader("取圖", onBack)
-        Options.forEach { option ->
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .focusRing()
-                    .clickable { onSelect(option.value) }
-                    .padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s2),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // onClick = null——這顆單獨有自己的觸控目標的話,TalkBack 會在同一個選項上
-                    // 唸出兩個焦點停駐點(RadioButton 自己一個、外層 Column 的 .clickable 一個)。
-                    // 讓它變成純裝飾、不能單獨聚焦,只留外層 Column 的 .clickable 當唯一焦點
-                    // (Material3 對「整列可點的單選」的標準寫法;最終審查 Minor 2)。
-                    RadioButton(selected = option.value == current, onClick = null)
-                    Text(option.label, style = MaterialTheme.typography.bodyLarge, color = AppTheme.colors.text)
+        VsSettingGroup(title = "過濾相似強度") {
+            // 單選列整列可點、Role.RadioButton、selected 進語意(VsRadioRow);
+            // 外層 selectableGroup 讓 TalkBack 把三列當成同一組單選。
+            Column(Modifier.selectableGroup()) {
+                Options.forEachIndexed { i, option ->
+                    if (i > 0) VsSettingDivider()
+                    VsRadioRow(
+                        title = option.label,
+                        selected = option.value == current,
+                        onSelect = { onSelect(option.value) },
+                        subtitle = option.note,
+                    )
                 }
-                Text(
-                    option.note,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AppTheme.colors.textDim,
-                    modifier = Modifier.padding(start = AppTheme.spacing.s5 + AppTheme.spacing.s2),
-                )
             }
         }
-        Text(
-            "進入「挑畫面」時會先用這個強度收斂候選畫面，隨時可以在該頁按【顯示全部】看完整的候選。",
-            style = MaterialTheme.typography.bodySmall,
-            color = AppTheme.colors.textDim,
-            modifier = Modifier.padding(AppTheme.spacing.s4),
-        )
+        VsSettingNote("進入「挑畫面」時會先用這個強度收斂候選畫面，隨時可以在該頁按【顯示全部】看完整的候選。")
     }
 }

@@ -39,6 +39,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.ui.theme.AppTheme
 
@@ -55,6 +56,7 @@ enum class TextFieldSize { Regular, Dense }
  * [isError] 用 `warn` 色，不用紅（紅只留給破壞性動作）。
  * 整個欄位的 `contentDescription` 取 [semanticLabel]（預設同 [label]）——既有精靈測試用它定位欄位。
  * [leadingIcon]＝欄位內左側的圖示（查詢頁文字框的放大鏡，原型 `.search .ic`）：20dp、`textDim`，不進語意樹。
+ * [visualTransformation]＝輸入內容的遮罩（Gemini 金鑰用 `PasswordVisualTransformation`，語意樹會標成密碼欄）。
  * 聚焦的 3dp `accentWeak` 外圈用 `drawBehind` 畫在框外（原型 `box-shadow` 不佔版面），聚焦與否不會讓版面位移。
  */
 @Composable
@@ -74,6 +76,7 @@ fun VsTextField(
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     semanticLabel: String? = label,
     leadingIcon: ImageVector? = null,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
 ) {
     val colors = AppTheme.colors
     val dense = size == TextFieldSize.Dense
@@ -122,6 +125,7 @@ fun VsTextField(
             singleLine = true,
             keyboardOptions = keyboardOptions,
             keyboardActions = keyboardActions,
+            visualTransformation = visualTransformation,
             interactionSource = interaction,
             cursorBrush = SolidColor(colors.accent),
             decorationBox = { inner ->
