@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.xenyaa.videoshot.backup.LinkedGoogleAccount
@@ -36,12 +37,53 @@ class AccountScreenTest {
         }
     }
 
+    // 統計卡每一格是一個可點節點，TalkBack 名稱「{標籤} {數字}」（階段 15D：統計卡改成單一卡片、
+    // 每項 clearAndSetSemantics，數字與標籤不再是獨立文字節點，所以改用名稱找）。
     @Test
     fun 三格統計顯示正確數字() {
         setContent(state)
-        compose.onNodeWithText("42").assertIsDisplayed()
-        compose.onNodeWithText("5").assertIsDisplayed()
-        compose.onNodeWithText("12").assertIsDisplayed()
+        compose.onNodeWithContentDescription("收藏片段 42").assertIsDisplayed()
+        compose.onNodeWithContentDescription("本月新增 5").assertIsDisplayed()
+        compose.onNodeWithContentDescription("來源影片 12").assertIsDisplayed()
+    }
+
+    @Test
+    fun 三格統計各自可點並回報onOpenStat() {
+        var count = 0
+        setContent(state, onOpenStat = { count++ })
+        compose.onNodeWithContentDescription("收藏片段 42").performClick()
+        compose.onNodeWithContentDescription("本月新增 5").performClick()
+        compose.onNodeWithContentDescription("來源影片 12").performClick()
+        assert(count == 3) { "三格都應該回報 onOpenStat，實際 $count" }
+    }
+
+    @Test
+    fun 選單六列與副標都在() {
+        setContent(state)
+        listOf("備份", "縮圖", "取圖", "查詢", "AI 分析", "標籤管理").forEach {
+            compose.onNodeWithText(it).assertIsDisplayed()
+        }
+        compose.onNodeWithText("已使用 11.8 MB").assertIsDisplayed()
+        compose.onNodeWithText("過濾相似強度：中").assertIsDisplayed()
+    }
+
+    @Test
+    fun 沒連結時點hero的尚未設定備份會開備份() {
+        var opened: AccountSection? = null
+        setContent(state, onOpenSection = { opened = it })
+        compose.onAllNodesWithText("尚未設定備份").onFirst().performClick()
+        assert(opened == AccountSection.BACKUP)
+    }
+
+    @Test
+    fun 已連結時點Email會開備份() {
+        var opened: AccountSection? = null
+        setContent(
+            state.copy(linkedAccount = LinkedGoogleAccount("阿明", "ming@example.com")),
+            onOpenSection = { opened = it },
+        )
+        compose.onNodeWithText("ming@example.com").performClick()
+        assert(opened == AccountSection.BACKUP)
     }
 
     /** 原型帳號頁 hero 上方有頂欄（原型寫「設定」，正式詞彙是「帳號」，見設計文件偏離清單）。 */
@@ -77,7 +119,7 @@ class AccountScreenTest {
     fun 點統計卡會呼叫onOpenStat() {
         var called = false
         setContent(state, onOpenStat = { called = true })
-        compose.onNodeWithText("42").performClick()
+        compose.onNodeWithContentDescription("收藏片段 42").performClick()
         assert(called)
     }
 

@@ -3,7 +3,15 @@ package com.xenyaa.videoshot.ui.folders
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isSelectable
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -17,8 +25,10 @@ import com.xenyaa.videoshot.thumbs.ThumbKey
 import com.xenyaa.videoshot.thumbs.ThumbSource
 import com.xenyaa.videoshot.thumbs.Thumbs
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
+import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -59,6 +69,7 @@ class FoldersScreenTest {
     private var deleted: FolderCard? = null
     private var sorted: FolderSort? = null
     private var retryCalls = 0
+    private var lastQuery: String? = null
 
     /**
      * 用 `mutableStateOf`（不是純 `var`）——回呼在 composable 外的一般 lambda 裡跑，
@@ -77,7 +88,7 @@ class FoldersScreenTest {
                     onCreate = { created = it },
                     onRename = { id, name -> renamed = id to name },
                     onDelete = { deleted = it },
-                    onQuery = { state = state.copy(query = it) },
+                    onQuery = { lastQuery = it; state = state.copy(query = it) },
                     onEditorName = { state = FoldersStore.editName(state, it) },
                     onSearching = { state = FoldersStore.setSearching(state, it) },
                     onSort = { sorted = it },
@@ -191,5 +202,49 @@ class FoldersScreenTest {
 
         compose.onNodeWithText("重試").performClick()
         assertEquals(1, retryCalls)
+    }
+
+    /** 15D：張數改到圖片區右下角的膠囊，名稱列不再顯示張數——同一張卡片「4 張」只會出現一次。 */
+    @Test
+    fun 張數在圖片區的膠囊上且只出現一次() {
+        show(FoldersState(cards = listOf(card(1, "旅行", count = 4, preview = listOf(shot(10), shot(11), shot(12), shot(13))))))
+        compose.onNodeWithText("4 張").assertIsDisplayed()
+        compose.onAllNodesWithText("4 張").assertCountEquals(1)
+        compose.onNodeWithText("旅行").assertIsDisplayed()
+        // 膠囊在圖片區（名稱列上方），名稱列在膠囊下面
+        // 卡片本身是 clickable（合併語意），要量各自位置得看未合併的樹
+        val pill = compose.onNodeWithText("4 張", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val name = compose.onNodeWithText("旅行", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue("張數膠囊應在名稱列上方：膠囊 bottom=${pill.bottom}、名稱 top=${name.top}", pill.bottom <= name.top)
+    }
+
+    @Test
+    fun 排序抽屜的選中項回報為選取() {
+        show(FoldersState(cards = listOf(card(1, "旅行")), sort = FolderSort.COUNT_DESC))
+        compose.onNodeWithText("張數多 → 少").performClick() // 狀態列的排序鍵
+        compose.onNode(hasText("張數多 → 少") and isSelectable()).assertIsSelected()
+        compose.onNode(hasText("名稱 A → Z") and isSelectable()).assertIsNotSelected()
+        compose.onNode(hasText("最近加入") and isSelectable()).assertIsNotSelected()
+    }
+
+    @Test
+    fun 狀態列排序鍵的觸控區至少44dp() {
+        show(FoldersState(cards = listOf(card(1, "旅行")), sort = FolderSort.RECENT))
+        compose.onNode(hasText("最近加入") and hasClickAction()).assertHeightIsAtLeast(44.dp)
+    }
+
+    @Test
+    fun 沒有符合時清除篩選會回報清空查詢() {
+        show(FoldersState(cards = listOf(card(1, "旅行")), searching = true, query = "找不到的"))
+        compose.onNodeWithText("清除篩選").performClick()
+        assertEquals("", lastQuery)
+    }
+
+    @Test
+    fun 搜尋列的取消會收起() {
+        show(FoldersState(cards = listOf(card(1, "旅行")), searching = true))
+        compose.onNodeWithContentDescription("搜尋分類名稱").assertIsDisplayed()
+        compose.onNodeWithText("取消").performClick()
+        compose.onNodeWithContentDescription("搜尋分類名稱").assertDoesNotExist()
     }
 }

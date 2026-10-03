@@ -1,36 +1,27 @@
 package com.xenyaa.videoshot.ui.search
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -42,22 +33,40 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.xenyaa.videoshot.core.home.homeColumnsFor
 import com.xenyaa.videoshot.core.home.monthLabel
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.ui.home.MonthPickerSheet
+import com.xenyaa.videoshot.ui.common.ButtonVariant
+import com.xenyaa.videoshot.ui.common.ChipKind
+import com.xenyaa.videoshot.ui.common.ChipSize
 import com.xenyaa.videoshot.ui.common.TopBarNav
+import com.xenyaa.videoshot.ui.common.VsActionDock
+import com.xenyaa.videoshot.ui.common.VsButton
+import com.xenyaa.videoshot.ui.common.VsEmptyState
+import com.xenyaa.videoshot.ui.common.VsSelectField
+import com.xenyaa.videoshot.ui.common.VsTagChip
+import com.xenyaa.videoshot.ui.common.VsTextField
 import com.xenyaa.videoshot.ui.common.VsTopBar
+import com.xenyaa.videoshot.ui.common.VsUnderlineTabs
+import com.xenyaa.videoshot.ui.common.chipKindOf
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
-import com.xenyaa.videoshot.ui.thumb.ThumbImage
+import com.xenyaa.videoshot.ui.thumb.ThumbTile
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
-import com.xenyaa.videoshot.ui.thumb.labelOf
 
 /**
  * 查詢分頁（規格第六節「查詢」、驗收手冊 §五）。條件與結果**同一頁切換**——
@@ -80,6 +89,10 @@ fun SearchScreen(
 ) {
     var picking by rememberSaveable { mutableStateOf(false) }
     val showingResults = state.phase == SearchPhase.RESULTS
+
+    // 結果頁的系統返回（返回鍵／手勢）與頂欄左上角的箭頭同一個去處：回條件頁，不是直接回首頁。
+    // 比 AppRoot 的全域 BackHandler 晚註冊，所以優先處理；條件頁不啟用，返回照舊走到首頁。
+    BackHandler(enabled = showingResults, onBack = onShowConditions)
 
     // 捲到接近底部就補下一頁——寫法照 HomeScreen.kt／FolderScreen.kt：`nearEnd` 用
     // derivedStateOf 算，LaunchedEffect 的 block 不是常駐的 collector，而是每次 key 換了
@@ -105,13 +118,19 @@ fun SearchScreen(
                 onOpen = onOpen, modifier = Modifier.weight(1f),
             )
         } else {
+            // 模式分頁固定在頂欄正下方、不在捲動區內（原型 `.qtabs`）
+            VsUnderlineTabs(
+                tabs = listOf("標籤與地點", "描述"),
+                selected = if (state.mode == SearchMode.TAG) 0 else 1,
+                onSelect = { onSetMode(if (it == 0) SearchMode.TAG else SearchMode.TEXT) },
+            )
             ConditionsPane(
                 state = state,
-                onSetMode = onSetMode,
                 onSetTextQuery = onSetTextQuery,
                 onToggleFacet = onToggleFacet,
                 onShowMoreFacets = onShowMoreFacets,
                 onOpenDatePicker = { picking = true },
+                onRunSearch = onRunSearch,
                 modifier = Modifier.weight(1f),
             )
             SearchActionBar(state = state, onClick = onRunSearch)
@@ -138,14 +157,6 @@ private fun SearchTopBar(showingResults: Boolean, onBack: () -> Unit) {
     }
 }
 
-@Composable
-private fun ModeTabs(mode: SearchMode, onSetMode: (SearchMode) -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
-        FilterChip(selected = mode == SearchMode.TAG, onClick = { onSetMode(SearchMode.TAG) }, label = { Text("標籤與地點") })
-        FilterChip(selected = mode == SearchMode.TEXT, onClick = { onSetMode(SearchMode.TEXT) }, label = { Text("描述") })
-    }
-}
-
 private fun dateLabelOf(upToMonth: String?): String =
     if (upToMonth == null) "全部日期" else "${monthLabel(upToMonth)} 以前"
 
@@ -153,39 +164,34 @@ private fun dateLabelOf(upToMonth: String?): String =
 private fun ConditionsPane(
     state: SearchState,
     modifier: Modifier = Modifier,
-    onSetMode: (SearchMode) -> Unit,
     onSetTextQuery: (String) -> Unit,
     onToggleFacet: (MonthFacet) -> Unit,
     onShowMoreFacets: () -> Unit,
     onOpenDatePicker: () -> Unit,
+    onRunSearch: () -> Unit,
 ) {
-    Column(
-        modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = AppTheme.spacing.s3),
-        verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s3),
-    ) {
-        ModeTabs(mode = state.mode, onSetMode = onSetMode)
-
-        Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1)) {
-            Text("時間", style = MaterialTheme.typography.labelLarge, color = AppTheme.colors.textDim)
-            OutlinedButton(onClick = onOpenDatePicker) {
-                Text(dateLabelOf(state.upToMonth))
-                Icon(VsIcons.Calendar, contentDescription = null, modifier = Modifier.padding(start = AppTheme.spacing.s1))
-            }
-        }
+    Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+        // 時間欄位區塊內距 16/16/0（原型 `.qfield`）
+        VsSelectField(
+            label = "時間",
+            value = dateLabelOf(state.upToMonth),
+            onClick = onOpenDatePicker,
+            modifier = Modifier.padding(start = AppTheme.spacing.s4, top = AppTheme.spacing.s4, end = AppTheme.spacing.s4),
+        )
 
         when (state.mode) {
             SearchMode.TAG -> TagCloudPane(state = state, onToggleFacet = onToggleFacet, onShowMore = onShowMoreFacets)
-            SearchMode.TEXT -> TextQueryPane(query = state.textQuery, onQueryChange = onSetTextQuery)
+            SearchMode.TEXT -> TextQueryPane(state = state, onQueryChange = onSetTextQuery, onRunSearch = onRunSearch)
         }
     }
 }
 
 @Composable
 private fun TagCloudPane(state: SearchState, onToggleFacet: (MonthFacet) -> Unit, onShowMore: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
+    Column(Modifier.fillMaxWidth().padding(AppTheme.spacing.s4), verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
         Text(
             "標籤與地點（${state.facets.size}${if (state.facetsHasMore) "+" else ""}）",
-            style = MaterialTheme.typography.labelLarge,
+            style = MaterialTheme.typography.titleSmall,
             color = AppTheme.colors.textDim,
         )
         when {
@@ -193,27 +199,23 @@ private fun TagCloudPane(state: SearchState, onToggleFacet: (MonthFacet) -> Unit
             state.facets.isEmpty() -> Text("這個時間以前沒有標籤", color = AppTheme.colors.textDim)
             else -> {
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
-                    verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
+                    horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
+                    verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
                 ) {
                     for (facet in state.facets) {
-                        val key = facetKey(facet)
-                        val isSelected = key in state.selected
-                        InputChip(
-                            selected = isSelected,
+                        // 切換型小膠囊：帶種類圖示／顏色與張數，選取狀態與打勾由 VsTagChip 自己負責
+                        VsTagChip(
+                            name = facet.name,
+                            kind = chipKindOf(facet),
+                            selected = facetKey(facet) in state.selected,
+                            isToggle = true,
+                            count = facet.count,
                             onClick = { onToggleFacet(facet) },
-                            label = { Text("${facet.name} ${facet.count}") },
-                            // Material3 1.4.0 的 InputChip 選取狀態只換底色，不會自己畫勾勾
-                            // （反編譯過 1.4.0 原始碼確認：leadingIcon 完全交給呼叫端決定，
-                            // KDoc 也建議選取時放打勾圖示）——手冊要求看得到勾勾，不是只換顏色。
-                            leadingIcon = if (isSelected) {
-                                { Icon(VsIcons.Check, contentDescription = null, modifier = Modifier.testTag("chipCheck")) }
-                            } else null,
                         )
                     }
                 }
                 if (state.facetsHasMore) {
-                    TextButton(onClick = onShowMore) { Text("顯示更多") }
+                    VsButton("顯示更多", onShowMore, variant = ButtonVariant.Quiet)
                 }
             }
         }
@@ -221,35 +223,41 @@ private fun TagCloudPane(state: SearchState, onToggleFacet: (MonthFacet) -> Unit
 }
 
 @Composable
-private fun TextQueryPane(query: String, onQueryChange: (String) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1)) {
-        Text("描述關鍵字", style = MaterialTheme.typography.labelLarge, color = AppTheme.colors.textDim)
-        OutlinedTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            placeholder = { Text("例：加勒比海夜潛看到的大蝦") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-        )
-    }
+private fun TextQueryPane(state: SearchState, onQueryChange: (String) -> Unit, onRunSearch: () -> Unit) {
+    VsTextField(
+        value = state.textQuery,
+        onValueChange = onQueryChange,
+        modifier = Modifier.padding(AppTheme.spacing.s4),
+        label = "描述關鍵字",
+        placeholder = "例：加勒比海夜潛看到的大蝦",
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        // 鍵盤搜尋鍵等同按【查詢】，但一樣要先過「能不能查」的檢查（沒字時按鈕是停用的）
+        keyboardActions = KeyboardActions(onSearch = { if (SearchStore.canQuery(state)) onRunSearch() }),
+    )
 }
 
 @Composable
 private fun SearchActionBar(state: SearchState, onClick: () -> Unit) {
     val reason = SearchStore.disabledReason(state)
-    Column(
-        Modifier.fillMaxWidth().padding(AppTheme.spacing.s3),
-        verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
-    ) {
-        Button(
-            onClick = onClick,
-            enabled = SearchStore.canQuery(state),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(SearchStore.queryButtonLabel(state))
-        }
-        if (reason != null) {
-            Text(reason, style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.textDim, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+    // 釘在導覽列正上方（手冊 §五）：AppShell 已 consumeWindowInsets，VsActionDock 的
+    // navigationBarsPadding() 不會再墊一次
+    VsActionDock {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
+            VsButton(
+                SearchStore.queryButtonLabel(state),
+                onClick,
+                Modifier.fillMaxWidth(),
+                enabled = SearchStore.canQuery(state),
+            )
+            if (reason != null) {
+                Text(
+                    reason,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppTheme.colors.textDim,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
     }
 }
@@ -265,100 +273,114 @@ private fun ResultsPane(
     val columns = homeColumnsFor(LocalConfiguration.current.screenWidthDp)
     Column(modifier.fillMaxWidth()) {
         ResultBar(state = state)
-        if (state.error != null) {
-            Text(state.error, color = AppTheme.colors.textDim, modifier = Modifier.padding(horizontal = AppTheme.spacing.s3))
-        }
         if (state.results.isEmpty() && !state.resultsLoading) {
-            SearchEmpty()
+            VsEmptyState(icon = VsIcons.Search, message = "沒有符合的收藏")
         } else {
+            // 格線 2dp 是比照首頁的例外（原型 `.tiles` 的 gap: 2px），其餘間距走 4/8/12/16 的階
             LazyVerticalGrid(
                 columns = GridCells.Fixed(columns),
                 state = listState,
-                modifier = Modifier.fillMaxSize().padding(horizontal = AppTheme.spacing.s3),
-                horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
-                verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = AppTheme.spacing.s3, top = AppTheme.spacing.s3, end = AppTheme.spacing.s3),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                items(state.results, key = { it.id }) { shot ->
-                    ThumbImage(
-                        shot = shot,
-                        loader = loader,
-                        contentDescription = labelOf(shot),
-                        modifier = Modifier
-                            .aspectRatio(16f / 9f)
-                            .clip(RoundedCornerShape(AppTheme.radii.sm))
-                            .focusRing(RoundedCornerShape(AppTheme.radii.sm))
-                            .clickable(onClickLabel = "開啟") { onOpen(state.results.indexOf(shot)) },
-                    )
+                // 正方形、圓角、focusRing、Role.Button 與「開啟」都在 ThumbTile 裡（設計文件決定 5）
+                itemsIndexed(state.results, key = { _, shot -> shot.id }) { index, shot ->
+                    ThumbTile(shot = shot, loader = loader, onClick = { onOpen(index) })
                 }
             }
         }
     }
 }
 
+/**
+ * 結果列（原型 `.result-bar`／`.rs-head`／`.rs-cond`）：內距 12/16、下緣 1dp 分隔線。
+ * 第一行「N 張 · 時間」，其下條件小膠囊，再其下「聽懂了」與錯誤訊息（都是 textDim，錯誤不用紅色）。
+ */
 @Composable
 private fun ResultBar(state: SearchState) {
-    Column(Modifier.fillMaxWidth().padding(AppTheme.spacing.s3), verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1)) {
-            Text("${state.total} 張", style = MaterialTheme.typography.titleMedium, color = AppTheme.colors.text)
-            Text("·", color = AppTheme.colors.textDim)
-            Text(dateLabelOf(state.upToMonth), color = AppTheme.colors.textDim)
-        }
+    val border = AppTheme.colors.border
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .drawBehind {
+                val h = 1.dp.toPx()
+                drawRect(border, topLeft = Offset(0f, size.height - h), size = Size(size.width, h))
+            }
+            .padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
+        verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
+    ) {
+        // 第一行是同一個 Text：張數 17 Bold `text`，其餘 15 `textDim`（原型 `.result-bar strong`）
+        val textColor = AppTheme.colors.text
+        Text(
+            buildAnnotatedString {
+                withStyle(SpanStyle(fontSize = 17.sp, fontWeight = FontWeight.Bold, color = textColor)) {
+                    append(state.total.toString())
+                }
+                append(" 張 · ${dateLabelOf(state.upToMonth)}")
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = AppTheme.colors.textDim,
+        )
         ConditionChipsRow(state)
         state.heard?.let { heard ->
             Text(
                 "聽懂了：${heard.text}${if (heard.local) "（本機解析）" else ""}",
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = AppTheme.colors.textDim,
             )
+        }
+        if (state.error != null) {
+            Text(state.error, style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.textDim)
         }
     }
 }
 
 /**
- * 結果列的「條件 chips」（驗收手冊 §五：「N 張・全部日期・條件 chips」、mockup `tags.html`
+ * 結果列的「條件小膠囊」（驗收手冊 §五：「N 張・全部日期・條件 chips」、mockup `tags.html`
  * 的 `renderResults()`）——標籤模式列出目前勾選的 facet，文字模式列出查詢字串本身。
- * 純顯示用，不能再點掉（改條件要靠上面的返回鍵），所以用 [AssistChip] 的 `onClick = {}`。
+ * 純顯示用，不能再點掉（改條件要靠上面的返回鍵），所以 [VsTagChip] 不給 `onClick`。
  *
- * 標籤模式**直接從 [SearchState.selected] 的 key 解析標籤／地點名稱來畫**，不查
+ * 標籤模式**直接從 [SearchState.selected] 的 key 解析標籤／地點名稱來畫**，名稱不查
  * [SearchState.facets]——`seedFromHome` 帶進來的那個 key 是從單一月份的 facet 挑出來的，
  * `loadFacets()` 之後重查的是**整個時間範圍**的 top-30 池子，很容易把它修剪掉
  * （`SearchStore.loadedFacets` 的 pruning）。查詢結果本身沒受影響，但如果 chips 還要
  * 反查 `state.facets` 才畫得出來，選到的條件就會憑空消失（最終審查 Important 3）。
+ * 種類同理：地點看 key 前綴；標籤在 facets 找得到才取它的 `tagKind`，找不到退回 [ChipKind.OTHER]。
  */
 @Composable
 private fun ConditionChipsRow(state: SearchState) {
     when (state.mode) {
         SearchMode.TAG -> {
             if (state.selected.isNotEmpty()) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
+                    verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
+                ) {
                     for (key in state.selected) {
-                        AssistChip(onClick = {}, label = { Text(nameOfFacetKey(key)) })
+                        VsTagChip(nameOfFacetKey(key), kindOfFacetKey(key, state.facets), size = ChipSize.Mini)
                     }
                 }
             }
         }
         SearchMode.TEXT -> {
             if (state.textQuery.isNotBlank()) {
-                AssistChip(onClick = {}, label = { Text(state.textQuery) })
+                VsTagChip(state.textQuery, ChipKind.OTHER, size = ChipSize.Mini)
             }
         }
     }
+}
+
+/** 條件 key → 小膠囊種類：`place:` 前綴就是地點；標籤在 [facets] 找得到才取它的 `tagKind`，否則 [ChipKind.OTHER]。 */
+internal fun kindOfFacetKey(key: String, facets: List<MonthFacet>): ChipKind {
+    if (key.startsWith("place:")) return ChipKind.PLACE
+    val facet = facets.firstOrNull { facetKey(it) == key }
+    return if (facet == null) ChipKind.OTHER else chipKindOf(facet)
 }
 
 /** [facetKey] 的反函式：`"$kind:$name"` 拆回 `name`——找不到分隔符就整段當名稱顯示。 */
 private fun nameOfFacetKey(key: String): String {
     val sep = key.indexOf(':')
     return if (sep < 0) key else key.substring(sep + 1)
-}
-
-@Composable
-private fun SearchEmpty() {
-    Column(
-        Modifier.fillMaxSize().padding(AppTheme.spacing.s5),
-        verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s3, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Icon(VsIcons.Search, contentDescription = null, tint = AppTheme.colors.textDim)
-        Text("沒有符合的收藏", style = MaterialTheme.typography.bodyLarge, color = AppTheme.colors.text)
-    }
 }

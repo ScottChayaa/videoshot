@@ -2,12 +2,18 @@ package com.xenyaa.videoshot.ui.search
 
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -15,10 +21,12 @@ import androidx.compose.ui.test.performTextInput
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.thumbs.ThumbKey
+import com.xenyaa.videoshot.ui.common.ChipKind
 import com.xenyaa.videoshot.thumbs.ThumbSource
 import com.xenyaa.videoshot.thumbs.Thumbs
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -45,12 +53,17 @@ class SearchScreenTest {
         decodeFile = { null }, decodeBytes = { null }, cover = { null },
     )
 
-    private fun show(state: SearchState, onToggleFacet: (MonthFacet) -> Unit = {}, onRunSearch: () -> Unit = {}) {
+    private fun show(
+        state: SearchState,
+        onToggleFacet: (MonthFacet) -> Unit = {},
+        onRunSearch: () -> Unit = {},
+        onSetMode: (SearchMode) -> Unit = {},
+    ) {
         compose.setContent {
             VideoshotTheme {
                 SearchScreen(
                     state = state, loader = loader, listState = rememberLazyGridState(),
-                    onSetMode = {}, onSetTextQuery = {}, onToggleFacet = onToggleFacet,
+                    onSetMode = onSetMode, onSetTextQuery = {}, onToggleFacet = onToggleFacet,
                     onShowMoreFacets = {}, onPickMonth = {}, onRunSearch = onRunSearch,
                     onLoadMore = {}, onShowConditions = {}, onOpen = {},
                 )
@@ -83,11 +96,8 @@ class SearchScreenTest {
     }
 
     /**
-     * Material3 1.4.0 的 InputChip 選取狀態不會自己畫勾勾（反編譯過原始碼確認），必須自己
-     * 傳 leadingIcon（最終審查 Critical 1）。用 testTag 鎖定那顆 Icon——它的 contentDescription
-     * 是 null（打勾這件事已經由 chip 本身的 selected 語意唸出來，圖示不必再唸一次），
-     * 沒有內容可以拿來當 onNodeWithContentDescription 的比對依據，所以借 testTag 當測試掛勾，
-     * 跟 `AddToFolderSheet.kt` 的 "folderRow" 是同一種手法。
+     * 打勾圖示現在是 `VsTagChip` 自己畫的（`contentDescription = "已選"`），不再是查詢頁手畫、
+     * 掛 `testTag("chipCheck")` 的 Icon。小膠囊是可點的合併語意節點，圖示的描述要用未合併樹才找得到。
      */
     @Test
     fun 選取的chip顯示打勾圖示未選取的不顯示() {
@@ -96,9 +106,57 @@ class SearchScreenTest {
             selected = setOf("place:宜蘭"),
         )
         show(state)
-        // InputChip 本身是可點的合併語意節點，會把子節點的語意併上去——用未合併樹才找得到
-        // 這個只掛 testTag、沒有其他語意內容的 Icon 節點。
-        compose.onAllNodesWithTag("chipCheck", useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithContentDescription("已選", useUnmergedTree = true).assertCountEquals(1)
+    }
+
+    @Test
+    fun 標籤雲的小膠囊是切換型選中時帶選取狀態() {
+        val state = SearchState(
+            facets = listOf(MonthFacet("宜蘭", "place", 3), MonthFacet("台北", "place", 2)),
+            selected = setOf("place:宜蘭"),
+        )
+        show(state)
+        compose.onNodeWithText("宜蘭 3").assertIsSelected()
+        compose.onNodeWithText("台北 2").assertIsNotSelected()
+    }
+
+    @Test
+    fun 標籤雲的標籤帶張數() {
+        show(SearchState(facets = listOf(MonthFacet("夜潛", "tag", 3, "topic"))))
+        compose.onNodeWithText("夜潛 3").assertIsDisplayed()
+    }
+
+    @Test
+    fun 模式分頁是底線分頁點描述回報TEXT() {
+        var mode: SearchMode? = null
+        show(SearchState(), onSetMode = { mode = it })
+        compose.onNodeWithText("標籤與地點").assertIsSelected()
+        compose.onNodeWithText("描述").assertIsNotSelected()
+        compose.onNodeWithText("描述").performClick()
+        assertEquals(SearchMode.TEXT, mode)
+    }
+
+    @Test
+    fun 時間欄位顯示目前範圍且點了會開月份選擇() {
+        show(SearchState())
+        compose.onNodeWithContentDescription("時間：全部日期").assertIsDisplayed().performClick()
+        compose.onNodeWithText("只顯示這個月以前").assertIsDisplayed()
+    }
+
+    @Test
+    fun 描述模式按鍵盤搜尋鍵在能查時觸發查詢() {
+        var runs = 0
+        show(SearchState(mode = SearchMode.TEXT, textQuery = "大蝦"), onRunSearch = { runs++ })
+        compose.onNodeWithContentDescription("描述關鍵字").performImeAction()
+        assertEquals(1, runs)
+    }
+
+    @Test
+    fun 描述模式沒有字時按鍵盤搜尋鍵不觸發查詢() {
+        var runs = 0
+        show(SearchState(mode = SearchMode.TEXT, textQuery = ""), onRunSearch = { runs++ })
+        compose.onNodeWithContentDescription("描述關鍵字").performImeAction()
+        assertEquals(0, runs)
     }
 
     @Test
@@ -109,7 +167,7 @@ class SearchScreenTest {
             heard = ResolvedSummary("加勒比海・夜潛・大蝦", local = true),
         )
         show(state)
-        compose.onNodeWithText("1 張").assertIsDisplayed()
+        compose.onNodeWithText("1 張 · 全部日期").assertIsDisplayed()
         compose.onNodeWithText("聽懂了：加勒比海・夜潛・大蝦（本機解析）").assertIsDisplayed()
     }
 
@@ -141,7 +199,8 @@ class SearchScreenTest {
             selected = setOf("place:宜蘭"),
         )
         show(state)
-        compose.onNode(hasText("宜蘭") and hasClickAction()).assertIsDisplayed()
+        // 條件小膠囊是純顯示（沒有點擊動作），所以不再用 hasClickAction() 鎖定
+        compose.onNodeWithText("宜蘭").assertIsDisplayed()
     }
 
     @Test
@@ -153,10 +212,9 @@ class SearchScreenTest {
             heard = ResolvedSummary("加勒比海・夜潛・大蝦", local = true),
         )
         show(state)
-        // 「大蝦」單獨成一個節點的只有結果列的條件 chip——「聽懂了：…大蝦（本機解析）」
-        // 是同一個 Text 裡的完整句子，onNodeWithText 預設精確比對不會跟它撞在一起，
-        // 但還是用 hasClickAction() 明確鎖定 chip，跟前面「查詢」二字的處理手法一致。
-        compose.onNode(hasText("大蝦") and hasClickAction()).assertIsDisplayed()
+        // 「大蝦」單獨成一個節點的只有結果列的條件小膠囊(純顯示，沒有點擊動作)——
+        // 「聽懂了：…大蝦（本機解析）」是同一個 Text 裡的完整句子，精確文字比對不會跟它撞在一起。
+        compose.onNodeWithText("大蝦").assertIsDisplayed()
     }
 
     @Test
@@ -181,5 +239,69 @@ class SearchScreenTest {
         }
         compose.onNodeWithContentDescription("改條件").performClick()
         assert(backClicked)
+    }
+
+    /** 設計文件決定 5：查詢結果縮圖也是正方形（比照首頁）。 */
+    @Test
+    fun 結果縮圖是正方形() {
+        val row = ShotRow(1, "v1", 65.0, "storyboard", 1, 3, "2026-03-01", null, null)
+        show(SearchState(phase = SearchPhase.RESULTS, results = listOf(row), total = 1))
+        val b = compose.onAllNodesWithContentDescription("片段縮圖 01:05").onFirst().getUnclippedBoundsInRoot()
+        assertEquals((b.right - b.left).value, (b.bottom - b.top).value, 0.5f)
+    }
+
+    /** 條件小膠囊純顯示：改條件要靠返回鍵，小膠囊不能點。 */
+    @Test
+    fun 結果列的條件小膠囊是純顯示() {
+        show(
+            SearchState(
+                phase = SearchPhase.RESULTS, mode = SearchMode.TAG,
+                facets = listOf(MonthFacet("加勒比海", "place", 3), MonthFacet("小明", "tag", 2, "person")),
+                selected = setOf("place:加勒比海", "tag:小明"),
+            ),
+        )
+        compose.onNodeWithText("加勒比海").assertHasNoClickAction()
+        compose.onNodeWithText("小明").assertHasNoClickAction()
+    }
+
+    @Test
+    fun 文字模式的條件小膠囊也是純顯示() {
+        show(SearchState(phase = SearchPhase.RESULTS, mode = SearchMode.TEXT, textQuery = "大蝦"))
+        compose.onNodeWithText("大蝦").assertHasNoClickAction()
+    }
+
+    /** 條件小膠囊不反查 facets 也能顯示（種類對應見下面的 kindOfFacetKey 單元測試）。 */
+    @Test
+    fun 地點條件即使facets被修剪也不消失且不帶打勾() {
+        show(
+            SearchState(
+                phase = SearchPhase.RESULTS, mode = SearchMode.TAG,
+                facets = emptyList(), selected = setOf("place:加勒比海"),
+            ),
+        )
+        compose.onNodeWithText("加勒比海").assertIsDisplayed()
+        // 純顯示的小膠囊不是切換型：沒有「已選」打勾
+        compose.onAllNodesWithContentDescription("已選", useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    /** 結果列第一行是同一段文字「N 張 · 時間」（張數 17 Bold、其餘 15 textDim 是字型樣式，語意文字只有一段）。 */
+    @Test
+    fun 結果列第一行是N張加時間() {
+        show(SearchState(phase = SearchPhase.RESULTS, total = 12))
+        compose.onNodeWithText("12 張 · 全部日期").assertIsDisplayed()
+    }
+
+    @Test
+    fun 條件key對應小膠囊種類() {
+        val facets = listOf(MonthFacet("小明", "tag", 2, "person"))
+        assertEquals(ChipKind.PLACE, kindOfFacetKey("place:宜蘭", facets))
+        assertEquals(ChipKind.PERSON, kindOfFacetKey("tag:小明", facets))
+        assertEquals(ChipKind.OTHER, kindOfFacetKey("tag:不在清單", facets))
+    }
+
+    @Test
+    fun 結果階段沒有結果時空狀態有搜尋圖示文案() {
+        show(SearchState(phase = SearchPhase.RESULTS, results = emptyList(), total = 0))
+        compose.onNodeWithText("沒有符合的收藏").assertIsDisplayed()
     }
 }

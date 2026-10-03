@@ -41,7 +41,7 @@ import com.xenyaa.videoshot.core.home.homeColumnsFor
 import com.xenyaa.videoshot.core.home.monthLabel
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.ui.common.ButtonVariant
-import com.xenyaa.videoshot.ui.common.ChipKind
+import com.xenyaa.videoshot.ui.common.chipKindOf
 import com.xenyaa.videoshot.ui.common.ChipSize
 import com.xenyaa.videoshot.ui.common.TopBarIconButton
 import com.xenyaa.videoshot.ui.common.VsButton
@@ -260,10 +260,6 @@ private fun HomeErrorRow(message: String, onRetry: () -> Unit) {
  * 該月出現過的地點與標籤（原型 `.month-tags`）。⏳ 單行橫向捲動（規格第六節；換行排列尚未確認）。
  * 迷你小膠囊帶種類圖示與顏色；[MonthFacet.kind] 是 `"place"` 或 `"tag"`，標籤的種類看 [MonthFacet.tagKind]。
  */
-/** 月份標籤的小膠囊種類：地點固定是 [ChipKind.PLACE]；標籤看 [MonthFacet.tagKind]（不認得的退回 OTHER）。 */
-internal fun chipKindOf(facet: MonthFacet): ChipKind =
-    if (facet.kind == "place") ChipKind.PLACE else ChipKind.ofTagKind(facet.tagKind)
-
 @Composable
 private fun MonthFacetRow(facets: List<MonthFacet>, onClick: (MonthFacet) -> Unit) {
     Row(

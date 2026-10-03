@@ -15,4 +15,10 @@ object OnDarkColors {
     val tertiary = Color(0xA6FFFFFF)
     val fill = Color(0x1FFFFFFF)
     val hint = Color(0x8C000000)
+
+    /** 帳號頁 hero 頭像的底（原型 `.avatar-lg` 的 `rgba(255,255,255,0.22)`）。 */
+    val avatarFill = Color(0x38FFFFFF)
+
+    /** 帳號頁 hero 頭像的 2dp 外框（原型 `.avatar-lg` 的 `rgba(255,255,255,0.55)`）。 */
+    val avatarRing = Color(0x8CFFFFFF)
 }

@@ -1,11 +1,14 @@
 package com.xenyaa.videoshot.ui.account
 
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.xenyaa.videoshot.backfill.BackfillProgress
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
+import androidx.compose.ui.unit.dp
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -109,5 +112,71 @@ class ThumbsUsageScreenTest {
         }
         compose.onNodeWithText("縮圖回填中 1200 / 1200").assertDoesNotExist()
         compose.onNodeWithText("用行動網路繼續").assertDoesNotExist()
+    }
+
+    @Test
+    fun 用量一列顯示已使用與數值() {
+        compose.setContent {
+            VideoshotTheme {
+                ThumbsUsageScreen(
+                    usageBytes = 1536,
+                    backfillProgress = BackfillProgress(done = 10, total = 10, lostCount = 0),
+                    backfillActionError = null,
+                    onBack = {}, onRetryLost = {}, onDeleteLost = {}, onContinueOnMobileData = {},
+                )
+            }
+        }
+        compose.onNodeWithText("已使用").assertIsDisplayed()
+        compose.onNodeWithText("1.5 KB").assertIsDisplayed()
+        compose.onNodeWithText("已收藏的縮圖沒有容量上限；這裡只顯示目前佔用的空間。").assertIsDisplayed()
+    }
+
+    @Test
+    fun 回填中顯示細進度條() {
+        compose.setContent {
+            VideoshotTheme {
+                ThumbsUsageScreen(
+                    usageBytes = 1024,
+                    backfillProgress = BackfillProgress(done = 320, total = 1200, lostCount = 0),
+                    backfillActionError = null,
+                    onBack = {}, onRetryLost = {}, onDeleteLost = {}, onContinueOnMobileData = {},
+                )
+            }
+        }
+        compose.onNodeWithTag("backfillProgressBar").assertIsDisplayed().assertHeightIsEqualTo(4.dp)
+    }
+
+    @Test
+    fun 回填做完時沒有進度條() {
+        compose.setContent {
+            VideoshotTheme {
+                ThumbsUsageScreen(
+                    usageBytes = 1024,
+                    backfillProgress = BackfillProgress(done = 1200, total = 1200, lostCount = 0),
+                    backfillActionError = null,
+                    onBack = {}, onRetryLost = {}, onDeleteLost = {}, onContinueOnMobileData = {},
+                )
+            }
+        }
+        compose.onNodeWithTag("backfillProgressBar").assertDoesNotExist()
+    }
+
+    @Test
+    fun 回填中又有無法取回時進度與三顆按鈕並存_錯誤訊息照樣顯示() {
+        compose.setContent {
+            VideoshotTheme {
+                ThumbsUsageScreen(
+                    usageBytes = 1024,
+                    backfillProgress = BackfillProgress(done = 5, total = 20, lostCount = 3),
+                    backfillActionError = "排程失敗",
+                    onBack = {}, onRetryLost = {}, onDeleteLost = {}, onContinueOnMobileData = {},
+                )
+            }
+        }
+        compose.onNodeWithText("縮圖回填中 5 / 20").assertIsDisplayed()
+        compose.onNodeWithText("用行動網路繼續").assertIsDisplayed()
+        compose.onNodeWithText("稍後重試").assertIsDisplayed()
+        compose.onNodeWithText("刪除這些收藏").assertIsDisplayed()
+        compose.onNodeWithText("排程失敗").assertIsDisplayed()
     }
 }

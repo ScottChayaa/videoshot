@@ -37,6 +37,12 @@ import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsEmptyState
 import com.xenyaa.videoshot.ui.common.VsHintCard
 import com.xenyaa.videoshot.ui.common.VsListRow
+import com.xenyaa.videoshot.ui.common.VsRadioRow
+import com.xenyaa.videoshot.ui.common.VsSelectField
+import com.xenyaa.videoshot.ui.common.VsSettingDivider
+import com.xenyaa.videoshot.ui.common.VsSettingGroup
+import com.xenyaa.videoshot.ui.common.VsSettingNote
+import com.xenyaa.videoshot.ui.common.VsStepper
 import com.xenyaa.videoshot.ui.common.VsStepIndicator
 import com.xenyaa.videoshot.ui.common.VsTagChip
 import com.xenyaa.videoshot.ui.common.VsTextField
@@ -71,7 +77,10 @@ fun ComponentCatalog(modifier: Modifier = Modifier) {
                 StepSection()
                 TextFieldSection()
                 TabsPillsHintSection()
+                SelectFieldSection()
             }
+            // 設定群組是滿版（上下 1dp 分隔線），放在 16dp 內距的 Column 之外
+            SettingSection()
             DockSection()
         }
     }
@@ -180,6 +189,14 @@ private fun EmptyStateSection() = Section("空狀態") {
         actionText = "開始取圖",
         onAction = {},
     )
+    VsEmptyState(
+        "沒有符合的結果",
+        icon = VsIcons.Search,
+        secondary = "換個條件再試試",
+        actionText = "清除條件",
+        onAction = {},
+        actionVariant = ButtonVariant.Secondary,
+    )
 }
 
 @Composable
@@ -206,6 +223,8 @@ private fun TextFieldSection() = Section("輸入欄") {
     )
     var bad by remember { mutableStateOf("12:99") }
     VsTextField(bad, { bad = it }, label = "時間", isError = true, supporting = "格式不對，請輸入 mm:ss")
+    var q by remember { mutableStateOf("") }
+    VsTextField(q, { q = it }, placeholder = "用文字描述你要找的畫面", leadingIcon = VsIcons.Search, semanticLabel = "描述")
 }
 
 @Composable
@@ -233,6 +252,44 @@ private fun TabsPillsHintSection() {
             VsButton("再顯示提示卡", onClick = { shown = true }, variant = ButtonVariant.Quiet)
         }
         VsHintCard("沒有關閉鈕的提示卡", icon = VsIcons.Sparkles)
+    }
+}
+
+@Composable
+private fun FullWidthTitle(text: String) {
+    Row(Modifier.padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s2)) { SectionTitle(text) }
+}
+
+@Composable
+private fun SelectFieldSection() = Section("下拉欄位") {
+    var picks by remember { mutableIntStateOf(0) }
+    val months = listOf("全部日期", "2026 年 9 月", "2026 年 8 月")
+    VsSelectField("時間", months[picks % months.size], onClick = { picks++ })
+}
+
+@Composable
+private fun SettingSection() {
+    var strength by remember { mutableIntStateOf(1) }
+    var after by remember { mutableIntStateOf(10) }
+    FullWidthTitle("設定群組")
+    VsSettingGroup(title = "取圖") {
+        VsListRow("過濾相似強度", subtitle = "中", icon = VsIcons.Filter, onClick = {})
+        VsSettingDivider()
+        VsListRow("版本", subtitle = "不可點的資訊列")
+    }
+    VsSettingNote("這是群組下方的說明文字，字 15、淺色。")
+    FullWidthTitle("單選列")
+    VsSettingGroup(title = "過濾相似強度") {
+        listOf("低" to "保留多一點，之後自己刪", "中" to "每 3 張留 1", "高" to "只留差異大的").forEachIndexed { i, (name, sub) ->
+            if (i > 0) VsSettingDivider()
+            VsRadioRow(name, selected = strength == i, onSelect = { strength = i }, subtitle = sub)
+        }
+    }
+    FullWidthTitle("步進器")
+    VsSettingGroup {
+        VsListRow("往後秒數", trailing = { VsStepper(after, { after = it }, 0..30, label = "往後秒數") }, mergeSemantics = false)
+        VsSettingDivider()
+        VsListRow("已到上限", trailing = { VsStepper(30, {}, 0..30, label = "上限範例") }, mergeSemantics = false)
     }
 }
 

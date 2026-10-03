@@ -1,23 +1,39 @@
 package com.xenyaa.videoshot.ui.account
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.backfill.BackfillProgress
 import com.xenyaa.videoshot.core.format.formatBytes
+import com.xenyaa.videoshot.ui.common.ButtonVariant
+import com.xenyaa.videoshot.ui.common.VsButton
+import com.xenyaa.videoshot.ui.common.VsSettingDivider
+import com.xenyaa.videoshot.ui.common.VsSettingGroup
+import com.xenyaa.videoshot.ui.common.VsSettingNote
 import com.xenyaa.videoshot.ui.theme.AppTheme
 
 /**
@@ -37,52 +53,73 @@ fun ThumbsUsageScreen(
 ) {
     var confirmingDelete by remember { mutableStateOf(false) }
 
-    Column(modifier.fillMaxWidth()) {
+    Column(modifier.fillMaxSize()) {
         AccountSettingHeader("縮圖", onBack)
-        Column(
-            Modifier.padding(AppTheme.spacing.s4),
-            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
-        ) {
-            Text("儲存用量", style = MaterialTheme.typography.bodyLarge, color = AppTheme.colors.text)
-            Text(formatBytes(usageBytes), style = MaterialTheme.typography.titleLarge, color = AppTheme.colors.text)
-            Text(
-                "已收藏的縮圖沒有容量上限；這裡只顯示目前佔用的空間。",
-                style = MaterialTheme.typography.bodySmall,
-                color = AppTheme.colors.textDim,
-            )
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+
+            VsSettingGroup(title = "儲存用量") {
+                Row(
+                    Modifier.fillMaxWidth()
+                        .defaultMinSize(minHeight = AppTheme.spacing.tap)
+                        .padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s3),
+                ) {
+                    Text("已使用", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, color = AppTheme.colors.text)
+                    Text(formatBytes(usageBytes), style = MaterialTheme.typography.bodyMedium, color = AppTheme.colors.textDim)
+                }
+            }
+            VsSettingNote("已收藏的縮圖沒有容量上限；這裡只顯示目前佔用的空間。")
 
             // 條件是「還有沒做完的」，不是「total > 0」——`BackfillProgress.total` 是
             // ok ＋ missing，而 ok 會一直累積（取圖精靈每裁成功一張也寫一列 ok），所以
             // 一般裝置上 total > 0 是永久成立的，用它當條件會讓「縮圖回填中 N / N」永遠
             // 掛在畫面上（全分支最終審查 Important 發現）。
             if (backfillProgress.total > backfillProgress.done) {
-                Text(
-                    "縮圖回填中 ${backfillProgress.done} / ${backfillProgress.total}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = AppTheme.colors.text,
-                    modifier = Modifier.padding(top = AppTheme.spacing.s2),
-                )
-                // 規格第四節：回填預設只在 Wi-Fi 下跑，要用行動網路得使用者每次明確同意。
-                TextButton(onClick = onContinueOnMobileData) { Text("用行動網路繼續") }
+                VsSettingGroup {
+                    Column(
+                        Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
+                        verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
+                    ) {
+                        Text(
+                            "縮圖回填中 ${backfillProgress.done} / ${backfillProgress.total}",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = AppTheme.colors.text,
+                        )
+                        BackfillBar(backfillProgress.done, backfillProgress.total)
+                        // 規格第四節：回填預設只在 Wi-Fi 下跑，要用行動網路得使用者每次明確同意。
+                        VsButton(
+                            text = "用行動網路繼續",
+                            onClick = onContinueOnMobileData,
+                            modifier = Modifier.fillMaxWidth(),
+                            variant = ButtonVariant.Secondary,
+                        )
+                    }
+                }
             }
 
             if (backfillProgress.lostCount > 0) {
-                Text(
-                    "無法取回 ${backfillProgress.lostCount} 張",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = AppTheme.colors.danger,
-                    modifier = Modifier.padding(top = AppTheme.spacing.s2),
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
-                    Button(onClick = onRetryLost, modifier = Modifier.weight(1f)) { Text("稍後重試") }
-                    TextButton(onClick = { confirmingDelete = true }, modifier = Modifier.weight(1f)) {
-                        Text("刪除這些收藏", color = AppTheme.colors.danger)
+                VsSettingGroup {
+                    Text(
+                        "無法取回 ${backfillProgress.lostCount} 張",
+                        Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = AppTheme.colors.warn,
+                    )
+                    VsSettingDivider()
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
+                        horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
+                    ) {
+                        VsButton("稍後重試", onRetryLost, Modifier.weight(1f), variant = ButtonVariant.Secondary)
+                        // 刪除收藏是破壞性動作:DangerQuiet(確認框另跳)
+                        VsButton("刪除這些收藏", { confirmingDelete = true }, Modifier.weight(1f), variant = ButtonVariant.DangerQuiet)
                     }
                 }
             }
 
             if (backfillActionError != null) {
-                Text(backfillActionError, style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.danger)
+                VsSettingNote(backfillActionError)
             }
         }
     }
@@ -93,11 +130,23 @@ fun ThumbsUsageScreen(
             title = { Text("刪除這些收藏？") },
             text = { Text("這 ${backfillProgress.lostCount} 張已經確定抓不回原始畫面，刪除後圖資與標籤都會一併移除。") },
             confirmButton = {
-                TextButton(onClick = { confirmingDelete = false; onDeleteLost() }) {
-                    Text("刪除", color = AppTheme.colors.danger)
-                }
+                VsButton("刪除", { confirmingDelete = false; onDeleteLost() }, variant = ButtonVariant.Danger)
             },
-            dismissButton = { TextButton(onClick = { confirmingDelete = false }) { Text("取消") } },
+            dismissButton = { VsButton("取消", { confirmingDelete = false }, variant = ButtonVariant.Quiet) },
         )
+    }
+}
+
+/**
+ * 細進度條(原型回填進度):4dp 高、`accentWeak` 軌道、`accent` 進度、全圓角。
+ * 純裝飾——旁邊的「縮圖回填中 N / M」文字已經把進度唸出來了,所以不另外加語意(只留測試用 tag)。
+ */
+@Composable
+private fun BackfillBar(done: Int, total: Int) {
+    val fraction = if (total > 0) (done.toFloat() / total).coerceIn(0f, 1f) else 0f
+    Box(
+        Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(AppTheme.colors.accentWeak).testTag("backfillProgressBar"),
+    ) {
+        Box(Modifier.fillMaxHeight().fillMaxWidth(fraction).background(AppTheme.colors.accent, CircleShape))
     }
 }

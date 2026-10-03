@@ -1,7 +1,6 @@
-package com.xenyaa.videoshot.ui.home
+package com.xenyaa.videoshot.ui.common
 
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
-import com.xenyaa.videoshot.ui.common.ChipKind
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

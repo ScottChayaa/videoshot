@@ -1,6 +1,7 @@
 package com.xenyaa.videoshot.ui.shell
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -45,6 +46,8 @@ fun AppShell(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = { VsBottomNav(current = nav.tab, onSelect = onSelectTab, accountInitial = accountInitial) },
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) { content(nav.tab) }
+        // consumeWindowInsets：Scaffold 已把系統列 inset 換成 padding 給內容，但不會標記成已消耗；
+        // 不標的話內容裡的 VsActionDock（自己 navigationBarsPadding）會再墊一次導覽列高度
+        Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) { content(nav.tab) }
     }
 }

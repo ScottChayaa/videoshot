@@ -54,6 +54,21 @@ class SearchRepoTest {
         assertEquals(1, facets.count { it.name == "台北" })
     }
 
+    /** 15C 最終審查 Minor：標籤列帶標籤自己的 kind，地點列固定 "other"（畫面端先看 kind=="place"）。 */
+    @Test
+    fun searchFacets_標籤列帶tagKind地點列為other() = runTest {
+        libraryDb.tagDao().insert(TagEntity(0, "小明", "person", "[]"))
+        seedShot("v1", 0.0, "2026-03-01", place = "宜蘭", tagNames = listOf("小明", "露營"))
+
+        val facets = repo.searchFacets(upToMonth = null, limit = 10)
+
+        assertEquals("person", facets.single { it.name == "小明" }.tagKind)
+        assertEquals("topic", facets.single { it.name == "露營" }.tagKind)
+        val place = facets.single { it.name == "宜蘭" }
+        assertEquals("place", place.kind)
+        assertEquals("other", place.tagKind)
+    }
+
     @Test
     fun searchFacets_時間篩選只看該月以前() = runTest {
         seedShot("v1", 0.0, "2026-03-01", place = "宜蘭")

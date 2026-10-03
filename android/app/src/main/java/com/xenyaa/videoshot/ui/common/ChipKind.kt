@@ -3,6 +3,7 @@ package com.xenyaa.videoshot.ui.common
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.xenyaa.videoshot.core.tags.TagKind
+import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.KindColors
 
@@ -27,3 +28,10 @@ enum class ChipKind(val color: Color, val icon: ImageVector) {
         }
     }
 }
+
+/**
+ * 月份／查詢標籤雲小膠囊的種類（首頁與查詢頁共用）：地點固定是 [ChipKind.PLACE]；
+ * 標籤看 [MonthFacet.tagKind]（不認得的退回 [ChipKind.OTHER]）。
+ */
+fun chipKindOf(facet: MonthFacet): ChipKind =
+    if (facet.kind == "place") ChipKind.PLACE else ChipKind.ofTagKind(facet.tagKind)

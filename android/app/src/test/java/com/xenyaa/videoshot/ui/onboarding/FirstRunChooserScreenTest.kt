@@ -1,7 +1,10 @@
 package com.xenyaa.videoshot.ui.onboarding
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
@@ -76,5 +79,32 @@ class FirstRunChooserScreenTest {
         compose.onNodeWithText("連結 Google 帳號失敗，請再試一次").assertIsDisplayed()
         compose.onNodeWithText("從 Google Drive 還原").performClick()
         assert(called)
+    }
+
+    /** 兩顆按鈕都滿版（寬度相同、接近整個畫面寬），說明文字也在。 */
+    @Test
+    fun 兩顆按鈕滿版且說明文字顯示() {
+        compose.setContent { VideoshotTheme { FirstRunChooserScreen(onRestoreClick = {}, onStartFreshClick = {}) } }
+        compose.onNodeWithText("如果你之前備份過圖庫，可以直接還原；也可以先略過，之後隨時能在帳號頁連結。").assertIsDisplayed()
+        val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
+        val restore = compose.onNodeWithText("從 Google Drive 還原").fetchSemanticsNode().boundsInRoot
+        val fresh = compose.onNodeWithText("全新開始").fetchSemanticsNode().boundsInRoot
+        assert(restore.width >= root.width * 0.8f && fresh.width >= root.width * 0.8f) { "兩顆按鈕應滿版" }
+        assert(kotlin.math.abs(restore.width - fresh.width) < 1f) { "兩顆按鈕寬度應相同" }
+        assert(restore.top < fresh.top) { "【從 Google Drive 還原】在上、【全新開始】在下" }
+    }
+
+    @Test
+    fun 平常兩顆按鈕都可按_連結中兩顆都停用() {
+        compose.setContent { VideoshotTheme { FirstRunChooserScreen(onRestoreClick = {}, onStartFreshClick = {}) } }
+        compose.onNodeWithText("從 Google Drive 還原").assertIsEnabled()
+        compose.onNodeWithText("全新開始").assertIsEnabled()
+    }
+
+    @Test
+    fun 連結中時全新開始也停用() {
+        compose.setContent { VideoshotTheme { FirstRunChooserScreen(onRestoreClick = {}, onStartFreshClick = {}, linking = true) } }
+        compose.onNodeWithText("連結中…").assertIsNotEnabled()
+        compose.onNodeWithText("全新開始").assertIsNotEnabled()
     }
 }

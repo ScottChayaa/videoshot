@@ -1,7 +1,8 @@
 package com.xenyaa.videoshot.ui.shell
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -59,7 +60,7 @@ private fun row(id: Long, date: String, place: String? = null) = ShotRow(
 @Config(sdk = [35], qualifiers = "w411dp-h891dp")
 class AppRootSearchTest {
 
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
     private class Repo : FakeLibraryRepo() {
         var homeItems = listOf(row(1L, "2026-03-01", place = "宜蘭"))
@@ -178,7 +179,8 @@ class AppRootSearchTest {
         compose.onNodeWithText("宜蘭 1").performClick() // chip
         compose.onNodeWithText("查詢 1 個條件").performClick()
 
-        compose.onNodeWithText("1 張").assertIsDisplayed()
+        // 結果列第一行改成單一文字「N 張 · 時間」，不能再精確比對「1 張」，改用子字串比對
+        compose.onNodeWithText("1 張", substring = true).assertIsDisplayed()
     }
 
     @Test
@@ -189,7 +191,8 @@ class AppRootSearchTest {
         // 首頁縮圖牆的月份標籤列——HomeScreen 的 MonthFacetRow,chip 文字就是地點名
         compose.onNodeWithText("宜蘭").performClick()
 
-        compose.onNodeWithText("1 張").assertIsDisplayed()
+        // 結果列第一行改成單一文字「N 張 · 時間」，不能再精確比對「1 張」，改用子字串比對
+        compose.onNodeWithText("1 張", substring = true).assertIsDisplayed()
     }
 
     @Test
@@ -218,7 +221,8 @@ class AppRootSearchTest {
         compose.onNodeWithText("查詢").performClick()
         compose.onNodeWithText("宜蘭 1").performClick()
         compose.onNodeWithText("查詢 1 個條件").performClick()
-        compose.onNodeWithText("1 張").assertIsDisplayed()
+        // 結果列第一行改成單一文字「N 張 · 時間」，不能再精確比對「1 張」，改用子字串比對
+        compose.onNodeWithText("1 張", substring = true).assertIsDisplayed()
 
         compose.onNodeWithContentDescription("片段縮圖 00:01", substring = true).performClick()
         compose.onNodeWithText("播放這一段").performClick()
@@ -232,5 +236,51 @@ class AppRootSearchTest {
         // 已經同步拔掉了（不是重新整頁查詢，是就地拔掉，理由同 onShotDeleted）
         compose.onNodeWithText("查詢").performClick()
         compose.onNodeWithText("沒有符合的收藏").assertIsDisplayed()
+    }
+
+    private fun pressSystemBack() {
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.waitForIdle()
+    }
+
+    /**
+     * 結果頁的系統返回鍵要回條件頁（跟頂欄箭頭「改條件」同一個去處），不是直接回首頁
+     * （階段 15D 最終審查 I1）。條件頁再按一次才回首頁。
+     */
+    @Test
+    fun 查詢結果頁按系統返回回到條件頁再按一次才回首頁() {
+        val repo = Repo()
+        compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
+
+        compose.onNodeWithText("查詢").performClick()
+        compose.onNodeWithText("宜蘭 1").performClick()
+        compose.onNodeWithText("查詢 1 個條件").performClick()
+        compose.onNodeWithText("查詢結果").assertIsDisplayed()
+
+        pressSystemBack()
+        // 回到條件頁：結果頂欄不見了，查詢按鈕與模式分頁回來
+        compose.onNodeWithText("查詢結果").assertDoesNotExist()
+        compose.onNodeWithText("查詢 1 個條件").assertIsDisplayed()
+
+        pressSystemBack()
+        // 條件頁的返回照舊回首頁：查詢頁的動作列不見
+        compose.onNodeWithText("查詢 1 個條件").assertDoesNotExist()
+    }
+
+    /** Lightbox 蓋在結果頁上時，返回先關 Lightbox、回到結果頁，不是直接跳回條件頁。 */
+    @Test
+    fun 結果頁開著Lightbox時按系統返回先關Lightbox() {
+        val repo = Repo()
+        compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
+
+        compose.onNodeWithText("查詢").performClick()
+        compose.onNodeWithText("宜蘭 1").performClick()
+        compose.onNodeWithText("查詢 1 個條件").performClick()
+        compose.onNodeWithContentDescription("片段縮圖 00:01", substring = true).performClick()
+        compose.onNodeWithText("播放這一段").assertIsDisplayed()
+
+        pressSystemBack()
+        compose.onNodeWithText("播放這一段").assertDoesNotExist()
+        compose.onNodeWithText("查詢結果").assertIsDisplayed()
     }
 }
