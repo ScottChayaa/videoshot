@@ -37,7 +37,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.xenyaa.videoshot.core.home.homeColumnsFor
+import com.xenyaa.videoshot.core.home.DEFAULT_THUMB_COLUMNS
+import com.xenyaa.videoshot.core.home.thumbColumnsFor
 import com.xenyaa.videoshot.core.home.monthLabel
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.ui.common.ButtonVariant
@@ -53,12 +54,13 @@ import androidx.compose.foundation.shape.CircleShape
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
+import com.xenyaa.videoshot.ui.thumb.ThumbGridGap
 import com.xenyaa.videoshot.ui.thumb.ThumbTile
 
 /**
  * 首頁：依 `event_date` 年月分組的縮圖牆，由新到舊。
  *
- * **每個月份同欄數**（手冊 §二「固定三欄」、§零「600dp 以上加欄」）——
+ * **每個月份同欄數**（手機欄數看帳號 › 縮圖的設定、§零「600dp 以上加欄」）——
  * 欄數隨當月張數變的話，捲動時每個月的格子大小都不一樣。
  * 月份標題與標籤列各佔滿一整列（`GridItemSpan(maxLineSpan)`）。
  */
@@ -72,6 +74,8 @@ fun HomeScreen(
     /** null＝清除篩選。開關選擇器是畫面自己的事，不必讓外面知道 */
     onPickMonth: (String?) -> Unit,
     onFacetClick: (String, MonthFacet) -> Unit,
+    /** 手機寬度每列張數（帳號 › 縮圖；平板寬度會再加欄） */
+    phoneColumns: Int = DEFAULT_THUMB_COLUMNS,
     /** 取圖完成後要捲到的月份（`YYYY-MM`）；null＝不用捲 */
     scrollToMonth: String? = null,
     /** 捲完（或發現那個月不在清單裡）回報一次，讓外面把 scrollToMonth 清掉 */
@@ -79,7 +83,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
 ) {
     var picking by rememberSaveable { mutableStateOf(false) }
-    val columns = homeColumnsFor(LocalConfiguration.current.screenWidthDp)
+    val columns = thumbColumnsFor(LocalConfiguration.current.screenWidthDp, phoneColumns)
     val slots = remember(state.items, state.facets) { HomeStore.slots(state) }
 
     // 捲到剩最後一列時先去要下一頁，使用者才不會看到清單「停住」
@@ -152,11 +156,11 @@ fun HomeScreen(
             LazyVerticalGrid(
                 columns = GridCells.Fixed(columns),
                 state = listState,
-                modifier = Modifier.fillMaxSize().padding(horizontal = AppTheme.spacing.s3),
-                // 格線 2dp：刻意偏離 4/8/12/16/24/32 尺標——原型 `.tiles { gap: 2px }`，
-                // 縮圖牆要靠得緊才像一整面牆（首頁與資料夾內容共用這個例外）。
-                horizontalArrangement = Arrangement.spacedBy(TILE_GAP),
-                verticalArrangement = Arrangement.spacedBy(TILE_GAP),
+                // 縮圖左右貼齊螢幕邊緣（不留外距，縮圖盡量大；偏離原型 `.date-group` 的左右 12），
+                // 月份標題與標籤列自己留左右 12。
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.spacedBy(ThumbGridGap),
+                verticalArrangement = Arrangement.spacedBy(ThumbGridGap),
             ) {
                 items(
                     items = slots,
@@ -170,7 +174,12 @@ fun HomeScreen(
                             // 原型 `.date-group { padding: 24 12 0 }`、`h2 { margin-bottom: 12 }`；20 Bold
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = AppTheme.colors.text,
-                            modifier = Modifier.padding(top = AppTheme.spacing.s5, bottom = AppTheme.spacing.s3),
+                            modifier = Modifier.padding(
+                                start = AppTheme.spacing.s3,
+                                end = AppTheme.spacing.s3,
+                                top = AppTheme.spacing.s5,
+                                bottom = AppTheme.spacing.s3,
+                            ),
                         )
 
                         is HomeSlot.Facets -> MonthFacetRow(
@@ -178,7 +187,7 @@ fun HomeScreen(
                             onClick = { onFacetClick(slot.month, it) },
                         )
 
-                        // 正方形、圓角、focusRing、Role.Button 與「開啟」都在 ThumbTile 裡
+                        // 正方形、直角、focusRing、Role.Button 與「開啟」都在 ThumbTile 裡
                         // （真的是按鈕：鍵盤與輔助技術都到得了，手冊 §二最後一條）
                         is HomeSlot.Tile -> ThumbTile(
                             shot = slot.shot,
@@ -263,7 +272,11 @@ private fun HomeErrorRow(message: String, onRetry: () -> Unit) {
 @Composable
 private fun MonthFacetRow(facets: List<MonthFacet>, onClick: (MonthFacet) -> Unit) {
     Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = AppTheme.spacing.s2),
+        // 左右 12 放在捲動內容裡：靜止時跟月份標題對齊，捲動時小膠囊仍可捲到螢幕邊緣
+        Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(start = AppTheme.spacing.s3, end = AppTheme.spacing.s3, bottom = AppTheme.spacing.s2),
         horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -306,4 +319,3 @@ private fun HomeEmpty(filtered: Boolean, onClearFilter: () -> Unit) {
     }
 }
 
-private val TILE_GAP = 2.dp

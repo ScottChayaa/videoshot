@@ -297,6 +297,9 @@ class AppContainer(context: Context) : AppRootDeps {
                 libraryRepo.renameTag(id, name, kind, aliases)
             override suspend fun deleteTag(id: Long) = libraryRepo.deleteTag(id)
 
+            override val thumbColumns = settings.thumbColumns
+            override suspend fun setThumbColumns(value: Int) = settings.setThumbColumns(value)
+
             /**
              * `thumbs/` 遞迴掃檔案大小 ＋ `library.db` 的檔案大小。**不含 `cache.db`／草稿**——
              * 那些是可重建的快取（AGENTS.md「無法重建的在 library.db，DB 外面的都能重建」），

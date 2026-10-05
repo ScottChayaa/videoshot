@@ -34,6 +34,10 @@ interface AccountDeps {
     suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>)
     suspend fun deleteTag(id: Long)
 
+    /** 縮圖牆手機寬度每列張數（2／3／4）。 */
+    val thumbColumns: Flow<Int>
+    suspend fun setThumbColumns(value: Int)
+
     /** `thumbs/` 目錄 ＋ `library.db` 的位元組數（規格附錄 A-8：只顯示用量，不設上限）。 */
     suspend fun storageUsageBytes(): Long
 

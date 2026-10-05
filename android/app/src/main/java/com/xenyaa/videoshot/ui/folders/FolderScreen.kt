@@ -36,11 +36,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.xenyaa.videoshot.core.home.DEFAULT_THUMB_COLUMNS
+import com.xenyaa.videoshot.core.home.thumbColumnsFor
 import com.xenyaa.videoshot.data.repo.model.FolderCard
 import com.xenyaa.videoshot.ui.common.TopBarIconButton
 import com.xenyaa.videoshot.ui.common.TopBarNav
@@ -50,6 +53,7 @@ import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
+import com.xenyaa.videoshot.ui.thumb.ThumbGridGap
 import com.xenyaa.videoshot.ui.thumb.ThumbTile
 
 /**
@@ -80,6 +84,8 @@ fun FolderScreen(
     onConfirmDelete: () -> Unit,
     onDismissDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    /** 縮圖手機寬度每列張數（帳號 › 縮圖；平板寬度會再加欄） */
+    phoneColumns: Int = DEFAULT_THUMB_COLUMNS,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val gridState = rememberLazyGridState()
@@ -160,24 +166,24 @@ fun FolderScreen(
         }
 
         // 子資料夾清單與圖放在同一個網格裡一起捲：子資料夾多的時候，單獨一塊不捲的區域會把縮圖牆擠掉。
-        // 網格間距 2dp 是原型 `.tiles { gap: 2px }` 的刻意例外（只有首頁與這一頁），其餘仍守 4/8/12/16 間距。
+        // 縮圖左右貼齊螢幕邊緣、格線 ThumbGridGap，同首頁；子資料夾清單自己留左右 16。
         LazyVerticalGrid(
-            columns = GridCells.Fixed(3),
+            columns = GridCells.Fixed(thumbColumnsFor(LocalConfiguration.current.screenWidthDp, phoneColumns)),
             state = gridState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = AppTheme.spacing.s3, vertical = AppTheme.spacing.s3),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+            contentPadding = PaddingValues(vertical = AppTheme.spacing.s3),
+            horizontalArrangement = Arrangement.spacedBy(ThumbGridGap),
+            verticalArrangement = Arrangement.spacedBy(ThumbGridGap),
         ) {
             if (state.children.isNotEmpty()) {
                 item(key = "children", span = { GridItemSpan(maxLineSpan) }) {
-                    // 網格左右內距 12，再補 4 湊成原型 `.fd-list` 的左右 16、上 16；列間距 8，與下面的圖隔 12
+                    // 左右 16、上 4（網格上內距 12，合起來是原型 `.fd-list` 的上 16）；列間距 8，與下面的圖隔 12
                     Column(
                         Modifier
                             .fillMaxWidth()
                             .padding(
-                                start = AppTheme.spacing.s1,
-                                end = AppTheme.spacing.s1,
+                                start = AppTheme.spacing.s4,
+                                end = AppTheme.spacing.s4,
                                 top = AppTheme.spacing.s1,
                                 bottom = AppTheme.spacing.s3,
                             ),
@@ -215,7 +221,7 @@ fun FolderScreen(
             }
 
             itemsIndexed(state.items, key = { _, shot -> shot.id }) { index, shot ->
-                // 正方形、圓角、focusRing、Role.Button 與「開啟」都在 ThumbTile 裡
+                // 正方形、直角、focusRing、Role.Button 與「開啟」都在 ThumbTile 裡
                 ThumbTile(shot = shot, loader = loader, onClick = { onOpenShot(index) })
             }
         }

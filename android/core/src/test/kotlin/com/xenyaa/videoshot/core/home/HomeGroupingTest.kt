@@ -50,14 +50,31 @@ class HomeGroupingTest {
         assertEquals(emptyList<MonthGroup<String>>(), groupByMonth(emptyList<String>()) { it })
     }
 
-    /** 手冊 §二「固定三欄」是手機；§零「600dp 以上會加欄」。 */
+    /** 手機用使用者選的欄數；§零「600dp 以上會加欄」。 */
     @Test
     fun 欄數看寬度() {
-        assertEquals(3, homeColumnsFor(360))
-        assertEquals(3, homeColumnsFor(411))
-        assertEquals(3, homeColumnsFor(599))
-        assertEquals(5, homeColumnsFor(600))
-        assertEquals(5, homeColumnsFor(800))
-        assertEquals(6, homeColumnsFor(900))
+        assertEquals(3, thumbColumnsFor(360, 3))
+        assertEquals(3, thumbColumnsFor(411, 3))
+        assertEquals(3, thumbColumnsFor(599, 3))
+        assertEquals(5, thumbColumnsFor(600, 3))
+        assertEquals(5, thumbColumnsFor(800, 3))
+        assertEquals(6, thumbColumnsFor(900, 3))
+    }
+
+    @Test
+    fun 手機欄數跟著設定_平板照樣加欄() {
+        assertEquals(2, thumbColumnsFor(411, 2))
+        assertEquals(4, thumbColumnsFor(411, 4))
+        assertEquals(6, thumbColumnsFor(600, 4))
+        assertEquals(7, thumbColumnsFor(900, 4))
+    }
+
+    @Test
+    fun 每列張數認不得就退回預設4() {
+        assertEquals(4, normalizeThumbColumns(null))
+        assertEquals(4, normalizeThumbColumns(5))
+        assertEquals(4, normalizeThumbColumns(0))
+        assertEquals(2, normalizeThumbColumns(2))
+        assertEquals(3, normalizeThumbColumns(3))
     }
 }

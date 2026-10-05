@@ -13,6 +13,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.xenyaa.videoshot.backup.LinkedGoogleAccount
 import com.xenyaa.videoshot.core.folders.FolderSort
+import com.xenyaa.videoshot.core.home.normalizeThumbColumns
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import java.security.KeyStore
 import javax.crypto.Cipher
@@ -90,6 +91,13 @@ class AppSettings(context: Context) : ShellSettings {
     @VisibleForTesting
     suspend fun writeRawFolderSortForTest(raw: String) {
         store.edit { it[FOLDER_SORT] = raw }
+    }
+
+    /** 縮圖牆手機寬度每列張數（帳號 › 縮圖；2／3／4，預設 4）。 */
+    val thumbColumns: Flow<Int> = store.data.map { normalizeThumbColumns(it[THUMB_COLUMNS]) }
+
+    suspend fun setThumbColumns(value: Int) {
+        store.edit { it[THUMB_COLUMNS] = normalizeThumbColumns(value) }
     }
 
     /**
@@ -242,6 +250,7 @@ class AppSettings(context: Context) : ShellSettings {
         val GRID_HINT_SEEN = booleanPreferencesKey("grid_hint_seen")
         val LIGHTBOX_HINT_SEEN = booleanPreferencesKey("lightbox_hint_seen")
         val FOLDER_SORT = stringPreferencesKey("folder_sort")
+        val THUMB_COLUMNS = intPreferencesKey("thumb_columns")
         val THEME_ID = stringPreferencesKey("theme_id")
         val NIGHT_MODE = stringPreferencesKey("night_mode")
         val GEMINI_KEY = stringPreferencesKey("gemini_key")

@@ -75,6 +75,10 @@ class AccountViewModelTest {
 
         override suspend fun storageUsageBytes(): Long = 12_345_678L
 
+        val thumbColumnsFlow = MutableStateFlow(4)
+        override val thumbColumns: Flow<Int> get() = thumbColumnsFlow
+        override suspend fun setThumbColumns(value: Int) { thumbColumnsFlow.value = value }
+
         val linkedAccountFlow = MutableStateFlow<LinkedGoogleAccount?>(null)
         override val linkedAccount: Flow<LinkedGoogleAccount?> get() = linkedAccountFlow
         var beginLinkCalled = false
@@ -176,6 +180,20 @@ class AccountViewModelTest {
 
         assertEquals(FilterStrength.HIGH, deps.lastFilterStrength)
         assertEquals(FilterStrength.HIGH, viewModel.state.value.filterStrength)
+    }
+
+    @Test
+    fun 縮圖每列張數會轉呼叫deps並流回state() = runTest {
+        val deps = FakeDeps()
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(4, viewModel.state.value.thumbColumns)
+
+        viewModel.setThumbColumns(2)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(2, deps.thumbColumnsFlow.value)
+        assertEquals(2, viewModel.state.value.thumbColumns)
     }
 
     @Test

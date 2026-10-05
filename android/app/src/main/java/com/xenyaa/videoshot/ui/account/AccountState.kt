@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.ui.account
 
 import com.xenyaa.videoshot.backfill.BackfillProgress
 import com.xenyaa.videoshot.backup.LinkedGoogleAccount
+import com.xenyaa.videoshot.core.home.DEFAULT_THUMB_COLUMNS
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.tags.TagKind
 import com.xenyaa.videoshot.data.repo.model.AccountStats
@@ -19,6 +20,8 @@ data class AccountState(
     val aiRangeAfterSec: Int = 20,
     val geminiKeySet: Boolean = false,
     val storageUsageBytes: Long = 0L,
+    /** 縮圖牆手機寬度每列張數；首頁、查詢結果、資料夾內容都讀這一格（`AppRoot`）。 */
+    val thumbColumns: Int = DEFAULT_THUMB_COLUMNS,
     val backfillProgress: BackfillProgress = BackfillProgress(0, 0, 0),
     val backfillActionError: String? = null,
     val tags: List<TagUsage> = emptyList(),

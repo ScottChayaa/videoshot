@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -29,20 +30,26 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.backfill.BackfillProgress
 import com.xenyaa.videoshot.core.format.formatBytes
+import com.xenyaa.videoshot.core.home.THUMB_COLUMN_CHOICES
+import com.xenyaa.videoshot.core.home.DEFAULT_THUMB_COLUMNS
 import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.VsButton
+import com.xenyaa.videoshot.ui.common.VsRadioRow
 import com.xenyaa.videoshot.ui.common.VsSettingDivider
 import com.xenyaa.videoshot.ui.common.VsSettingGroup
 import com.xenyaa.videoshot.ui.common.VsSettingNote
 import com.xenyaa.videoshot.ui.theme.AppTheme
 
 /**
- * 帳號頁「縮圖」子畫面：儲存用量 ＋ 回填進度 ＋「無法取回」的處理（規格第九節版面表；
+ * 帳號頁「縮圖」子畫面：縮圖每列張數 ＋ 儲存用量 ＋ 回填進度 ＋「無法取回」的處理（規格第九節版面表；
  * 手冊 §一「回填看得到進度」「抓不回來的縮圖」）。
  */
 @Composable
 fun ThumbsUsageScreen(
     usageBytes: Long,
+    /** 縮圖牆手機寬度每列張數（2／3／4） */
+    thumbColumns: Int,
+    onSelectThumbColumns: (Int) -> Unit,
     backfillProgress: BackfillProgress,
     backfillActionError: String?,
     onBack: () -> Unit,
@@ -56,6 +63,21 @@ fun ThumbsUsageScreen(
     Column(modifier.fillMaxSize()) {
         AccountSettingHeader("縮圖", onBack)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+
+            VsSettingGroup(title = "縮圖每列張數") {
+                // 同取圖子畫面：外層 selectableGroup 讓 TalkBack 把這幾列當成同一組單選
+                Column(Modifier.selectableGroup()) {
+                    THUMB_COLUMN_CHOICES.forEachIndexed { i, n ->
+                        if (i > 0) VsSettingDivider()
+                        VsRadioRow(
+                            title = if (n == DEFAULT_THUMB_COLUMNS) "$n 張（預設）" else "$n 張",
+                            selected = n == thumbColumns,
+                            onSelect = { onSelectThumbColumns(n) },
+                        )
+                    }
+                }
+            }
+            VsSettingNote("套用到首頁、查詢結果、資料夾內容。張數越多縮圖越小；平板會依寬度自動多 2～3 欄。")
 
             VsSettingGroup(title = "儲存用量") {
                 Row(

@@ -45,13 +45,23 @@ fun <T> groupByMonth(items: List<T>, monthOf: (T) -> String): List<MonthGroup<T>
     return groups
 }
 
+/** 縮圖牆手機寬度每列張數的可選值（帳號 › 縮圖）。 */
+val THUMB_COLUMN_CHOICES = listOf(2, 3, 4)
+
+/** 縮圖牆手機寬度每列張數的預設值。 */
+const val DEFAULT_THUMB_COLUMNS = 4
+
+/** 存檔的值認不得（沒存過、被改壞、之後拿掉某個選項）一律退回預設。 */
+fun normalizeThumbColumns(raw: Int?): Int = raw?.takeIf { it in THUMB_COLUMN_CHOICES } ?: DEFAULT_THUMB_COLUMNS
+
 /**
- * 首頁縮圖牆的欄數。手機固定三欄（手冊 §二），**同一次顯示中所有月份同欄數**
+ * 縮圖牆（首頁、查詢結果、資料夾內容）的欄數。[phoneColumns] 是手機寬度的每列張數
+ * （使用者在帳號 › 縮圖選），**同一次顯示中所有月份同欄數**
  * —— 欄數隨當月張數變的話，捲動時每個月的格子大小都不一樣。
- * 600dp 以上加欄（手冊 §零）。
+ * 600dp 以上加欄（手冊 §零）：比手機多 2 欄，900dp 以上多 3 欄。
  */
-fun homeColumnsFor(widthDp: Int): Int = when {
-    widthDp >= 900 -> 6
-    widthDp >= 600 -> 5
-    else -> 3
+fun thumbColumnsFor(widthDp: Int, phoneColumns: Int): Int = when {
+    widthDp >= 900 -> phoneColumns + 3
+    widthDp >= 600 -> phoneColumns + 2
+    else -> phoneColumns
 }

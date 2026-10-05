@@ -34,6 +34,9 @@ open class FakeAccountDeps : AccountDeps {
 
     override suspend fun storageUsageBytes(): Long = 0L
 
+    override val thumbColumns = MutableStateFlow(4)
+    override suspend fun setThumbColumns(value: Int) { thumbColumns.value = value }
+
     override val linkedAccount = MutableStateFlow<LinkedGoogleAccount?>(null)
     override suspend fun beginLink(activity: Activity): LinkOutcome =
         LinkOutcome.Linked(LinkedGoogleAccount("", ""))

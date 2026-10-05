@@ -2,6 +2,8 @@ package com.xenyaa.videoshot.ui.account
 
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -9,6 +11,7 @@ import androidx.compose.ui.test.performClick
 import com.xenyaa.videoshot.backfill.BackfillProgress
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
 import androidx.compose.ui.unit.dp
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -24,12 +27,38 @@ class ThumbsUsageScreenTest {
     @get:Rule val compose = createComposeRule()
 
     @Test
+    fun 縮圖每列張數_標出目前的值_點了回報選到的張數() {
+        var picked: Int? = null
+        compose.setContent {
+            VideoshotTheme {
+                ThumbsUsageScreen(
+                    usageBytes = 1024,
+                    thumbColumns = 3,
+                    onSelectThumbColumns = { picked = it },
+                    backfillProgress = BackfillProgress(done = 0, total = 0, lostCount = 0),
+                    backfillActionError = null,
+                    onBack = {},
+                    onRetryLost = {},
+                    onDeleteLost = {},
+                    onContinueOnMobileData = {},
+                )
+            }
+        }
+        compose.onNodeWithText("3 張").assertIsSelected()
+        compose.onNodeWithText("4 張（預設）").assertIsNotSelected()
+        compose.onNodeWithText("2 張").performClick()
+        assertEquals(2, picked)
+    }
+
+    @Test
     fun 顯示回填進度_並附上用行動網路繼續() {
         var continued = false
         compose.setContent {
             VideoshotTheme {
                 ThumbsUsageScreen(
                     usageBytes = 1024,
+                    thumbColumns = 4,
+                    onSelectThumbColumns = {},
                     backfillProgress = BackfillProgress(done = 320, total = 1200, lostCount = 0),
                     backfillActionError = null,
                     onBack = {},
@@ -52,6 +81,8 @@ class ThumbsUsageScreenTest {
             VideoshotTheme {
                 ThumbsUsageScreen(
                     usageBytes = 1024,
+                    thumbColumns = 4,
+                    onSelectThumbColumns = {},
                     backfillProgress = BackfillProgress(done = 100, total = 100, lostCount = 12),
                     backfillActionError = null,
                     onBack = {},
@@ -78,6 +109,8 @@ class ThumbsUsageScreenTest {
             VideoshotTheme {
                 ThumbsUsageScreen(
                     usageBytes = 1024,
+                    thumbColumns = 4,
+                    onSelectThumbColumns = {},
                     backfillProgress = BackfillProgress(done = 100, total = 100, lostCount = 0),
                     backfillActionError = null,
                     onBack = {},
@@ -101,6 +134,8 @@ class ThumbsUsageScreenTest {
             VideoshotTheme {
                 ThumbsUsageScreen(
                     usageBytes = 1024,
+                    thumbColumns = 4,
+                    onSelectThumbColumns = {},
                     backfillProgress = BackfillProgress(done = 1200, total = 1200, lostCount = 0),
                     backfillActionError = null,
                     onBack = {},
@@ -120,6 +155,8 @@ class ThumbsUsageScreenTest {
             VideoshotTheme {
                 ThumbsUsageScreen(
                     usageBytes = 1536,
+                    thumbColumns = 4,
+                    onSelectThumbColumns = {},
                     backfillProgress = BackfillProgress(done = 10, total = 10, lostCount = 0),
                     backfillActionError = null,
                     onBack = {}, onRetryLost = {}, onDeleteLost = {}, onContinueOnMobileData = {},
@@ -137,6 +174,8 @@ class ThumbsUsageScreenTest {
             VideoshotTheme {
                 ThumbsUsageScreen(
                     usageBytes = 1024,
+                    thumbColumns = 4,
+                    onSelectThumbColumns = {},
                     backfillProgress = BackfillProgress(done = 320, total = 1200, lostCount = 0),
                     backfillActionError = null,
                     onBack = {}, onRetryLost = {}, onDeleteLost = {}, onContinueOnMobileData = {},
@@ -152,6 +191,8 @@ class ThumbsUsageScreenTest {
             VideoshotTheme {
                 ThumbsUsageScreen(
                     usageBytes = 1024,
+                    thumbColumns = 4,
+                    onSelectThumbColumns = {},
                     backfillProgress = BackfillProgress(done = 1200, total = 1200, lostCount = 0),
                     backfillActionError = null,
                     onBack = {}, onRetryLost = {}, onDeleteLost = {}, onContinueOnMobileData = {},
@@ -167,6 +208,8 @@ class ThumbsUsageScreenTest {
             VideoshotTheme {
                 ThumbsUsageScreen(
                     usageBytes = 1024,
+                    thumbColumns = 4,
+                    onSelectThumbColumns = {},
                     backfillProgress = BackfillProgress(done = 5, total = 20, lostCount = 3),
                     backfillActionError = "排程失敗",
                     onBack = {}, onRetryLost = {}, onDeleteLost = {}, onContinueOnMobileData = {},

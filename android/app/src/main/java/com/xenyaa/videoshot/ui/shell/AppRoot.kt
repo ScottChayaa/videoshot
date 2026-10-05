@@ -666,6 +666,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                         onOpen = { nav = nav.push(Dest.Lightbox(it)) },
                         onLoadMore = homeVm::loadMore,
                         onPickMonth = homeVm::setFilter,
+                        phoneColumns = accountState.thumbColumns,
                         scrollToMonth = scrollToMonth,
                         onScrolledToMonth = { scrollToMonth = null },
                         // 規格第六節：「從首頁的月份標籤點進來時，條件與時間自動帶入並直接顯示結果」
@@ -691,6 +692,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                         onLoadMore = searchVm::loadMore,
                         onShowConditions = searchVm::showConditions,
                         onOpen = { nav = nav.push(Dest.Lightbox(it)) },
+                        phoneColumns = accountState.thumbColumns,
                     )
                     Tab.FOLDERS -> when (nav.current) {
                         // 資料夾頁：上半子資料夾、下半本層的圖。folderVm 一定不是 null——
@@ -717,6 +719,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                 // 「自己」跟「上半列出的子資料夾」兩條路徑，這裡只接自己那一條）
                                 onConfirmDelete = { vm.confirmDelete(::backFromFolder) },
                                 onDismissDelete = vm::dismissDelete,
+                                phoneColumns = accountState.thumbColumns,
                             )
                         }
                         else -> FoldersScreen(
@@ -764,6 +767,8 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                 }
                                 ThumbsUsageScreen(
                                     usageBytes = accountState.storageUsageBytes,
+                                    thumbColumns = accountState.thumbColumns,
+                                    onSelectThumbColumns = accountVm::setThumbColumns,
                                     backfillProgress = accountState.backfillProgress,
                                     backfillActionError = accountState.backfillActionError,
                                     onBack = { nav = nav.pop() ?: nav },

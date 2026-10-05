@@ -53,6 +53,7 @@ class AccountViewModel(
         viewModelScope.launch { deps.filterStrength.collect { v -> _state.value = _state.value.copy(filterStrength = v) } }
         viewModelScope.launch { deps.aiRangeBeforeSec.collect { v -> _state.value = _state.value.copy(aiRangeBeforeSec = v) } }
         viewModelScope.launch { deps.aiRangeAfterSec.collect { v -> _state.value = _state.value.copy(aiRangeAfterSec = v) } }
+        viewModelScope.launch { deps.thumbColumns.collect { v -> _state.update { it.copy(thumbColumns = v) } } }
         viewModelScope.launch { deps.geminiKeySet.collect { v -> _state.value = _state.value.copy(geminiKeySet = v) } }
         viewModelScope.launch { deps.linkedAccount.collect { v -> _state.value = _state.value.copy(linkedAccount = v) } }
         viewModelScope.launch { deps.lastBackupAtEpochSec.collect { v -> _state.value = _state.value.copy(lastBackupAtEpochSec = v) } }
@@ -75,6 +76,8 @@ class AccountViewModel(
     }
 
     fun setFilterStrength(value: FilterStrength) = launchGuarded { deps.setFilterStrength(value) }
+
+    fun setThumbColumns(value: Int) = launchGuarded { deps.setThumbColumns(value) }
 
     fun setAiRange(beforeSec: Int, afterSec: Int) =
         launchGuarded { deps.setAiRange(beforeSec.coerceAtLeast(0), afterSec.coerceAtLeast(0)) }

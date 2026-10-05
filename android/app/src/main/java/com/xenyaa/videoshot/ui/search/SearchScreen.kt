@@ -45,7 +45,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xenyaa.videoshot.core.home.homeColumnsFor
+import com.xenyaa.videoshot.core.home.DEFAULT_THUMB_COLUMNS
+import com.xenyaa.videoshot.core.home.thumbColumnsFor
 import com.xenyaa.videoshot.core.home.monthLabel
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.ui.home.MonthPickerSheet
@@ -65,6 +66,7 @@ import com.xenyaa.videoshot.ui.common.chipKindOf
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
+import com.xenyaa.videoshot.ui.thumb.ThumbGridGap
 import com.xenyaa.videoshot.ui.thumb.ThumbTile
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
 
@@ -86,6 +88,8 @@ fun SearchScreen(
     onLoadMore: () -> Unit,
     onShowConditions: () -> Unit,
     onOpen: (Int) -> Unit,
+    /** 結果縮圖手機寬度每列張數（帳號 › 縮圖；平板寬度會再加欄） */
+    phoneColumns: Int = DEFAULT_THUMB_COLUMNS,
 ) {
     var picking by rememberSaveable { mutableStateOf(false) }
     val showingResults = state.phase == SearchPhase.RESULTS
@@ -115,7 +119,7 @@ fun SearchScreen(
         if (showingResults) {
             ResultsPane(
                 state = state, loader = loader, listState = listState,
-                onOpen = onOpen, modifier = Modifier.weight(1f),
+                onOpen = onOpen, phoneColumns = phoneColumns, modifier = Modifier.weight(1f),
             )
         } else {
             // 模式分頁固定在頂欄正下方、不在捲動區內（原型 `.qtabs`）
@@ -268,24 +272,25 @@ private fun ResultsPane(
     loader: ThumbLoader,
     listState: LazyGridState,
     onOpen: (Int) -> Unit,
+    phoneColumns: Int,
     modifier: Modifier = Modifier,
 ) {
-    val columns = homeColumnsFor(LocalConfiguration.current.screenWidthDp)
+    val columns = thumbColumnsFor(LocalConfiguration.current.screenWidthDp, phoneColumns)
     Column(modifier.fillMaxWidth()) {
         ResultBar(state = state)
         if (state.results.isEmpty() && !state.resultsLoading) {
             VsEmptyState(icon = VsIcons.Search, message = "沒有符合的收藏")
         } else {
-            // 格線 2dp 是比照首頁的例外（原型 `.tiles` 的 gap: 2px），其餘間距走 4/8/12/16 的階
+            // 縮圖左右貼齊螢幕邊緣、格線 ThumbGridGap，同首頁；上方留 12 跟結果列隔開
             LazyVerticalGrid(
                 columns = GridCells.Fixed(columns),
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = AppTheme.spacing.s3, top = AppTheme.spacing.s3, end = AppTheme.spacing.s3),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+                contentPadding = PaddingValues(top = AppTheme.spacing.s3),
+                horizontalArrangement = Arrangement.spacedBy(ThumbGridGap),
+                verticalArrangement = Arrangement.spacedBy(ThumbGridGap),
             ) {
-                // 正方形、圓角、focusRing、Role.Button 與「開啟」都在 ThumbTile 裡（設計文件決定 5）
+                // 正方形、直角、focusRing、Role.Button 與「開啟」都在 ThumbTile 裡（設計文件決定 5）
                 itemsIndexed(state.results, key = { _, shot -> shot.id }) { index, shot ->
                     ThumbTile(shot = shot, loader = loader, onClick = { onOpen(index) })
                 }

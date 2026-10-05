@@ -4,7 +4,8 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.test.junit4.createComposeRule
-import com.xenyaa.videoshot.core.home.homeColumnsFor
+import com.xenyaa.videoshot.core.home.DEFAULT_THUMB_COLUMNS
+import com.xenyaa.videoshot.core.home.thumbColumnsFor
 import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.thumbs.ThumbKey
@@ -24,7 +25,7 @@ import java.io.File
 
 /**
  * 600dp 以上要加欄（手冊 §零）。[HomeScreenTest] 等其他測試都固定在手機寬度
- * （`w411dp-h891dp`），只驗得到 `homeColumnsFor` 這個純函式本身；這裡另外開一個
+ * （`w411dp-h891dp`），只驗得到 `thumbColumnsFor` 這個純函式本身；這裡另外開一個
  * 平板寬度的 Robolectric 設定，驗證縮圖牆**實際排版**真的照這個欄數走
  * （見階段 7 全盤覆查第 8 點最後一項）。
  */
@@ -77,9 +78,9 @@ class HomeScreenTabletTest {
         }
         compose.waitForIdle()
 
-        val expectedColumns = homeColumnsFor(widthDp)
-        // 手機三欄的固定寬度在這個 qualifier 下該被超過，不然這個測試沒驗到「加欄」
-        assertTrue("寬度 ${widthDp}dp 該落在加欄的門檻之上", expectedColumns > 3)
+        val expectedColumns = thumbColumnsFor(widthDp, DEFAULT_THUMB_COLUMNS)
+        // 手機預設欄數在這個 qualifier 下該被超過，不然這個測試沒驗到「加欄」
+        assertTrue("寬度 ${widthDp}dp 該落在加欄的門檻之上", expectedColumns > DEFAULT_THUMB_COLUMNS)
 
         val tilesPerRow = listState.layoutInfo.visibleItemsInfo
             .filter { it.key.toString().startsWith("t-") }
