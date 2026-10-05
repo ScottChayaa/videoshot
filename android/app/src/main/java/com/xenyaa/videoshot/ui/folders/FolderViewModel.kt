@@ -70,7 +70,7 @@ class FolderViewModel(
             val total = repo.folderShotCount(folderId)
             val page = repo.folderShots(folderId, null, pageSize)
             val breadcrumb = loadBreadcrumb(node)
-            // 先算好再一次寫入（CLAUDE.md 2026-10-02 的非同步狀態慣例）
+            // 先算好再一次寫入（AGENTS.md 2026-10-02 的非同步狀態慣例）
             _state.update {
                 it.copy(
                     node = node,

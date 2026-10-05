@@ -299,7 +299,7 @@ class AppContainer(context: Context) : AppRootDeps {
 
             /**
              * `thumbs/` 遞迴掃檔案大小 ＋ `library.db` 的檔案大小。**不含 `cache.db`／草稿**——
-             * 那些是可重建的快取（CLAUDE.md「無法重建的在 library.db，DB 外面的都能重建」），
+             * 那些是可重建的快取（AGENTS.md「無法重建的在 library.db，DB 外面的都能重建」），
              * 使用者關心的是「圖庫本身佔多少空間」，不是暫存檔。
              */
             override suspend fun storageUsageBytes(): Long = withContext(Dispatchers.IO) {
