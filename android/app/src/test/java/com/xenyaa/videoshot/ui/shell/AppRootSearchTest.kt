@@ -176,7 +176,7 @@ class AppRootSearchTest {
         compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
 
         compose.onNodeWithText("查詢").performClick() // 底部導覽的「查詢」分頁
-        compose.onNodeWithText("宜蘭 1").performClick() // chip
+        compose.onNodeWithText("宜蘭").performClick() // chip
         compose.onNodeWithText("查詢 1 個條件").performClick()
 
         // 結果列第一行改成單一文字「N 張 · 時間」，不能再精確比對「1 張」，改用子字串比對
@@ -201,7 +201,7 @@ class AppRootSearchTest {
         compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
 
         compose.onNodeWithText("查詢").performClick()
-        compose.onNodeWithText("宜蘭 1").performClick()
+        compose.onNodeWithText("宜蘭").performClick()
         compose.onNodeWithText("查詢 1 個條件").performClick()
         compose.onNodeWithContentDescription("片段縮圖 00:01", substring = true).performClick()
 
@@ -219,7 +219,7 @@ class AppRootSearchTest {
         compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
 
         compose.onNodeWithText("查詢").performClick()
-        compose.onNodeWithText("宜蘭 1").performClick()
+        compose.onNodeWithText("宜蘭").performClick()
         compose.onNodeWithText("查詢 1 個條件").performClick()
         // 結果列第一行改成單一文字「N 張 · 時間」，不能再精確比對「1 張」，改用子字串比對
         compose.onNodeWithText("1 張", substring = true).assertIsDisplayed()
@@ -253,7 +253,7 @@ class AppRootSearchTest {
         compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
 
         compose.onNodeWithText("查詢").performClick()
-        compose.onNodeWithText("宜蘭 1").performClick()
+        compose.onNodeWithText("宜蘭").performClick()
         compose.onNodeWithText("查詢 1 個條件").performClick()
         compose.onNodeWithText("查詢結果").assertIsDisplayed()
 
@@ -274,7 +274,7 @@ class AppRootSearchTest {
         compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
 
         compose.onNodeWithText("查詢").performClick()
-        compose.onNodeWithText("宜蘭 1").performClick()
+        compose.onNodeWithText("宜蘭").performClick()
         compose.onNodeWithText("查詢 1 個條件").performClick()
         compose.onNodeWithContentDescription("片段縮圖 00:01", substring = true).performClick()
         compose.onNodeWithText("播放這一段").assertIsDisplayed()

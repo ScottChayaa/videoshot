@@ -91,22 +91,8 @@ class SearchScreenTest {
     fun 點chip會回呼toggle() {
         var toggled: MonthFacet? = null
         show(SearchState(facets = listOf(MonthFacet("宜蘭", "place", 3))), onToggleFacet = { toggled = it })
-        compose.onNodeWithText("宜蘭 3").performClick()
+        compose.onNodeWithText("宜蘭").performClick()
         assert(toggled?.name == "宜蘭")
-    }
-
-    /**
-     * 打勾圖示現在是 `VsTagChip` 自己畫的（`contentDescription = "已選"`），不再是查詢頁手畫、
-     * 掛 `testTag("chipCheck")` 的 Icon。小膠囊是可點的合併語意節點，圖示的描述要用未合併樹才找得到。
-     */
-    @Test
-    fun 選取的chip顯示打勾圖示未選取的不顯示() {
-        val state = SearchState(
-            facets = listOf(MonthFacet("宜蘭", "place", 3), MonthFacet("台北", "place", 2)),
-            selected = setOf("place:宜蘭"),
-        )
-        show(state)
-        compose.onAllNodesWithContentDescription("已選", useUnmergedTree = true).assertCountEquals(1)
     }
 
     @Test
@@ -116,14 +102,15 @@ class SearchScreenTest {
             selected = setOf("place:宜蘭"),
         )
         show(state)
-        compose.onNodeWithText("宜蘭 3").assertIsSelected()
-        compose.onNodeWithText("台北 2").assertIsNotSelected()
+        compose.onNodeWithText("宜蘭").assertIsSelected()
+        compose.onNodeWithText("台北").assertIsNotSelected()
     }
 
     @Test
-    fun 標籤雲的標籤帶張數() {
+    fun 標籤雲的標籤不顯示張數() {
         show(SearchState(facets = listOf(MonthFacet("夜潛", "tag", 3, "topic"))))
-        compose.onNodeWithText("夜潛 3").assertIsDisplayed()
+        compose.onNodeWithText("夜潛").assertIsDisplayed()
+        compose.onNodeWithText("3", substring = true).assertDoesNotExist()
     }
 
     @Test

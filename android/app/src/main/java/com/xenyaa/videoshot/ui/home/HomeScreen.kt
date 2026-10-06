@@ -43,7 +43,6 @@ import com.xenyaa.videoshot.core.home.monthLabel
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.chipKindOf
-import com.xenyaa.videoshot.ui.common.ChipSize
 import com.xenyaa.videoshot.ui.common.TopBarIconButton
 import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsEmptyState
@@ -267,7 +266,7 @@ private fun HomeErrorRow(message: String, onRetry: () -> Unit) {
 
 /**
  * 該月出現過的地點與標籤（原型 `.month-tags`）。⏳ 單行橫向捲動（規格第六節；換行排列尚未確認）。
- * 迷你小膠囊帶種類圖示與顏色；[MonthFacet.kind] 是 `"place"` 或 `"tag"`，標籤的種類看 [MonthFacet.tagKind]。
+ * 小膠囊帶種類圖示與顏色；[MonthFacet.kind] 是 `"place"` 或 `"tag"`，標籤的種類看 [MonthFacet.tagKind]。
  */
 @Composable
 private fun MonthFacetRow(facets: List<MonthFacet>, onClick: (MonthFacet) -> Unit) {
@@ -277,14 +276,14 @@ private fun MonthFacetRow(facets: List<MonthFacet>, onClick: (MonthFacet) -> Uni
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
             .padding(start = AppTheme.spacing.s3, end = AppTheme.spacing.s3, bottom = AppTheme.spacing.s2),
-        horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
+        horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         for (facet in facets) {
+            // 跟查詢頁同一款可點小膠囊（無框、主色淺底、四角圓角）
             VsTagChip(
                 name = facet.name,
                 kind = chipKindOf(facet),
-                size = ChipSize.Mini,
                 onClick = { onClick(facet) },
             )
         }

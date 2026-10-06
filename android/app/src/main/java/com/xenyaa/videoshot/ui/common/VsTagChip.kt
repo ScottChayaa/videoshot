@@ -3,6 +3,9 @@ package com.xenyaa.videoshot.ui.common
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,26 +18,30 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
-import com.xenyaa.videoshot.ui.theme.focusRing
+import com.xenyaa.videoshot.ui.theme.FocusRingWidth
 
 enum class ChipSize { Regular, Mini }
 
 /**
  * 標籤／地點小膠囊（原型 `styles.css`「chip」＋ `app.js` 的 `tagChip`）。
  *
- * 種類靠**圖示＋顏色**兩者一起區分；選取靠**變色＋打勾**兩者一起表示——都不只靠顏色（手冊 §五）。
+ * 種類靠**圖示＋顏色**兩者一起區分；選取只靠變色（實心主色＋白字，跟淺底深字的明暗差夠大，不只靠色相）。
  *
  * 可點的小膠囊分兩種（設計 §八，與 [VsToolbarPill] 的 `isToggle` 同一條規則）：
  * - [isToggle] = false（預設）：動作／導覽（首頁月份標籤、第三步的建議標籤），當成按鈕，**不帶選取語意**，
@@ -53,33 +60,38 @@ fun VsTagChip(
     onClick: (() -> Unit)? = null,
 ) {
     val regular = size == ChipSize.Regular
-    val shape = if (regular) RoundedCornerShape(AppTheme.radii.full) else RoundedCornerShape(AppTheme.radii.sm)
-    val bg = if (selected) AppTheme.colors.accent else AppTheme.colors.surface
-    val line = if (selected) AppTheme.colors.accent else AppTheme.colors.border
+    val shape = RoundedCornerShape(AppTheme.radii.sm)
+    // 一般尺寸不畫框線，靠主色淺底表示「可以按」：accentWeak 在 bg 上太淡、accentLine 太重，取偏 accentWeak 的四分之一處；
+    // 迷你維持白底＋框線（純顯示）
+    val bg = when {
+        selected -> AppTheme.colors.accent
+        regular -> lerp(AppTheme.colors.accentWeak, AppTheme.colors.accentLine, 0.25f)
+        else -> AppTheme.colors.surface
+    }
     val ink = if (selected) AppTheme.colors.accentInk else AppTheme.colors.text
     val iconTint = if (selected) AppTheme.colors.accentInk else kind.color
-    val textStyle = if (regular) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall
-    val iconSize = if (regular) 16.dp else 13.dp
-    val pad = if (regular) PaddingValues(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s2)
+    val textStyle = MaterialTheme.typography.bodySmall
+    val iconSize = if (regular) 14.dp else 13.dp
+    val pad = if (regular) PaddingValues(horizontal = 10.dp, vertical = AppTheme.spacing.s1)
     else PaddingValues(horizontal = AppTheme.spacing.s2, vertical = 2.dp)
 
-    // 迷你＋可點：視覺膠囊維持迷你，但可點的那一層是至少 44dp 高的透明外框、膠囊置中（手冊 §零 觸控區）。
-    // 一般尺寸本來就夠高；不可點的迷你不需要觸控區，維持緊湊。
-    val wrapperClick = if (regular) null else onClick
-    var m = if (wrapperClick != null) Modifier else modifier
-    if (onClick != null && wrapperClick == null) {
-        m = m.focusRing(shape).clip(shape)
-            .chipClickable(isToggle, selected, onClick)
+    // 可點時：觸控區是至少 44dp 高的透明外框、膠囊置中（手冊 §零），但按下的漣漪與鍵盤焦點框
+    // 只畫在看得到的膠囊上，按下時的範圍跟看到的按鈕一樣大。
+    // 外框的 selectable 是唯一的合併點（文字＋選取＋點擊）；內層再合併一次會讓內層自成一個節點，外框反而沒有文字
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    var m = if (onClick != null) {
+        Modifier.border(FocusRingWidth, if (focused) AppTheme.colors.focusRing else Color.Transparent, shape)
+            .clip(shape)
+            .indication(interaction, ripple())
+    } else {
+        modifier.semantics(mergeDescendants = true) {}.clip(shape)
     }
-    // 有外框時，外框的 selectable 是唯一的合併點（文字＋選取＋點擊）；
-    // 內層再合併一次會讓內層自成一個節點，外框反而沒有文字
-    if (wrapperClick == null) m = m.semantics(mergeDescendants = true) {}
-    m = m.clip(shape)
-        .background(bg)
-        .border(1.dp, line, shape)
-        .then(if (regular && onClick != null) Modifier.defaultMinSize(minHeight = AppTheme.spacing.tap) else Modifier)
-        .padding(pad)
+    m = m.background(bg)
+    if (!regular) m = m.border(1.dp, if (selected) AppTheme.colors.accent else AppTheme.colors.border, shape)
+    m = m.padding(pad)
 
+    // 選取只靠變色表示：實心主色＋白字 vs 淺底＋深字，明暗差夠大，不只靠色相；TalkBack 由 selectable 唸已選取
     val chip: @Composable () -> Unit = {
         Row(m, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1)) {
             Icon(kind.icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(iconSize))
@@ -96,22 +108,13 @@ fun VsTagChip(
                 style = textStyle,
                 color = ink,
             )
-            if (selected) {
-                Icon(
-                    VsIcons.Check,
-                    contentDescription = "已選",
-                    tint = AppTheme.colors.accentInk,
-                    modifier = Modifier.size(if (regular) 14.dp else 12.dp),
-                )
-            }
         }
     }
-    if (wrapperClick != null) {
+    if (onClick != null) {
         Box(
             modifier
                 .defaultMinSize(minHeight = AppTheme.spacing.tap)
-                .focusRing(shape).clip(shape)
-                .chipClickable(isToggle, selected, wrapperClick),
+                .chipClickable(isToggle, selected, interaction, onClick),
             contentAlignment = Alignment.Center,
         ) { chip() }
     } else {
@@ -120,6 +123,11 @@ fun VsTagChip(
 }
 
 /** 切換型用核取方塊語意（帶選取狀態）；動作型只是按鈕，沒有選取語意。 */
-private fun Modifier.chipClickable(isToggle: Boolean, selected: Boolean, onClick: () -> Unit): Modifier =
-    if (isToggle) selectable(selected = selected, role = Role.Checkbox, onClick = onClick)
-    else clickable(role = Role.Button, onClick = onClick)
+private fun Modifier.chipClickable(
+    isToggle: Boolean,
+    selected: Boolean,
+    interaction: MutableInteractionSource,
+    onClick: () -> Unit,
+): Modifier =
+    if (isToggle) selectable(selected, interaction, indication = null, role = Role.Checkbox, onClick = onClick)
+    else clickable(interaction, indication = null, role = Role.Button, onClick = onClick)

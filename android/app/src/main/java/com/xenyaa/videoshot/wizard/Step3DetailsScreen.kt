@@ -484,10 +484,8 @@ private fun SuggestionRow(title: String, values: List<String>, kind: ChipKind, o
     if (values.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(title, style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.textDim)
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
+        // 列距 0：小膠囊外面已有 44dp 高的透明觸控外框
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             values.forEach { value -> VsTagChip(value, kind, onClick = { onPick(value) }) }
         }
     }

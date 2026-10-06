@@ -41,11 +41,11 @@ class VsTagChipTest {
         compose.onNodeWithText("4", substring = true).assertIsDisplayed()
     }
 
-    /** 手冊 §五：選取後除了變色還多一個打勾。 */
-    @Test fun 選取時多一個打勾() {
+    /** 選取只換顏色、不打勾；TalkBack 仍靠選取語意唸出已選取。 */
+    @Test fun 選取時不打勾但帶選取語意() {
         compose.setContent { VideoshotTheme { VsTagChip("夜潛", ChipKind.TOPIC, selected = true, isToggle = true, onClick = {}) } }
         compose.onNodeWithText("夜潛", substring = true).assertIsSelected()
-        compose.onNodeWithContentDescription("已選", useUnmergedTree = true).assertExists()
+        compose.onNodeWithContentDescription("已選", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test fun 可點的一般尺寸至少44高() {

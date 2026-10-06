@@ -202,18 +202,15 @@ private fun TagCloudPane(state: SearchState, onToggleFacet: (MonthFacet) -> Unit
             state.facetsLoading -> CircularProgressIndicator(modifier = Modifier.size(AppTheme.spacing.s5))
             state.facets.isEmpty() -> Text("這個時間以前沒有標籤", color = AppTheme.colors.textDim)
             else -> {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
-                    verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
-                ) {
+                // 列距 0：小膠囊外面已有 44dp 高的透明觸控外框，列與列之間的空隙由它撐出來
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
                     for (facet in state.facets) {
-                        // 切換型小膠囊：帶種類圖示／顏色與張數，選取狀態與打勾由 VsTagChip 自己負責
+                        // 切換型小膠囊：帶種類圖示／顏色、不顯示張數，選取狀態由 VsTagChip 自己負責
                         VsTagChip(
                             name = facet.name,
                             kind = chipKindOf(facet),
                             selected = facetKey(facet) in state.selected,
                             isToggle = true,
-                            count = facet.count,
                             onClick = { onToggleFacet(facet) },
                         )
                     }
@@ -359,10 +356,8 @@ private fun ConditionChipsRow(state: SearchState) {
     when (state.mode) {
         SearchMode.TAG -> {
             if (state.selected.isNotEmpty()) {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
-                    verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
-                ) {
+                // 列距 0：小膠囊外面已有 44dp 高的透明觸控外框，列與列之間的空隙由它撐出來
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
                     for (key in state.selected) {
                         VsTagChip(nameOfFacetKey(key), kindOfFacetKey(key, state.facets), size = ChipSize.Mini)
                     }

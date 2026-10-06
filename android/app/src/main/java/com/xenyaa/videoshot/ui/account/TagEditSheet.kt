@@ -65,7 +65,6 @@ fun TagEditSheet(
             FlowRow(
                 Modifier.selectableGroup(),
                 horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
-                verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
             ) {
                 TagKind.entries.forEach { kind ->
                     VsTagChip(

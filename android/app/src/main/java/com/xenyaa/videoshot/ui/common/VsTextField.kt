@@ -51,7 +51,8 @@ enum class TextFieldSize { Regular, Dense }
  *
  * 標籤在欄位**上方**，不是 Material 的浮動標籤，所以不用 `OutlinedTextField`，改用 [BasicTextField]。
  * [labelAccent]＝「這一欄會被寫入」（批次編輯，原型 `.field.will-write`）：標籤與圓點換主色；
- * 圓點位置永遠保留（不亮時透明），文字才不會位移；亮起時帶「將寫入」語意，輔助技術也分得出來。
+ * 有給值（true／false）時圓點位置永遠保留（不亮時透明），文字才不會位移；亮起時帶「將寫入」語意，輔助技術也分得出來。
+ * 不給（null，預設）就不留圓點位置，標籤跟其他欄位（如 [VsSelectField]）的標題左緣對齊。
  * [mixedPlaceholder]＝多張的值不一致，佔位字樣用斜體 `textDim`（顯示〈多個值〉）。
  * [isError] 用 `warn` 色，不用紅（紅只留給破壞性動作）。
  * 整個欄位的 `contentDescription` 取 [semanticLabel]（預設同 [label]）——既有精靈測試用它定位欄位。
@@ -65,7 +66,7 @@ fun VsTextField(
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     label: String? = null,
-    labelAccent: Boolean = false,
+    labelAccent: Boolean? = null,
     placeholder: String? = null,
     supporting: String? = null,
     mixedPlaceholder: Boolean = false,
@@ -102,16 +103,18 @@ fun VsTextField(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                // 圓點位置永遠保留；不亮時透明且沒有語意
-                Box(
-                    Modifier.size(6.dp)
-                        .background(if (labelAccent) colors.accent else Color.Transparent, CircleShape)
-                        .then(if (labelAccent) Modifier.semantics { contentDescription = "將寫入" } else Modifier),
-                )
+                // 會用到圓點的欄位才保留位置；不亮時透明且沒有語意
+                if (labelAccent != null) {
+                    Box(
+                        Modifier.size(6.dp)
+                            .background(if (labelAccent) colors.accent else Color.Transparent, CircleShape)
+                            .then(if (labelAccent) Modifier.semantics { contentDescription = "將寫入" } else Modifier),
+                    )
+                }
                 Text(
                     label,
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                    color = if (labelAccent) colors.accent else colors.textDim,
+                    color = if (labelAccent == true) colors.accent else colors.textDim,
                 )
             }
         }
