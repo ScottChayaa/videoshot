@@ -1,16 +1,14 @@
 package com.xenyaa.videoshot.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 
-val LocalPalette = staticCompositionLocalOf { Palettes.DEFAULT.light }
+val LocalPalette = staticCompositionLocalOf { Palettes.DEFAULT.palette }
 
 /**
  * 畫面取用設計 token 的入口：`AppTheme.colors.danger`、`AppTheme.spacing.s4`。
@@ -29,9 +27,8 @@ object AppTheme {
  * 把語意色映射到 Material3 的 ColorScheme，讓 Button／Chip／TextField 這些現成元件
  * **不必逐個覆寫顏色**就跟著色系走（取圖精靈那幾個畫面因此也一起換色）。
  */
-fun Palette.toColorScheme(dark: Boolean): ColorScheme {
-    val base = if (dark) darkColorScheme() else lightColorScheme()
-    return base.copy(
+fun Palette.toColorScheme(): ColorScheme {
+    return lightColorScheme().copy(
         primary = accent,
         onPrimary = accentInk,
         primaryContainer = accentWeak,
@@ -59,20 +56,19 @@ fun Palette.toColorScheme(dark: Boolean): ColorScheme {
 }
 
 /**
- * **動態色（Material You，跟著使用者桌布變）已移除。**
- * 手冊 §零 要驗「紅色只用在破壞性動作」與「深色模式每一頁都能讀」，
- * 而動態色讓主色由桌布決定 —— 有人的桌布會讓主色變紅，那兩條就驗不了。
+ * **沒有深色模式，也沒有動態色（Material You，跟著使用者桌布變）。**
+ * app 開起來就是使用者選的色系，不受手機的淺色／深色設定影響。
+ * 動態色讓主色由桌布決定 —— 有人的桌布會讓主色變紅，「紅色只用在破壞性動作」（手冊 §零）就驗不了。
  */
 @Composable
 fun VideoshotTheme(
     spec: ThemeSpec = Palettes.DEFAULT,
-    darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    val palette = spec.paletteFor(darkTheme)
+    val palette = spec.palette
     CompositionLocalProvider(LocalPalette provides palette) {
         MaterialTheme(
-            colorScheme = palette.toColorScheme(spec.usesDarkScheme(darkTheme)),
+            colorScheme = palette.toColorScheme(),
             typography = Typography,
             content = content,
         )

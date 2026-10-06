@@ -18,23 +18,17 @@ class PaletteTest {
     private fun rgb(color: androidx.compose.ui.graphics.Color): Int = color.toArgb() and 0xFFFFFF
 
     /**
-     * 每個色系**做了的每一套**都要通過 AA 的 4.5:1。
+     * 每個色系都要通過 AA 的 4.5:1。
      * **新增色系時這個測試會自動涵蓋它** —— Palettes.ALL 是唯一的註冊表。
-     *
-     * `dark` 是選配（節慶主題可以只做淺色），所以深色那一套只在有做的時候檢查；
-     * 「只有淺色」本身不是缺陷，但做了就要合格。
      */
     @Test
     fun 每個色系的文字與語意色都過_AA() {
         for (spec in Palettes.ALL) {
-            val sets = buildList {
-                add("淺色" to spec.light)
-                spec.dark?.let { add("深色" to it) }
-            }
-            for ((mode, p) in sets) {
+            val p = spec.palette
+            run {
                 fun check(label: String, fg: Int, bg: Int) {
                     val ratio = contrastRatio(fg, bg)
-                    assertTrue("${spec.id} $mode 的 $label 只有 ${"%.2f".format(ratio)}:1，低於 4.5", ratio >= 4.5)
+                    assertTrue("${spec.id} 的 $label 只有 ${"%.2f".format(ratio)}:1，低於 4.5", ratio >= 4.5)
                 }
                 check("主文字對底色", rgb(p.text), rgb(p.bg))
                 check("主文字對卡片", rgb(p.text), rgb(p.surface))
@@ -58,8 +52,7 @@ class PaletteTest {
     @Test
     fun Lightbox_的底不透明() {
         for (spec in Palettes.ALL) {
-            assertEquals(1f, spec.light.lightboxBg.alpha, 0f)
-            spec.dark?.let { assertEquals(1f, it.lightboxBg.alpha, 0f) }
+            assertEquals(1f, spec.palette.lightboxBg.alpha, 0f)
         }
     }
 
@@ -99,24 +92,20 @@ class PaletteTest {
         )
     }
 
-    /**
-     * 新年主題（節慶）**只做淺色一套** —— 節慶配色不強制備齊深色（見 `ThemeSpec.dark` 的 KDoc）。
-     * 對比檢查已由上面那條測試自動涵蓋它的淺色。
-     */
+    /** 新年主題（節慶）要在註冊表裡；對比檢查已由上面那條測試自動涵蓋。 */
     @Test
-    fun 新年主題在註冊表裡且只做淺色() {
+    fun 新年主題在註冊表裡() {
         val newYear = Palettes.ALL.firstOrNull { it.id == "newyear" }
         assertTrue("新年主題要在 Palettes.ALL 裡，使用者才選得到", newYear != null)
-        assertEquals(null, newYear!!.dark)
-        assertEquals("新年", newYear.label)
+        assertEquals("新年", newYear!!.label)
     }
 
     /** 節慶主題不能把主色換成紅的 —— 紅色要留給破壞性動作（手冊 §零第二條）。 */
     @Test
     fun 每個色系的主色都不是紅的() {
         for (spec in Palettes.ALL) {
-            val a = spec.light.accent
-            val d = spec.light.danger
+            val a = spec.palette.accent
+            val d = spec.palette.danger
             val 色相接近破壞色 = kotlin.math.abs(a.red - d.red) < 0.12f &&
                 kotlin.math.abs(a.green - d.green) < 0.12f &&
                 kotlin.math.abs(a.blue - d.blue) < 0.12f

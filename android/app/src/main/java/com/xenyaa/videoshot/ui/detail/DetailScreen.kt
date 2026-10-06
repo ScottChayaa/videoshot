@@ -298,7 +298,7 @@ private fun DetailGridTile(
         // 聚焦那格的 3dp 內框（畫在縮圖上方，不吃點擊）
         if (focused) Box(Modifier.fillMaxSize().border(3.dp, AppTheme.colors.accent, shape))
         // 觸控 44dp，視覺是 28dp 的 scrim 方塊＋白色圖示——白色而不是 accentInk：
-        // accentInk 在深色模式是深色，疊在縮圖上看不見（同 Lightbox／首頁的處理）
+        // 色系的 accentInk 不保證是淺色，疊在縮圖上可能看不見（同 Lightbox／首頁的處理）
         IconButton(
             onClick = onEdit,
             modifier = Modifier

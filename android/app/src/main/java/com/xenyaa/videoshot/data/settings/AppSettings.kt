@@ -148,19 +148,6 @@ class AppSettings(context: Context) : ShellSettings {
         store.edit { it[THEME_ID] = id }
     }
 
-    /** 淺色／深色要聽誰的（預設跟隨系統）。 */
-    val nightMode: Flow<NightMode> = store.data.map { NightMode.byId(it[NIGHT_MODE]) }
-
-    suspend fun setNightMode(value: NightMode) {
-        store.edit { it[NIGHT_MODE] = value.id }
-    }
-
-    /** 只給測試用：塞一個認不得的值，驗證讀取端會退回跟隨系統。 */
-    @VisibleForTesting
-    suspend fun writeRawNightModeForTest(raw: String) {
-        store.edit { it[NIGHT_MODE] = raw }
-    }
-
     /**
      * Gemini 金鑰（規格第四節：「以 Android Keystore 的金鑰加密後存 DataStore」）。
      * 換裝置、清除 app 資料、或 Keystore 本身被系統清掉的話，舊密文解不開——
@@ -252,7 +239,6 @@ class AppSettings(context: Context) : ShellSettings {
         val FOLDER_SORT = stringPreferencesKey("folder_sort")
         val THUMB_COLUMNS = intPreferencesKey("thumb_columns")
         val THEME_ID = stringPreferencesKey("theme_id")
-        val NIGHT_MODE = stringPreferencesKey("night_mode")
         val GEMINI_KEY = stringPreferencesKey("gemini_key")
         val AI_RANGE_BEFORE_SEC = intPreferencesKey("ai_range_before_sec")
         val AI_RANGE_AFTER_SEC = intPreferencesKey("ai_range_after_sec")

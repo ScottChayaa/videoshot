@@ -111,7 +111,7 @@ class RestoreScreenTest {
             for (y in 0 until grid.height) for (x in 0 until grid.width) if (near(grid[x, y], c, 0.2f)) n++
             return n
         }
-        val colors = Palettes.DEFAULT.light
+        val colors = Palettes.DEFAULT.palette
         assert(count(colors.warn) > 0) { "失敗原因應是 warn 色" }
         assert(count(colors.danger) == 0) { "失敗原因不該出現紅色" }
     }

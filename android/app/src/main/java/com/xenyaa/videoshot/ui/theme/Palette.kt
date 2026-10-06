@@ -4,7 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 
 /**
- * 一個色系在**一種明暗模式**下的全部顏色。
+ * 一個色系的全部顏色。
  *
  * 欄位名綁**語意**不綁顏色 —— `danger` 而不是 `red`。這是「紅色只用在破壞性動作」（手冊 §零）
  * 能在換色系之後仍然成立的原因：畫面寫的是「這個動作是破壞性的」，不是「這裡塗紅色」。
@@ -57,7 +57,7 @@ data class Palette(
 )
 
 /**
- * 一個「色系」＝淺色一套 ＋ 深色一套。
+ * 一個「色系」＝一套配色。app 沒有深色模式：開起來就是使用者選的色系，不跟系統的淺色／深色設定走。
  *
  * @param id 存進 DataStore 的識別碼，**不可更動**（改了使用者選過的主題會失效）
  * @param label 設定頁顯示的名稱（階段 11 的帳號頁）
@@ -66,24 +66,5 @@ data class Palette(
 data class ThemeSpec(
     val id: String,
     val label: String,
-    val light: Palette,
-    /**
-     * 深色的那一套。**可以不做**（節慶主題通常只配一套顏色）——
-     * 留 null 時深色模式沿用 [light]，而不是掉回預設色系：
-     * 使用者選了聖誕卻在晚上看到靛藍，會以為主題壞了。
-     *
-     * 預設色系（`Palettes.DEFAULT`）例外，它一定要兩套都有，`ThemeSpecTest` 會擋。
-     */
-    val dark: Palette? = null,
+    val palette: Palette,
 )
-
-/** 這個模式實際要用哪一套配色。 */
-fun ThemeSpec.paletteFor(dark: Boolean): Palette = if (dark) this.dark ?: light else light
-
-/**
- * Material3 的底層 `ColorScheme` 要不要用深色的那一份。
- *
- * 跟著**實際用的配色**走，不是跟著系統走 —— 只有淺色的主題在深色模式下用的是淺色配色，
- * 底層 scheme 若還套深色，現成元件（Button／TextField）的預設值會跟 token 打架。
- */
-fun ThemeSpec.usesDarkScheme(dark: Boolean): Boolean = dark && this.dark != null

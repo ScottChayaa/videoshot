@@ -55,7 +55,7 @@ import com.xenyaa.videoshot.ui.theme.AppTheme
 
 /**
  * 元件總覽頁（開發測試版專用，計畫 15A Task 8）：每個共用元件的每種狀態各擺一份，
- * 實機上逐張對照原型樣式表（淺色＋深色）。用 `Column` ＋ `verticalScroll` 而不是 `LazyColumn`，
+ * 實機上逐張對照原型樣式表。用 `Column` ＋ `verticalScroll` 而不是 `LazyColumn`，
  * 讓每一區都一定被組合出來（測試要斷言每區標題都在）。
  * 互動範例各自帶本機狀態，可以在實機上點點看。
  */

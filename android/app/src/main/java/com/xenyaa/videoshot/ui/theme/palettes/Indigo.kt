@@ -9,7 +9,7 @@ import com.xenyaa.videoshot.ui.theme.ThemeSpec
  *
  * **要新增別的色系就複製這個檔案改色值**，然後在 `Palettes.ALL` 裡多列一行 —— 其他地方都不必動。
  */
-private val Light = Palette(
+private val Colors = Palette(
     bg = Color(0xFFEEF0F6),
     surface = Color(0xFFFFFFFF),
     surface2 = Color(0xFFF3F5FB),
@@ -42,38 +42,4 @@ private val Light = Palette(
     focusRing = Color(0x8C4F46E5),
 )
 
-private val Dark = Palette(
-    bg = Color(0xFF0E1017),
-    surface = Color(0xFF171A24),
-    surface2 = Color(0xFF1F2431),
-    border = Color(0xFF2C3242),
-    borderStrong = Color(0xFF3C4356),
-
-    text = Color(0xFFE8EAF4),
-    textDim = Color(0xFFA6AEC4),
-    textFaint = Color(0xFF8A93AB),
-
-    accent = Color(0xFF9490F7),
-    accentInk = Color(0xFF14132A),
-    accentWeak = Color(0xFF232242),
-    accentLine = Color(0xFF453F7A),
-
-    hero1 = Color(0xFF35307A),
-    hero2 = Color(0xFF4C3E86),
-
-    danger = Color(0xFFF2778F),
-    dangerInk = Color(0xFF14132A),
-    dangerWeak = Color(0xFF331B22),
-    warn = Color(0xFFE0AE5E),
-    warnWeak = Color(0xFF2E2515),
-    ok = Color(0xFF63C89D),
-    okWeak = Color(0xFF163026),
-
-    overlay = Color(0x99000000),
-    scrim = Color(0xB3000000),
-    // 深色模式的 CSS 沒有覆寫 --lb-bg，兩邊同值
-    lightboxBg = Color(0xFF0B0B12),
-    focusRing = Color(0xA69490F7),
-)
-
-val Indigo = ThemeSpec(id = "indigo", label = "靛藍（預設）", light = Light, dark = Dark)
+val Indigo = ThemeSpec(id = "indigo", label = "靛藍（預設）", palette = Colors)

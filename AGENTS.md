@@ -51,7 +51,7 @@ Gemini 金鑰輸入／清除（`GeminiKeyScreen`，沿用階段 10 就做好的 
 **五項刻意留到之後的範圍**（跟 scott 確認過，不是本階段的疏漏）：
 (1) 主題色系選擇器沒有做——規格第十五節提到「帳號頁，階段 11 的 UI」，但路線圖 T11.1～T11.4
 與驗收手冊 §八都沒有列出，跟 scott 確認後這次刻意跳過，留到之後單獨排一個階段；DataStore 存取層
-（`themeId`／`NightMode`）已經在階段 7 做好，只差畫面。
+（`themeId`）已經在階段 7 做好，只差畫面。（`NightMode` 已於 2026-10-06 隨深色模式一起移除。）
 (2) 備份（雲）選單列只顯示靜態說明（`ComingSoonScreen`）——Google 帳號連結與備份是階段 12 的範圍，
 這次沒有做任何 OAuth 或 Drive 相關的東西。
 (3) 縮圖選單列只顯示儲存用量，沒有回填進度——回填是階段 13 的範圍，這次只做規格第九節版面表
@@ -353,6 +353,10 @@ Lightbox（⋯ 選單、深色模式圖示清楚）→【播放這一段】→ �
 **階段 15 的未竟事項**：主題色系選擇器（決定 11，另外排一個階段）、查詢紀錄與沿用上次查詢（決定 10，新功能）。
 **TalkBack 實際走一遍：2026-10-04 scott 決定跳過**（只確認過每個可點元素都有名稱；已知標籤編輯的種類選擇會被唸成核取方塊，未修）。
 
+**2026-10-06 移除深色模式**：app 打開就是設定好的色系，不跟手機的淺色／深色設定走（`NightMode`、
+各色系的深色那一套、`pnpm compare --dark` 都已刪除；`themes.xml` 關掉強制反色、系統列圖示固定深色）。
+下面各階段紀錄裡「深色模式驗過」的文字是當時的歷史，不再是驗收項目。
+
 **app 啟動後落在首頁**（階段 2 的資料層冒煙畫面已刪除，內容在 git 歷史），底部導覽五格
 （首頁／查詢／取圖／分類／帳號），取圖精靈在第三格。貼網址 → 挑畫面 → 填圖資 → 完成，
 這一整段的接線已經做完，圖會真的寫進 `library.db`。
@@ -428,7 +432,7 @@ storyboard 裁出真圖、收斂回報「119 張候選、隱藏 9 張」→ 挑 
 | 1 | [`docs/superpowers/plans/2026-09-11-videoshot-android-實作計畫.md`](docs/superpowers/plans/2026-09-11-videoshot-android-實作計畫.md) | **主文件**（路線圖）。15 個階段、依賴、驗收條件、風險；各階段的細節計畫從這裡連出去 | 每次動工 |
 | 2 | [`docs/superpowers/specs/2026-09-10-videoshot-app-design.md`](docs/superpowers/specs/2026-09-10-videoshot-app-design.md) | **規格**。技術事實（storyboard、watch page 欄位、trigram 限制）、架構與模組邊界、資料模型、備份／回填、POC | 動手寫某個模組前，讀對應章節 |
 | 3 | [`mockups/uiux-v2/驗收操作手冊.md`](mockups/uiux-v2/驗收操作手冊.md) | **UI 驗收標準**。計畫的驗收條件引用它的原文；標〔app〕的條目是只有 app 才有的行為 | 做完一個任務要驗收時 |
-| 4 | 開發測試版的**元件總覽頁**（`adb shell am start -n com.xenyaa.videoshot/.debug.ComponentCatalogActivity`，指令見下方「指令」） | **視覺參考**。`ui/common/` 每個共用元件的各種狀態（含深色模式）；視覺的權威是它，不是原型 | 做 UI、問「這個元件該長怎樣」時 |
+| 4 | 開發測試版的**元件總覽頁**（`adb shell am start -n com.xenyaa.videoshot/.debug.ComponentCatalogActivity`，指令見下方「指令」） | **視覺參考**。`ui/common/` 每個共用元件的各種狀態；視覺的權威是它，不是原型 | 做 UI、問「這個元件該長怎樣」時 |
 
 `mockups/uiux-v2/` 的 HTML 是 **UI 的歷史參考**（最初的視覺來源，已經以 Compose 重寫、程式碼不沿用；階段 15 完成後視覺以 app 的共用元件為準），
 它落後於驗收手冊（手冊是目標狀態）。與原型刻意不同的地方集中記在規格第六節「UI 與原型的差異」。
@@ -495,13 +499,13 @@ pnpm mock         # UI 原型（需要 mockups/shared/storyboard.ts 存在）
 
 ```bash
 pnpm seed                   # 從原型重新產生 android/app/src/debug/assets/seed/mock-seed.json（假資料）
-pnpm compare [--seed] [--dark] [--only 首頁,查詢]   # 原型與實機對照截圖（需先開 pnpm mock、本機要有 Chrome——位置不是 /usr/bin/google-chrome 就設 CHROME=路徑；輸出 tmp/ui-compare/<時間>/；--seed 約 2.5 分鐘）
+pnpm compare [--seed] [--only 首頁,查詢]   # 原型與實機對照截圖（需先開 pnpm mock、本機要有 Chrome——位置不是 /usr/bin/google-chrome 就設 CHROME=路徑；輸出 tmp/ui-compare/<時間>/；--seed 約 2.5 分鐘）
 ```
 
 開發測試版專用的實機工具（正式版不含）：
 
 ```bash
-# 元件總覽頁（所有共用元件、淺色／深色）
+# 元件總覽頁（所有共用元件）
 adb shell am start -n com.xenyaa.videoshot/.debug.ComponentCatalogActivity
 # 匯入假資料：會「取代」裝置上的整個圖庫（13 張／11 支影片／5 個資料夾／20 個標籤），匯入後自動排縮圖回填
 adb shell am broadcast -a com.xenyaa.videoshot.debug.SEED -n com.xenyaa.videoshot/.debug.seed.SeedReceiver

@@ -47,7 +47,7 @@ class Grid(val width: Int, val height: Int, private val at: (Int, Int) -> Color)
 
 /** 預設色系的焦點框疊在 [under] 上應該長成的樣子。 */
 fun ringOver(under: Color): Color {
-    val ring = Palettes.DEFAULT.light.focusRing
+    val ring = Palettes.DEFAULT.palette.focusRing
     return Color(
         red = ring.red * ring.alpha + under.red * (1 - ring.alpha),
         green = ring.green * ring.alpha + under.green * (1 - ring.alpha),

@@ -61,10 +61,9 @@ class LightboxScreenTest {
         startIndex: Int = 0,
         hintSeen: Boolean = true,
         onHintSeen: () -> Unit = {},
-        darkTheme: Boolean = false,
     ) {
         compose.setContent {
-            VideoshotTheme(darkTheme = darkTheme) {
+            VideoshotTheme {
                 LightboxScreen(
                     items = items,
                     total = total,
@@ -163,10 +162,10 @@ class LightboxScreenTest {
         compose.onNodeWithText("01:30").assertIsDisplayed()
     }
 
-    /** 階段 15A 對照截圖發現：深色模式下 Lightbox 的圖示幾乎看不見——圖示色要固定是白色。 */
+    /** Lightbox 的底固定是近黑，圖示色要固定是白色，不能跟著色系的 accentInk 走。 */
     @Test
-    fun 深色模式的圖示用白色() {
-        show(darkTheme = true)
+    fun 圖示用白色() {
+        show()
         // 不用 captureToImage()（Robolectric 下 forceRedraw 逾時），改用 FocusProbe 的 pixelsAround
         val pixels = compose.pixelsAround(compose.onNodeWithContentDescription("加入分類"), margin = 0)
         var maxBrightness = 0f

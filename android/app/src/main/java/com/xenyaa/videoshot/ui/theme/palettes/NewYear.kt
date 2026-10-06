@@ -5,7 +5,7 @@ import com.xenyaa.videoshot.ui.theme.Palette
 import com.xenyaa.videoshot.ui.theme.ThemeSpec
 
 /**
- * 新年（春節）主題。**只做淺色一套** —— 深色模式沿用它自己的淺色（見 `ThemeSpec.dark`）。
+ * 新年（春節）主題。
  *
  * **主色是金，不是紅。** 紅金是春節的底，但「紅色只用在破壞性動作」是這個 app 的驗收條件
  * （手冊 §零第二條：主要動作一律是主色、只有刪除那類是紅的）。主色若換成紅，
@@ -62,5 +62,5 @@ private val Light = Palette(
 val NewYear = ThemeSpec(
     id = "newyear",
     label = "新年",
-    light = Light,
+    palette = Light,
 )

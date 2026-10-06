@@ -145,7 +145,6 @@ fun LightboxScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // 圖示色用 OnDarkColors：Lightbox 底色不隨主題變，前景也不能隨主題變
-                // （原本用 accentInk，深色模式下是近黑色，疊在黑底上看不見）
                 IconButton(onClick = onClose, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(iconShape)) {
                     Icon(VsIcons.Close, contentDescription = "關閉", tint = OnDarkColors.primary)
                 }

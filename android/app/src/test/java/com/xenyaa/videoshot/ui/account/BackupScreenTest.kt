@@ -221,7 +221,7 @@ class BackupScreenTest {
     fun 備份錯誤用warn色而不是紅色() {
         show(error = "備份失敗，請稍後再試")
         val node = compose.onNodeWithText("備份失敗，請稍後再試")
-        val colors = Palettes.DEFAULT.light
+        val colors = Palettes.DEFAULT.palette
         assert(count(node, colors.warn) > 0) { "錯誤文字應是 warn 色" }
         assert(count(node, colors.danger) == 0) { "錯誤文字不該出現紅色" }
     }

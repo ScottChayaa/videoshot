@@ -111,7 +111,7 @@ class HomeFocusTest {
 
     /** `focusRing` 疊在 [under] 上應該長成的樣子。 */
     private fun ringOver(under: Color): Color {
-        val ring = Palettes.DEFAULT.light.focusRing
+        val ring = Palettes.DEFAULT.palette.focusRing
         return Color(
             red = ring.red * ring.alpha + under.red * (1 - ring.alpha),
             green = ring.green * ring.alpha + under.green * (1 - ring.alpha),

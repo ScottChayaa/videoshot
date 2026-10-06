@@ -307,13 +307,13 @@ videoshot/
 | 元件 | 角色 |
 |---|---|
 | `VsTopBar`、`VsBottomNav` | 頂欄（固定 60dp＋1dp 分隔線）與底部導覽（「取圖」是主色實心方塊；第五格依帳號連結狀態顯示人像或頭像字母，文字維持「帳號」） |
-| `VsTagChip`、`ChipKind` | 標籤小膠囊，帶種類圖示與種類色；可點的分**動作型**（預設，當按鈕）與**切換型**（`isToggle`，帶選取語意與 ✓） |
+| `VsTagChip`、`ChipKind` | 標籤小膠囊，帶種類圖示與種類色；可點的分**動作型**（預設，當按鈕）與**切換型**（`isToggle`，帶選取語意，選取時變主色實心） |
 | `VsButton`、`VsToolbarPill` | 按鈕（主要／次要／純文字／破壞性）與工具列小按鈕；紅色只給破壞性 |
 | `VsListRow`、`VsSettingGroup`、`VsSettingNote`、`VsRadioRow`、`VsStepper`、`VsSelectField` | 清單列與設定頁元件組（帳號頁與其子畫面一律用它們） |
 | `VsTextField`、`VsEmptyState`、`VsHintCard`、`VsActionDock`、`VsStepIndicator`、`VsUnderlineTabs` | 輸入欄、空狀態、可關閉提示卡、底部動作列（自動避開系統導覽列與鍵盤）、取圖步驟條、底線分頁 |
 
 可互動元件一律有 `focusRing()` 與 TalkBack 名稱，觸控區最小 44dp。開發測試版另有**元件總覽頁**（見第十三節「開發測試版專用工具」），
-逐一列出每個元件的各種狀態（含深色模式），是視覺的權威參考。
+逐一列出每個元件的各種狀態，是視覺的權威參考。
 
 ### 工具鏈
 
@@ -864,7 +864,7 @@ v1 不實作。第三步的【完成】在 v2 會變成【下一步】，資料�
 - 左右滑動＝上一張／下一張，範圍是**進來時的清單**（首頁＝目前顯示中的時間軸、查詢＝該次結果、資料夾＝該資料夾本層）。
 - 第一次開啟出現一次性的「左右滑動看上一張／下一張」提示。
 - 大圖是 320×180 放大置中（`contain`），全屏會偏軟，這是儲存尺寸的天生限制，已接受（附錄 A-6）。
-- **維持純看圖**：不顯示圖資區，頂欄也不顯示日期（圖資在詳情頁看）。底色在淺色／深色模式下都是固定的近黑，
+- **維持純看圖**：不顯示圖資區，頂欄也不顯示日期（圖資在詳情頁看）。底色固定是近黑（不隨色系變），
   所以頂列與動作列的圖示固定用白色（`OnDarkColors`），不隨主題色變。
 - **動作分層**：
 
@@ -1284,11 +1284,11 @@ POC 的結論**不承諾所有影片、所有播放情境 100% 可截**；截圖
 
 只在 debug 變體（`app/src/debug/`）提供，正式版不含（已用 release APK 的 dex 驗證不含任何 debug 類別）：
 
-- **元件總覽頁**（`ComponentCatalogActivity`）：逐一列出 `ui/common/` 每個元件的各種狀態，淺色／深色。
+- **元件總覽頁**（`ComponentCatalogActivity`）：逐一列出 `ui/common/` 每個元件的各種狀態。
 - **假資料匯入**：`pnpm seed` 從原型的 `mock-data.js` 轉出 JSON（13 張收藏、11 支影片、5 個資料夾、20 個標籤），
   `SeedReceiver` 一個 adb broadcast 就**取代**整個圖庫，匯入後自動排縮圖回填（同時是一次回填的實機演練）。
 - **對照截圖**：`pnpm compare` 產出「原型｜實機」並排圖（原型用無頭 Chrome 392×850，實機用 `adb exec-out screencap`），
-  淺色／深色各一輪；兩邊各自的操作步驟寫在 `mockups/tools/ui-compare.screens.mjs`。
+  兩邊各自的操作步驟寫在 `mockups/tools/ui-compare.screens.mjs`。
 
 每個 UI 階段收尾都要附對照圖當驗收證據，並用乾淨 `git worktree` 全新重跑 JVM 測試。
 
@@ -1356,12 +1356,13 @@ OAuth client 綁定 APK 的簽章憑證，**debug 與 release 用不同的憑證
 - 詳情頁播放、就地編輯、影片層級的批次編輯與刪除
 - 帳號頁：統計、設定、標籤管理、Gemini 金鑰
 - Google Drive 備份與還原、縮圖回填
-- 深色模式、鍵盤與輔助技術可操作
+- 鍵盤與輔助技術可操作
 - **主題（配色）可切換**（**選擇器畫面尚未做**，另外排一個階段；DataStore 存取層已就緒）：app 內選色系（帳號頁），偏好存 DataStore。
   一個色系＝`palettes/` 一個檔案 ＋ 註冊表一行；**只換 `Palette` 的語意色 token，不動間距／圓角／字級**，
-  所以換主題不會影響排版。節慶主題（聖誕、春節、萬聖節…）**只需要做淺色一套**，
-  `ThemeSpec.dark` 留 null 時深色模式沿用它自己的淺色（不掉回預設色系）；預設色系兩套都要有。
-  淺／深另有 `NightMode`（跟隨系統／強制淺／強制深）。每個做出來的配色都要過 AA 4.5:1（`PaletteTest` 自動涵蓋）。
+  所以換主題不會影響排版。一個色系只有**一套**配色（`ThemeSpec.palette`）。每個配色都要過 AA 4.5:1（`PaletteTest` 自動涵蓋）。
+- **沒有深色模式**：app 打開就是使用者選的色系，不受手機淺色／深色設定影響——不讀 `isSystemInDarkTheme()`、
+  Material3 底層一律用淺色 `ColorScheme`、`themes.xml` 關掉 `forceDarkAllowed`（擋系統與 MIUI 的強制反色）、
+  系統列圖示固定深色（`SystemBarStyle.light`）。舊版存在 DataStore 的 `night_mode` 鍵已不讀取，留著無害。
 - 單元測試與整合測試
 
 ### 明確排除

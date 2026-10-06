@@ -137,7 +137,7 @@ class FocusRingTest {
         compose.runOnIdle { requester.requestFocus() }
 
         val (edge, _) = edgeAndCenter()
-        val ring = Palettes.DEFAULT.light.focusRing
+        val ring = Palettes.DEFAULT.palette.focusRing
         val expected = Color(
             red = ring.red * ring.alpha + underneath.red * (1 - ring.alpha),
             green = ring.green * ring.alpha + underneath.green * (1 - ring.alpha),

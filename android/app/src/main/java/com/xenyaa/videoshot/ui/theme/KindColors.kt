@@ -5,8 +5,7 @@ import androidx.compose.ui.graphics.Color
 /**
  * 標籤小膠囊的種類色，逐一對應原型 `mockups/uiux-v2/app.js` 的 `KIND`。
  *
- * **深淺模式同值、也不隨色系變**：原型的深色模式沒有覆寫這五色，而且種類色是「辨識種類」
- * 的編碼，換主題就換顏色會讓使用者記住的對應失效。不放進 [Palette] 就是這個理由。
+ * **不隨色系變**：種類色是「辨識種類」的編碼，換主題就換顏色會讓使用者記住的對應失效。不放進 [Palette] 就是這個理由。
  */
 object KindColors {
     val place = Color(0xFF0EA5E9)

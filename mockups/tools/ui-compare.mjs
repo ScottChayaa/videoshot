@@ -1,5 +1,5 @@
 // 原型｜實機對照截圖：同一個畫面各截一張，左原型、右實機，並排存成 PNG。
-// 用法：pnpm compare [--dark] [--only 首頁,查詢] [--seed]
+// 用法：pnpm compare [--only 首頁,查詢] [--seed]
 // 需要：另一個終端機跑著 pnpm mock（port 8231）、adb 連著一台裝上 debug 版的手機、本機有 Chrome
 // （預設 /usr/bin/google-chrome，位置不同就設 CHROME 環境變數）。
 import { chromium } from 'playwright-core';
@@ -18,7 +18,6 @@ const CHROME = process.env.CHROME || '/usr/bin/google-chrome';
 
 // ---- 參數 ----
 const args = process.argv.slice(2);
-const dark = args.includes('--dark');
 const seed = args.includes('--seed');
 const onlyIdx = args.indexOf('--only');
 const only = onlyIdx >= 0 ? (args[onlyIdx + 1] ?? '').split(',').map((s) => s.trim()).filter(Boolean) : null;
@@ -31,18 +30,6 @@ const adbText = (...a) => adb(...a).toString('utf8');
 function die(msg) {
   console.error(msg);
   process.exit(1);
-}
-
-// ---- 深色模式：記下原本的設定，結束時還原 ----
-let originalNight = null;
-function readNightMode() {
-  // 輸出像 "Night mode: no"；auto／custom_schedule／custom_bedtime 也是 cmd uimode night 接受的值
-  const m = adbText('shell', 'cmd', 'uimode', 'night').match(/Night mode:\s*(\S+)/i);
-  return m ? m[1].toLowerCase() : null;
-}
-function restoreNightMode() {
-  if (originalNight == null) return;
-  try { adb('shell', 'cmd', 'uimode', 'night', originalNight); } catch { /* 裝置可能已斷線 */ }
 }
 
 // ---- 前置檢查 ----
@@ -215,14 +202,11 @@ async function main() {
   const failures = [];
   const browser = await chromium.launch({ executablePath: CHROME, headless: true });
   try {
-    originalNight = readNightMode();
-    adb('shell', 'cmd', 'uimode', 'night', dark ? 'yes' : 'no');
-    await sleep(1500);
-
     const context = await browser.newContext({
       viewport: { width: 392, height: 850 },
       deviceScaleFactor: 2.75,
-      colorScheme: dark ? 'dark' : 'light',
+      // app 沒有深色模式，原型也固定看淺色
+      colorScheme: 'light',
     });
     await context.addInitScript(() => {
       try {
@@ -271,7 +255,6 @@ async function main() {
     if (done.length) await compose(browser, outDir, 'all.png', 'all', done, 3, 360);
   } finally {
     await browser.close();
-    restoreNightMode();
   }
 
   console.log(`\n輸出資料夾：${outDir}`);
@@ -283,6 +266,5 @@ async function main() {
 }
 
 main().catch((e) => {
-  restoreNightMode();
   die(e.stack || String(e));
 });
