@@ -13,20 +13,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,7 +33,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -56,9 +51,7 @@ import com.xenyaa.videoshot.ui.common.VsEmptyState
 import com.xenyaa.videoshot.ui.common.VsTagChip
 import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.ui.icons.VsIcons
-import androidx.compose.foundation.shape.CircleShape
 import com.xenyaa.videoshot.ui.theme.AppTheme
-import com.xenyaa.videoshot.ui.theme.focusRing
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
 import com.xenyaa.videoshot.ui.thumb.ThumbGridGap
 import com.xenyaa.videoshot.ui.thumb.ThumbTile
@@ -151,11 +144,7 @@ fun HomeScreen(
 
     Column(modifier.fillMaxSize()) {
 
-        HomeTopBar(onOpenFilter = { picking = true })
-
-        if (state.upToMonth != null) {
-            FilterBar(month = state.upToMonth, onClear = { onPickMonth(null) })
-        }
+        HomeTopBar(upToMonth = state.upToMonth, onOpenFilter = { picking = true })
 
         // 讀取失敗不能無聲無息：loading 沒有接住例外就會卡在 true、清單再也不會重試
         // （見階段 7 全盤覆查第 2 點）。這裡只是提示＋重試，不是破壞性動作，不用 danger 色。
@@ -223,40 +212,24 @@ fun HomeScreen(
     }
 }
 
-@Composable
-private fun HomeTopBar(onOpenFilter: () -> Unit) {
-    VsTopBar("收藏") {
-        TopBarIconButton(VsIcons.Calendar, "依時間篩選", onOpenFilter)
-    }
-}
-
 /**
- * 啟用篩選時才出現的可清除狀態列（手冊 §二第四條；原型 `.filter-bar`）。
- * 外距左右 16 上 12，內距上下 8、左 12、右 8（右邊留給 44dp 的清除鈕）。
+ * 有時間篩選時日曆鈕變成主色淺底圓形＋主色圖示，不另外佔一列狀態列；清除篩選在月份選擇器的【清除】。
+ * TalkBack 用 stateDescription 唸出目前的篩選。
  */
 @Composable
-private fun FilterBar(month: String, onClear: () -> Unit) {
-    val shape = RoundedCornerShape(AppTheme.radii.sm)
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(start = AppTheme.spacing.s4, end = AppTheme.spacing.s4, top = AppTheme.spacing.s3)
-            .clip(shape)
-            .background(AppTheme.colors.accentWeak)
-            .border(BorderStroke(1.dp, AppTheme.colors.accentLine), shape)
-            .padding(start = AppTheme.spacing.s3, end = AppTheme.spacing.s2, top = AppTheme.spacing.s2, bottom = AppTheme.spacing.s2),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(VsIcons.Calendar, contentDescription = null, tint = AppTheme.colors.accent, modifier = Modifier.size(16.dp))
-        Text(
-            "只顯示 ${monthLabel(month)} 以前的收藏",
-            style = MaterialTheme.typography.bodyMedium,
-            color = AppTheme.colors.text,
-            modifier = Modifier.weight(1f).padding(horizontal = AppTheme.spacing.s2),
+private fun HomeTopBar(upToMonth: String?, onOpenFilter: () -> Unit) {
+    VsTopBar("收藏", divider = false) {
+        TopBarIconButton(
+            VsIcons.Calendar,
+            "依時間篩選",
+            onOpenFilter,
+            modifier = if (upToMonth != null) {
+                Modifier.semantics { stateDescription = "只顯示 ${monthLabel(upToMonth)} 以前的收藏" }
+            } else {
+                Modifier
+            },
+            active = upToMonth != null,
         )
-        IconButton(onClick = onClear, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape)) {
-            Icon(VsIcons.Close, contentDescription = "清除時間篩選", tint = AppTheme.colors.textDim)
-        }
     }
 }
 

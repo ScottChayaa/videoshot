@@ -15,6 +15,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -53,7 +54,8 @@ private fun iconOf(tab: Tab): ImageVector = when (tab) {
 @Composable
 fun VsBottomNav(current: Tab, onSelect: (Tab) -> Unit, accountInitial: Char?, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().background(AppTheme.colors.surface).navigationBarsPadding()) {
-        HorizontalDivider(thickness = 1.dp, color = AppTheme.colors.border)
+        // 上緣分隔線用一個實體像素（最細）；Dp.Hairline 會讓分隔線的版面高度是 0，改成明確換算
+        HorizontalDivider(thickness = (1f / LocalDensity.current.density).dp, color = AppTheme.colors.border)
         Row(Modifier.fillMaxWidth().height(AppTheme.spacing.navHeight)) {
             for (tab in Tab.entries) {
                 NavItem(

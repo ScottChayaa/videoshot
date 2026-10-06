@@ -1,5 +1,8 @@
 package com.xenyaa.videoshot.ui.home
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -97,17 +100,27 @@ class HomeFilterTest {
         assertEquals(true to "2026-01", picked)
     }
 
+    /** 有篩選時不另外佔一列狀態列，改由日曆鈕變主色＋TalkBack 的狀態描述表示。 */
     @Test
-    fun 有篩選時顯示可清除的狀態列() {
+    fun 有篩選時不出現狀態列_日曆鈕帶狀態描述() {
         show(loaded(upToMonth = "2026-03"))
-        compose.onNodeWithText("只顯示 2026年3月 以前的收藏").assertIsDisplayed()
-        compose.onNodeWithContentDescription("清除時間篩選").assertIsDisplayed()
+        compose.onNodeWithText("只顯示 2026年3月 以前的收藏").assertDoesNotExist()
+        compose.onNodeWithContentDescription("依時間篩選")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "只顯示 2026年3月 以前的收藏"))
     }
 
     @Test
-    fun 按叉會清除篩選() {
+    fun 沒有篩選時日曆鈕沒有狀態描述() {
+        show(loaded())
+        compose.onNodeWithContentDescription("依時間篩選")
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.StateDescription))
+    }
+
+    @Test
+    fun 選擇器的清除會清除篩選() {
         show(loaded(upToMonth = "2026-03"))
-        compose.onNodeWithContentDescription("清除時間篩選").performClick()
+        compose.onNodeWithContentDescription("依時間篩選").performClick()
+        compose.onNodeWithText("清除").performClick()
         assertEquals(true to null, picked)
     }
 

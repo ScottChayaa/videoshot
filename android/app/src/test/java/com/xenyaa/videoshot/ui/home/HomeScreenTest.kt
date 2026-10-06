@@ -174,26 +174,6 @@ class HomeScreenTest {
     }
 
     @Test
-    fun 套用篩選時顯示可清除的狀態列() {
-        var cleared = false
-        compose.setContent {
-            VideoshotTheme {
-                HomeScreen(
-                    state = HomeStore.appendPage(
-                        HomeState(upToMonth = "2026-03"),
-                        Page(listOf(row(1, "2026-03-05")), null), 1,
-                    ),
-                    loader = loader, listState = rememberLazyGridState(), onOpen = {}, onLoadMore = {},
-                    onPickMonth = { if (it == null) cleared = true }, onFacetClick = { _, _ -> },
-                )
-            }
-        }
-        compose.onNodeWithText("只顯示 2026年3月 以前的收藏").assertIsDisplayed()
-        compose.onNodeWithContentDescription("清除時間篩選").performClick()
-        assertEquals(true, cleared)
-    }
-
-    @Test
     fun 篩選後沒有收藏時空狀態帶清除按鈕() {
         var cleared = false
         compose.setContent {
