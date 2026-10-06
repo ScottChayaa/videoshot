@@ -3,6 +3,15 @@ package com.xenyaa.videoshot.ui.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
@@ -11,10 +20,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,7 +68,7 @@ import com.xenyaa.videoshot.ui.thumb.ThumbTile
  *
  * **每個月份同欄數**（手機欄數看帳號 › 縮圖的設定、§零「600dp 以上加欄」）——
  * 欄數隨當月張數變的話，捲動時每個月的格子大小都不一樣。
- * 月份標題與標籤列各佔滿一整列（`GridItemSpan(maxLineSpan)`）。
+ * 月份標題（右邊帶該月地點）是吸頂的 `stickyHeader`；其他標籤在下一列、不吸頂。都佔滿一整列。
  */
 @Composable
 fun HomeScreen(
@@ -84,6 +91,15 @@ fun HomeScreen(
     var picking by rememberSaveable { mutableStateOf(false) }
     val columns = thumbColumnsFor(LocalConfiguration.current.screenWidthDp, phoneColumns)
     val slots = remember(state.items, state.facets) { HomeStore.slots(state) }
+
+    // 目前「真的吸在頂端」的是哪個月的標題 —— 只有它要加陰影。標題還在原本位置（清單頂端）時
+    // 沒有東西從底下捲過去，不加，不然陰影會壓在第二列標籤或第一列縮圖上。
+    val stuckMonth by remember(listState, slots) {
+        derivedStateOf {
+            val first = slots.getOrNull(listState.firstVisibleItemIndex) ?: return@derivedStateOf null
+            if (first is HomeSlot.Header && listState.firstVisibleItemScrollOffset == 0) null else first.month
+        }
+    }
 
     // 捲到剩最後一列時先去要下一頁，使用者才不會看到清單「停住」
     val nearEnd by remember(listState, state.items.size) {
@@ -161,38 +177,35 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(ThumbGridGap),
                 verticalArrangement = Arrangement.spacedBy(ThumbGridGap),
             ) {
-                items(
-                    items = slots,
-                    key = { it.key },
-                    // 月份標題與標籤列各佔滿一整列，縮圖各佔一格
-                    span = { slot -> if (slot is HomeSlot.Tile) GridItemSpan(1) else GridItemSpan(maxLineSpan) },
-                ) { slot ->
+                // 月份標題吸頂：往下捲時當月標題貼在頂欄下方，捲到下個月由下個月的標題推走接手。
+                // 標題要一個一個用 stickyHeader 宣告，所以這裡逐格走 slots，不能整份丟給 items()。
+                for (slot in slots) {
                     when (slot) {
-                        is HomeSlot.Header -> Text(
-                            slot.label,
-                            // 原型 `.date-group { padding: 24 12 0 }`、`h2 { margin-bottom: 12 }`；20 Bold
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = AppTheme.colors.text,
-                            modifier = Modifier.padding(
-                                start = AppTheme.spacing.s3,
-                                end = AppTheme.spacing.s3,
-                                top = AppTheme.spacing.s5,
-                                bottom = AppTheme.spacing.s3,
-                            ),
-                        )
+                        is HomeSlot.Header -> stickyHeader(key = slot.key, contentType = "header") {
+                            MonthHeader(
+                                label = slot.label,
+                                places = state.facets[slot.month].orEmpty().filter { it.isPlace },
+                                stuck = slot.month == stuckMonth,
+                                onFacetClick = { onFacetClick(slot.month, it) },
+                            )
+                        }
 
-                        is HomeSlot.Facets -> MonthFacetRow(
-                            facets = state.facets[slot.month].orEmpty(),
-                            onClick = { onFacetClick(slot.month, it) },
-                        )
+                        is HomeSlot.Facets -> item(key = slot.key, span = { GridItemSpan(maxLineSpan) }, contentType = "facets") {
+                            MonthFacetRow(
+                                facets = state.facets[slot.month].orEmpty().filterNot { it.isPlace },
+                                onClick = { onFacetClick(slot.month, it) },
+                            )
+                        }
 
                         // 正方形、直角、focusRing、Role.Button 與「開啟」都在 ThumbTile 裡
                         // （真的是按鈕：鍵盤與輔助技術都到得了，手冊 §二最後一條）
-                        is HomeSlot.Tile -> ThumbTile(
-                            shot = slot.shot,
-                            loader = loader,
-                            onClick = { onOpen(slot.index) },
-                        )
+                        is HomeSlot.Tile -> item(key = slot.key, contentType = "tile") {
+                            ThumbTile(
+                                shot = slot.shot,
+                                loader = loader,
+                                onClick = { onOpen(slot.index) },
+                            )
+                        }
                     }
                 }
             }
@@ -265,8 +278,69 @@ private fun HomeErrorRow(message: String, onRetry: () -> Unit) {
 }
 
 /**
- * 該月出現過的地點與標籤（原型 `.month-tags`）。⏳ 單行橫向捲動（規格第六節；換行排列尚未確認）。
- * 小膠囊帶種類圖示與顏色；[MonthFacet.kind] 是 `"place"` 或 `"tag"`，標籤的種類看 [MonthFacet.tagKind]。
+ * 月份標題列（吸頂）：左邊年月，右邊是該月出現過的**地點**；其他標籤在下一列（[MonthFacetRow]），不吸頂。
+ * 地點單行橫向捲動，捲不下的往右滑。
+ *
+ * 吸頂時縮圖會從底下捲過，所以整列鋪實色底；[stuck]（真的吸在頂端）時底下加一道陰影跟縮圖分層，
+ * 還在原位時不加。最小高度固定，有沒有地點的月份標題一樣高，吸頂換月時不會跳動。
+ */
+private val HeaderShadowHeight = 10.dp
+
+@Composable
+private fun MonthHeader(label: String, places: List<MonthFacet>, stuck: Boolean, onFacetClick: (MonthFacet) -> Unit) {
+    val shadowAlpha by animateFloatAsState(if (stuck) 1f else 0f, label = "monthHeaderShadow")
+    Row(
+        Modifier
+            // 陰影畫在自己範圍外，墊高一層確保不會被後畫的縮圖蓋掉
+            .zIndex(1f)
+            .fillMaxWidth()
+            // 陰影自己畫在標題下緣外面：系統的 elevation 陰影在淺色底、縮圖上幾乎看不見（實機驗過）
+            .drawWithContent {
+                drawContent()
+                if (shadowAlpha > 0f) {
+                    val h = HeaderShadowHeight.toPx()
+                    drawRect(
+                        Brush.verticalGradient(
+                            listOf(Color.Black.copy(alpha = 0.2f * shadowAlpha), Color.Transparent),
+                            startY = size.height,
+                            endY = size.height + h,
+                        ),
+                        topLeft = Offset(0f, size.height),
+                        size = Size(size.width, h),
+                    )
+                }
+            }
+            .background(AppTheme.colors.bg)
+            .heightIn(min = AppTheme.spacing.tap)
+            .padding(vertical = AppTheme.spacing.s1),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = AppTheme.colors.text,
+            maxLines = 1,
+            modifier = Modifier.padding(start = AppTheme.spacing.s3, end = AppTheme.spacing.s2),
+        )
+        if (places.isNotEmpty()) {
+            Row(
+                // 右邊 12 放在捲動內容裡：靜止時跟螢幕右緣留白，捲動時小膠囊仍可捲到螢幕邊緣
+                Modifier
+                    .weight(1f)
+                    .horizontalScroll(rememberScrollState())
+                    .padding(end = AppTheme.spacing.s3),
+                horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                FacetChips(places, onFacetClick)
+            }
+        }
+    }
+}
+
+/**
+ * 該月地點以外的標籤（原型 `.month-tags`），在月份標題列下方，不吸頂。單行橫向捲動。
+ * 小膠囊帶種類圖示與顏色，種類看 [MonthFacet.tagKind]。
  */
 @Composable
 private fun MonthFacetRow(facets: List<MonthFacet>, onClick: (MonthFacet) -> Unit) {
@@ -275,18 +349,23 @@ private fun MonthFacetRow(facets: List<MonthFacet>, onClick: (MonthFacet) -> Uni
         Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
-            .padding(start = AppTheme.spacing.s3, end = AppTheme.spacing.s3, bottom = AppTheme.spacing.s2),
+            .padding(start = AppTheme.spacing.s3, end = AppTheme.spacing.s3, bottom = AppTheme.spacing.s1),
         horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        for (facet in facets) {
-            // 跟查詢頁同一款可點小膠囊（無框、主色淺底、四角圓角）
-            VsTagChip(
-                name = facet.name,
-                kind = chipKindOf(facet),
-                onClick = { onClick(facet) },
-            )
-        }
+        FacetChips(facets, onClick)
+    }
+}
+
+@Composable
+private fun FacetChips(facets: List<MonthFacet>, onClick: (MonthFacet) -> Unit) {
+    for (facet in facets) {
+        // 跟查詢頁同一款可點小膠囊（無框、主色淺底、四角圓角）
+        VsTagChip(
+            name = facet.name,
+            kind = chipKindOf(facet),
+            onClick = { onClick(facet) },
+        )
     }
 }
 

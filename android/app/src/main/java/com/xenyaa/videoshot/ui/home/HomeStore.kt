@@ -84,6 +84,8 @@ object HomeStore {
 
     /**
      * 縮圖牆實際的排列順序（月份標題、標籤列、縮圖交錯在同一個格線裡）。
+     * 該月的**地點**畫在標題那一列的右邊、跟著標題吸頂；**其他標籤**另起一列（[HomeSlot.Facets]），
+     * 不吸頂，該月沒有地點以外的標籤就不出現。
      *
      * 把排列算成一份資料而不是寫在 composable 的迴圈裡，是為了
      * **「捲到某個月份」有唯一的答案** —— 取圖完成要導回首頁並捲到新圖那個月（手冊 §四第三步最後一條），
@@ -94,7 +96,7 @@ object HomeStore {
         var index = 0
         for (group in groups(state)) {
             out += HomeSlot.Header(group.month, group.label)
-            if (!state.facets[group.month].isNullOrEmpty()) out += HomeSlot.Facets(group.month)
+            if (state.facets[group.month].orEmpty().any { !it.isPlace }) out += HomeSlot.Facets(group.month)
             for (shot in group.items) {
                 out += HomeSlot.Tile(index, shot)
                 index++
@@ -108,20 +110,28 @@ object HomeStore {
         slots.indexOfFirst { it is HomeSlot.Header && it.month == month }.takeIf { it >= 0 }
 }
 
+/** 地點（[MonthFacet.kind] 是 `"place"`）畫在月份標題列；其他標籤畫在第二列。 */
+val MonthFacet.isPlace: Boolean get() = kind == "place"
+
 /** 縮圖牆格線裡的一格。 */
 sealed interface HomeSlot {
     val key: String
 
-    data class Header(val month: String, val label: String) : HomeSlot {
+    /** 這一格屬於哪個月（`YYYY-MM`）—— 用來判斷目前吸頂的是哪個月的標題 */
+    val month: String
+
+    data class Header(override val month: String, val label: String) : HomeSlot {
         override val key: String get() = "h-$month"
     }
 
-    data class Facets(val month: String) : HomeSlot {
+    /** 該月地點以外的標籤（地點在 [Header] 那一列） */
+    data class Facets(override val month: String) : HomeSlot {
         override val key: String get() = "f-$month"
     }
 
     /** @param index 這張圖在 [HomeState.items] 裡的位置 —— Lightbox 從這個位置開始 */
     data class Tile(val index: Int, val shot: ShotRow) : HomeSlot {
         override val key: String get() = "t-${shot.id}"
+        override val month: String get() = monthOf(shot.eventDate)
     }
 }

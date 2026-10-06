@@ -1,6 +1,7 @@
 package com.xenyaa.videoshot.ui.home
 
 import com.xenyaa.videoshot.core.paging.ShotCursor
+import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import org.junit.Assert.assertEquals
@@ -90,14 +91,20 @@ class HomeStoreTest {
     }
 
     @Test
-    fun 排列是標題_標籤列_縮圖_而且縮圖帶著它在清單裡的位置() {
+    fun 地點併在標題那一列_其他標籤另起第二列_而且縮圖帶著它在清單裡的位置() {
         val loaded = HomeStore.appendPage(
-            HomeState(facets = mapOf("2026-03" to listOf(com.xenyaa.videoshot.data.repo.model.MonthFacet("宜蘭", "place", 1)))),
+            HomeState(
+                facets = mapOf(
+                    "2026-03" to listOf(MonthFacet("宜蘭", "place", 1), MonthFacet("夜市", "tag", 1)),
+                    "2026-01" to listOf(MonthFacet("台南", "place", 1)),
+                ),
+            ),
             Page(listOf(row(3, "2026-03-05"), row(2, "2026-03-01"), row(1, "2026-01-09")), null),
             total = 3,
         )
         val slots = HomeStore.slots(loaded)
         assertEquals(
+            // 2026-01 只有地點，地點已經在標題列裡，不另起第二列
             listOf("h-2026-03", "f-2026-03", "t-3", "t-2", "h-2026-01", "t-1"),
             slots.map { it.key },
         )
@@ -105,9 +112,20 @@ class HomeStoreTest {
     }
 
     @Test
-    fun 沒有標籤列的月份不會多出一格() {
+    fun 沒有標籤的月份也只有標題一格() {
         val loaded = HomeStore.appendPage(HomeState(), Page(listOf(row(1, "2026-03-05")), null), 1)
         assertEquals(listOf("h-2026-03", "t-1"), HomeStore.slots(loaded).map { it.key })
+    }
+
+    @Test
+    fun 每一格都知道自己屬於哪個月() {
+        val loaded = HomeStore.appendPage(
+            HomeState(facets = mapOf("2026-03" to listOf(MonthFacet("夜市", "tag", 1)))),
+            Page(listOf(row(3, "2026-03-05"), row(1, "2026-01-09")), null),
+            total = 2,
+        )
+        val slots = HomeStore.slots(loaded)
+        assertEquals(listOf("2026-03", "2026-03", "2026-03", "2026-01", "2026-01"), slots.map { it.month })
     }
 
     @Test
