@@ -16,7 +16,12 @@ import com.xenyaa.videoshot.data.library.FTS_SETUP_SQL
 import com.xenyaa.videoshot.data.library.LIBRARY_MIGRATIONS
 import com.xenyaa.videoshot.data.library.LibraryDatabase
 import com.xenyaa.videoshot.data.library.LibrarySchemaCallback
+import com.xenyaa.videoshot.data.library.STATS_REBUILD_SQL
+import com.xenyaa.videoshot.data.library.STATS_SETUP_SQL
+import com.xenyaa.videoshot.data.library.STATS_TRIGGER_NAMES
 import com.xenyaa.videoshot.data.repo.RoomLibraryRepo
+import com.xenyaa.videoshot.data.repo.model.NewShot
+import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeTrue
@@ -26,8 +31,6 @@ import java.io.File
 import java.util.Random
 
 /**
- * 16A Task 1 暫時版本：地點全部為空，Task 4 改寫。
- *
  * 百萬張規模的效能量測（不是正確性測試）。在 app 的 files 目錄另開 `bench-library.db`，
  * **不碰使用者的 library.db**。用 app 實際的 Room 設定（BundledSQLiteDriver、FTS 觸發器）。
  *
@@ -59,6 +62,15 @@ class LibraryScaleBench {
     fun bench() = runBlocking {
         assumeTrue(args.getString("bench") == "true")
         if (args.getString("benchRebuild") == "true") deleteDb()
+        if (dbFile.exists()) {
+            val version = BundledSQLiteDriver().open(dbFile.path).let { c ->
+                try { c.prepare("PRAGMA user_version").use { it.step(); it.getLong(0) } } finally { c.close() }
+            }
+            if (version == 1L) {
+                val ms = timed { open().also { it.text("SELECT COUNT(*) FROM shot") }.close() }
+                log("開檔（含 v1→v2 升級，100 萬張）：%.1f 秒".format(ms / 1000))
+            }
+        }
         if (!dbFile.exists()) {
             open().also { it.text("SELECT COUNT(*) FROM shot") }.close() // 讓 Room 建好 schema
             val ms = timed { generate() }
@@ -102,103 +114,58 @@ class LibraryScaleBench {
             }.fold({ it }, { "失敗：${it.javaClass.simpleName} ${it.message?.take(60)}" })
         }
 
-        log("===== 改法候選（純 SQL 試算）=====")
-        measure("某月標籤：改成日期範圍") {
+        log("===== 統計表（16A 的觸發器維護，16B 會改讀這裡）=====")
+        measure("統計表：某月標籤") { db.rows("SELECT kind, ref_id, cnt FROM shot_stat WHERE month = '2025-03' AND kind != 0 AND cnt > 0 ORDER BY cnt DESC") }
+        measure("統計表：月份選單") { db.rows("SELECT month, cnt FROM shot_stat WHERE kind = 0 AND ref_id = 0 AND cnt > 0 ORDER BY month DESC") }
+        measure("統計表：候選清單（全部時間）") { db.rows("SELECT kind, ref_id FROM shot_stat_total WHERE kind != 0 AND cnt > 0 ORDER BY cnt DESC LIMIT 31") }
+        measure("統計表：候選清單（2020-01 以前，月加總）") {
+            db.rows("SELECT kind, ref_id, SUM(cnt) n FROM shot_stat WHERE month < '2020-01' AND kind != 0 GROUP BY kind, ref_id HAVING n > 0 ORDER BY n DESC LIMIT 31")
+        }
+        measure("統計表：候選清單（2020-01 以前，總數減掉之後）") {
             db.rows(
                 """
-                SELECT name, kind, COUNT(*) FROM (
-                  SELECT place AS name, 'place' AS kind FROM shot
-                  WHERE event_date >= '2025-03' AND event_date < '2025-04' AND place IS NOT NULL
-                  UNION ALL
-                  SELECT t.name, 'tag' FROM shot_tag st JOIN tag t ON t.id = st.tag_id JOIN shot s ON s.id = st.shot_id
-                  WHERE s.event_date >= '2025-03' AND s.event_date < '2025-04'
-                ) GROUP BY name, kind ORDER BY 3 DESC
+                SELECT t.kind, t.ref_id, t.cnt - COALESCE(r.n, 0) AS n FROM shot_stat_total t
+                LEFT JOIN (SELECT kind, ref_id, SUM(cnt) n FROM shot_stat WHERE month >= '2020-01' AND kind != 0 GROUP BY kind, ref_id) r
+                  ON r.kind = t.kind AND r.ref_id = t.ref_id
+                WHERE t.kind != 0 AND t.cnt - COALESCE(r.n, 0) > 0 ORDER BY n DESC LIMIT 31
                 """
             )
         }
-        db.exec("DROP TABLE IF EXISTS bench_agg")
-        db.exec("DROP TABLE IF EXISTS bench_total")
-        measure("統計表：從零重建", repeat = 0) {
-            db.write {
-                exec("CREATE TABLE bench_agg(month TEXT NOT NULL, kind TEXT NOT NULL, key TEXT NOT NULL, cnt INTEGER NOT NULL, PRIMARY KEY(month, kind, key)) WITHOUT ROWID")
-                exec("INSERT INTO bench_agg SELECT substr(event_date,1,7), 'all', '', COUNT(*) FROM shot GROUP BY 1")
-                exec("INSERT INTO bench_agg SELECT substr(event_date,1,7), 'place', place, COUNT(*) FROM shot WHERE place IS NOT NULL GROUP BY 1, 3")
-                exec("INSERT INTO bench_agg SELECT substr(s.event_date,1,7), 'tag', st.tag_id, COUNT(*) FROM shot_tag st JOIN shot s ON s.id = st.shot_id GROUP BY 1, 3")
-                exec("CREATE TABLE bench_total(kind TEXT NOT NULL, key TEXT NOT NULL, cnt INTEGER NOT NULL, PRIMARY KEY(kind, key)) WITHOUT ROWID")
-                exec("INSERT INTO bench_total SELECT kind, key, SUM(cnt) FROM bench_agg GROUP BY kind, key")
+        log("===== 寫入成本（觸發器開著）=====")
+        measure("取圖 100 張（每張 0～4 個標籤）然後刪整支", repeat = 2) {
+            val picks = (0 until 100).map { i ->
+                NewShot(i.toDouble(), "storyboard", 9_000_000 + i, 3, "2025-03-15", "宜蘭2", null, null, listOf("標籤${1 + i % 7}", "標籤${100 + i % 3}"))
             }
-            db.text("SELECT COUNT(*) FROM bench_agg") + " 列"
+            val ms = timed { repo.commitPicks(VideoEntity("bench-v", "t", "c", "2025-03-15T00:00:00Z", 600, "public", null, 0), picks) }
+            repo.deleteVideo("bench-v")
+            "只算入庫 %.1f ms".format(ms)
         }
-        measure("統計表：某月標籤") { db.rows("SELECT kind, key, cnt FROM bench_agg WHERE month = '2025-03' AND kind != 'all' ORDER BY cnt DESC") }
-        measure("統計表：月份選單") { db.rows("SELECT month, cnt FROM bench_agg WHERE kind = 'all' ORDER BY month DESC") }
-        measure("統計表：候選清單（全部時間）") { db.rows("SELECT kind, key FROM bench_total WHERE kind != 'all' ORDER BY cnt DESC LIMIT 31") }
-        measure("統計表：候選清單（某月以前，月加總）") {
-            db.rows("SELECT kind, key, SUM(cnt) n FROM bench_agg WHERE month < '2020-01' AND kind != 'all' GROUP BY kind, key ORDER BY n DESC LIMIT 31")
+        val firstId = db.text("SELECT MIN(id) FROM shot")
+        measure("編輯一張：改地點＋改到別的月份", repeat = 2) {
+            db.write(rollback = true) { exec("UPDATE shot SET place_id = 3, event_date = '2001-01-01' WHERE id = $firstId") }
         }
-        measure("統計表：更新一張的地點") {
-            db.write(rollback = true) {
-                exec("UPDATE bench_agg SET cnt = cnt - 1 WHERE month = '2025-03' AND kind = 'place' AND key = '地點1'")
-                exec("INSERT INTO bench_agg VALUES ('2025-03', 'place', '地點2', 1) ON CONFLICT(month, kind, key) DO UPDATE SET cnt = cnt + 1")
-            }
-        }
-        val rareTag = db.text("SELECT id FROM tag WHERE name = '標籤500'")
         val bigTag = db.text("SELECT id FROM tag WHERE name = '標籤1'")
-        measure("查詢結果：冷門標籤 分段合併") {
-            db.rows(
-                """
-                SELECT id FROM (
-                  SELECT s.id, s.event_date FROM shot s WHERE s.place IN ('不存在') AND s.event_date < '9999'
-                  UNION
-                  SELECT s.id, s.event_date FROM shot_tag st JOIN shot s ON s.id = st.shot_id WHERE st.tag_id = $rareTag AND s.event_date < '9999'
-                ) ORDER BY event_date DESC, id DESC LIMIT 50
-                """
-            )
-        }
-        measure("查詢結果：大標籤 分段合併") {
-            db.rows(
-                """
-                SELECT id FROM (
-                  SELECT s.id, s.event_date FROM shot s WHERE s.place IN ('不存在') AND s.event_date < '9999'
-                  UNION
-                  SELECT s.id, s.event_date FROM shot_tag st JOIN shot s ON s.id = st.shot_id WHERE st.tag_id = $bigTag AND s.event_date < '9999'
-                ) ORDER BY event_date DESC, id DESC LIMIT 50
-                """
-            )
-        }
-        measure("查詢結果：N 張數到 1001 為止") {
-            db.text(
-                """
-                SELECT COUNT(*) FROM (SELECT DISTINCT s.id FROM shot s LEFT JOIN shot_tag st ON st.shot_id = s.id
-                WHERE s.event_date < '9999' AND (s.place IN ('宜蘭2') OR st.tag_id IN ($bigTag)) LIMIT 1001)
-                """
-            )
-        }
+        val to = db.text("SELECT id FROM tag WHERE name = '標籤2'")
         measure("合併大標籤（標籤1→標籤2）", repeat = 1) {
-            val to = db.text("SELECT id FROM tag WHERE name = '標籤2'")
             db.write(rollback = true) {
-                exec("INSERT OR IGNORE INTO shot_tag(shot_id, tag_id, source) SELECT shot_id, $to, source FROM shot_tag WHERE tag_id = $bigTag")
-                exec("DELETE FROM shot_tag WHERE tag_id = $bigTag")
+                exec("UPDATE OR IGNORE shot_tag SET tag_id = $to WHERE tag_id = $bigTag")
+                exec("DELETE FROM tag WHERE id = $bigTag")
             }
-            db.text("SELECT COUNT(*) FROM shot_tag WHERE tag_id = $bigTag") + " 列（已還原）"
+            "已還原"
         }
-        measure("地點改名：現行逐張改（宜蘭2→宜蘭）", repeat = 1) {
-            db.write(rollback = true) { exec("UPDATE shot SET place = '宜蘭' WHERE place = '宜蘭2'") }
-            db.text("SELECT COUNT(*) FROM shot WHERE place = '宜蘭2'") + " 張（已還原）"
-        }
-        measure("地點合併：改成地點編號後", repeat = 1) {
-            var ms = 0.0
+        measure("合併地點（宜蘭2 的 10 萬張 → 地點0）", repeat = 1) {
             db.write(rollback = true) {
-                // 真正的設計裡全文索引的更新觸發器只看 description，改地點編號不會碰它
-                exec("DROP TRIGGER shot_fts_after_update")
-                exec("ALTER TABLE shot ADD COLUMN place_id INTEGER")
-                exec("UPDATE shot SET place_id = CASE WHEN place = '宜蘭2' THEN 1 ELSE 2 END WHERE place IS NOT NULL")
-                exec("CREATE INDEX bench_place_id ON shot(place_id)")
-                ms = timed { exec("UPDATE shot SET place_id = 3 WHERE place_id = 1") }
+                exec("UPDATE shot SET place_id = 2 WHERE place_id = 1")
+                exec("DELETE FROM place WHERE id = 1")
             }
-            "只算合併那一步 %.1f ms（已還原）".format(ms)
+            "已還原"
         }
-        db.exec("DROP TABLE IF EXISTS bench_agg")
-        db.exec("DROP TABLE IF EXISTS bench_total")
+        measure("地點改名（宜蘭2→宜蘭）") {
+            db.write(rollback = true) { exec("UPDATE place SET name = '宜蘭' WHERE id = 1") }
+        }
+        measure("統計正確性抽查（總數＝實際張數）") {
+            db.text("SELECT (SELECT cnt FROM shot_stat_total WHERE kind = 0) = (SELECT COUNT(*) FROM shot)")
+        }
         db.close()
         log("===== 完成 =====")
     }
@@ -226,6 +193,11 @@ class LibraryScaleBench {
             conn.execSQL("BEGIN IMMEDIATE")
             // 先拿掉插入觸發器，最後一次重建全文索引——比每列觸發快得多，結果相同
             conn.execSQL("DROP TRIGGER IF EXISTS shot_fts_after_insert")
+            STATS_TRIGGER_NAMES.forEach { conn.execSQL("DROP TRIGGER IF EXISTS $it") }
+            conn.prepare("INSERT INTO place(id, name, aliases) VALUES (?, ?, '[]')").use { st ->
+                st.bindLong(1, 1); st.bindText(2, "宜蘭2"); st.step(); st.reset()
+                for (p in 0 until 2000) { st.bindLong(1, 2L + p); st.bindText(2, "地點$p"); st.step(); st.reset() }
+            }
             conn.prepare("INSERT INTO video VALUES (?, 't', 'c', '2020-01-01T00:00:00Z', 600, 'public', NULL, 0)").use { st ->
                 for (v in 0 until 50_000) { st.bindText(1, "v$v"); st.step(); st.reset() }
             }
@@ -248,11 +220,10 @@ class LibraryScaleBench {
                     st.bindText(2, "v${rnd.nextInt(50_000)}")
                     st.bindLong(3, id)
                     st.bindText(4, base.plusDays(rnd.nextInt(7300).toLong()).toString())
-                    // 16A Task 1：place_id 暫時全部為 NULL（Task 4 改寫）
                     when {
-                        id % 10 == 0L -> st.bindNull(5)
+                        id % 10 == 0L -> st.bindLong(5, 1)
                         id % 4 == 1L -> st.bindNull(5)
-                        else -> st.bindNull(5)
+                        else -> st.bindLong(5, 2L + rnd.nextInt(2000))
                     }
                     st.bindText(6, String(CharArray(20) { zipfChar() }))
                     st.step(); st.reset()
@@ -270,6 +241,8 @@ class LibraryScaleBench {
             st.close(); tg.close()
             conn.execSQL("BEGIN IMMEDIATE")
             conn.execSQL("INSERT INTO shot_fts(shot_fts) VALUES ('rebuild')")
+            STATS_REBUILD_SQL.forEach { conn.execSQL(it) }
+            STATS_SETUP_SQL.forEach { conn.execSQL(it) }
             conn.execSQL(FTS_SETUP_SQL[1])
             conn.execSQL("COMMIT")
             conn.prepare("PRAGMA wal_checkpoint(TRUNCATE)").use { it.step() }
