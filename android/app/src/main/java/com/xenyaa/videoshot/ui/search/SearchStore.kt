@@ -98,8 +98,8 @@ object SearchStore {
 
     /**
      * 從查詢結果就地拔掉一張（刪除同步，見 Task 12 覆查 Important 1）。
-     * 跟 `HomeStore.removeShot` 同一個理由：總數要一起減，否則 Lightbox 的「共 M 張」
-     * 停在刪除前的數字；清單也要一起拔掉，否則使用者滑回去還看得到那張已經不存在的圖。
+     * 清單要拔掉，否則使用者滑回去還看得到那張已經不存在的圖；總數（現在只供結果頁的「N 張」使用，
+     * Lightbox 已不顯示總數）也一起減，結果頁的張數才不會停在刪除前的數字。
      * 張數已達上限（`totalCapped`）時真正的總數不知道，`total` 不動，免得 1001 扣成「1000 張」騙人。
      */
     fun removeShot(state: SearchState, id: Long): SearchState {

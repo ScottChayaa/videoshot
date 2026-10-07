@@ -290,7 +290,7 @@ class SearchViewModelTest {
     }
 
     /**
-     * 從查詢分頁開的 Lightbox 刪除／編輯要同步回查詢結果，不然清單、「共 M 張」、Lightbox
+     * 從查詢分頁開的 Lightbox 刪除／編輯要同步回查詢結果，不然清單、結果頁的「N 張」、Lightbox
      * 都會停在刪除／編輯前的狀態（Task 12 覆查 Important 1，跟 `HomeViewModel` 的
      * `onShotDeleted`／`onShotChanged` 是同一種修法）。
      */

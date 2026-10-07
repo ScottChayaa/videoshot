@@ -431,7 +431,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                 // 自動關掉自己（LightboxScreen 的 items.isEmpty() 那段）
                                 folderVm?.onShotDeleted(shot.id)
                                 // 查詢分頁同一個理由（Task 12 覆查 Important 1）：查詢分頁可能在
-                                // 背景分頁活著，這張圖若剛好在它的結果裡，清單與「共 M 張」都要
+                                // 背景分頁活著，這張圖若剛好在它的結果裡，清單與結果頁的「N 張」都要
                                 // 跟著更新，不能只在 nav.tab == Tab.SEARCH 時才呼叫
                                 searchVm.onShotDeleted(shot.id)
                                 // 分類分頁（清單頁）也要跟著更新——這張圖所屬資料夾的張數與

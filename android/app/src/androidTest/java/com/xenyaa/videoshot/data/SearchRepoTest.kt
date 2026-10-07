@@ -288,8 +288,8 @@ class SearchRepoTest {
             return rows
         }
 
-        val union = allPages(RoomLibraryRepo(libraryDb, Dispatchers.IO, facetUnionThreshold = Long.MAX_VALUE))
-        val scan = allPages(RoomLibraryRepo(libraryDb, Dispatchers.IO, facetUnionThreshold = 0))
+        val union = allPages(RoomLibraryRepo(libraryDb, Dispatchers.IO, facetUnionThreshold = Long.MAX_VALUE, facetCountUnionThreshold = Long.MAX_VALUE))
+        val scan = allPages(RoomLibraryRepo(libraryDb, Dispatchers.IO, facetUnionThreshold = 0, facetCountUnionThreshold = 0))
         assertEquals(scan.map { it.id }, union.map { it.id })
         assertEquals(scan, union)
         assertEquals(union.map { it.id }.distinct(), union.map { it.id }) // 同時命中地點與標籤的圖只出現一次
@@ -299,13 +299,13 @@ class SearchRepoTest {
 
         // 張數也要兩種查法一致（含同時命中地點與標籤、時間範圍排除 2026-03）
         for (month in listOf("2026-02", "2026-01", null)) {
-            val u = RoomLibraryRepo(libraryDb, Dispatchers.IO, facetUnionThreshold = Long.MAX_VALUE)
+            val u = RoomLibraryRepo(libraryDb, Dispatchers.IO, facetUnionThreshold = Long.MAX_VALUE, facetCountUnionThreshold = Long.MAX_VALUE)
                 .searchByFacetsCount(setOf("宜蘭"), setOf("露營"), month)
-            val c = RoomLibraryRepo(libraryDb, Dispatchers.IO, facetUnionThreshold = 0)
+            val c = RoomLibraryRepo(libraryDb, Dispatchers.IO, facetUnionThreshold = 0, facetCountUnionThreshold = 0)
                 .searchByFacetsCount(setOf("宜蘭"), setOf("露營"), month)
             assertEquals("month=$month", c, u)
         }
-        assertEquals(union.size, RoomLibraryRepo(libraryDb, Dispatchers.IO, facetUnionThreshold = Long.MAX_VALUE)
+        assertEquals(union.size, RoomLibraryRepo(libraryDb, Dispatchers.IO, facetUnionThreshold = Long.MAX_VALUE, facetCountUnionThreshold = Long.MAX_VALUE)
             .searchByFacetsCount(setOf("宜蘭"), setOf("露營"), "2026-02"))
     }
 

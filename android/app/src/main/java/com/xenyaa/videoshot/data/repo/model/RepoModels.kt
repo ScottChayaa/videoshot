@@ -93,3 +93,11 @@ const val RESULT_COUNT_CAP = 1000
  * 實機 100 萬張量測後定案（階段 16B Task 4）。
  */
 const val FACET_UNION_THRESHOLD = 5_000L
+
+/**
+ * 查詢結果「N 張」的查法分界（規格第八節）。比第一頁的門檻高：張數要數到 1,001 筆才能停，
+ * 沿時間軸掃描得走過更多列才湊得滿。實機 100 萬張量測（階段 16B 最終修正，tmp/16b-bench-3.txt）：
+ * 標籤 5,014 張 分段 72 ms／掃描 220 ms；10,082 張 88／132 ms；19,924 張 104／53 ms；45,341 張 171／63 ms，
+ * 交叉點約 1.5 萬張。
+ */
+const val FACET_COUNT_UNION_THRESHOLD = 15_000L

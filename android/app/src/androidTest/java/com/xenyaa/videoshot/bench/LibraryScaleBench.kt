@@ -133,8 +133,8 @@ class LibraryScaleBench {
             )
         }
         log("===== 門檻量測（分段合併 vs 掃描，第一頁）=====")
-        val unionRepo = RoomLibraryRepo(db, Dispatchers.IO, facetUnionThreshold = Long.MAX_VALUE)
-        val scanRepo = RoomLibraryRepo(db, Dispatchers.IO, facetUnionThreshold = 0)
+        val unionRepo = RoomLibraryRepo(db, Dispatchers.IO, facetUnionThreshold = Long.MAX_VALUE, facetCountUnionThreshold = Long.MAX_VALUE)
+        val scanRepo = RoomLibraryRepo(db, Dispatchers.IO, facetUnionThreshold = 0, facetCountUnionThreshold = 0)
         for (target in listOf(1_000, 2_000, 5_000, 10_000, 20_000, 50_000)) {
             val row = db.text("SELECT ref_id || '|' || cnt FROM shot_stat_total WHERE kind = 2 ORDER BY abs(cnt - $target) LIMIT 1").split('|')
             val name = db.text("SELECT name FROM tag WHERE id = ${row[0]}")
@@ -145,6 +145,13 @@ class LibraryScaleBench {
             val u = median(unionRepo)
             val sc = median(scanRepo)
             log("門檻：標籤 %s 張  分段 %.1f ms  掃描 %.1f ms  （目標 %d，%s）".format(row[1], u, sc, target, name))
+            suspend fun countMedian(r: RoomLibraryRepo): Double {
+                r.searchByFacetsCount(emptySet(), setOf(name), null)
+                return (1..5).map { timedSuspend { r.searchByFacetsCount(emptySet(), setOf(name), null) } }.sorted()[2]
+            }
+            val cu = countMedian(unionRepo)
+            val cs = countMedian(scanRepo)
+            log("門檻（張數）：標籤 %s 張  分段 %.1f ms  掃描 %.1f ms  （目標 %d，%s）".format(row[1], cu, cs, target, name))
         }
         log("===== 寫入成本（觸發器開著）=====")
         measure("取圖 100 張（每張 0～4 個標籤）然後刪整支", repeat = 2) {

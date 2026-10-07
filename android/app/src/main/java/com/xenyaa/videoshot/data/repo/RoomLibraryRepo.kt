@@ -21,13 +21,14 @@ import com.xenyaa.videoshot.data.library.entity.ShotTagEntity
 import com.xenyaa.videoshot.data.library.entity.TagEntity
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.AccountStats
-import com.xenyaa.videoshot.data.repo.model.FolderCard
+import com.xenyaa.videoshot.data.repo.model.FACET_COUNT_UNION_THRESHOLD
 import com.xenyaa.videoshot.data.repo.model.FACET_UNION_THRESHOLD
+import com.xenyaa.videoshot.data.repo.model.FolderCard
 import com.xenyaa.videoshot.data.repo.model.FolderNode
-import com.xenyaa.videoshot.data.repo.model.RESULT_COUNT_CAP
 import com.xenyaa.videoshot.data.repo.model.FolderPage
 import com.xenyaa.videoshot.data.repo.model.MonthCount
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
+import com.xenyaa.videoshot.data.repo.model.RESULT_COUNT_CAP
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
 import com.xenyaa.videoshot.data.repo.model.NewShot
 import com.xenyaa.videoshot.data.repo.model.SearchPage
@@ -48,6 +49,8 @@ class RoomLibraryRepo(
     private val onChanged: suspend () -> Unit = {},
     /** 查詢結果第一頁的查法分界（設計決議 4）；測試用 0／Long.MAX_VALUE 強迫走某一條。 */
     private val facetUnionThreshold: Long = FACET_UNION_THRESHOLD,
+    /** 結果「N 張」的查法分界（量測見 [FACET_COUNT_UNION_THRESHOLD]）；測試用 0／Long.MAX_VALUE 強迫走某一條。 */
+    private val facetCountUnionThreshold: Long = FACET_COUNT_UNION_THRESHOLD,
 ) : LibraryRepo {
 
     /** 沒有篩選時的上界。任何合法的 event_date 都比它小。 */
@@ -75,9 +78,9 @@ class RoomLibraryRepo(
         db.statsDao().candidates(upToMonth, limit).map { MonthFacet(it.name, it.kind, it.count, it.tagKind) }
     }
 
-    /** 第一頁與張數共用的查法決定（設計決議 4）：選取項目總張數小於門檻用分段合併，否則沿時間軸掃描。 */
-    private suspend fun useUnionFor(placeIds: List<Long>, tagIds: List<Long>): Boolean =
-        db.statsDao().selectedTotal(placeIds, tagIds) < facetUnionThreshold
+    /** 查法決定（設計決議 4）：選取項目總張數小於門檻用分段合併，否則沿時間軸掃描。第一頁與張數各有自己的門檻。 */
+    private suspend fun useUnionFor(placeIds: List<Long>, tagIds: List<Long>, threshold: Long): Boolean =
+        db.statsDao().selectedTotal(placeIds, tagIds) < threshold
 
     override suspend fun searchByFacets(
         places: Set<String>,
@@ -89,7 +92,7 @@ class RoomLibraryRepo(
         val before = boundOf(upToMonth)
         val placeIds = resolvePlaceIds(places)
         val tagIds = resolveTagIds(tagNames)
-        val useUnion = useUnionFor(placeIds, tagIds)
+        val useUnion = useUnionFor(placeIds, tagIds, facetUnionThreshold)
         val rows = when {
             useUnion -> db.shotDao().facetSearchUnion(
                 before, placeIds, tagIds,
@@ -107,7 +110,7 @@ class RoomLibraryRepo(
             val placeIds = resolvePlaceIds(places)
             val tagIds = resolveTagIds(tagNames)
             val before = boundOf(upToMonth)
-            if (useUnionFor(placeIds, tagIds)) {
+            if (useUnionFor(placeIds, tagIds, facetCountUnionThreshold)) {
                 db.shotDao().facetSearchCountUnion(before, placeIds, tagIds, RESULT_COUNT_CAP + 1)
             } else {
                 db.shotDao().facetSearchCountScan(before, placeIds, tagIds, RESULT_COUNT_CAP + 1)

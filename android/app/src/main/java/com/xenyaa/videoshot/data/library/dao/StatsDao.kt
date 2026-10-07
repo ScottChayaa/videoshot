@@ -31,7 +31,7 @@ interface StatsDao {
         LEFT JOIN place p ON s.kind = 1 AND p.id = s.ref_id
         LEFT JOIN tag t ON s.kind = 2 AND t.id = s.ref_id
         WHERE s.month = :month AND s.kind IN (1, 2) AND s.cnt > 0
-        ORDER BY s.cnt DESC, name
+        ORDER BY s.cnt DESC, name, s.kind
         """
     )
     suspend fun monthFacets(month: String): List<MonthFacetProjection>
@@ -55,7 +55,7 @@ interface StatsDao {
           AND (:upToMonth IS NULL OR EXISTS (
                 SELECT 1 FROM shot_stat s
                 WHERE s.kind = g.kind AND s.ref_id = g.ref_id AND s.month <= :upToMonth AND s.cnt > 0))
-        ORDER BY g.cnt DESC, name
+        ORDER BY g.cnt DESC, name, g.kind
         LIMIT :limit
         """
     )
