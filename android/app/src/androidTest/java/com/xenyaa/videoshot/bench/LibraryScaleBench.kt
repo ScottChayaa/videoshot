@@ -94,7 +94,9 @@ class LibraryScaleBench {
         measure("查詢結果：冷門標籤 N 張") { repo.searchByFacetsCount(emptySet(), setOf("標籤500"), null) }
         measure("地點輸入提示") { repo.distinctPlaces().size }
         measure("標籤管理（每個標籤張數）") { repo.allTagsWithUsage().size }
-        measure("帳號頁統計") { repo.accountStats("2025-03").totalShots }
+        measure("帳號頁統計（16B 讀統計表）") { repo.accountStats("2025-03").totalShots }
+        measure("候選清單（2020-01 以前）") { repo.searchFacets("2019-12", 31).size }
+        measure("候選清單（顯示更多 500）") { repo.searchFacets(null, 500).size }
         measure("描述查詢：3 字常見詞") {
             runCatching { repo.searchByQuery(ParsedQuery(keywords = listOf("一一丁")), null, null, 50).items.size }
                 .fold({ it }, { "失敗：${it.javaClass.simpleName} ${it.message?.take(60)}" })
@@ -129,6 +131,20 @@ class LibraryScaleBench {
                 WHERE t.kind != 0 AND t.cnt - COALESCE(r.n, 0) > 0 ORDER BY n DESC LIMIT 31
                 """
             )
+        }
+        log("===== 門檻量測（分段合併 vs 掃描，第一頁）=====")
+        val unionRepo = RoomLibraryRepo(db, Dispatchers.IO, facetUnionThreshold = Long.MAX_VALUE)
+        val scanRepo = RoomLibraryRepo(db, Dispatchers.IO, facetUnionThreshold = 0)
+        for (target in listOf(1_000, 2_000, 5_000, 10_000, 20_000, 50_000)) {
+            val row = db.text("SELECT ref_id || '|' || cnt FROM shot_stat_total WHERE kind = 2 ORDER BY abs(cnt - $target) LIMIT 1").split('|')
+            val name = db.text("SELECT name FROM tag WHERE id = ${row[0]}")
+            suspend fun median(r: RoomLibraryRepo): Double {
+                r.searchByFacets(emptySet(), setOf(name), null, null, 50)
+                return (1..5).map { timedSuspend { r.searchByFacets(emptySet(), setOf(name), null, null, 50) } }.sorted()[2]
+            }
+            val u = median(unionRepo)
+            val sc = median(scanRepo)
+            log("門檻：標籤 %s 張  分段 %.1f ms  掃描 %.1f ms  （目標 %d，%s）".format(row[1], u, sc, target, name))
         }
         log("===== 寫入成本（觸發器開著）=====")
         measure("取圖 100 張（每張 0～4 個標籤）然後刪整支", repeat = 2) {
