@@ -158,4 +158,23 @@ class RestoreManagerTest {
         assertEquals(1L, stillLocal.readSingleLong("SELECT COUNT(*) FROM shot"))
         stillLocal.close()
     }
+
+    /** 16A：舊版 app 做的備份（v1）還原後，Room 打開時自動升級到 v2。 */
+    @Test
+    fun 還原v1備份會自動升級() = runTest {
+        val v1File = File(tmp.root, "v1-backup.db")
+        com.xenyaa.videoshot.data.writeV1Library(v1File)
+        val gz = File(tmp.root, "v1-backup.db.gz")
+        val sha256 = BackupCodec.gzipWithSha256(v1File, gz)
+        val remote = store.upload(NewBackup(gz, sha256, 1, 6, "舊手機", 100))
+
+        val result = manager().restore(remote)
+
+        assertTrue(result is RestoreResult.Success)
+        val reopened = openLibraryDb()
+        assertEquals(2L, reopened.readSingleLong("PRAGMA user_version"))
+        assertEquals(6L, reopened.readSingleLong("SELECT COUNT(*) FROM shot"))
+        assertEquals(6L, reopened.readSingleLong("SELECT cnt FROM shot_stat_total WHERE kind = 0 AND ref_id = 0"))
+        reopened.close()
+    }
 }
