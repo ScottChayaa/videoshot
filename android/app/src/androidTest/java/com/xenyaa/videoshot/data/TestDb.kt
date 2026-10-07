@@ -57,3 +57,25 @@ suspend fun LibraryDatabase.placeIdOf(name: String?): Long? {
 /** 測試用：在寫入連線上執行一句 SQL。 */
 suspend fun LibraryDatabase.execOnWriter(sql: String) =
     useWriterConnection { it.usePrepared(sql) { stmt -> stmt.step() } }
+
+/** 測試用：統計表（每月明細與總數）必須等於從 shot／shot_tag 獨立重數的結果，且沒有負數。 */
+suspend fun LibraryDatabase.assertStatsMatchRecount() {
+    val truth = """
+        SELECT substr(event_date, 1, 7) AS m, 0 AS k, 0 AS r, COUNT(*) AS n FROM shot GROUP BY 1
+        UNION ALL
+        SELECT substr(event_date, 1, 7), 1, place_id, COUNT(*) FROM shot WHERE place_id IS NOT NULL GROUP BY 1, 3
+        UNION ALL
+        SELECT substr(s.event_date, 1, 7), 2, st.tag_id, COUNT(*) FROM shot_tag st JOIN shot s ON s.id = st.shot_id GROUP BY 1, 3
+    """
+    val expected = readAllText("SELECT m || '|' || k || '|' || r || '|' || n FROM ($truth) ORDER BY 1")
+    val actual = readAllText("SELECT month || '|' || kind || '|' || ref_id || '|' || cnt FROM shot_stat WHERE cnt <> 0 ORDER BY 1")
+    org.junit.Assert.assertEquals("每月明細", expected, actual)
+
+    val expectedTotal = readAllText("SELECT k || '|' || r || '|' || SUM(n) FROM ($truth) GROUP BY k, r ORDER BY 1")
+    val actualTotal = readAllText("SELECT kind || '|' || ref_id || '|' || cnt FROM shot_stat_total WHERE cnt <> 0 ORDER BY 1")
+    org.junit.Assert.assertEquals("總數", expectedTotal, actualTotal)
+
+    org.junit.Assert.assertEquals("不能有負數", 0L, readSingleLong(
+        "SELECT (SELECT COUNT(*) FROM shot_stat WHERE cnt < 0) + (SELECT COUNT(*) FROM shot_stat_total WHERE cnt < 0)"
+    ))
+}

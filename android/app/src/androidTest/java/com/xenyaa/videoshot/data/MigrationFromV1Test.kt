@@ -67,7 +67,7 @@ class MigrationFromV1Test {
     @Test fun 全文索引重建且只索引描述() = runTest {
         assertEquals(listOf(1L), db.searchDao().matchIds("\"夜潛看\""))
         assertEquals(listOf(3L), db.searchDao().matchIds("\"海邊玩\""))
-        assertEquals(emptyList<Long>(), db.searchDao().matchIds("\"宜蘭\""))
+        assertEquals(listOf("description"), db.readAllText("SELECT name FROM pragma_table_info('shot_fts')"))
     }
 
     @Test fun 統計表算好了() = runTest {
@@ -82,6 +82,8 @@ class MigrationFromV1Test {
             "SELECT t.cnt FROM shot_stat_total t JOIN place p ON p.id = t.ref_id WHERE t.kind = 1 AND p.name = '花蓮'"
         ))
     }
+
+    @Test fun 統計表與獨立重數完全一致() = runTest { db.assertStatsMatchRecount() }
 
     @Test fun 升級後照常寫入_統計跟著變() = runTest {
         val repo = RoomLibraryRepo(db, Dispatchers.IO)

@@ -251,4 +251,18 @@ class SearchRepoTest {
 
         assertEquals(listOf(hit), page.items.map { it.id })
     }
+
+    /** 16A 唯一刻意的行為改變：關鍵字命中地點名稱算地點層（2），高於只靠標籤命中（1）。 */
+    @Test
+    fun 關鍵字命中地點名稱排在只命中標籤的前面() = runTest {
+        val byPlaceName = seedShot("v1", 0.0, "2026-01-01", place = "宜蘭礁溪")
+        val byTag = seedShot("v1", 10.0, "2026-03-01", place = null, tagNames = listOf("露營"))
+
+        val page = repo.searchByQuery(
+            com.xenyaa.videoshot.core.query.ParsedQuery(tags = listOf("露營"), keywords = listOf("礁溪")),
+            upToMonth = null, after = null, limit = 10,
+        )
+
+        assertEquals(listOf(byPlaceName, byTag), page.items.map { it.id })
+    }
 }

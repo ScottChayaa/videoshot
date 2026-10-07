@@ -153,15 +153,18 @@ class LibraryScaleBench {
             }
             "已還原"
         }
+        // 依名稱查 id：從 v1 升上來的壓測庫，id 是照 DISTINCT 順序配的，不能寫死
+        val bigPlaceId = db.text("SELECT id FROM place WHERE name = '宜蘭2'").toLong()
+        val smallPlaceId = db.text("SELECT id FROM place WHERE name = '地點0'").toLong()
         measure("合併地點（宜蘭2 的 10 萬張 → 地點0）", repeat = 1) {
             db.write(rollback = true) {
-                exec("UPDATE shot SET place_id = 2 WHERE place_id = 1")
-                exec("DELETE FROM place WHERE id = 1")
+                exec("UPDATE shot SET place_id = $smallPlaceId WHERE place_id = $bigPlaceId")
+                exec("DELETE FROM place WHERE id = $bigPlaceId")
             }
             "已還原"
         }
         measure("地點改名（宜蘭2→宜蘭）") {
-            db.write(rollback = true) { exec("UPDATE place SET name = '宜蘭' WHERE id = 1") }
+            db.write(rollback = true) { exec("UPDATE place SET name = '宜蘭' WHERE id = $bigPlaceId") }
         }
         measure("統計正確性抽查（總數＝實際張數）") {
             db.text("SELECT (SELECT cnt FROM shot_stat_total WHERE kind = 0) = (SELECT COUNT(*) FROM shot)")

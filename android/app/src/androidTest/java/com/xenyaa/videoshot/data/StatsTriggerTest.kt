@@ -60,28 +60,7 @@ class StatsTriggerTest {
         )),
     )
 
-    /** 從圖資重數一遍：每月 × 種類 × 對象 × 張數。 */
-    private val truth = """
-        SELECT substr(event_date, 1, 7) AS m, 0 AS k, 0 AS r, COUNT(*) AS n FROM shot GROUP BY 1
-        UNION ALL
-        SELECT substr(event_date, 1, 7), 1, place_id, COUNT(*) FROM shot WHERE place_id IS NOT NULL GROUP BY 1, 3
-        UNION ALL
-        SELECT substr(s.event_date, 1, 7), 2, st.tag_id, COUNT(*) FROM shot_tag st JOIN shot s ON s.id = st.shot_id GROUP BY 1, 3
-    """
-
-    private suspend fun assertStatsMatch() {
-        val expected = db.readAllText("SELECT m || '|' || k || '|' || r || '|' || n FROM ($truth) ORDER BY 1")
-        val actual = db.readAllText("SELECT month || '|' || kind || '|' || ref_id || '|' || cnt FROM shot_stat WHERE cnt <> 0 ORDER BY 1")
-        assertEquals("每月明細", expected, actual)
-
-        val expectedTotal = db.readAllText("SELECT k || '|' || r || '|' || SUM(n) FROM ($truth) GROUP BY k, r ORDER BY 1")
-        val actualTotal = db.readAllText("SELECT kind || '|' || ref_id || '|' || cnt FROM shot_stat_total WHERE cnt <> 0 ORDER BY 1")
-        assertEquals("總數", expectedTotal, actualTotal)
-
-        assertEquals("不能有負數", 0L, db.readSingleLong(
-            "SELECT (SELECT COUNT(*) FROM shot_stat WHERE cnt < 0) + (SELECT COUNT(*) FROM shot_stat_total WHERE cnt < 0)"
-        ))
-    }
+    private suspend fun assertStatsMatch() = db.assertStatsMatchRecount()
 
     @Test fun 取圖入庫() = runTest { seed(); assertStatsMatch() }
 
