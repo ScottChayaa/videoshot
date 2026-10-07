@@ -128,7 +128,7 @@ class LibraryRepoWriteTest {
     @Test
     fun 寫入之後會通知變更() = runTest {
         var changed = 0
-        val watched: LibraryRepo = RoomLibraryRepo(db, Dispatchers.IO) { changed++ }
+        val watched: LibraryRepo = RoomLibraryRepo(db, Dispatchers.IO, onChanged = { changed++ })
         val ids = watched.commitPicks(video, listOf(storyboardPick(0)))
         assertEquals(1, changed)
         watched.patchShots(ids, ShotPatch(null, "宜蘭", null, null))

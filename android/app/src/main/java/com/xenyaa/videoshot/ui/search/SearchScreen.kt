@@ -49,6 +49,7 @@ import com.xenyaa.videoshot.core.home.DEFAULT_THUMB_COLUMNS
 import com.xenyaa.videoshot.core.home.thumbColumnsFor
 import com.xenyaa.videoshot.core.home.monthLabel
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
+import com.xenyaa.videoshot.data.repo.model.RESULT_COUNT_CAP
 import com.xenyaa.videoshot.ui.home.MonthPickerSheet
 import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.ChipKind
@@ -318,7 +319,7 @@ private fun ResultBar(state: SearchState) {
         Text(
             buildAnnotatedString {
                 withStyle(SpanStyle(fontSize = 17.sp, fontWeight = FontWeight.Bold, color = textColor)) {
-                    append(state.total.toString())
+                    append(if (state.totalCapped) "$RESULT_COUNT_CAP+" else state.total.toString())
                 }
                 append(" 張 · ${dateLabelOf(state.upToMonth)}")
             },

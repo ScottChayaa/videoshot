@@ -266,4 +266,50 @@ class SearchRepoTest {
 
         assertEquals(listOf(byPlaceName, byTag), page.items.map { it.id })
     }
+
+    /** 16B 設計決議 4：兩種查法的結果與分頁必須完全一樣。門檻設 0 強迫掃描、設很大強迫分段合併。 */
+    @Test
+    fun 分段合併與掃描兩種查法結果一樣() = runTest {
+        val dates = listOf("2026-01-05", "2026-01-05", "2026-01-20", "2026-02-01", "2026-02-01", "2026-02-01",
+            "2026-02-15", "2026-02-28", "2026-03-01", "2026-03-02", "2026-01-31", "2026-02-10")
+        dates.forEachIndexed { i, d ->
+            seedShot("v1", i.toDouble(), d, place = if (i % 3 == 0) "宜蘭" else null, tagNames = if (i % 2 == 0) listOf("露營") else emptyList())
+        }
+        seedShot("v2", 0.0, "2025-12-31", place = "宜蘭", tagNames = listOf("露營"))
+
+        suspend fun allPages(repo: RoomLibraryRepo): List<com.xenyaa.videoshot.data.repo.model.ShotRow> {
+            val rows = mutableListOf<com.xenyaa.videoshot.data.repo.model.ShotRow>()
+            var cursor: com.xenyaa.videoshot.core.paging.ShotCursor? = null
+            do {
+                val page = repo.searchByFacets(setOf("宜蘭"), setOf("露營"), upToMonth = "2026-02", after = cursor, limit = 3)
+                rows += page.items
+                cursor = page.next
+            } while (cursor != null)
+            return rows
+        }
+
+        val union = allPages(RoomLibraryRepo(libraryDb, Dispatchers.IO, facetUnionThreshold = Long.MAX_VALUE))
+        val scan = allPages(RoomLibraryRepo(libraryDb, Dispatchers.IO, facetUnionThreshold = 0))
+        assertEquals(scan.map { it.id }, union.map { it.id })
+        assertEquals(scan, union)
+        assertEquals(union.map { it.id }.distinct(), union.map { it.id }) // 同時命中地點與標籤的圖只出現一次
+        assertEquals(true, union.isNotEmpty())
+        assertEquals(false, union.any { it.eventDate.startsWith("2026-03") })
+        assertEquals(true, union.any { it.eventDate == "2025-12-31" })
+    }
+
+    /** 設計決議 2：張數最多數到 1001（畫面顯示 1000+）。 */
+    @Test
+    fun 結果張數有上限() = runTest {
+        libraryDb.videoDao().upsert(VideoEntity("big", "t", "c", "2026-01-01T00:00:00Z", 600, "public", null, 1L))
+        val placeId = libraryDb.placeIdOf("宜蘭")
+        libraryDb.execOnWriter(
+            "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 1200) " +
+                "INSERT INTO shot (video_id, at_sec, source, frame_index, sb_level, event_date, place_id, description, created_at) " +
+                "SELECT 'big', i, 'storyboard', i, 3, '2026-01-01', $placeId, NULL, 0 FROM n"
+        )
+        assertEquals(1001, repo.searchByFacetsCount(setOf("宜蘭"), emptySet(), upToMonth = null))
+        assertEquals(1001, repo.searchByQueryCount(com.xenyaa.videoshot.core.query.ParsedQuery(places = listOf("宜蘭")), upToMonth = null))
+        assertEquals(0, repo.searchByFacetsCount(setOf("宜蘭"), emptySet(), upToMonth = "2025-12"))
+    }
 }

@@ -103,14 +103,52 @@ interface ShotDao {
         limit: Int,
     ): List<ShotRowProjection>
 
-    /** 結果列的「N 張」（規格第六節：「結果列顯示『N 張・全部日期・條件 chips』」）。 */
+    /**
+     * 查詢頁「標籤與地點」的**分段合併**查法（規格第八節，設計決議 4）：地點走 `index_shot_place_id`、
+     * 標籤走 `index_shot_tag_tag_id`，各自撈出符合的圖再合併排序。選取的項目張數少時遠快於沿時間軸掃描
+     * （實機：1,266 張的標籤 0.12 秒 → 0.015 秒）；張數多時反而慢，由 repo 依 `StatsDao.selectedTotal` 決定用哪個。
+     * `UNION`（不是 UNION ALL）讓同時命中地點與標籤的圖只出現一次。keyset 條件寫進兩個分支，第二頁以後同樣只撈需要的。
+     * 第一頁傳 `eventDate = "9999-99-99"`、`id = Long.MAX_VALUE`。
+     */
     @Query(
         """
-        SELECT COUNT(DISTINCT s.id) FROM shot s LEFT JOIN shot_tag st ON st.shot_id = s.id
-        WHERE s.event_date < :before AND (s.place_id IN (:placeIds) OR st.tag_id IN (:tagIds))
+        SELECT u.id AS id, u.video_id AS video_id, u.at_sec AS at_sec, u.source AS source,
+               u.frame_index AS frame_index, u.sb_level AS sb_level, u.event_date AS event_date,
+               p.name AS place, u.description AS description
+        FROM (
+            SELECT s.id, s.video_id, s.at_sec, s.source, s.frame_index, s.sb_level, s.event_date, s.place_id, s.description
+            FROM shot s
+            WHERE s.place_id IN (:placeIds) AND s.event_date < :before
+              AND (s.event_date < :eventDate OR (s.event_date = :eventDate AND s.id < :id))
+            UNION
+            SELECT s.id, s.video_id, s.at_sec, s.source, s.frame_index, s.sb_level, s.event_date, s.place_id, s.description
+            FROM shot_tag st JOIN shot s ON s.id = st.shot_id
+            WHERE st.tag_id IN (:tagIds) AND s.event_date < :before
+              AND (s.event_date < :eventDate OR (s.event_date = :eventDate AND s.id < :id))
+        ) u LEFT JOIN place p ON p.id = u.place_id
+        ORDER BY u.event_date DESC, u.id DESC LIMIT :limit
         """
     )
-    suspend fun facetSearchCount(before: String, placeIds: List<Long>, tagIds: List<Long>): Int
+    suspend fun facetSearchUnion(
+        before: String,
+        placeIds: List<Long>,
+        tagIds: List<Long>,
+        eventDate: String,
+        id: Long,
+        limit: Int,
+    ): List<ShotRowProjection>
+
+    /** 結果列的「N 張」，最多數到 `cap`（呼叫端傳 `RESULT_COUNT_CAP + 1`；設計決議 2）。 */
+    @Query(
+        """
+        SELECT COUNT(*) FROM (
+            SELECT DISTINCT s.id FROM shot s LEFT JOIN shot_tag st ON st.shot_id = s.id
+            WHERE s.event_date < :before AND (s.place_id IN (:placeIds) OR st.tag_id IN (:tagIds))
+            LIMIT :cap
+        )
+        """
+    )
+    suspend fun facetSearchCount(before: String, placeIds: List<Long>, tagIds: List<Long>, cap: Int): Int
 
     @Query(
         """

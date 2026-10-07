@@ -116,7 +116,7 @@ class AppContainer(context: Context) : AppRootDeps {
     }
 
     override val libraryRepo: LibraryRepo by lazy {
-        RoomLibraryRepo(libraryDb, Dispatchers.IO) { settings.markChanged() }
+        RoomLibraryRepo(libraryDb, Dispatchers.IO, onChanged = { settings.markChanged() })
     }
 
     val cacheRepo: CacheRepo by lazy { RoomCacheRepo(cacheDb, Dispatchers.IO) }

@@ -42,6 +42,8 @@ data class SearchState(
     val textQuery: String = "",
     val results: List<ShotRow> = emptyList(),
     val total: Int = 0,
+    /** [total] 是數到上限為止的張數；超過 `RESULT_COUNT_CAP` 時為 true，畫面顯示「1000+」。 */
+    val totalCapped: Boolean = false,
     val tagCursor: ShotCursor? = null,
     val textCursor: SearchCursor? = null,
     val resultsLoading: Boolean = false,

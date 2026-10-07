@@ -84,3 +84,12 @@ data class RecentVideo(
     val addedAt: Long,
     val shotCount: Int,
 )
+
+/** 查詢結果「N 張」最多數到這裡；超過顯示「1000+ 張」（規格第六節「查詢」）。count 查詢回傳最多 `RESULT_COUNT_CAP + 1`。 */
+const val RESULT_COUNT_CAP = 1000
+
+/**
+ * 查詢結果第一頁的查法分界（規格第八節）：選取的地點與標籤總張數小於它用「分段合併」，否則沿時間軸掃描。
+ * 實機 100 萬張量測後定案（階段 16B Task 4）。
+ */
+const val FACET_UNION_THRESHOLD = 5_000L

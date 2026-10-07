@@ -22,7 +22,9 @@ import com.xenyaa.videoshot.data.library.entity.TagEntity
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.AccountStats
 import com.xenyaa.videoshot.data.repo.model.FolderCard
+import com.xenyaa.videoshot.data.repo.model.FACET_UNION_THRESHOLD
 import com.xenyaa.videoshot.data.repo.model.FolderNode
+import com.xenyaa.videoshot.data.repo.model.RESULT_COUNT_CAP
 import com.xenyaa.videoshot.data.repo.model.FolderPage
 import com.xenyaa.videoshot.data.repo.model.MonthCount
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
@@ -44,6 +46,8 @@ class RoomLibraryRepo(
     private val io: CoroutineDispatcher,
     /** 每次成功寫入 library.db 之後呼叫；自動備份用它判斷「有沒有變更」（規格第十節）。 */
     private val onChanged: suspend () -> Unit = {},
+    /** 查詢結果第一頁的查法分界（設計決議 4）；測試用 0／Long.MAX_VALUE 強迫走某一條。 */
+    private val facetUnionThreshold: Long = FACET_UNION_THRESHOLD,
 ) : LibraryRepo {
 
     /** 沒有篩選時的上界。任何合法的 event_date 都比它小。 */
@@ -85,10 +89,14 @@ class RoomLibraryRepo(
         val before = boundOf(upToMonth)
         val placeIds = resolvePlaceIds(places)
         val tagIds = resolveTagIds(tagNames)
-        val rows = if (after == null) {
-            db.shotDao().facetSearchFirst(before, placeIds, tagIds, limit)
-        } else {
-            db.shotDao().facetSearchAfter(before, placeIds, tagIds, after.eventDate, after.id, limit)
+        val useUnion = db.statsDao().selectedTotal(placeIds, tagIds) < facetUnionThreshold
+        val rows = when {
+            useUnion -> db.shotDao().facetSearchUnion(
+                before, placeIds, tagIds,
+                after?.eventDate ?: "9999-99-99", after?.id ?: Long.MAX_VALUE, limit,
+            )
+            after == null -> db.shotDao().facetSearchFirst(before, placeIds, tagIds, limit)
+            else -> db.shotDao().facetSearchAfter(before, placeIds, tagIds, after.eventDate, after.id, limit)
         }
         val next = if (rows.size < limit) null else rows.last().let { ShotCursor(it.eventDate, it.id) }
         Page(rows.map { it.toRow() }, next)
@@ -96,7 +104,7 @@ class RoomLibraryRepo(
 
     override suspend fun searchByFacetsCount(places: Set<String>, tagNames: Set<String>, upToMonth: String?): Int =
         withContext(io) {
-            db.shotDao().facetSearchCount(boundOf(upToMonth), resolvePlaceIds(places), resolveTagIds(tagNames))
+            db.shotDao().facetSearchCount(boundOf(upToMonth), resolvePlaceIds(places), resolveTagIds(tagNames), RESULT_COUNT_CAP + 1)
         }
 
     override suspend fun searchByQuery(query: ParsedQuery, upToMonth: String?, after: SearchCursor?, limit: Int): SearchPage =
@@ -128,6 +136,7 @@ class RoomLibraryRepo(
             placeIds,
             resolveTagIds(query.tags.toSet()),
             keywordIdsOf(query.keywords),
+            RESULT_COUNT_CAP + 1,
         )
     }
 

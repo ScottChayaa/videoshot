@@ -147,6 +147,20 @@ class SearchScreenTest {
     }
 
     @Test
+    fun 結果張數超過上限顯示1000加號否則顯示實際張數() {
+        val row = ShotRow(1, "v1", 10.0, "storyboard", 1, 3, "2026-03-01", null, null)
+        show(SearchState(phase = SearchPhase.RESULTS, results = listOf(row), total = 1001, totalCapped = true))
+        compose.onNodeWithText("1000+", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun 結果張數沒超過上限顯示實際張數() {
+        val row = ShotRow(1, "v1", 10.0, "storyboard", 1, 3, "2026-03-01", null, null)
+        show(SearchState(phase = SearchPhase.RESULTS, results = listOf(row), total = 37))
+        compose.onNodeWithText("37", substring = true).assertIsDisplayed()
+    }
+
+    @Test
     fun 結果階段顯示結果列與聽懂了摘要() {
         val row = ShotRow(1, "v1", 10.0, "storyboard", 1, 3, "2026-03-01", null, null)
         val state = SearchState(

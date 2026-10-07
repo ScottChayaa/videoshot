@@ -102,7 +102,7 @@ interface SearchDao {
         limit: Int,
     ): List<SearchHitProjection>
 
-    /** 結果列的「N 張」。 */
+    /** 結果列的「N 張」，最多數到 `cap`（呼叫端傳 `RESULT_COUNT_CAP + 1`）。 */
     @Query(
         """
         WITH matches(id) AS (
@@ -111,7 +111,7 @@ interface SearchDao {
               AND (s.place_id IN (:placeIds) OR st.tag_id IN (:tagIds) OR s.id IN (:keywordIds))
             GROUP BY s.id
         )
-        SELECT COUNT(*) FROM matches
+        SELECT COUNT(*) FROM (SELECT id FROM matches LIMIT :cap)
         """
     )
     suspend fun queryCount(
@@ -121,6 +121,7 @@ interface SearchDao {
         placeIds: List<Long>,
         tagIds: List<Long>,
         keywordIds: List<Long>,
+        cap: Int,
     ): Int
 }
 

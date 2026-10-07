@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.ui.search
 
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.Page
+import com.xenyaa.videoshot.data.repo.model.RESULT_COUNT_CAP
 import com.xenyaa.videoshot.data.repo.model.SearchPage
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 
@@ -78,12 +79,12 @@ object SearchStore {
 
     fun appendTagPage(state: SearchState, page: Page<ShotRow>, total: Int): SearchState = state.copy(
         results = state.results + page.items, tagCursor = page.next,
-        endReached = page.next == null, resultsLoading = false, total = total, error = null,
+        endReached = page.next == null, resultsLoading = false, total = total, totalCapped = total > RESULT_COUNT_CAP, error = null,
     )
 
     fun appendTextPage(state: SearchState, page: SearchPage, total: Int): SearchState = state.copy(
         results = state.results + page.items, textCursor = page.next,
-        endReached = page.next == null, resultsLoading = false, total = total, error = null,
+        endReached = page.next == null, resultsLoading = false, total = total, totalCapped = total > RESULT_COUNT_CAP, error = null,
     )
 
     /** 左上角返回鍵改條件（規格第六節）：回到條件畫面，選取與輸入都保留，不是重新開始。 */
@@ -99,12 +100,13 @@ object SearchStore {
      * 從查詢結果就地拔掉一張（刪除同步，見 Task 12 覆查 Important 1）。
      * 跟 `HomeStore.removeShot` 同一個理由：總數要一起減，否則 Lightbox 的「共 M 張」
      * 停在刪除前的數字；清單也要一起拔掉，否則使用者滑回去還看得到那張已經不存在的圖。
+     * 張數已達上限（`totalCapped`）時真正的總數不知道，`total` 不動，免得 1001 扣成「1000 張」騙人。
      */
     fun removeShot(state: SearchState, id: Long): SearchState {
         if (state.results.none { it.id == id }) return state
         return state.copy(
             results = state.results.filterNot { it.id == id },
-            total = (state.total - 1).coerceAtLeast(0),
+            total = if (state.totalCapped) state.total else (state.total - 1).coerceAtLeast(0),
         )
     }
 
@@ -118,7 +120,7 @@ object SearchStore {
         if (removed == 0) return state
         return state.copy(
             results = state.results.filterNot { it.videoId == videoId },
-            total = (state.total - removed).coerceAtLeast(0),
+            total = if (state.totalCapped) state.total else (state.total - removed).coerceAtLeast(0),
         )
     }
 

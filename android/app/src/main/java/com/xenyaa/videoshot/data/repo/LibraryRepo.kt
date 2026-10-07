@@ -59,6 +59,7 @@ interface LibraryRepo {
         limit: Int,
     ): Page<ShotRow>
 
+    /** 結果張數；最多回傳 `RESULT_COUNT_CAP + 1`（超過畫面顯示「1000+」）。 */
     suspend fun searchByFacetsCount(places: Set<String>, tagNames: Set<String>, upToMonth: String?): Int
 
     /**
@@ -69,6 +70,7 @@ interface LibraryRepo {
      */
     suspend fun searchByQuery(query: ParsedQuery, upToMonth: String?, after: SearchCursor?, limit: Int): SearchPage
 
+    /** 結果張數；最多回傳 `RESULT_COUNT_CAP + 1`（超過畫面顯示「1000+」）。 */
     suspend fun searchByQueryCount(query: ParsedQuery, upToMonth: String?): Int
 
     /** 一張圖的標籤名。就地編輯要把現值帶進抽屜。 */

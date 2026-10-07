@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.ui.search
 
 import com.xenyaa.videoshot.core.paging.ShotCursor
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
+import com.xenyaa.videoshot.data.repo.model.RESULT_COUNT_CAP
 import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import org.junit.Assert.assertEquals
@@ -203,5 +204,23 @@ class SearchStoreTest {
     fun 換不存在的_id_不動任何東西() {
         val loaded = SearchStore.appendTagPage(SearchState(), Page(listOf(row(1)), null), total = 1)
         assertEquals(loaded, SearchStore.replace(loaded, row(999)))
+    }
+
+    @Test
+    fun 張數超過上限時標記並在刪除時不往下扣() {
+        val page = Page(listOf(row(1), row(2)), next = null)
+        val s = SearchStore.appendTagPage(SearchState(phase = SearchPhase.RESULTS), page, total = RESULT_COUNT_CAP + 1)
+        assertTrue(s.totalCapped)
+        val after = SearchStore.removeShot(s, 1)
+        assertTrue(after.totalCapped)
+        assertEquals(RESULT_COUNT_CAP + 1, after.total)
+    }
+
+    @Test
+    fun 張數沒超過上限時照常扣() {
+        val page = Page(listOf(row(1), row(2)), next = null)
+        val s = SearchStore.appendTagPage(SearchState(phase = SearchPhase.RESULTS), page, total = 2)
+        assertFalse(s.totalCapped)
+        assertEquals(1, SearchStore.removeShot(s, 1).total)
     }
 }
