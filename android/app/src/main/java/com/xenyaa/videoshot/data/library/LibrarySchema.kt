@@ -57,6 +57,7 @@ object LibrarySchemaCallback : RoomDatabase.Callback() {
      */
     override fun onCreate(connection: SQLiteConnection) {
         FTS_SETUP_SQL.forEach { connection.execSQL(it) }
+        STATS_SETUP_SQL.forEach { connection.execSQL(it) }
     }
 
     override fun onOpen(connection: SQLiteConnection) {
@@ -66,7 +67,7 @@ object LibrarySchemaCallback : RoomDatabase.Callback() {
 }
 
 /**
- * v1 → v2（階段 16A）：地點改成 `place` 表、全文索引只索引描述（Task 2 再接上統計表）。
+ * v1 → v2（階段 16A）：地點改成 `place` 表、全文索引只索引描述、新增統計表。
  *
  * **不重建 `shot` 表**：`DROP TABLE shot` 會先做一次隱含的 DELETE，外鍵連動會把 `shot_tag`、
  * `shot_folder`、`shot_image` 全部刪光。改用 `ADD COLUMN`＋`DROP COLUMN`（SQLite 3.35+），
@@ -86,7 +87,7 @@ val MIGRATION_1_2_SQL: List<String> = listOf(
     "DROP INDEX IF EXISTS `index_shot_place`",
     "ALTER TABLE shot DROP COLUMN place",
     "CREATE INDEX IF NOT EXISTS `index_shot_place_id` ON `shot` (`place_id`)",
-) + FTS_SETUP_SQL + "INSERT INTO shot_fts(shot_fts) VALUES ('rebuild')"
+) + FTS_SETUP_SQL + "INSERT INTO shot_fts(shot_fts) VALUES ('rebuild')" + STATS_SETUP_SQL + STATS_REBUILD_SQL
 
 val MIGRATION_1_2: Migration = object : Migration(1, 2) {
     override fun migrate(connection: SQLiteConnection) {

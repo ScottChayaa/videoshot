@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.data
 
 import androidx.room.Room
 import androidx.room.useReaderConnection
+import androidx.room.useWriterConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.test.platform.app.InstrumentationRegistry
 import com.xenyaa.videoshot.data.cache.CacheDatabase
@@ -52,3 +53,7 @@ suspend fun LibraryDatabase.placeIdOf(name: String?): Long? {
     if (name.isNullOrBlank()) return null
     return placeDao().byName(name)?.id ?: placeDao().insert(PlaceEntity(0, name, "[]"))
 }
+
+/** 測試用：在寫入連線上執行一句 SQL。 */
+suspend fun LibraryDatabase.execOnWriter(sql: String) =
+    useWriterConnection { it.usePrepared(sql) { stmt -> stmt.step() } }
