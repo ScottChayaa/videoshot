@@ -68,11 +68,11 @@ class RoomLibraryRepo(
     }
 
     override suspend fun monthFacets(month: String): List<MonthFacet> = withContext(io) {
-        db.shotDao().monthFacets(month).map { MonthFacet(it.name, it.kind, it.count, it.tagKind) }
+        db.statsDao().monthFacets(month).map { MonthFacet(it.name, it.kind, it.count, it.tagKind) }
     }
 
     override suspend fun searchFacets(upToMonth: String?, limit: Int): List<MonthFacet> = withContext(io) {
-        db.shotDao().facetsInRange(boundOf(upToMonth), limit).map { MonthFacet(it.name, it.kind, it.count, it.tagKind) }
+        db.statsDao().candidates(upToMonth, limit).map { MonthFacet(it.name, it.kind, it.count, it.tagKind) }
     }
 
     override suspend fun searchByFacets(
@@ -158,7 +158,7 @@ class RoomLibraryRepo(
     }
 
     override suspend fun monthCounts(): List<MonthCount> = withContext(io) {
-        db.shotDao().monthCounts().map { MonthCount(it.month, it.count) }
+        db.statsDao().monthCounts().map { MonthCount(it.month, it.count) }
     }
 
     override suspend fun shotsOfVideo(videoId: String): List<ShotRow> = withContext(io) {
@@ -411,12 +411,15 @@ class RoomLibraryRepo(
     }
 
     override suspend fun accountStats(thisMonth: String): AccountStats = withContext(io) {
-        val row = db.shotDao().accountStats(thisMonth)
-        AccountStats(row.totalShots, row.thisMonthShots, row.distinctVideos)
+        AccountStats(
+            totalShots = db.statsDao().totalShots(),
+            thisMonthShots = db.statsDao().shotsInMonth(thisMonth),
+            distinctVideos = db.videoDao().count(),
+        )
     }
 
     override suspend fun allTagsWithUsage(): List<TagUsage> = withContext(io) {
-        db.tagDao().allWithUsage().map { TagUsage(it.id, it.name, it.kind, decodeAliases(it.aliases), it.shotCount) }
+        db.statsDao().tagsWithUsage().map { TagUsage(it.id, it.name, it.kind, decodeAliases(it.aliases), it.shotCount) }
     }
 
     override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>): Unit =

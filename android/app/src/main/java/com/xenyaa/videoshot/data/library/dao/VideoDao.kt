@@ -10,6 +10,9 @@ import com.xenyaa.videoshot.data.library.entity.VideoEntity
 interface VideoDao {
     @Upsert suspend fun upsert(video: VideoEntity)
 
+    @Query("SELECT COUNT(*) FROM video")
+    suspend fun count(): Int
+
     @Query("SELECT * FROM video WHERE id = :id")
     suspend fun byId(id: String): VideoEntity?
 

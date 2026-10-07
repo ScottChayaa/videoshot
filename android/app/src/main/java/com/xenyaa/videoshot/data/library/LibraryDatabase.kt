@@ -6,6 +6,7 @@ import com.xenyaa.videoshot.data.library.dao.FolderDao
 import com.xenyaa.videoshot.data.library.dao.PlaceDao
 import com.xenyaa.videoshot.data.library.dao.SearchDao
 import com.xenyaa.videoshot.data.library.dao.ShotDao
+import com.xenyaa.videoshot.data.library.dao.StatsDao
 import com.xenyaa.videoshot.data.library.dao.TagDao
 import com.xenyaa.videoshot.data.library.dao.VideoDao
 import com.xenyaa.videoshot.data.library.entity.FolderEntity
@@ -39,4 +40,5 @@ abstract class LibraryDatabase : RoomDatabase() {
     abstract fun placeDao(): PlaceDao
     abstract fun folderDao(): FolderDao
     abstract fun searchDao(): SearchDao
+    abstract fun statsDao(): StatsDao
 }

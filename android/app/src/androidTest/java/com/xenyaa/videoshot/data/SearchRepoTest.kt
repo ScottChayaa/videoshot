@@ -70,6 +70,7 @@ class SearchRepoTest {
         assertEquals("other", place.tagKind)
     }
 
+    /** 16B：時間範圍拿掉範圍內沒有圖的項目（排序另見 `StatsReadTest`）。 */
     @Test
     fun searchFacets_時間篩選只看該月以前() = runTest {
         seedShot("v1", 0.0, "2026-03-01", place = "宜蘭")

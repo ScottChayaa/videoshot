@@ -45,6 +45,7 @@ interface LibraryRepo {
 
     /**
      * 查詢頁「標籤與地點」模式的候選清單，帶張數（規格第六節）。
+     * 依全部時間的張數排序，`upToMonth` 只過濾（設計決議 3，規格第六節）。
      * @param limit 想要的張數上限；呼叫端傳 `limit+1` 藉此判斷「顯示更多」
      */
     suspend fun searchFacets(upToMonth: String?, limit: Int): List<MonthFacet>

@@ -48,16 +48,6 @@ interface TagDao {
     @Query("SELECT id FROM tag WHERE name IN (:names)")
     suspend fun idsByNames(names: List<String>): List<Long>
 
-    /** 標籤管理頁：全部標籤 ＋ 使用張數，依名稱排序（規格第九節）。 */
-    @Query(
-        """
-        SELECT t.id AS id, t.name AS name, t.kind AS kind, t.aliases AS aliases, COUNT(st.shot_id) AS shotCount
-        FROM tag t LEFT JOIN shot_tag st ON st.tag_id = t.id
-        GROUP BY t.id ORDER BY t.name
-        """
-    )
-    suspend fun allWithUsage(): List<TagUsageProjection>
-
     @Query("UPDATE tag SET name = :name, kind = :kind, aliases = :aliases WHERE id = :id")
     suspend fun update(id: Long, name: String, kind: String, aliases: String)
 
