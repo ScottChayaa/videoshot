@@ -29,7 +29,7 @@ class HomeViewModel(
 
     /**
      * `loadMore()` 目前在跑的那次讀取。**換篩選要先取消它**——否則換月份之前發出去的那次
-     * 讀取（撈的是舊篩選）晚點才回來，會把它的游標、`endReached`、`total` 一起蓋回新篩選的
+     * 讀取（撈的是舊篩選）晚點才回來，會把它的游標、`endReached` 一起蓋回新篩選的
      * 狀態上，多出一批不該出現的舊資料（見階段 7 全盤覆查第 3 點）。取捲動觸發的
      * `loadMore()` 與取圖完成的 `reload()` 之間也有一樣的競態，所以每次 `loadMore()`
      * 開始前都取消上一次，不只是換篩選那個路徑。
@@ -53,8 +53,7 @@ class HomeViewModel(
         _state.value = HomeStore.startLoading(current)
         loadJob = launchGuarded {
             val page = repo.homeFeed(current.cursor, pageSize, current.upToMonth)
-            val total = repo.shotCount(current.upToMonth)
-            _state.value = HomeStore.appendPage(_state.value, page, total)
+            _state.value = HomeStore.appendPage(_state.value, page)
             loadFacets(page.items)
         }
     }

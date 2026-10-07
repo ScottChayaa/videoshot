@@ -26,9 +26,6 @@ interface FolderDao {
     @Query("SELECT folder_id FROM shot_folder WHERE shot_id = :shotId")
     suspend fun folderIdsOf(shotId: Long): List<Long>
 
-    @Query("SELECT COUNT(*) FROM shot_folder WHERE folder_id = :folderId")
-    suspend fun shotCountIn(folderId: Long): Int
-
     /** 本層的第一頁：新加入在前。走 index_shot_folder_folder_id_added_at。 */
     @Query(
         """

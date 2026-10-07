@@ -51,7 +51,7 @@ class LightboxActionsTest {
             VideoshotTheme {
                 LightboxScreen(
                     items = listOf(shot),
-                    total = 1,
+                    hasMore = false,
                     startIndex = 0,
                     loader = loader,
                     hintSeen = true,

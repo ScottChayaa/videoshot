@@ -70,7 +70,6 @@ class AppRootSearchTest {
 
         override suspend fun homeFeed(after: ShotCursor?, limit: Int, upToMonth: String?) = Page(homeItems, null)
         override suspend fun monthCounts() = emptyList<com.xenyaa.videoshot.data.repo.model.MonthCount>()
-        override suspend fun shotCount(upToMonth: String?) = homeItems.size
         override suspend fun monthFacets(month: String) = facets
         override suspend fun searchFacets(upToMonth: String?, limit: Int) = facets
         override suspend fun searchByFacets(places: Set<String>, tagNames: Set<String>, upToMonth: String?, after: ShotCursor?, limit: Int) =

@@ -54,7 +54,7 @@ class HomeFilterTest {
             upToMonth = upToMonth,
             months = listOf(MonthCount("2026-03", 12), MonthCount("2026-01", 4)),
         )
-        return HomeStore.appendPage(base, Page(listOf(row(1, "2026-03-05")), null), 1)
+        return HomeStore.appendPage(base, Page(listOf(row(1, "2026-03-05")), null))
     }
 
     private var picked: Pair<Boolean, String?> = false to null

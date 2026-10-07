@@ -63,7 +63,6 @@ class HomeScreenTabletTest {
                 val state = HomeStore.appendPage(
                     HomeState(),
                     Page((0 until 12).map { row(it.toLong()) }, null),
-                    total = 12,
                 )
                 HomeScreen(
                     state = state,

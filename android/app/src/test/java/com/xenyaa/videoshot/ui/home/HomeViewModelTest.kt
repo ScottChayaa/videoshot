@@ -67,7 +67,6 @@ class HomeViewModelTest {
             monthCountsGate?.await()
             return monthCounts
         }
-        override suspend fun shotCount(upToMonth: String?): Int = itemsByMonth[upToMonth].orEmpty().size
     }
 
     @Test
@@ -92,7 +91,7 @@ class HomeViewModelTest {
     }
 
     /**
-     * 判別測試：不取消舊請求的話，A（沒篩選、晚回來）會把它的游標／`endReached`／`total`
+     * 判別測試：不取消舊請求的話，A（沒篩選、晚回來）會把它的游標／`endReached`
      * 蓋回已經是「篩選 2026-03」的狀態上，混進不該出現的資料。這個測試在修之前會失敗。
      */
     @Test

@@ -56,7 +56,6 @@ class WizardFinishTest {
                 (31..40).map { row(it.toLong(), "2026-01-%02d".format((it % 27) + 1)) },
             null,
         ),
-        total = 40,
     )
 
     @Test

@@ -74,15 +74,6 @@ class LibraryRepoFeedTest {
     }
 
     @Test
-    fun 總張數跟著篩選走() = runTest {
-        seed("v1", "2026-03-10", 3)
-        seed("v2", "2026-05-10", 2)
-        assertEquals(5, repo.shotCount())
-        assertEquals(3, repo.shotCount(upToMonth = "2026-03"))
-        assertEquals(0, repo.shotCount(upToMonth = "2025-12"))
-    }
-
-    @Test
     fun 月份標籤列混排地點與標籤並依張數排序() = runTest {
         val ids = seed("v1", "2026-03-10", 3, place = "宜蘭")
         val tag = db.tagDao().insert(TagEntity(0, "露營", "topic", "[]"))

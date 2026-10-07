@@ -31,7 +31,6 @@ open class FakeLibraryRepo : LibraryRepo {
     override suspend fun shotsOfVideo(videoId: String): List<ShotRow> = emptyList()
     override suspend fun shotById(id: Long): ShotRow? = null
     override suspend fun videoById(videoId: String): VideoEntity? = null
-    override suspend fun shotCount(upToMonth: String?): Int = 0
     override suspend fun monthFacets(month: String): List<MonthFacet> = emptyList()
     override suspend fun searchFacets(upToMonth: String?, limit: Int): List<MonthFacet> = emptyList()
     override suspend fun searchByFacets(places: Set<String>, tagNames: Set<String>, upToMonth: String?, after: ShotCursor?, limit: Int) =
@@ -59,7 +58,6 @@ open class FakeLibraryRepo : LibraryRepo {
     override suspend fun folderTree(): List<FolderNode> = emptyList()
     override suspend fun folderCards(parentId: Long?): List<FolderCard> = emptyList()
     override suspend fun folderShots(folderId: Long, after: FolderCursor?, limit: Int) = FolderPage(emptyList(), null)
-    override suspend fun folderShotCount(folderId: Long): Int = 0
     override suspend fun foldersOf(shotId: Long): Set<Long> = emptySet()
     override suspend fun addShotToFolder(shotId: Long, folderId: Long, atSec: Long) = Unit
     override suspend fun removeShotFromFolder(shotId: Long, folderId: Long) = Unit

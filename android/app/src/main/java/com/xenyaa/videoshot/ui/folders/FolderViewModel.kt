@@ -25,7 +25,6 @@ data class FolderState(
     val children: List<FolderCard> = emptyList(),
     /** 本層已載入的圖。從這一頁開 Lightbox 時，左右滑動的範圍就是它 */
     val items: List<ShotRow> = emptyList(),
-    val total: Int = 0,
     val cursor: FolderCursor? = null,
     val endReached: Boolean = false,
     val loading: Boolean = false,
@@ -67,7 +66,6 @@ class FolderViewModel(
         loadJob = launchGuarded {
             val node = repo.folderNode(folderId)
             val children = loadChildren()
-            val total = repo.folderShotCount(folderId)
             val page = repo.folderShots(folderId, null, pageSize)
             val breadcrumb = loadBreadcrumb(node)
             // 先算好再一次寫入（AGENTS.md 2026-10-02 的非同步狀態慣例）
@@ -76,7 +74,6 @@ class FolderViewModel(
                     node = node,
                     breadcrumb = breadcrumb,
                     children = children,
-                    total = total,
                     items = page.items,
                     cursor = page.next,
                     endReached = page.next == null,
@@ -121,7 +118,6 @@ class FolderViewModel(
         if (current.items.none { it.id == id }) return
         _state.value = current.copy(
             items = current.items.filterNot { it.id == id },
-            total = (current.total - 1).coerceAtLeast(0),
         )
         // 先等 repo 再以當下狀態更新——理由見 DetailViewModel.loadPlayerInfo
         launchGuarded {

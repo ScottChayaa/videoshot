@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -41,7 +42,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.VsButton
@@ -76,7 +76,7 @@ data class LightboxActions(
  * 那會讓人以為自己還在清單上。
  *
  * 左右滑動的範圍是**進來時的清單**（規格第六節）：首頁目前已載入的那一份。
- * 「共 M 張」則是 SQL 的 COUNT，所以 M 可能比清單長 —— 滑到尾端就去載下一頁。
+ * 看圖時不顯示第幾張（規格第六節，2026-10-07 決定）；滑到尾端就去載下一頁。
  *
  * 大圖是 320×180 放大置中，全屏會偏軟，這是儲存尺寸的天生限制（規格附錄 A-6）。
  *
@@ -88,7 +88,8 @@ data class LightboxActions(
 @Composable
 fun LightboxScreen(
     items: List<ShotRow>,
-    total: Int,
+    /** 已載入的清單後面還有沒有下一頁；剩不到 5 張且還有下一頁就先去要。 */
+    hasMore: Boolean,
     startIndex: Int,
     loader: ThumbLoader,
     hintSeen: Boolean,
@@ -114,7 +115,7 @@ fun LightboxScreen(
         snapshotFlow { pager.currentPage }.collect { page ->
             onIndexChange(page)
             // 剩不到 5 張就先去要下一頁，滑動才不會停在「已載入的最後一張」
-            if (page >= items.size - 5 && items.size < total) onLoadMore()
+            if (page >= items.size - 5 && hasMore) onLoadMore()
         }
     }
 
@@ -148,13 +149,7 @@ fun LightboxScreen(
                 IconButton(onClick = onClose, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(iconShape)) {
                     Icon(VsIcons.Close, contentDescription = "關閉", tint = OnDarkColors.primary)
                 }
-                Text(
-                    "第 ${pager.currentPage + 1} / 共 $total 張",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = OnDarkColors.secondary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(1f).padding(horizontal = AppTheme.spacing.s2),
-                )
+                Spacer(Modifier.weight(1f))
                 Box {
                     IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(iconShape)) {
                         Icon(VsIcons.More, contentDescription = "更多", tint = OnDarkColors.primary)

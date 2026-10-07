@@ -56,7 +56,7 @@ class LightboxDeleteTest {
             VideoshotTheme {
                 LightboxScreen(
                     items = items,
-                    total = items.size,
+                    hasMore = false,
                     startIndex = 1,
                     loader = loader,
                     hintSeen = true, onHintSeen = {},
@@ -72,7 +72,6 @@ class LightboxDeleteTest {
         compose.waitForIdle()
         // 原本第 2 張沒了，位置 1 現在是原本的第 3 張（02:30）
         compose.onNodeWithText("02:30").assertExists()
-        compose.onNodeWithText("第 2 / 共 2 張").assertExists()
     }
 
     @Test
@@ -82,7 +81,7 @@ class LightboxDeleteTest {
             VideoshotTheme {
                 LightboxScreen(
                     items = items,
-                    total = items.size,
+                    hasMore = false,
                     startIndex = 0,
                     loader = loader,
                     hintSeen = true, onHintSeen = {},

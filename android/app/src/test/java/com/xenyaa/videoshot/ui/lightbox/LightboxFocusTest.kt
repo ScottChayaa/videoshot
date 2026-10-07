@@ -61,7 +61,7 @@ class LightboxFocusTest {
             VideoshotTheme {
                 LightboxScreen(
                     items = items,
-                    total = items.size,
+                    hasMore = false,
                     startIndex = 0,
                     loader = loader,
                     hintSeen = true,

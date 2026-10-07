@@ -97,7 +97,6 @@ class AppRootWizardFinishTest {
         }
         override suspend fun shotsOfVideo(videoId: String) = items.filter { it.videoId == videoId }
         override suspend fun shotById(id: Long) = items.find { it.id == id }
-        override suspend fun shotCount(upToMonth: String?) = items.size
         override suspend fun commitPicks(video: VideoEntity, picks: List<NewShot>): List<Long> {
             val newRows = picks.map { p ->
                 ShotRow(

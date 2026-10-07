@@ -90,7 +90,6 @@ class AppRootFoldersTest {
         var addShotToFolderShouldFail = false
 
         override suspend fun homeFeed(after: ShotCursor?, limit: Int, upToMonth: String?) = Page(homeItems, null)
-        override suspend fun shotCount(upToMonth: String?) = homeItems.size
 
         override suspend fun folderCards(parentId: Long?): List<FolderCard> = when (parentId) {
             // 「旅行」的張數含子孫（規格第六節）：自己 2 張 ＋「宜蘭」的張數
@@ -117,12 +116,6 @@ class AppRootFoldersTest {
             }
         }
 
-        override suspend fun folderShotCount(folderId: Long): Int = when (folderId) {
-            1L -> folderItems.size
-            2L -> childItems.size
-            else -> 0
-        }
-
         override suspend fun folderTree(): List<FolderNode> =
             listOf(FolderNode(1, null, "旅行", 1), FolderNode(2, 1, "宜蘭", 2))
 
@@ -131,7 +124,7 @@ class AppRootFoldersTest {
             added += shotId to folderId
         }
 
-        // N4 的回歸測試用：真的要能刪掉，folderCards／folderShotCount 才會跟著變，
+        // N4 的回歸測試用：真的要能刪掉，folderCards 才會跟著變，
         // 才驗得出「刪除之後，分類分頁與資料夾頁顯示的張數是新的」
         override suspend fun shotById(id: Long): ShotRow? =
             (homeItems + folderItems + childItems).find { it.id == id }
@@ -269,16 +262,6 @@ class AppRootFoldersTest {
     }
 
     @Test
-    fun 從資料夾頁開的_Lightbox_共幾張是資料夾的張數() {
-        show()
-        compose.onNodeWithText("分類").performClick()
-        compose.onNodeWithText("旅行").performClick()
-        compose.onAllNodesWithContentDescription("片段縮圖 00:30")[0].performClick()
-        // 首頁有 5 張、這個資料夾只有 2 張
-        compose.onNodeWithText("第 1 / 共 2 張").assertIsDisplayed()
-    }
-
-    @Test
     fun 返回鍵從_Lightbox_退回資料夾頁再退回清單頁() {
         show()
         compose.onNodeWithText("分類").performClick()
@@ -394,7 +377,6 @@ class AppRootFoldersTest {
         compose.onNodeWithText("分類").performClick()
         compose.onNodeWithText("旅行").performClick()
         compose.onAllNodesWithContentDescription("片段縮圖 00:30")[0].performClick()
-        compose.onNodeWithText("第 1 / 共 2 張").assertIsDisplayed()
         val callsBeforeToggle = repo.folderShotsCalls
 
         compose.onNodeWithContentDescription("加入分類").performClick()
@@ -408,7 +390,7 @@ class AppRootFoldersTest {
             callsBeforeToggle,
             repo.folderShotsCalls,
         )
-        // Lightbox 還留在原地，共 M 張也已經就地少一張
-        compose.onNodeWithText("第 1 / 共 1 張").assertIsDisplayed()
+        // Lightbox 還留在原地（16B：不再顯示張數）
+        compose.onNodeWithContentDescription("收藏的大圖").assertIsDisplayed()
     }
 }

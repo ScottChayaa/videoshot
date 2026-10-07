@@ -97,7 +97,6 @@ class FolderScreenTest {
                 node = FolderNode(1, null, "旅行", 1),
                 children = listOf(card(2, "宜蘭", 3)),
                 items = listOf(shot(10), shot(11)),
-                total = 2,
             )
         )
         compose.onNodeWithText("宜蘭").assertIsDisplayed()
@@ -106,7 +105,7 @@ class FolderScreenTest {
 
     @Test
     fun 點圖回報第幾張() {
-        show(FolderState(node = FolderNode(1, null, "旅行", 1), items = listOf(shot(10), shot(11)), total = 2))
+        show(FolderState(node = FolderNode(1, null, "旅行", 1), items = listOf(shot(10), shot(11))))
         compose.onAllNodesWithContentDescription("片段縮圖 01:05")[1].performClick()
         assertEquals(1, openedIndex)
     }

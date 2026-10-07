@@ -75,7 +75,7 @@ class HomeFocusTest {
             id = 1, videoId = "v1", atSec = 65.0, source = "storyboard", frameIndex = 1, sbLevel = 3,
             eventDate = "2026-03-05", place = null, description = null,
         )
-        val state = HomeStore.appendPage(HomeState(), Page(listOf(row), null), 1)
+        val state = HomeStore.appendPage(HomeState(), Page(listOf(row), null))
         compose.setContent {
             inputMode = LocalInputModeManager.current
             VideoshotTheme {

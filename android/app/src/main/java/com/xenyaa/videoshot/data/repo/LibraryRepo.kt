@@ -37,9 +37,6 @@ interface LibraryRepo {
     /** 這支影片的列——詳情頁的標題（不存在回 null）。 */
     suspend fun videoById(videoId: String): VideoEntity?
 
-    /** 符合同一個篩選條件的總張數 —— Lightbox 的「共 M 張」（規格第六節）。 */
-    suspend fun shotCount(upToMonth: String? = null): Int
-
     /** 某個月出現過的地點與標籤，附張數。 */
     suspend fun monthFacets(month: String): List<MonthFacet>
 
@@ -144,9 +141,6 @@ interface LibraryRepo {
 
     /** 資料夾**本層**的圖,新加入在前,keyset 分頁。 */
     suspend fun folderShots(folderId: Long, after: FolderCursor?, limit: Int): FolderPage
-
-    /** 資料夾本層的總張數 ——從資料夾頁開 Lightbox 時的「共 M 張」。 */
-    suspend fun folderShotCount(folderId: Long): Int
 
     /** 這張圖在哪些資料夾(【加入分類】的勾勾)。 */
     suspend fun foldersOf(shotId: Long): Set<Long>

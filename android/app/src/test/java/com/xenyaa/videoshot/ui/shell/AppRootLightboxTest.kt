@@ -85,7 +85,6 @@ class AppRootLightboxTest {
         override suspend fun homeFeed(after: ShotCursor?, limit: Int, upToMonth: String?) = Page(items, null)
         override suspend fun shotsOfVideo(videoId: String) = items.filter { it.videoId == videoId }
         override suspend fun shotById(id: Long) = items.find { it.id == id }
-        override suspend fun shotCount(upToMonth: String?) = items.size
         override suspend fun patchShots(ids: List<Long>, patch: ShotPatch) {
             patchCalls += ids to patch
             items = items.map { row ->
@@ -201,7 +200,7 @@ class AppRootLightboxTest {
     fun 點第二張縮圖會停在第二張_底部導覽消失() {
         show()
         compose.onNodeWithContentDescription("片段縮圖 00:20").performClick()
-        compose.onNodeWithText("第 2 / 共 3 張").assertIsDisplayed()
+        compose.onNodeWithText("00:20").assertIsDisplayed()
         // assertDoesNotExist：不是被蓋住，是這一輪組合裡整個沒有這個節點（手冊 §六）
         for (label in listOf("首頁", "查詢", "取圖", "分類", "帳號")) {
             compose.onNodeWithText(label).assertDoesNotExist()
@@ -236,12 +235,12 @@ class AppRootLightboxTest {
         compose.waitForIdle()
         compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeLeft() }
         compose.waitForIdle()
-        compose.onNodeWithText("第 3 / 共 3 張").assertIsDisplayed()
+        compose.onNodeWithText("00:30").assertIsDisplayed()
 
         compose.onNodeWithContentDescription("關閉").performClick()
 
         compose.onNodeWithText("首頁").assertIsDisplayed()
-        compose.onNodeWithText("第 3 / 共 3 張").assertDoesNotExist()
+        compose.onNodeWithContentDescription("收藏的大圖").assertDoesNotExist()
     }
 
     // ---- 5：刪除要讓首頁清單跟縮圖快取都真的清乾淨 ----

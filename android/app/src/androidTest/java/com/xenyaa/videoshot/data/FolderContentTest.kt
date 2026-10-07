@@ -82,7 +82,6 @@ class FolderContentTest {
         val first = repo.folderShots(f, after = null, limit = 10).items.single().id
         repo.addShotToFolder(s, f)
 
-        assertEquals(1, repo.folderShotCount(f))
         assertEquals(first, repo.folderShots(f, after = null, limit = 10).items.single().id)
     }
 
@@ -110,7 +109,6 @@ class FolderContentTest {
         repo.addShotToFolder(b, 宜蘭)
 
         assertEquals(listOf(a), repo.folderShots(旅行, after = null, limit = 10).items.map { it.id })
-        assertEquals(1, repo.folderShotCount(旅行))
     }
 
     @Test
@@ -149,7 +147,6 @@ class FolderContentTest {
 
         repo.deleteShot(s)
 
-        assertEquals(0, repo.folderShotCount(f))
         assertEquals(emptySet<Long>(), repo.foldersOf(s))
     }
 }

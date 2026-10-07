@@ -60,7 +60,7 @@ class HomeScreenTest {
     )
 
     private fun stateOf(vararg rows: ShotRow, facets: Map<String, List<MonthFacet>> = emptyMap()) =
-        HomeStore.appendPage(HomeState(facets = facets), Page(rows.toList(), null), rows.size)
+        HomeStore.appendPage(HomeState(facets = facets), Page(rows.toList(), null))
 
     private fun show(state: HomeState, onOpen: (Int) -> Unit = {}, onFacet: (String, MonthFacet) -> Unit = { _, _ -> }) {
         compose.setContent {
@@ -229,7 +229,6 @@ class HomeScreenTest {
                 (31..40).map { row(it.toLong(), "2026-01-%02d".format((it % 27) + 1)) },
             null,
         ),
-        total = 40,
     )
 
     /**

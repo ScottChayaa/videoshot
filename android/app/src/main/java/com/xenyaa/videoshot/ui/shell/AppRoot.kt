@@ -351,7 +351,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
         // 被修過一次（統一走 navigationBarsPadding／statusBarsPadding），這裡疊的 host
         // 用同一個 navigationBarsPadding 讓開，不能再讓同一個問題在新地方重演。
         is Dest.Lightbox -> Box(Modifier.fillMaxSize()) {
-            // 來源依目前在哪一格切換：分類分頁開著資料夾頁時，左右滑動範圍與「共 M 張」
+            // 來源依目前在哪一格切換：分類分頁開著資料夾頁時，左右滑動範圍
             // 是那個資料夾本層，不是首頁的 homeState（規格第六節：「資料夾＝該資料夾本層」）。
             val inFolder = nav.tab == Tab.FOLDERS && folderVm != null
             val inSearch = nav.tab == Tab.SEARCH
@@ -363,10 +363,10 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                 inSearch -> searchState.results
                 else -> homeState.items
             }
-            val total = when {
-                inFolder -> folderState.total
-                inSearch -> searchState.total
-                else -> homeState.total
+            val hasMore = when {
+                inFolder -> !folderState.endReached
+                inSearch -> !searchState.endReached
+                else -> !homeState.endReached
             }
             val loadMore: () -> Unit = when {
                 inFolder -> folderVm!!::loadMore
@@ -375,7 +375,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             }
             LightboxScreen(
                 items = items,
-                total = total,
+                hasMore = hasMore,
                 startIndex = dest.startIndex,
                 loader = container.thumbLoader,
                 hintSeen = lightboxHintSeen,

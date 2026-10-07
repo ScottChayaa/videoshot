@@ -79,7 +79,6 @@ class AppRootDetailTest {
 
         override suspend fun homeFeed(after: ShotCursor?, limit: Int, upToMonth: String?) = Page(homeItems, null)
         override suspend fun monthCounts() = emptyList<com.xenyaa.videoshot.data.repo.model.MonthCount>()
-        override suspend fun shotCount(upToMonth: String?) = homeItems.size
         override suspend fun shotsOfVideo(videoId: String) = videoShots
         override suspend fun videoById(videoId: String) = video
         override suspend fun deleteVideo(videoId: String) { deletedVideoIds += videoId; homeItems = emptyList(); videoShots = emptyList() }

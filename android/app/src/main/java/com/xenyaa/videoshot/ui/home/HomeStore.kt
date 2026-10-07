@@ -13,7 +13,6 @@ import com.xenyaa.videoshot.data.repo.model.ShotRow
  * 首頁的全部狀態。
  *
  * @param items 目前**已載入**的清單（keyset 一次 50 筆）。Lightbox 左右滑動的範圍就是它
- * @param total 符合目前篩選的**總**張數，來自 SQL 的 COUNT —— Lightbox 的「共 M 張」
  * @param upToMonth `YYYY-MM`；null＝沒有時間篩選（手冊 §二第三條：預設看得到最新的資料）
  * @param months 月份選擇器的選項（全部月份與張數，不受篩選影響）
  * @param facets 每個月的標籤列，key 是 `YYYY-MM`；捲到才去查，查過就留著
@@ -22,7 +21,6 @@ import com.xenyaa.videoshot.data.repo.model.ShotRow
  */
 data class HomeState(
     val items: List<ShotRow> = emptyList(),
-    val total: Int = 0,
     val cursor: ShotCursor? = null,
     val endReached: Boolean = false,
     val loading: Boolean = false,
@@ -39,12 +37,11 @@ object HomeStore {
 
     fun startLoading(state: HomeState): HomeState = state.copy(loading = true)
 
-    fun appendPage(state: HomeState, page: Page<ShotRow>, total: Int): HomeState = state.copy(
+    fun appendPage(state: HomeState, page: Page<ShotRow>): HomeState = state.copy(
         items = state.items + page.items,
         cursor = page.next,
         endReached = page.next == null,
         loading = false,
-        total = total,
         error = null,
     )
 
@@ -63,8 +60,6 @@ object HomeStore {
         if (state.items.none { it.id == id }) return state
         return state.copy(
             items = state.items.filterNot { it.id == id },
-            // 總數一起減，否則 Lightbox 的「共 M 張」會停在舊數字
-            total = (state.total - 1).coerceAtLeast(0),
         )
     }
 

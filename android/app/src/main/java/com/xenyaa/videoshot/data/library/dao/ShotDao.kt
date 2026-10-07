@@ -63,10 +63,6 @@ interface ShotDao {
     )
     suspend fun feedAfter(before: String, eventDate: String, id: Long, limit: Int): List<ShotRowProjection>
 
-    /** Lightbox 的「共 M 張」。跟著同一個篩選條件走，否則 N 會大於 M。 */
-    @Query("SELECT COUNT(*) FROM shot WHERE event_date < :before")
-    suspend fun countBefore(before: String): Int
-
     /**
      * 查詢頁「標籤與地點」模式的第一頁。任一個地點或標籤命中即算(OR)，排序同首頁
      * （`event_date DESC, id DESC`）——這個模式不分相關度，理由見 `LibraryRepo.searchByFacets` 的 KDoc。

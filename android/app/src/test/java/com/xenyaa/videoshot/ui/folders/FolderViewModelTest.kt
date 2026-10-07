@@ -37,7 +37,6 @@ class FolderViewModelTest {
     private open class Repo : FakeLibraryRepo() {
         var node: FolderNode? = FolderNode(1, null, "旅行", 1)
         var children: List<FolderCard> = listOf(FolderCard(2, "宜蘭", 3, 100, emptyList()))
-        var total = 0
         var pages: MutableList<FolderPage> = mutableListOf(FolderPage(emptyList(), null))
         var folderShotsCalls = 0
         var tree: List<FolderNode> = emptyList()
@@ -50,7 +49,6 @@ class FolderViewModelTest {
 
         override suspend fun folderNode(id: Long): FolderNode? = node
         override suspend fun folderCards(parentId: Long?): List<FolderCard> = children
-        override suspend fun folderShotCount(folderId: Long): Int = total
         override suspend fun folderTree(): List<FolderNode> = treeError?.let { throw it } ?: tree
         override suspend fun folderShots(folderId: Long, after: FolderCursor?, limit: Int): FolderPage {
             val index = folderShotsCalls.coerceAtMost(pages.size - 1)
@@ -72,9 +70,8 @@ class FolderViewModelTest {
         FolderViewModel(repo, folderId, pageSize)
 
     @Test
-    fun 一建好就有節點子資料夾第一頁與總張數() = runTest {
+    fun 一建好就有節點子資料夾第一頁() = runTest {
         val repo = Repo().apply {
-            total = 2
             pages = mutableListOf(FolderPage(listOf(shot(10), shot(11)), null))
         }
         val model = vm(repo)
@@ -84,7 +81,6 @@ class FolderViewModelTest {
         assertEquals("旅行", state.node?.name)
         assertEquals(listOf("宜蘭"), state.children.map { it.name })
         assertEquals(listOf(10L, 11L), state.items.map { it.id })
-        assertEquals(2, state.total)
         assertNull(state.error)
     }
 
@@ -176,23 +172,20 @@ class FolderViewModelTest {
      * `cursor`／`endReached` 都不能動。
      */
     @Test
-    fun onShotDeleted就地移除那一列並減總數不動游標() = runTest {
+    fun onShotDeleted就地移除那一列不動游標() = runTest {
         val cursor = FolderCursor(200, 20)
         val repo = Repo().apply {
-            total = 3
             pages = mutableListOf(FolderPage(listOf(shot(20), shot(21)), cursor))
         }
         val model = vm(repo)
         advanceUntilIdle()
         assertEquals(listOf(20L, 21L), model.state.value.items.map { it.id })
-        assertEquals(3, model.state.value.total)
         assertFalse(model.state.value.endReached)
 
         model.onShotDeleted(20)
         advanceUntilIdle()
 
         assertEquals(listOf(21L), model.state.value.items.map { it.id })
-        assertEquals(2, model.state.value.total)
         assertEquals("刪除不該動到游標", cursor, model.state.value.cursor)
         assertFalse("刪除不該動到 endReached", model.state.value.endReached)
     }
@@ -364,7 +357,6 @@ class FolderViewModelTest {
     fun 讀樹失敗時麵包屑退回只有目前名稱且不影響其他載入() = runTest {
         val repo = Repo().apply {
             treeError = RuntimeException("壞了")
-            total = 1
             pages = mutableListOf(FolderPage(listOf(shot(10)), null))
         }
         val model = vm(repo)

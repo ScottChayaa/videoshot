@@ -84,7 +84,6 @@ class LibraryScaleBench {
         val deep = db.text("SELECT event_date || '|' || id FROM shot ORDER BY event_date DESC, id DESC LIMIT 1 OFFSET 10000")
             .split('|').let { ShotCursor(it[0], it[1].toLong()) }
         measure("首頁往下滑（第 200 頁）") { repo.homeFeed(deep, 50).items.size }
-        measure("首頁共 M 張（每批都算）") { repo.shotCount(null) }
         measure("月份選單") { repo.monthCounts().size }
         measure("首頁某月的標籤小膠囊") { repo.monthFacets("2025-03").size }
         measure("查詢頁候選清單") { repo.searchFacets(null, 31).size }

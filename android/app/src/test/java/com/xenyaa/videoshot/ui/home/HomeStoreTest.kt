@@ -21,32 +21,30 @@ class HomeStoreTest {
         val state = HomeStore.appendPage(
             HomeState(),
             Page(listOf(row(3), row(2)), ShotCursor("2026-03-01", 2)),
-            total = 10,
         )
         assertEquals(listOf(3L, 2L), state.items.map { it.id })
         assertEquals(ShotCursor("2026-03-01", 2), state.cursor)
-        assertEquals(10, state.total)
         assertFalse(state.endReached)
         assertFalse(state.loading)
     }
 
     @Test
     fun 游標是_null_代表到底了_不再請求() {
-        val state = HomeStore.appendPage(HomeState(), Page(listOf(row(1)), null), total = 1)
+        val state = HomeStore.appendPage(HomeState(), Page(listOf(row(1)), null))
         assertTrue(state.endReached)
     }
 
     @Test
     fun 第二頁接在第一頁後面() {
-        val first = HomeStore.appendPage(HomeState(), Page(listOf(row(3)), ShotCursor("2026-03-01", 3)), 3)
-        val second = HomeStore.appendPage(first, Page(listOf(row(2), row(1)), null), 3)
+        val first = HomeStore.appendPage(HomeState(), Page(listOf(row(3)), ShotCursor("2026-03-01", 3)))
+        val second = HomeStore.appendPage(first, Page(listOf(row(2), row(1)), null))
         assertEquals(listOf(3L, 2L, 1L), second.items.map { it.id })
     }
 
     /** 換篩選＝整份清單作廢，游標也要一起丟掉，否則新條件會接著舊游標往下撈。 */
     @Test
     fun 換篩選會清空清單與游標() {
-        val loaded = HomeStore.appendPage(HomeState(), Page(listOf(row(1)), ShotCursor("2026-03-01", 1)), 5)
+        val loaded = HomeStore.appendPage(HomeState(), Page(listOf(row(1)), ShotCursor("2026-03-01", 1)))
         val reset = HomeStore.reset(loaded, upToMonth = "2026-01")
         assertEquals(emptyList<ShotRow>(), reset.items)
         assertEquals(null, reset.cursor)
@@ -63,18 +61,18 @@ class HomeStoreTest {
         assertFalse(HomeStore.canLoadMore(HomeState(endReached = true)))
     }
 
-    /** 刪一張：清單少一張、總數也要跟著少，否則 Lightbox 的「共 M 張」會停在舊數字。 */
+    // 16B：Lightbox 不再顯示總數，首頁／資料夾不再查總張數
+    /** 刪一張：清單少一張。 */
     @Test
-    fun 刪一張會同時更新清單與總數() {
-        val loaded = HomeStore.appendPage(HomeState(), Page(listOf(row(3), row(2), row(1)), null), total = 3)
+    fun 刪一張會更新清單() {
+        val loaded = HomeStore.appendPage(HomeState(), Page(listOf(row(3), row(2), row(1)), null))
         val after = HomeStore.removeShot(loaded, 2)
         assertEquals(listOf(3L, 1L), after.items.map { it.id })
-        assertEquals(2, after.total)
     }
 
     @Test
     fun 刪不存在的_id_不動任何東西() {
-        val loaded = HomeStore.appendPage(HomeState(), Page(listOf(row(1)), null), total = 1)
+        val loaded = HomeStore.appendPage(HomeState(), Page(listOf(row(1)), null))
         assertEquals(loaded, HomeStore.removeShot(loaded, 999))
     }
 
@@ -84,7 +82,6 @@ class HomeStoreTest {
         val loaded = HomeStore.appendPage(
             HomeState(),
             Page(listOf(row(3, "2026-03-01"), row(2, "2026-02-01"), row(1, "2026-01-01")), null),
-            total = 3,
         )
         val moved = HomeStore.replace(loaded, row(3, "2026-01-15"))
         assertEquals(listOf(2L, 3L, 1L), moved.items.map { it.id })
@@ -100,7 +97,6 @@ class HomeStoreTest {
                 ),
             ),
             Page(listOf(row(3, "2026-03-05"), row(2, "2026-03-01"), row(1, "2026-01-09")), null),
-            total = 3,
         )
         val slots = HomeStore.slots(loaded)
         assertEquals(
@@ -113,7 +109,7 @@ class HomeStoreTest {
 
     @Test
     fun 沒有標籤的月份也只有標題一格() {
-        val loaded = HomeStore.appendPage(HomeState(), Page(listOf(row(1, "2026-03-05")), null), 1)
+        val loaded = HomeStore.appendPage(HomeState(), Page(listOf(row(1, "2026-03-05")), null))
         assertEquals(listOf("h-2026-03", "t-1"), HomeStore.slots(loaded).map { it.key })
     }
 
@@ -122,7 +118,6 @@ class HomeStoreTest {
         val loaded = HomeStore.appendPage(
             HomeState(facets = mapOf("2026-03" to listOf(MonthFacet("夜市", "tag", 1)))),
             Page(listOf(row(3, "2026-03-05"), row(1, "2026-01-09")), null),
-            total = 2,
         )
         val slots = HomeStore.slots(loaded)
         assertEquals(listOf("2026-03", "2026-03", "2026-03", "2026-01", "2026-01"), slots.map { it.month })
@@ -133,7 +128,6 @@ class HomeStoreTest {
         val loaded = HomeStore.appendPage(
             HomeState(),
             Page(listOf(row(3, "2026-03-05"), row(1, "2026-01-09")), null),
-            total = 2,
         )
         val slots = HomeStore.slots(loaded)
         assertEquals(0, HomeStore.headerIndexOf(slots, "2026-03"))
@@ -146,7 +140,6 @@ class HomeStoreTest {
         val loaded = HomeStore.appendPage(
             HomeState(),
             Page(listOf(row(3, "2026-03-05"), row(2, "2026-03-01"), row(1, "2026-01-09")), null),
-            total = 3,
         )
         val groups = HomeStore.groups(loaded)
         assertEquals(listOf("2026年3月", "2026年1月"), groups.map { it.label })

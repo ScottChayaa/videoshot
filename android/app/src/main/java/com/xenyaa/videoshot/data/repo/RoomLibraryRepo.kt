@@ -67,10 +67,6 @@ class RoomLibraryRepo(
             Page(rows.map { it.toRow() }, next)
         }
 
-    override suspend fun shotCount(upToMonth: String?): Int = withContext(io) {
-        db.shotDao().countBefore(boundOf(upToMonth))
-    }
-
     override suspend fun monthFacets(month: String): List<MonthFacet> = withContext(io) {
         db.statsDao().monthFacets(month).map { MonthFacet(it.name, it.kind, it.count, it.tagKind) }
     }
@@ -400,10 +396,6 @@ class RoomLibraryRepo(
             }
             FolderPage(rows.map { it.toRow() }, next)
         }
-
-    override suspend fun folderShotCount(folderId: Long): Int = withContext(io) {
-        db.folderDao().shotCountIn(folderId)
-    }
 
     override suspend fun foldersOf(shotId: Long): Set<Long> = withContext(io) {
         db.folderDao().folderIdsOf(shotId).toSet()

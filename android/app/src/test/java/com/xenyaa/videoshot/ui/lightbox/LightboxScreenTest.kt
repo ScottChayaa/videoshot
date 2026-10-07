@@ -57,7 +57,7 @@ class LightboxScreenTest {
 
     private fun show(
         items: List<ShotRow> = rows(3),
-        total: Int = items.size,
+        hasMore: Boolean = false,
         startIndex: Int = 0,
         hintSeen: Boolean = true,
         onHintSeen: () -> Unit = {},
@@ -66,7 +66,7 @@ class LightboxScreenTest {
             VideoshotTheme {
                 LightboxScreen(
                     items = items,
-                    total = total,
+                    hasMore = hasMore,
                     startIndex = startIndex,
                     loader = loader,
                     hintSeen = hintSeen,
@@ -80,10 +80,12 @@ class LightboxScreenTest {
         }
     }
 
+    /** 16B 設計決議 1：看圖時不顯示第幾張。 */
     @Test
-    fun 上方顯示第幾張與總數() {
-        show(items = rows(3), total = 12, startIndex = 1)
-        compose.onNodeWithText("第 2 / 共 12 張").assertIsDisplayed()
+    fun 不顯示第幾張() {
+        show(items = rows(3), startIndex = 1)
+        compose.onNodeWithText("共", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("第 ", substring = true).assertDoesNotExist()
     }
 
     @Test
@@ -91,10 +93,10 @@ class LightboxScreenTest {
         show(items = rows(3), startIndex = 0)
         compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeLeft() }
         compose.waitForIdle()
-        compose.onNodeWithText("第 2 / 共 3 張").assertIsDisplayed()
+        compose.onNodeWithText("01:00").assertIsDisplayed()
         compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeRight() }
         compose.waitForIdle()
-        compose.onNodeWithText("第 1 / 共 3 張").assertIsDisplayed()
+        compose.onNodeWithText("00:30").assertIsDisplayed()
     }
 
     @Test
@@ -150,10 +152,18 @@ class LightboxScreenTest {
     /** 滑到已載入的尾端要去要下一頁，否則 N 會卡在已載入的最後一張。 */
     @Test
     fun 滑到尾端會要求載入下一頁() {
-        show(items = rows(3), total = 50, startIndex = 1)
+        show(items = rows(3), hasMore = true, startIndex = 1)
         compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeLeft() }
         compose.waitForIdle()
         assert(loadMores >= 1)
+    }
+
+    @Test
+    fun 沒有下一頁時滑到尾端不會要求載入() {
+        show(items = rows(3), hasMore = false, startIndex = 1)
+        compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeLeft() }
+        compose.waitForIdle()
+        assertEquals(0, loadMores)
     }
 
     @Test
@@ -174,23 +184,5 @@ class LightboxScreenTest {
             maxBrightness = maxOf(maxBrightness, (c.red + c.green + c.blue) / 3f)
         }
         assert(maxBrightness > 0.9f) { "加入分類圖示最亮像素只有 $maxBrightness，深底上看不見" }
-    }
-
-    @Test
-    fun 計數文字置中顯示() {
-        show(items = rows(3), startIndex = 0)
-        val node = compose.onNodeWithText("第 1 / 共 3 張")
-        node.assertIsDisplayed()
-        // 節點框是整段可用寬度，不能代表字畫在哪裡——用排版結果的第一行左右緣才量得到字本身的位置
-        val results = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
-        compose.runOnUiThread {
-            node.fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult]
-                .action?.invoke(results)
-        }
-        val layout = results.single()
-        val bounds = node.fetchSemanticsNode().boundsInRoot
-        val textCenter = bounds.left + (layout.getLineLeft(0) + layout.getLineRight(0)) / 2
-        val rootCenter = compose.onRoot().fetchSemanticsNode().boundsInRoot.center.x
-        assert(kotlin.math.abs(textCenter - rootCenter) < 2f) { "字的中心 $textCenter 偏離畫面中心 $rootCenter" }
     }
 }
