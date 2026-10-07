@@ -8,6 +8,7 @@ import com.xenyaa.videoshot.data.cache.CacheDatabase
 import com.xenyaa.videoshot.data.library.LibraryDatabase
 import com.xenyaa.videoshot.data.library.LIBRARY_MIGRATIONS
 import com.xenyaa.videoshot.data.library.LibrarySchemaCallback
+import com.xenyaa.videoshot.data.library.entity.PlaceEntity
 
 /** 每個測試自己開一個 in-memory 的 library.db，彼此不互相污染。 */
 fun inMemoryLibraryDb(): LibraryDatabase =
@@ -45,3 +46,9 @@ fun inMemoryCacheDb(): CacheDatabase =
     )
         .setDriver(BundledSQLiteDriver())
         .build()
+
+/** 測試用：地點名稱轉 id，不存在就建（正式程式走 `RoomLibraryRepo.placeIdForWrite`，同一套規則）。null／空白回 null。 */
+suspend fun LibraryDatabase.placeIdOf(name: String?): Long? {
+    if (name.isNullOrBlank()) return null
+    return placeDao().byName(name)?.id ?: placeDao().insert(PlaceEntity(0, name, "[]"))
+}

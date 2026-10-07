@@ -189,4 +189,25 @@ class LibraryRepoWriteTest {
         assertEquals(listOf("冬山河"), repo.distinctPlaces())
         assertEquals(listOf("玩水", "阿明"), repo.allTagNames())
     }
+
+    @Test
+    fun 同一批同名地點只建一筆_沒有圖用的地點不出現在建議裡() = runTest {
+        repo.commitPicks(video, listOf(storyboardPick(0).copy(place = "宜蘭"), storyboardPick(1).copy(place = "宜蘭")))
+        assertEquals(1L, db.readSingleLong("SELECT COUNT(*) FROM place"))
+        assertEquals(listOf("宜蘭"), repo.distinctPlaces())
+
+        val ids = db.readAllText("SELECT CAST(id AS TEXT) FROM shot").map { it.toLong() }
+        repo.patchShots(ids, ShotPatch(eventDate = null, place = "花蓮", description = null, tagIds = null))
+
+        // 宜蘭這筆地點還在表裡（地點管理才刪），但已經沒有圖在用
+        assertEquals(2L, db.readSingleLong("SELECT COUNT(*) FROM place"))
+        assertEquals(listOf("花蓮"), repo.distinctPlaces())
+    }
+
+    @Test
+    fun 批次清空地點() = runTest {
+        val ids = repo.commitPicks(video, listOf(storyboardPick(0).copy(place = "宜蘭")))
+        repo.patchShots(ids, ShotPatch(eventDate = null, place = "", description = null, tagIds = null))
+        assertEquals(null, repo.shotById(ids[0])!!.place)
+    }
 }

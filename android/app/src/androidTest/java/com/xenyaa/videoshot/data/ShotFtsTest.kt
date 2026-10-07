@@ -25,7 +25,8 @@ class ShotFtsTest {
             ShotEntity(
                 id = 0, videoId = "v1", atSec = frameIndex.toDouble(), source = "storyboard",
                 frameIndex = frameIndex, sbLevel = 3, eventDate = "2026-01-01",
-                place = place, description = description,
+                // 16A：place 欄位改成 place_id
+                placeId = db.placeIdOf(place), description = description,
                 aiTranscript = null, aiVisualDesc = null, aiRaw = null, createdAt = 1L,
             )
         )
@@ -37,10 +38,12 @@ class ShotFtsTest {
         assertEquals(listOf(id), db.searchDao().matchIds("夜潛看"))
     }
 
+    /** 16A：地點改放 place 表，不再進全文索引；關鍵字比對地點名稱改由 PlaceDao.idsNameContains 處理。 */
     @Test
-    fun 地點也進了全文索引() = runTest {
-        val id = insertShot(1, null, "宜蘭外澳")
-        assertEquals(listOf(id), db.searchDao().matchIds("宜蘭外"))
+    fun 地點不在全文索引裡() = runTest {
+        insertShot(1, null, "宜蘭外澳")
+        assertEquals(emptyList<Long>(), db.searchDao().matchIds("宜蘭外"))
+        assertEquals(listOf(db.placeDao().byName("宜蘭外澳")!!.id), db.placeDao().idsNameContains("外澳"))
     }
 
     @Test
@@ -53,7 +56,7 @@ class ShotFtsTest {
     @Test
     fun 改了描述之後索引跟著更新() = runTest {
         val id = insertShot(3, "原本的描述文字", null)
-        db.shotDao().updateDescriptionAndPlace(id, "換成完全不同的內容", null)
+        db.shotDao().updateDescription(id, "換成完全不同的內容")
         assertEquals(emptyList<Long>(), db.searchDao().matchIds("原本的"))
         assertEquals(listOf(id), db.searchDao().matchIds("完全不"))
     }
@@ -69,7 +72,15 @@ class ShotFtsTest {
     fun 描述是_null_也不會壞掉() = runTest {
         val id = insertShot(5, null, null)
         assertEquals(emptyList<Long>(), db.searchDao().matchIds("任何東西"))
-        db.shotDao().updateDescriptionAndPlace(id, "後來才補的描述", null)
+        db.shotDao().updateDescription(id, "後來才補的描述")
         assertEquals(listOf(id), db.searchDao().matchIds("後來才"))
+    }
+
+    @Test
+    fun 改日期或地點不影響全文索引() = runTest {
+        val id = insertShot(6, "改地點之前的描述", "宜蘭")
+        db.shotDao().updatePlace(id, db.placeIdOf("花蓮"))
+        db.shotDao().updateEventDate(id, "2020-05-05")
+        assertEquals(listOf(id), db.searchDao().matchIds("改地點"))
     }
 }

@@ -37,7 +37,8 @@ class LibraryRepoReadTest {
                 ShotEntity(
                     id = 0, videoId = videoId, atSec = i.toDouble(), source = "storyboard",
                     frameIndex = i, sbLevel = 3, eventDate = eventDate,
-                    place = if (i % 2 == 0) "宜蘭" else null, description = null,
+                    // 16A：place 欄位改成 place_id
+                    placeId = db.placeIdOf(if (i % 2 == 0) "宜蘭" else null), description = null,
                     aiTranscript = null, aiVisualDesc = null, aiRaw = null, createdAt = 1L,
                 )
             )
@@ -51,28 +52,28 @@ class LibraryRepoReadTest {
         db.shotDao().insert(
             ShotEntity(
                 id = 0, videoId = "v1", atSec = 0.0, source = "storyboard",
-                frameIndex = 0, sbLevel = 3, eventDate = "2026-01-01", place = null, description = null,
+                frameIndex = 0, sbLevel = 3, eventDate = "2026-01-01", placeId = null, description = null,
                 aiTranscript = null, aiVisualDesc = null, aiRaw = null, createdAt = 1L,
             )
         )
         db.shotDao().insert(
             ShotEntity(
                 id = 0, videoId = "v1", atSec = 4.0, source = "storyboard",
-                frameIndex = 4, sbLevel = 3, eventDate = "2026-01-01", place = null, description = null,
+                frameIndex = 4, sbLevel = 3, eventDate = "2026-01-01", placeId = null, description = null,
                 aiTranscript = null, aiVisualDesc = null, aiRaw = null, createdAt = 1L,
             )
         )
         db.shotDao().insert(
             ShotEntity(
                 id = 0, videoId = "v2", atSec = 0.0, source = "storyboard",
-                frameIndex = 0, sbLevel = 2, eventDate = "2026-01-01", place = null, description = null,
+                frameIndex = 0, sbLevel = 2, eventDate = "2026-01-01", placeId = null, description = null,
                 aiTranscript = null, aiVisualDesc = null, aiRaw = null, createdAt = 1L,
             )
         )
         db.shotDao().insert(
             ShotEntity(
                 id = 0, videoId = "v2", atSec = 1.0, source = "manual",
-                frameIndex = null, sbLevel = null, eventDate = "2026-01-01", place = null, description = null,
+                frameIndex = null, sbLevel = null, eventDate = "2026-01-01", placeId = null, description = null,
                 aiTranscript = null, aiVisualDesc = null, aiRaw = null, createdAt = 1L,
             )
         )

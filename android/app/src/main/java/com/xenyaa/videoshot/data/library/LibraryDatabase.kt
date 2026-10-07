@@ -3,11 +3,13 @@ package com.xenyaa.videoshot.data.library
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import com.xenyaa.videoshot.data.library.dao.FolderDao
+import com.xenyaa.videoshot.data.library.dao.PlaceDao
 import com.xenyaa.videoshot.data.library.dao.SearchDao
 import com.xenyaa.videoshot.data.library.dao.ShotDao
 import com.xenyaa.videoshot.data.library.dao.TagDao
 import com.xenyaa.videoshot.data.library.dao.VideoDao
 import com.xenyaa.videoshot.data.library.entity.FolderEntity
+import com.xenyaa.videoshot.data.library.entity.PlaceEntity
 import com.xenyaa.videoshot.data.library.entity.ShotEntity
 import com.xenyaa.videoshot.data.library.entity.ShotFolderEntity
 import com.xenyaa.videoshot.data.library.entity.ShotImageEntity
@@ -19,6 +21,7 @@ import com.xenyaa.videoshot.data.library.entity.VideoEntity
 @Database(
     entities = [
         VideoEntity::class,
+        PlaceEntity::class,
         ShotEntity::class,
         ShotImageEntity::class,
         TagEntity::class,
@@ -33,6 +36,7 @@ abstract class LibraryDatabase : RoomDatabase() {
     abstract fun videoDao(): VideoDao
     abstract fun shotDao(): ShotDao
     abstract fun tagDao(): TagDao
+    abstract fun placeDao(): PlaceDao
     abstract fun folderDao(): FolderDao
     abstract fun searchDao(): SearchDao
 }

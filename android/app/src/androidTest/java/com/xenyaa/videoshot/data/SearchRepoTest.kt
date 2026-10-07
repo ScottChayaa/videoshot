@@ -30,7 +30,8 @@ class SearchRepoTest {
         val id = libraryDb.shotDao().insert(
             com.xenyaa.videoshot.data.library.entity.ShotEntity(
                 id = 0, videoId = videoId, atSec = atSec, source = "storyboard", frameIndex = atSec.toInt(),
-                sbLevel = 3, eventDate = eventDate, place = place, description = null,
+                // 16A：place 欄位改成 place_id
+                sbLevel = 3, eventDate = eventDate, placeId = libraryDb.placeIdOf(place), description = null,
                 aiTranscript = null, aiVisualDesc = null, aiRaw = null, createdAt = 0L,
             )
         )
@@ -235,5 +236,19 @@ class SearchRepoTest {
 
         assertEquals(listOf(inside), page.items.map { it.id })
         assertEquals(1, count)
+    }
+
+    /** 16A：地點不在全文索引裡，關鍵字改比對地點名稱，命中的算地點層。 */
+    @Test
+    fun 描述查詢的關鍵字也比對地點名稱() = runTest {
+        val hit = seedShot("v1", 0.0, "2026-03-01", place = "宜蘭礁溪")
+        seedShot("v1", 10.0, "2026-03-02", place = "台北")
+
+        val page = repo.searchByQuery(
+            com.xenyaa.videoshot.core.query.ParsedQuery(keywords = listOf("礁溪")),
+            upToMonth = null, after = null, limit = 10,
+        )
+
+        assertEquals(listOf(hit), page.items.map { it.id })
     }
 }

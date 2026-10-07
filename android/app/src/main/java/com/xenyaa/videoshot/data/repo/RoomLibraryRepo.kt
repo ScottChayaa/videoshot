@@ -13,6 +13,7 @@ import com.xenyaa.videoshot.data.library.LibraryDatabase
 import com.xenyaa.videoshot.data.library.dao.SearchHitProjection
 import com.xenyaa.videoshot.data.library.dao.ShotRowProjection
 import com.xenyaa.videoshot.data.library.entity.FolderEntity
+import com.xenyaa.videoshot.data.library.entity.PlaceEntity
 import com.xenyaa.videoshot.data.library.entity.ShotEntity
 import com.xenyaa.videoshot.data.library.entity.ShotFolderEntity
 import com.xenyaa.videoshot.data.library.entity.ShotImageEntity
@@ -82,12 +83,12 @@ class RoomLibraryRepo(
         limit: Int,
     ): Page<ShotRow> = withContext(io) {
         val before = boundOf(upToMonth)
-        val placeList = places.toList()
+        val placeIds = resolvePlaceIds(places)
         val tagIds = resolveTagIds(tagNames)
         val rows = if (after == null) {
-            db.shotDao().facetSearchFirst(before, placeList, tagIds, limit)
+            db.shotDao().facetSearchFirst(before, placeIds, tagIds, limit)
         } else {
-            db.shotDao().facetSearchAfter(before, placeList, tagIds, after.eventDate, after.id, limit)
+            db.shotDao().facetSearchAfter(before, placeIds, tagIds, after.eventDate, after.id, limit)
         }
         val next = if (rows.size < limit) null else rows.last().let { ShotCursor(it.eventDate, it.id) }
         Page(rows.map { it.toRow() }, next)
@@ -95,21 +96,22 @@ class RoomLibraryRepo(
 
     override suspend fun searchByFacetsCount(places: Set<String>, tagNames: Set<String>, upToMonth: String?): Int =
         withContext(io) {
-            db.shotDao().facetSearchCount(boundOf(upToMonth), places.toList(), resolveTagIds(tagNames))
+            db.shotDao().facetSearchCount(boundOf(upToMonth), resolvePlaceIds(places), resolveTagIds(tagNames))
         }
 
     override suspend fun searchByQuery(query: ParsedQuery, upToMonth: String?, after: SearchCursor?, limit: Int): SearchPage =
         withContext(io) {
             val tagIds = resolveTagIds(query.tags.toSet())
             val keywordIds = keywordIdsOf(query.keywords)
+            val placeIds = placeIdsOf(query)
             val since = query.dateFrom ?: "0000-00-00"
             val until = query.dateTo ?: "9999-99-99"
             val upToMonthBound = boundOf(upToMonth)
             val rows = if (after == null) {
-                db.searchDao().queryFirst(since, until, upToMonthBound, query.places, tagIds, keywordIds, limit)
+                db.searchDao().queryFirst(since, until, upToMonthBound, placeIds, tagIds, keywordIds, limit)
             } else {
                 db.searchDao().queryAfter(
-                    since, until, upToMonthBound, query.places, tagIds, keywordIds,
+                    since, until, upToMonthBound, placeIds, tagIds, keywordIds,
                     after.relevance, after.eventDate, after.id, limit,
                 )
             }
@@ -118,11 +120,12 @@ class RoomLibraryRepo(
         }
 
     override suspend fun searchByQueryCount(query: ParsedQuery, upToMonth: String?): Int = withContext(io) {
+        val placeIds = placeIdsOf(query)
         db.searchDao().queryCount(
             query.dateFrom ?: "0000-00-00",
             query.dateTo ?: "9999-99-99",
             boundOf(upToMonth),
-            query.places,
+            placeIds,
             resolveTagIds(query.tags.toSet()),
             keywordIdsOf(query.keywords),
         )
@@ -134,8 +137,8 @@ class RoomLibraryRepo(
      * **併出來的 id 集合會被塞進 `queryFirst`／`queryAfter`／`queryCount` 的 `IN (:keywordIds)`
      * 兩次(CASE 一次、WHERE 一次)**——SQLite 的 bind 變數上限大約 32766 個，單一關鍵字理論上
      * 有機會撞到(例如極短、極常見的字，LIKE 掃出全庫一大半)。以這個 app 的定位(單人用的個人相簿，
-     * 規格設定總量上限約 10 萬張)來說，要撞到這個上限代表單一關鍵字命中了圖庫裡相當大的比例，
-     * 判定為可接受的已知特性，不在這個 Task 處理；真的要解可能要改成暫存表或分批查詢。
+     * 規格目標規模 100 萬張；這個上限會撞到，已記為描述查詢的已知問題（階段 16 暫緩）。
+     * 真的要解可能要改成暫存表或分批查詢。
      */
     private suspend fun keywordIdsOf(keywords: List<String>): List<Long> =
         keywords.flatMap { kw ->
@@ -209,7 +212,7 @@ class RoomLibraryRepo(
                         frameIndex = pick.frameIndex,
                         sbLevel = pick.sbLevel,
                         eventDate = pick.eventDate,
-                        place = pick.place,
+                        placeId = placeIdForWrite(pick.place),
                         description = pick.description,
                         aiTranscript = null,
                         aiVisualDesc = null,
@@ -228,12 +231,12 @@ class RoomLibraryRepo(
         ids
     }
 
-    override suspend fun distinctPlaces(): List<String> = withContext(io) { db.shotDao().distinctPlaces() }
+    override suspend fun distinctPlaces(): List<String> = withContext(io) { db.placeDao().usedNames() }
 
     override suspend fun allTagNames(): List<String> = withContext(io) { db.tagDao().allNames() }
 
     override suspend fun queryVocabulary(): QueryVocabulary = withContext(io) {
-        val places = db.shotDao().distinctPlaces()
+        val places = db.placeDao().usedNames()
         val tags = db.tagDao().allWithAliases().map { TagAlias(it.name, decodeAliases(it.aliases)) }
         QueryVocabulary(places, tags)
     }
@@ -241,6 +244,26 @@ class RoomLibraryRepo(
     /** 標籤名轉 id；查不到的名字略過（同 `TagDao.idsByNames` 的 KDoc：查詢不會新建標籤）。 */
     private suspend fun resolveTagIds(names: Set<String>): List<Long> =
         if (names.isEmpty()) emptyList() else db.tagDao().idsByNames(names.toList())
+
+    /**
+     * 地點名稱轉 id，**不存在就建**（寫入路徑用；呼叫端必須在寫入交易內，理由同標籤：
+     * 整批回滾時新地點要跟著消失）。空白＝沒有地點。
+     */
+    private suspend fun placeIdForWrite(name: String?): Long? {
+        val trimmed = name?.ifBlank { null } ?: return null
+        return db.placeDao().byName(trimmed)?.id ?: db.placeDao().insert(PlaceEntity(0, trimmed, "[]"))
+    }
+
+    /** 地點名稱轉 id；查不到的略過（查詢不會新建地點）。 */
+    private suspend fun resolvePlaceIds(names: Collection<String>): List<Long> =
+        if (names.isEmpty()) emptyList() else db.placeDao().idsByNames(names.distinct())
+
+    /**
+     * 描述查詢的地點條件：解析出來的地點名稱，加上「名稱包含關鍵字」的地點。
+     * 地點不在全文索引裡（規格第八節），關鍵字靠這裡比對地點名稱；命中的算地點層（相關度 2）。
+     */
+    private suspend fun placeIdsOf(query: ParsedQuery): List<Long> =
+        (resolvePlaceIds(query.places) + query.keywords.flatMap { db.placeDao().idsNameContains(it) }).distinct()
 
     override suspend fun patchShots(ids: List<Long>, patch: ShotPatch): Unit = withContext(io) {
         require(patch.tagIds == null || patch.tagNames == null) {
@@ -252,12 +275,14 @@ class RoomLibraryRepo(
                 db.tagDao().byName(name)?.id
                     ?: db.tagDao().insert(TagEntity(id = 0, name = name, kind = "other", aliases = "[]"))
             } ?: patch.tagIds
+            // 名稱→id 的解析在交易內（理由同標籤）；null＝沒動過，空字串＝清空
+            val placeId = patch.place?.let { placeIdForWrite(it) }
             for (id in ids) {
                 // event_date 是 TEXT NOT NULL，不能像 place／description 存 null 來清空 ——
                 // 空白在這一欄沒有「清空」的意義，所以直接不寫，維持原值（規格第四節、ShotPatch KDoc）
                 patch.eventDate?.ifBlank { null }?.let { db.shotDao().updateEventDate(id, it) }
                 // 空字串＝清空（與 :core 的 DetailsPatch 同一個約定）
-                patch.place?.let { db.shotDao().updatePlace(id, it.ifBlank { null }) }
+                if (patch.place != null) db.shotDao().updatePlace(id, placeId)
                 patch.description?.let { db.shotDao().updateDescription(id, it.ifBlank { null }) }
                 tagIds?.let { resolved ->
                     db.tagDao().unlinkAllOfShot(id)

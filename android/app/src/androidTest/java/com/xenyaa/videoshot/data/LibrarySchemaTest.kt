@@ -4,6 +4,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.xenyaa.videoshot.data.library.LIBRARY_SCHEMA_VERSION
 import com.xenyaa.videoshot.data.library.LibraryDatabase
 import com.xenyaa.videoshot.data.library.entity.FolderEntity
+import com.xenyaa.videoshot.data.library.entity.PlaceEntity
 import com.xenyaa.videoshot.data.library.entity.ShotEntity
 import com.xenyaa.videoshot.data.library.entity.ShotFolderEntity
 import com.xenyaa.videoshot.data.library.entity.ShotImageEntity
@@ -34,8 +35,8 @@ class LibrarySchemaTest {
     }
 
     @Test
-    fun schema_版本是_1() {
-        assertEquals(1, LIBRARY_SCHEMA_VERSION)
+    fun schema_版本是_2() {
+        assertEquals(2, LIBRARY_SCHEMA_VERSION)
     }
 
     @Test
@@ -65,7 +66,8 @@ class LibrarySchemaTest {
         ShotEntity(
             id = 0, videoId = videoId, atSec = frameIndex.toDouble(), source = "storyboard",
             frameIndex = frameIndex, sbLevel = 3, eventDate = "2014-11-10",
-            place = null, description = null,
+            // 16A：place 欄位改成 place_id
+            placeId = null, description = null,
             aiTranscript = null, aiVisualDesc = null, aiRaw = null, createdAt = 1L,
         )
 
@@ -138,7 +140,8 @@ class LibrarySchemaTest {
                 listOf(
                     "index_shot_event_date_id",
                     "index_shot_video_id",
-                    "index_shot_place",
+                    "index_shot_place_id",
+                    "index_place_name",
                     "index_shot_video_id_frame_index",
                     "index_shot_tag_tag_id",
                     "index_shot_tag_shot_id",
@@ -148,5 +151,24 @@ class LibrarySchemaTest {
                 )
             )
         )
+    }
+
+    @Test
+    fun 刪掉地點時圖還在_地點變成空白() = runTest {
+        seedVideo()
+        val placeId = db.placeIdOf("宜蘭")
+        val shotId = db.shotDao().insert(storyboardShot(frameIndex = 3).copy(placeId = placeId))
+
+        db.placeDao().deleteById(placeId!!)
+
+        assertEquals(1, db.shotDao().countOfVideo("aqz-KE-bpKQ"))
+        assertNull(db.shotDao().rowById(shotId)!!.place)
+    }
+
+    @Test
+    fun 地點名稱不可重複() = runTest {
+        db.placeIdOf("宜蘭")
+        val again = runCatching { db.placeDao().insert(PlaceEntity(0, "宜蘭", "[]")) }
+        assertTrue(again.isFailure)
     }
 }

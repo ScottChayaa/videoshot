@@ -37,7 +37,8 @@ class LibraryRepoFeedTest {
             db.shotDao().insert(
                 ShotEntity(
                     id = 0, videoId = videoId, atSec = i.toDouble(), source = "storyboard",
-                    frameIndex = i, sbLevel = 3, eventDate = eventDate, place = place,
+                    // 16A：place 欄位改成 place_id
+                    frameIndex = i, sbLevel = 3, eventDate = eventDate, placeId = db.placeIdOf(place),
                     description = null, aiTranscript = null, aiVisualDesc = null, aiRaw = null,
                     createdAt = 1L,
                 )

@@ -26,6 +26,8 @@ import java.io.File
 import java.util.Random
 
 /**
+ * 16A Task 1 暫時版本：地點全部為空，Task 4 改寫。
+ *
  * 百萬張規模的效能量測（不是正確性測試）。在 app 的 files 目錄另開 `bench-library.db`，
  * **不碰使用者的 library.db**。用 app 實際的 Room 設定（BundledSQLiteDriver、FTS 觸發器）。
  *
@@ -233,7 +235,7 @@ class LibraryScaleBench {
             conn.execSQL("COMMIT")
             val base = java.time.LocalDate.of(2006, 1, 1)
             val st = conn.prepare(
-                "INSERT INTO shot(id, video_id, at_sec, source, frame_index, sb_level, event_date, place, description, created_at) " +
+                "INSERT INTO shot(id, video_id, at_sec, source, frame_index, sb_level, event_date, place_id, description, created_at) " +
                     "VALUES (?, ?, 1.0, 'storyboard', ?, 3, ?, ?, ?, 0)"
             )
             val tg = conn.prepare("INSERT OR IGNORE INTO shot_tag(shot_id, tag_id, source) VALUES (?, ?, 'human')")
@@ -246,10 +248,11 @@ class LibraryScaleBench {
                     st.bindText(2, "v${rnd.nextInt(50_000)}")
                     st.bindLong(3, id)
                     st.bindText(4, base.plusDays(rnd.nextInt(7300).toLong()).toString())
+                    // 16A Task 1：place_id 暫時全部為 NULL（Task 4 改寫）
                     when {
-                        id % 10 == 0L -> st.bindText(5, "宜蘭2")
+                        id % 10 == 0L -> st.bindNull(5)
                         id % 4 == 1L -> st.bindNull(5)
-                        else -> st.bindText(5, "地點${rnd.nextInt(2000)}")
+                        else -> st.bindNull(5)
                     }
                     st.bindText(6, String(CharArray(20) { zipfChar() }))
                     st.step(); st.reset()

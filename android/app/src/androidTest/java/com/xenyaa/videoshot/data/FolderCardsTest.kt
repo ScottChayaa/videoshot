@@ -35,7 +35,8 @@ class FolderCardsTest {
         return db.shotDao().insert(
             ShotEntity(
                 id = 0, videoId = "v1", atSec = n.toDouble(), source = "storyboard",
-                frameIndex = n, sbLevel = 3, eventDate = eventDate, place = null,
+                // 16A：place 欄位改成 place_id
+                frameIndex = n, sbLevel = 3, eventDate = eventDate, placeId = null,
                 description = null, aiTranscript = null, aiVisualDesc = null, aiRaw = null,
                 createdAt = 1L,
             )

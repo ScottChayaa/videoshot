@@ -35,12 +35,19 @@ data class VideoEntity(
             parentColumns = ["id"],
             childColumns = ["video_id"],
             onDelete = ForeignKey.CASCADE,
-        )
+        ),
+        // 刪地點時圖還在，只是變成沒有地點（規格第四節）
+        ForeignKey(
+            entity = PlaceEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["place_id"],
+            onDelete = ForeignKey.SET_NULL,
+        ),
     ],
     indices = [
         Index(value = ["event_date", "id"]),
         Index(value = ["video_id"]),
-        Index(value = ["place"]),
+        Index(value = ["place_id"]),
         Index(value = ["video_id", "frame_index"], unique = true),
     ],
 )
@@ -52,7 +59,8 @@ data class ShotEntity(
     @ColumnInfo(name = "frame_index") val frameIndex: Int?,
     @ColumnInfo(name = "sb_level") val sbLevel: Int?,
     @ColumnInfo(name = "event_date") val eventDate: String,
-    @ColumnInfo(name = "place") val place: String?,
+    /** → place.id；沒有地點為 null。名稱一律經 `LEFT JOIN place` 取得（見 `ShotColumns.kt`） */
+    @ColumnInfo(name = "place_id") val placeId: Long?,
     @ColumnInfo(name = "description") val description: String?,
     @ColumnInfo(name = "ai_transcript") val aiTranscript: String?,
     @ColumnInfo(name = "ai_visual_desc") val aiVisualDesc: String?,
@@ -83,7 +91,19 @@ data class ShotImageEntity(
     override fun hashCode(): Int = 31 * shotId.hashCode() + webp.contentHashCode()
 }
 
-/** 標籤與暱稱（人／動物／主題）。地點是 shot.place，不在這裡。 */
+/**
+ * 地點（規格第四節）。跟 [TagEntity] 同一個形狀：名稱唯一、別名檢索時視同名稱；
+ * 差別是一張圖最多一個地點（`shot.place_id`），標籤可以多個。
+ */
+@Entity(tableName = "place", indices = [Index(value = ["name"], unique = true)])
+data class PlaceEntity(
+    @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "id") val id: Long,
+    @ColumnInfo(name = "name") val name: String,
+    /** 別名的 JSON 陣列字串，如 ["礁溪"]；檢索時視同 name（編輯介面在階段 16C） */
+    @ColumnInfo(name = "aliases") val aliases: String,
+)
+
+/** 標籤與暱稱（人／動物／主題）。地點在 [PlaceEntity]。 */
 @Entity(tableName = "tag", indices = [Index(value = ["name"], unique = true)])
 data class TagEntity(
     @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "id") val id: Long,

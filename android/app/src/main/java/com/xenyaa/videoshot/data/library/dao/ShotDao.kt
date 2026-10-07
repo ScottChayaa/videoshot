@@ -23,14 +23,11 @@ interface ShotDao {
     @Query("SELECT * FROM shot_image WHERE shot_id = :shotId")
     suspend fun imageOf(shotId: Long): ShotImageEntity?
 
-    @Query("UPDATE shot SET description = :description, place = :place WHERE id = :id")
-    suspend fun updateDescriptionAndPlace(id: Long, description: String?, place: String?)
-
     @Query("UPDATE shot SET event_date = :eventDate WHERE id = :id")
     suspend fun updateEventDate(id: Long, eventDate: String)
 
-    @Query("UPDATE shot SET place = :place WHERE id = :id")
-    suspend fun updatePlace(id: Long, place: String?)
+    @Query("UPDATE shot SET place_id = :placeId WHERE id = :id")
+    suspend fun updatePlace(id: Long, placeId: Long?)
 
     @Query("UPDATE shot SET description = :description WHERE id = :id")
     suspend fun updateDescription(id: Long, description: String?)
@@ -46,9 +43,10 @@ interface ShotDao {
      */
     @Query(
         """
-        SELECT id, video_id, at_sec, source, frame_index, sb_level, event_date, place, description
-        FROM shot WHERE event_date < :before
-        ORDER BY event_date DESC, id DESC LIMIT :limit
+        SELECT $SHOT_ROW_COLUMNS
+        FROM shot s $JOIN_PLACE
+        WHERE s.event_date < :before
+        ORDER BY s.event_date DESC, s.id DESC LIMIT :limit
         """
     )
     suspend fun feedFirst(before: String, limit: Int): List<ShotRowProjection>
@@ -56,11 +54,11 @@ interface ShotDao {
     /** 接續頁。條件是標準的 keyset 比較：(event_date, id) 嚴格小於游標。 */
     @Query(
         """
-        SELECT id, video_id, at_sec, source, frame_index, sb_level, event_date, place, description
-        FROM shot
-        WHERE event_date < :before
-          AND (event_date < :eventDate OR (event_date = :eventDate AND id < :id))
-        ORDER BY event_date DESC, id DESC LIMIT :limit
+        SELECT $SHOT_ROW_COLUMNS
+        FROM shot s $JOIN_PLACE
+        WHERE s.event_date < :before
+          AND (s.event_date < :eventDate OR (s.event_date = :eventDate AND s.id < :id))
+        ORDER BY s.event_date DESC, s.id DESC LIMIT :limit
         """
     )
     suspend fun feedAfter(before: String, eventDate: String, id: Long, limit: Int): List<ShotRowProjection>
@@ -76,8 +74,9 @@ interface ShotDao {
     @Query(
         """
         SELECT name, kind, tag_kind, COUNT(*) AS cnt FROM (
-            SELECT place AS name, 'place' AS kind, 'other' AS tag_kind
-            FROM shot WHERE substr(event_date, 1, 7) = :month AND place IS NOT NULL
+            SELECT p.name AS name, 'place' AS kind, 'other' AS tag_kind
+            FROM shot s JOIN place p ON p.id = s.place_id
+            WHERE substr(s.event_date, 1, 7) = :month
             UNION ALL
             SELECT t.name AS name, 'tag' AS kind, t.kind AS tag_kind
             FROM shot_tag st
@@ -102,8 +101,9 @@ interface ShotDao {
     @Query(
         """
         SELECT name, kind, tag_kind, COUNT(*) AS cnt FROM (
-            SELECT place AS name, 'place' AS kind, 'other' AS tag_kind
-            FROM shot WHERE event_date < :before AND place IS NOT NULL
+            SELECT p.name AS name, 'place' AS kind, 'other' AS tag_kind
+            FROM shot s JOIN place p ON p.id = s.place_id
+            WHERE s.event_date < :before
             UNION ALL
             SELECT t.name AS name, 'tag' AS kind, t.kind AS tag_kind
             FROM shot_tag st
@@ -126,29 +126,27 @@ interface ShotDao {
      */
     @Query(
         """
-        SELECT DISTINCT s.id, s.video_id, s.at_sec, s.source, s.frame_index, s.sb_level,
-               s.event_date, s.place, s.description
-        FROM shot s LEFT JOIN shot_tag st ON st.shot_id = s.id
-        WHERE s.event_date < :before AND (s.place IN (:places) OR st.tag_id IN (:tagIds))
+        SELECT DISTINCT $SHOT_ROW_COLUMNS
+        FROM shot s LEFT JOIN shot_tag st ON st.shot_id = s.id $JOIN_PLACE
+        WHERE s.event_date < :before AND (s.place_id IN (:placeIds) OR st.tag_id IN (:tagIds))
         ORDER BY s.event_date DESC, s.id DESC LIMIT :limit
         """
     )
-    suspend fun facetSearchFirst(before: String, places: List<String>, tagIds: List<Long>, limit: Int): List<ShotRowProjection>
+    suspend fun facetSearchFirst(before: String, placeIds: List<Long>, tagIds: List<Long>, limit: Int): List<ShotRowProjection>
 
     /** 接續頁。keyset 比對跟首頁的 `feedAfter` 同一個寫法。 */
     @Query(
         """
-        SELECT DISTINCT s.id, s.video_id, s.at_sec, s.source, s.frame_index, s.sb_level,
-               s.event_date, s.place, s.description
-        FROM shot s LEFT JOIN shot_tag st ON st.shot_id = s.id
-        WHERE s.event_date < :before AND (s.place IN (:places) OR st.tag_id IN (:tagIds))
+        SELECT DISTINCT $SHOT_ROW_COLUMNS
+        FROM shot s LEFT JOIN shot_tag st ON st.shot_id = s.id $JOIN_PLACE
+        WHERE s.event_date < :before AND (s.place_id IN (:placeIds) OR st.tag_id IN (:tagIds))
           AND (s.event_date < :eventDate OR (s.event_date = :eventDate AND s.id < :id))
         ORDER BY s.event_date DESC, s.id DESC LIMIT :limit
         """
     )
     suspend fun facetSearchAfter(
         before: String,
-        places: List<String>,
+        placeIds: List<Long>,
         tagIds: List<Long>,
         eventDate: String,
         id: Long,
@@ -159,10 +157,10 @@ interface ShotDao {
     @Query(
         """
         SELECT COUNT(DISTINCT s.id) FROM shot s LEFT JOIN shot_tag st ON st.shot_id = s.id
-        WHERE s.event_date < :before AND (s.place IN (:places) OR st.tag_id IN (:tagIds))
+        WHERE s.event_date < :before AND (s.place_id IN (:placeIds) OR st.tag_id IN (:tagIds))
         """
     )
-    suspend fun facetSearchCount(before: String, places: List<String>, tagIds: List<Long>): Int
+    suspend fun facetSearchCount(before: String, placeIds: List<Long>, tagIds: List<Long>): Int
 
     @Query(
         """
@@ -174,23 +172,17 @@ interface ShotDao {
 
     @Query(
         """
-        SELECT id, video_id, at_sec, source, frame_index, sb_level, event_date, place, description
-        FROM shot WHERE video_id = :videoId ORDER BY at_sec
+        SELECT $SHOT_ROW_COLUMNS FROM shot s $JOIN_PLACE WHERE s.video_id = :videoId ORDER BY s.at_sec
         """
     )
     suspend fun ofVideo(videoId: String): List<ShotRowProjection>
 
     @Query(
         """
-        SELECT id, video_id, at_sec, source, frame_index, sb_level, event_date, place, description
-        FROM shot WHERE id = :id
+        SELECT $SHOT_ROW_COLUMNS FROM shot s $JOIN_PLACE WHERE s.id = :id
         """
     )
     suspend fun rowById(id: Long): ShotRowProjection?
-
-    /** 抽屜的既有地點建議（規格第五節欄位表）。空字串在寫入時已轉成 null，這裡只要排除 null。 */
-    @Query("SELECT DISTINCT place FROM shot WHERE place IS NOT NULL ORDER BY place")
-    suspend fun distinctPlaces(): List<String>
 
     /**
      * 回填掃描用：全部 storyboard 來源的 shot（規格第十一節步驟 1）。
@@ -199,8 +191,7 @@ interface ShotDao {
      */
     @Query(
         """
-        SELECT id, video_id, at_sec, source, frame_index, sb_level, event_date, place, description
-        FROM shot WHERE source = 'storyboard'
+        SELECT $SHOT_ROW_COLUMNS FROM shot s $JOIN_PLACE WHERE s.source = 'storyboard'
         """
     )
     suspend fun allStoryboardShots(): List<ShotRowProjection>

@@ -38,7 +38,8 @@ class FolderCrudTest {
         return db.shotDao().insert(
             ShotEntity(
                 id = 0, videoId = "v1", atSec = n.toDouble(), source = "storyboard",
-                frameIndex = n, sbLevel = 3, eventDate = "2026-03-01", place = null,
+                // 16A：place 欄位改成 place_id
+                frameIndex = n, sbLevel = 3, eventDate = "2026-03-01", placeId = null,
                 description = null, aiTranscript = null, aiVisualDesc = null, aiRaw = null,
                 createdAt = 1L,
             )

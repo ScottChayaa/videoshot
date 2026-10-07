@@ -15,14 +15,8 @@ interface SearchDao {
     @Query("SELECT rowid FROM shot_fts WHERE shot_fts MATCH :query ORDER BY rowid")
     suspend fun matchIds(query: String): List<Long>
 
-    /** < 3 個字元的關鍵字 trigram 一律落空，退回全表掃描；本機一萬筆為毫秒級。 */
-    @Query(
-        """
-        SELECT id FROM shot
-        WHERE description LIKE '%' || :keyword || '%' OR place LIKE '%' || :keyword || '%'
-        ORDER BY id
-        """
-    )
+    /** < 3 個字元的關鍵字 trigram 一律落空，退回 LIKE。只比對描述；地點名稱由 `PlaceDao.idsNameContains` 另外比對（規格第八節）。 */
+    @Query("SELECT id FROM shot WHERE description LIKE '%' || :keyword || '%' ORDER BY id")
     suspend fun likeIds(keyword: String): List<Long>
 
     /**
@@ -38,7 +32,7 @@ interface SearchDao {
         WITH matches(id, relevance) AS (
             SELECT s.id AS id, MAX(
                 CASE
-                    WHEN s.place IN (:places) THEN 2
+                    WHEN s.place_id IN (:placeIds) THEN 2
                     WHEN st.tag_id IN (:tagIds) THEN 1
                     WHEN s.id IN (:keywordIds) THEN 0
                     ELSE -1
@@ -46,12 +40,12 @@ interface SearchDao {
             ) AS relevance
             FROM shot s LEFT JOIN shot_tag st ON st.shot_id = s.id
             WHERE s.event_date >= :since AND s.event_date <= :until AND s.event_date < :upToMonthBound
-              AND (s.place IN (:places) OR st.tag_id IN (:tagIds) OR s.id IN (:keywordIds))
+              AND (s.place_id IN (:placeIds) OR st.tag_id IN (:tagIds) OR s.id IN (:keywordIds))
             GROUP BY s.id
         )
         SELECT s.id, s.video_id, s.at_sec, s.source, s.frame_index, s.sb_level,
-               s.event_date, s.place, s.description, m.relevance
-        FROM matches m JOIN shot s ON s.id = m.id
+               s.event_date, p.name AS place, s.description, m.relevance
+        FROM matches m JOIN shot s ON s.id = m.id $JOIN_PLACE
         ORDER BY m.relevance DESC, s.event_date DESC, s.id DESC
         LIMIT :limit
         """
@@ -60,7 +54,7 @@ interface SearchDao {
         since: String,
         until: String,
         upToMonthBound: String,
-        places: List<String>,
+        placeIds: List<Long>,
         tagIds: List<Long>,
         keywordIds: List<Long>,
         limit: Int,
@@ -76,7 +70,7 @@ interface SearchDao {
         WITH matches(id, relevance) AS (
             SELECT s.id AS id, MAX(
                 CASE
-                    WHEN s.place IN (:places) THEN 2
+                    WHEN s.place_id IN (:placeIds) THEN 2
                     WHEN st.tag_id IN (:tagIds) THEN 1
                     WHEN s.id IN (:keywordIds) THEN 0
                     ELSE -1
@@ -84,12 +78,12 @@ interface SearchDao {
             ) AS relevance
             FROM shot s LEFT JOIN shot_tag st ON st.shot_id = s.id
             WHERE s.event_date >= :since AND s.event_date <= :until AND s.event_date < :upToMonthBound
-              AND (s.place IN (:places) OR st.tag_id IN (:tagIds) OR s.id IN (:keywordIds))
+              AND (s.place_id IN (:placeIds) OR st.tag_id IN (:tagIds) OR s.id IN (:keywordIds))
             GROUP BY s.id
         )
         SELECT s.id, s.video_id, s.at_sec, s.source, s.frame_index, s.sb_level,
-               s.event_date, s.place, s.description, m.relevance
-        FROM matches m JOIN shot s ON s.id = m.id
+               s.event_date, p.name AS place, s.description, m.relevance
+        FROM matches m JOIN shot s ON s.id = m.id $JOIN_PLACE
         WHERE (m.relevance, s.event_date, s.id) < (:curRelevance, :curEventDate, :curId)
         ORDER BY m.relevance DESC, s.event_date DESC, s.id DESC
         LIMIT :limit
@@ -99,7 +93,7 @@ interface SearchDao {
         since: String,
         until: String,
         upToMonthBound: String,
-        places: List<String>,
+        placeIds: List<Long>,
         tagIds: List<Long>,
         keywordIds: List<Long>,
         curRelevance: Int,
@@ -114,7 +108,7 @@ interface SearchDao {
         WITH matches(id) AS (
             SELECT s.id FROM shot s LEFT JOIN shot_tag st ON st.shot_id = s.id
             WHERE s.event_date >= :since AND s.event_date <= :until AND s.event_date < :upToMonthBound
-              AND (s.place IN (:places) OR st.tag_id IN (:tagIds) OR s.id IN (:keywordIds))
+              AND (s.place_id IN (:placeIds) OR st.tag_id IN (:tagIds) OR s.id IN (:keywordIds))
             GROUP BY s.id
         )
         SELECT COUNT(*) FROM matches
@@ -124,7 +118,7 @@ interface SearchDao {
         since: String,
         until: String,
         upToMonthBound: String,
-        places: List<String>,
+        placeIds: List<Long>,
         tagIds: List<Long>,
         keywordIds: List<Long>,
     ): Int

@@ -32,9 +32,8 @@ interface FolderDao {
     /** 本層的第一頁：新加入在前。走 index_shot_folder_folder_id_added_at。 */
     @Query(
         """
-        SELECT s.id, s.video_id, s.at_sec, s.source, s.frame_index, s.sb_level,
-               s.event_date, s.place, s.description
-        FROM shot_folder sf JOIN shot s ON s.id = sf.shot_id
+        SELECT $SHOT_ROW_COLUMNS
+        FROM shot_folder sf JOIN shot s ON s.id = sf.shot_id $JOIN_PLACE
         WHERE sf.folder_id = :folderId
         ORDER BY sf.added_at DESC, sf.shot_id DESC LIMIT :limit
         """
@@ -44,9 +43,8 @@ interface FolderDao {
     /** 接續頁：（added_at, shot_id）嚴格小於游標。同一秒加入的多張圖靠 shot_id 分先後。 */
     @Query(
         """
-        SELECT s.id, s.video_id, s.at_sec, s.source, s.frame_index, s.sb_level,
-               s.event_date, s.place, s.description
-        FROM shot_folder sf JOIN shot s ON s.id = sf.shot_id
+        SELECT $SHOT_ROW_COLUMNS
+        FROM shot_folder sf JOIN shot s ON s.id = sf.shot_id $JOIN_PLACE
         WHERE sf.folder_id = :folderId
           AND (sf.added_at < :addedAt OR (sf.added_at = :addedAt AND sf.shot_id < :shotId))
         ORDER BY sf.added_at DESC, sf.shot_id DESC LIMIT :limit
@@ -164,8 +162,8 @@ interface FolderDao {
         SELECT r.card_id AS card_id, r.rn AS rn,
                s.id AS id, s.video_id AS video_id, s.at_sec AS at_sec, s.source AS source,
                s.frame_index AS frame_index, s.sb_level AS sb_level, s.event_date AS event_date,
-               s.place AS place, s.description AS description
-        FROM ranked r JOIN shot s ON s.id = r.shot_id
+               p.name AS place, s.description AS description
+        FROM ranked r JOIN shot s ON s.id = r.shot_id $JOIN_PLACE
         WHERE r.rn <= 4
         ORDER BY r.card_id, r.rn
         """
