@@ -75,6 +75,10 @@ class RoomLibraryRepo(
         db.statsDao().candidates(upToMonth, limit).map { MonthFacet(it.name, it.kind, it.count, it.tagKind) }
     }
 
+    /** 第一頁與張數共用的查法決定（設計決議 4）：選取項目總張數小於門檻用分段合併，否則沿時間軸掃描。 */
+    private suspend fun useUnionFor(placeIds: List<Long>, tagIds: List<Long>): Boolean =
+        db.statsDao().selectedTotal(placeIds, tagIds) < facetUnionThreshold
+
     override suspend fun searchByFacets(
         places: Set<String>,
         tagNames: Set<String>,
@@ -85,7 +89,7 @@ class RoomLibraryRepo(
         val before = boundOf(upToMonth)
         val placeIds = resolvePlaceIds(places)
         val tagIds = resolveTagIds(tagNames)
-        val useUnion = db.statsDao().selectedTotal(placeIds, tagIds) < facetUnionThreshold
+        val useUnion = useUnionFor(placeIds, tagIds)
         val rows = when {
             useUnion -> db.shotDao().facetSearchUnion(
                 before, placeIds, tagIds,
@@ -100,7 +104,14 @@ class RoomLibraryRepo(
 
     override suspend fun searchByFacetsCount(places: Set<String>, tagNames: Set<String>, upToMonth: String?): Int =
         withContext(io) {
-            db.shotDao().facetSearchCount(boundOf(upToMonth), resolvePlaceIds(places), resolveTagIds(tagNames), RESULT_COUNT_CAP + 1)
+            val placeIds = resolvePlaceIds(places)
+            val tagIds = resolveTagIds(tagNames)
+            val before = boundOf(upToMonth)
+            if (useUnionFor(placeIds, tagIds)) {
+                db.shotDao().facetSearchCountUnion(before, placeIds, tagIds, RESULT_COUNT_CAP + 1)
+            } else {
+                db.shotDao().facetSearchCountScan(before, placeIds, tagIds, RESULT_COUNT_CAP + 1)
+            }
         }
 
     override suspend fun searchByQuery(query: ParsedQuery, upToMonth: String?, after: SearchCursor?, limit: Int): SearchPage =

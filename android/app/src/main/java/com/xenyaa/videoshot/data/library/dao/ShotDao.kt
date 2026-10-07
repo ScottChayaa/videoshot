@@ -134,6 +134,20 @@ interface ShotDao {
         limit: Int,
     ): List<ShotRowProjection>
 
+    /** 結果列「N 張」的分段合併版（同 [facetSearchUnion] 的兩個分支，無 keyset）；`UNION` 讓兩邊都命中的圖只算一次。最多數到 `cap`。 */
+    @Query(
+        """
+        SELECT COUNT(*) FROM (
+            SELECT s.id FROM shot s WHERE s.place_id IN (:placeIds) AND s.event_date < :before
+            UNION
+            SELECT st.shot_id FROM shot_tag st JOIN shot s ON s.id = st.shot_id
+            WHERE st.tag_id IN (:tagIds) AND s.event_date < :before
+            LIMIT :cap
+        )
+        """
+    )
+    suspend fun facetSearchCountUnion(before: String, placeIds: List<Long>, tagIds: List<Long>, cap: Int): Int
+
     /** 結果列的「N 張」，最多數到 `cap`（呼叫端傳 `RESULT_COUNT_CAP + 1`；設計決議 2）。 */
     @Query(
         """
@@ -144,7 +158,7 @@ interface ShotDao {
         )
         """
     )
-    suspend fun facetSearchCount(before: String, placeIds: List<Long>, tagIds: List<Long>, cap: Int): Int
+    suspend fun facetSearchCountScan(before: String, placeIds: List<Long>, tagIds: List<Long>, cap: Int): Int
 
     @Query(
         """

@@ -296,6 +296,17 @@ class SearchRepoTest {
         assertEquals(true, union.isNotEmpty())
         assertEquals(false, union.any { it.eventDate.startsWith("2026-03") })
         assertEquals(true, union.any { it.eventDate == "2025-12-31" })
+
+        // 張數也要兩種查法一致（含同時命中地點與標籤、時間範圍排除 2026-03）
+        for (month in listOf("2026-02", "2026-01", null)) {
+            val u = RoomLibraryRepo(libraryDb, Dispatchers.IO, facetUnionThreshold = Long.MAX_VALUE)
+                .searchByFacetsCount(setOf("宜蘭"), setOf("露營"), month)
+            val c = RoomLibraryRepo(libraryDb, Dispatchers.IO, facetUnionThreshold = 0)
+                .searchByFacetsCount(setOf("宜蘭"), setOf("露營"), month)
+            assertEquals("month=$month", c, u)
+        }
+        assertEquals(union.size, RoomLibraryRepo(libraryDb, Dispatchers.IO, facetUnionThreshold = Long.MAX_VALUE)
+            .searchByFacetsCount(setOf("宜蘭"), setOf("露營"), "2026-02"))
     }
 
     /** 設計決議 2：張數最多數到 1001（畫面顯示 1000+）。 */
