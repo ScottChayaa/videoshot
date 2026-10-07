@@ -365,11 +365,13 @@ web 版程式碼（`src/`、`tests/`、`static/` 與 SvelteKit／Vite／Playwrig
 
 | 檔案 | 內容 | 備份 |
 |---|---|---|
-| **`library.db`** | 無法重建的東西：影片、shot、標籤、資料夾、**手動補圖的圖片** | ✅ 整個檔案 |
+| **`library.db`** | 無法重建的東西：影片、shot、地點、標籤、資料夾、**手動補圖的圖片**；加上由它們算出、跟裝置無關的查詢輔助資料（全文索引、統計表） | ✅ 整個檔案 |
 | **`cache.db`** | 這台裝置自己的狀態：縮圖回填進度、精靈草稿 | ❌ |
 
 **為什麼要拆**：縮圖在不在是**每台裝置各自不同**的事實。若把「縮圖 OK」存進 `library.db`，它會跟著備份到 B 手機，
 但 B 上根本還沒有那張圖。拆開之後，B 還原時 `cache.db` 是空的，回填作業掃一遍缺哪些就好。
+
+**查詢輔助資料放 `library.db` 而不是 `cache.db`**：它們由資料庫觸發器在同一個交易裡維護，跟圖資永遠一致，而且換一台裝置內容也一樣；`cache.db` 只放「每台裝置各自不同」的事實。
 
 > **欄位命名規則沿用：凡是由 AI 產生或輔助的欄位，一律加 `ai_` 前綴。**
 
@@ -395,7 +397,7 @@ shot ── 使用者從影片挑出的單一畫面（本系統的第一級公�
   ├─ frame_index     storyboard 的第幾格，用於去重；manual 為 null
   ├─ sb_level        storyboard 圖所用的層級（3 或降級時的 2/1）；manual 為 null
   ├─ event_date      ★ 事件發生日期，首頁年月分組的依據；預設 = video.published_at，可改
-  ├─ place           ★ 地點，獨立欄位（非標籤）
+  ├─ place_id        → place.id；沒有地點為 null（刪地點時設成 null，圖不動）
   ├─ description     使用者手寫的描述；允許留空，是全文檢索的主要素材
   ├─ ai_transcript   （v2）AI 聽到的語音內容；v1 恆為 null
   ├─ ai_visual_desc  （v2）AI 看到的畫面描述；v1 恆為 null
@@ -406,7 +408,12 @@ shot_image ── 手動補圖的圖片本體（只有 source='manual' 的 shot 
   ├─ shot_id         → shot.id（PK）
   └─ webp            320×180 WebP BLOB，約 6 KB
 
-tag ── 標籤與暱稱（人／動物／主題；地點是 shot.place，不在此）
+place ── 地點（一張圖最多一個）
+  ├─ id              自動遞增整數（PK）
+  ├─ name            顯示名，如 "宜蘭礁溪"；唯一（「礁溪」是另一筆地點，靠合併整理）
+  └─ aliases         別名 JSON 陣列；檢索時視同 name；合併時舊名自動加進來（16C）
+
+tag ── 標籤與暱稱（人／動物／主題；地點在 place，不在此）
   ├─ id              自動遞增整數（PK）
   ├─ name            顯示名，如 "小橘" / "露營"；唯一
   ├─ kind            'person' | 'pet' | 'topic' | 'other'
@@ -427,8 +434,28 @@ shot_folder ── shot 與 folder 的多對多（一張圖可同時放進多個
   └─ added_at        資料夾內預設排序＝新加入在前
 
 shot_fts ── FTS5 虛擬表（tokenizer = trigram）
-  └─ 索引 description + place（v2 追加 ai_transcript + ai_visual_desc）
+  └─ 索引 description（v2 追加 ai_transcript + ai_visual_desc）；地點不進全文索引
+
+shot_stat ── 統計（觸發器維護，見下方「統計表」）
+  ├─ month / kind / ref_id（PK）   month＝YYYY-MM；kind 0＝全部（ref_id 0）、1＝地點、2＝標籤
+  └─ cnt
+shot_stat_total ── 每個地點／標籤的總數（kind / ref_id 為 PK）
 ```
+
+### 統計表
+
+用途：首頁月份標籤、月份選單、查詢頁候選清單、標籤管理與帳號頁的張數。目標規模是 100 萬張，這些畫面原本每次都要把整個圖庫
+`GROUP BY` 一遍；改讀統計表。**16A 只建表與觸發器，畫面改讀是 16B**，16B 起讀這一節。
+
+- 9 個觸發器維護（`StatsSchema.kt`）：加一用 UPSERT（沒有就建、有就加），減一用 UPDATE（沒有那一列就什麼都不做，不會產生負數）；
+  減到 0 的列不刪，**讀取端一律加 `cnt > 0`**；刪圖用 `BEFORE DELETE`（那時標籤關聯還在才查得到要扣哪些標籤，之後外鍵連動刪關聯時發現圖已不在而跳過，不重複扣）；
+  換月份與同月只換地點兩個觸發器用 WHEN 互斥；刪標籤、刪地點時整批刪掉它的統計列。
+- **為什麼不在 app 程式碼裡更新**：app 不必在每個寫入點記得更新；統計跟圖資在同一個交易裡成功或失敗；觸發器存在檔案裡，日後其他平台打開同一個檔案也生效。
+- 實機量測（2107113SG，100 萬張，2026-10-07）：候選清單（全部時間）v1 要 9.2 秒，讀統計表 0.007～0.01 秒；月份選單 0.004～0.009 秒、某月標籤 0.01 秒。
+  寫入成本（觸發器開著）：取圖 100 張入庫 0.17 秒、編輯一張 0.003～0.004 秒、合併地點 10 萬張 0.02～0.07 秒、地點改名 0.005 秒。
+  v1→v2 升級（開檔時一次性，含 100 萬張）84.1 秒。
+- ⏳ 合併一個 22 萬筆關聯的大標籤要 3.9～4.3 秒（v1 無觸發器時 1.9 秒），超過 3 秒的目標，設計未改。
+- ⏳ 候選清單帶「某月以前」條件仍要 0.51～0.57 秒，16B 設計。
 
 **`shot_image` 獨立成表**：讓 `shot` 每列保持很小，首頁清單的掃描不被 6 KB 的 BLOB 拖慢。
 
@@ -518,7 +545,9 @@ app 的程式碼（Kotlin）綁定平台，但**資料格式不綁定**。以下
 
 - `shot(event_date, id)` —— 首頁時間軸與 keyset 分頁
 - `shot(video_id)` —— 詳情頁取單片所有 shot
-- `shot(place)` —— 地點篩選與 facet
+- `shot(place_id)` —— 地點篩選與 facet
+- `place(name)` 唯一 —— 地點名稱查編號
+- `shot_stat(kind, ref_id, month)` —— 某個地點／標籤每個月幾張、月份選單
 - `shot_tag(tag_id)` / `shot_tag(shot_id)` —— 多對多 join
 - `folder(parent_id)` —— 資料夾樹展開
 - `shot_folder(folder_id, added_at)` —— 資料夾內容 keyset 分頁
@@ -530,7 +559,7 @@ app 的程式碼（Kotlin）綁定平台，但**資料格式不綁定**。以下
 
 實作上：`LIBRARY_SCHEMA_VERSION` 是唯一的版本來源，`LIBRARY_MIGRATIONS` 必須涵蓋從 1 到現行版本的每一階
 （`MigrationTest` 盯著兩者對得上）；備份相容性由 `checkBackupSchema()` 判定為 `OK`／`NEEDS_MIGRATION`／`TOO_NEW`。
-遷移若重建 `shot` 表，必須一併重建 `shot_fts` 與它的三個觸發器。
+遷移若重建 `shot` 表，必須一併重建 `shot_fts`、它的三個觸發器與統計表的觸發器。**v1→v2 不重建 `shot` 表**（`DROP TABLE` 會經外鍵連動刪光關聯），改用 `ADD COLUMN`＋`DROP COLUMN`。
 
 ### 相對 web 版的變動
 
@@ -541,7 +570,8 @@ app 的程式碼（Kotlin）綁定平台，但**資料格式不綁定**。以下
 | **移除** | `shot.thumb_key` | 路徑由 `(video_id, sb_level, frame_index)` 推導；手動圖改存 `shot_image` |
 | **新增** | `shot.sb_level` | 推導縮圖路徑用 |
 | **新增表** | `shot_image` | 手動圖無法從 YouTube 重建，必須進備份 |
-| **移除表** | `facet_month_agg` | 本機幾萬筆，`GROUP BY` 即時算只要幾毫秒；彙總表只剩同步 bug 的風險 |
+| **新增表** | `shot_stat`、`shot_stat_total` | 原本以為本機幾萬筆即時算就好而拿掉彙總表；目標改成 100 萬張後實機量到查詢頁候選清單要 9 秒，改由觸發器維護（沒有 web 版擔心的同步問題） |
+| **新增表** | `place` | 地點要能改名、合併、加別名（2026-10-07） |
 | **移除表** | `sb_probe` | 沒有伺服器，也沒有需要告警的管理員 |
 | **新增檔** | `cache.db`（`thumb_state`、`draft`） | 裝置本地狀態不可進備份 |
 
@@ -1026,7 +1056,7 @@ storyboard 與 watch page **沒有任何官方文件或相容性承諾**。設�
 ### 標籤與地點查詢
 
 純 SQL，不經 AI。facet 由時間範圍內的 `GROUP BY` 即時計算（第六節查詢）。
-地點條件走 `shot.place = ?`，標籤條件走 `shot_tag`。
+地點條件走 `shot.place_id IN (…)`（名稱先轉成編號），標籤條件走 `shot_tag`。
 
 ### 文字查詢
 
@@ -1038,13 +1068,13 @@ storyboard 與 watch page **沒有任何官方文件或相容性承諾**。設�
    - 沒有金鑰、離線、逾時或錯誤：規則式解析
    → { date_from, date_to, places: ["加勒比海"], tags: ["夜潛"], keywords: ["大蝦"] }
 
-2. facet 對應：tag 以 name 與 aliases 比對出 tag_id；place 直接字串比對
+2. facet 對應：tag 以 name 與 aliases 比對出 tag_id；place 以 name 比對出 place_id（別名在 16C 加入）
 
 3. SQL 檢索：
    SELECT … FROM shot s
    LEFT JOIN shot_tag st ON st.shot_id = s.id
    WHERE (s.event_date <= ? OR ? IS NULL)
-     AND (s.place = ? OR st.tag_id IN (?) OR <關鍵字條件>)
+     AND (s.place_id IN (?) OR st.tag_id IN (?) OR <關鍵字條件>)
    ORDER BY <相關度>
 ```
 
@@ -1056,7 +1086,9 @@ storyboard 與 watch page **沒有任何官方文件或相容性承諾**。設�
 | 關鍵字長度 | 條件 |
 |---|---|
 | ≥ 3 個字元 | `s.id IN (SELECT rowid FROM shot_fts WHERE shot_fts MATCH ?)` |
-| < 3 個字元（如「大蝦」） | `s.description LIKE '%大蝦%' OR s.place LIKE '%大蝦%'`（全表掃描；本機一萬筆為毫秒級） |
+| < 3 個字元（如「大蝦」） | `s.description LIKE '%大蝦%'`（全表掃描；本機一萬筆為毫秒級） |
+
+**地點不在全文索引裡**：每個關鍵字另外比對地點名稱（`place.name LIKE '%關鍵字%'`），命中的地點併進地點條件、算地點層的相關度。⏳ 關鍵字命中的圖超過約 16,000 張時查詢會失敗（SQLite 參數上限，實機 2026-10-07 重現），描述查詢的改寫暫緩。
 
 ### 相關度排序
 
@@ -1399,6 +1431,8 @@ OAuth client 綁定 APK 的簽章憑證，**debug 與 release 用不同的憑證
 | 回填節流參數 | 第十一節 | 回填階段 |
 | **廣告偵測 `.ad-showing` 是否有效** | 第五節、第十二節 | POC 未能觸發廣告。**階段 4c 已實作**（偵測得到就擋、偵測不到不擋流程），但驗收整輪仍未遇到廣告，**依舊未驗證**。embed 的 DOM 是行動版，但播放器容器**確實帶 `ytp-*` 類名**，所以選擇器仍有機會成立 —— 要實際觸發廣告才算數 |
 | 首頁月份標籤：換行 vs 橫向捲動 | 第六節 | 暫定橫向捲動（沿用原型） |
+| 描述查詢關鍵字命中超過約 16,000 張時失敗（SQLite 參數上限） | 第八節 | 暫緩，不在 16A～16C |
+| 合併 22 萬筆關聯的大標籤 3.9～4.3 秒，超過 3 秒目標 | 第四節「統計表」 | 待 scott 決定 |
 
 2026-09-13 由階段 0 的實機 POC 解決並移出本表：POC P-1～P-3、watch page 欄位位置與實際流量、
 `BundledSQLiteDriver` 的 FTS5 trigram、截圖黑畫面判定門檻。
