@@ -43,7 +43,11 @@ object FilterLists {
         }
         val all = missing + pool
         if (isPlace in draft.expanded || all.size <= COLLAPSED_LIMIT) return FilterSection(all, 0)
-        return FilterSection(all.take(COLLAPSED_LIMIT), all.size - COLLAPSED_LIMIT)
+        // 收合時已勾選的項目不能藏在【顯示全部】後面（使用者看不到自己選了什麼）：
+        // 前 50 個照列，超出的已勾選項目依原順序接在後面，隱藏數只算還沒勾選的
+        val tail = all.drop(COLLAPSED_LIMIT)
+        val tailSelected = tail.filter { draft.isSelected(it) }
+        return FilterSection(all.take(COLLAPSED_LIMIT) + tailSelected, tail.size - tailSelected.size)
     }
 }
 

@@ -71,7 +71,7 @@ class HomeFilterTest {
                     onOpen = {},
                     onLoadMore = { loadMoreCalls++ },
                     onPickMonth = { picked = true to it },
-                    onFacetClick = { _, _ -> },
+                    onFacetClick = {},
                 )
             }
         }
@@ -92,6 +92,31 @@ class HomeFilterTest {
         // 2026年3月：清單裡該月的標題一個、選擇器的選項一個（選項不再帶張數，不能靠張數區分）
         compose.onAllNodesWithText("2026年3月").assertCountEquals(2)
         compose.onNodeWithText("2026年1月").assertIsDisplayed()
+    }
+
+    /** 階段 17 設計決議 5：月份選單的選項只有月份名稱，不帶張數。 */
+    @Test
+    fun 月份選單的選項不帶張數() {
+        show(loaded())
+        compose.onNodeWithContentDescription("依時間篩選").performClick()
+        compose.onNodeWithText("2026年1月").assertIsDisplayed()
+        compose.onAllNodesWithText("張", substring = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun 沒有任何月份時選單說還沒有收藏的月份() {
+        show(HomeState(endReached = true))
+        compose.onNodeWithContentDescription("依時間篩選").performClick()
+        compose.onNodeWithText("還沒有任何收藏的月份").assertIsDisplayed()
+    }
+
+    /** 篩選把月份全濾掉時，不能說成「還沒有任何收藏」。 */
+    @Test
+    fun 篩選中沒有符合的月份時選單說沒有符合篩選的月份() {
+        show(HomeState(filter = HomeFilter(places = setOf("礁溪")), endReached = true))
+        compose.onNodeWithContentDescription("依時間篩選").performClick()
+        compose.onNodeWithText("沒有符合篩選的月份").assertIsDisplayed()
+        compose.onNodeWithText("還沒有任何收藏的月份").assertDoesNotExist()
     }
 
     @Test

@@ -27,6 +27,7 @@ import com.xenyaa.videoshot.thumbs.Thumbs
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -62,7 +63,13 @@ class HomeScreenTest {
     private fun stateOf(vararg rows: ShotRow, facets: Map<String, List<MonthFacet>> = emptyMap()) =
         HomeStore.appendPage(HomeState(facets = facets), Page(rows.toList(), null))
 
-    private fun show(state: HomeState, onOpen: (Int) -> Unit = {}, onFacet: (String, MonthFacet) -> Unit = { _, _ -> }) {
+    private fun show(
+        state: HomeState,
+        onOpen: (Int) -> Unit = {},
+        onFacet: (MonthFacet) -> Unit = {},
+        onOpenFilter: () -> Unit = {},
+        onClearFilter: () -> Unit = {},
+    ) {
         compose.setContent {
             VideoshotTheme {
                 HomeScreen(
@@ -73,6 +80,8 @@ class HomeScreenTest {
                     onLoadMore = {},
                     onPickMonth = {},
                     onFacetClick = onFacet,
+                    onOpenFilter = onOpenFilter,
+                    onClearFilter = onClearFilter,
                 )
             }
         }
@@ -126,15 +135,14 @@ class HomeScreenTest {
     }
 
     @Test
-    fun 點月份標籤會回報月份與標籤() {
-        var picked: Pair<String, MonthFacet>? = null
+    fun 點月份標籤會回報標籤() {
+        var picked: MonthFacet? = null
         show(
             stateOf(row(1, "2026-03-05"), facets = mapOf("2026-03" to listOf(MonthFacet("宜蘭", "place", 3)))),
-            onFacet = { month, facet -> picked = month to facet },
+            onFacet = { picked = it },
         )
         compose.onNodeWithText("宜蘭").performClick()
-        assertEquals("2026-03", picked?.first)
-        assertEquals("宜蘭", picked?.second?.name)
+        assertEquals("宜蘭", picked?.name)
     }
 
     /** 設計文件決定 5：首頁縮圖是正方形。 */
@@ -156,7 +164,7 @@ class HomeScreenTest {
                     "2026-03" to listOf(MonthFacet("加勒比海", "place", 3), MonthFacet("小明", "tag", 2, "person")),
                 ),
             ),
-            onFacet = { _, f -> picked += f },
+            onFacet = { picked += it },
         )
         compose.onNodeWithText("加勒比海").assertHasClickAction().performClick()
         compose.onNodeWithText("小明").assertHasClickAction().performClick()
@@ -181,7 +189,7 @@ class HomeScreenTest {
                 HomeScreen(
                     state = HomeState(upToMonth = "2020-01", endReached = true),
                     loader = loader, listState = rememberLazyGridState(), onOpen = {}, onLoadMore = {},
-                    onPickMonth = { if (it == null) cleared = true }, onFacetClick = { _, _ -> },
+                    onPickMonth = { if (it == null) cleared = true }, onFacetClick = {},
                 )
             }
         }
@@ -189,6 +197,78 @@ class HomeScreenTest {
         // 狀態列與空狀態各有一個「清除時間篩選」：點文字那顆（空狀態的按鈕）
         compose.onNodeWithText("清除時間篩選").performClick()
         assertEquals(true, cleared)
+    }
+
+    // ---- 階段 17：篩選 ----
+
+    private val applied2 = HomeFilter(places = setOf("礁溪"), tags = setOf("溫泉"))
+
+    @Test
+    fun 頂欄有依地點與標籤篩選鈕_在日曆鈕左邊() {
+        show(stateOf(row(1, "2026-03-05")))
+        val filter = compose.onNodeWithContentDescription("依地點與標籤篩選").assertHasClickAction()
+            .getUnclippedBoundsInRoot()
+        val calendar = compose.onNodeWithContentDescription("依時間篩選").getUnclippedBoundsInRoot()
+        assertTrue(filter.right <= calendar.left)
+    }
+
+    @Test
+    fun 點篩選鈕回報onOpenFilter() {
+        var opened = 0
+        show(stateOf(row(1, "2026-03-05")), onOpenFilter = { opened++ })
+        compose.onNodeWithContentDescription("依地點與標籤篩選").performClick()
+        assertEquals(1, opened)
+    }
+
+    @Test
+    fun 沒有篩選時篩選鈕沒有狀態描述_有篩選時唸出條件數() {
+        show(stateOf(row(1, "2026-03-05")))
+        compose.onNodeWithContentDescription("依地點與標籤篩選")
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.StateDescription))
+    }
+
+    @Test
+    fun 有篩選時篩選鈕的狀態描述是已套用N個條件() {
+        show(stateOf(row(1, "2026-03-05")).copy(filter = applied2))
+        compose.onNodeWithContentDescription("依地點與標籤篩選")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "已套用 2 個篩選條件"))
+    }
+
+    /** 設計決議 4：篩選中月份旁的地點與標籤小膠囊隱藏。 */
+    @Test
+    fun 篩選中月份標題列沒有地點小膠囊也沒有標籤列() {
+        show(
+            stateOf(
+                row(1, "2026-03-05"),
+                facets = mapOf("2026-03" to listOf(MonthFacet("宜蘭", "place", 3), MonthFacet("露營", "tag", 2))),
+            ).copy(filter = applied2),
+        )
+        compose.onNodeWithText("2026年3月").assertIsDisplayed()
+        compose.onNodeWithText("宜蘭").assertDoesNotExist()
+        compose.onNodeWithText("露營").assertDoesNotExist()
+    }
+
+    @Test
+    fun 篩選中零張時空狀態帶清除篩選() {
+        var cleared = 0
+        show(HomeState(filter = applied2, endReached = true), onClearFilter = { cleared++ })
+        compose.onNodeWithText("沒有符合篩選的收藏").assertIsDisplayed()
+        compose.onNodeWithText("這個時間點以前沒有收藏").assertDoesNotExist()
+        compose.onNodeWithText("清除篩選").performClick()
+        assertEquals(1, cleared)
+    }
+
+    @Test
+    fun 抽屜開著時畫出篩選抽屜() {
+        show(stateOf(row(1, "2026-03-05")).copy(draft = FilterDraft(emptySet(), emptySet())))
+        compose.onNodeWithText("套用").assertIsDisplayed()
+        compose.onNodeWithContentDescription("搜尋地點").assertIsDisplayed()
+    }
+
+    @Test
+    fun 抽屜關著時沒有篩選抽屜() {
+        show(stateOf(row(1, "2026-03-05")))
+        compose.onNodeWithText("套用").assertDoesNotExist()
     }
 
     @Test
@@ -199,7 +279,7 @@ class HomeScreenTest {
                 HomeScreen(
                     state = HomeState(error = "讀取失敗", endReached = true),
                     loader = loader, listState = rememberLazyGridState(), onOpen = {}, onLoadMore = { retried = true },
-                    onPickMonth = {}, onFacetClick = { _, _ -> },
+                    onPickMonth = {}, onFacetClick = {},
                 )
             }
         }
@@ -257,7 +337,7 @@ class HomeScreenTest {
                         onOpen = {},
                         onLoadMore = {},
                         onPickMonth = {},
-                        onFacetClick = { _, _ -> },
+                        onFacetClick = {},
                         scrollToMonth = scrollTarget,
                         onScrolledToMonth = { scrollTarget = null },
                     )

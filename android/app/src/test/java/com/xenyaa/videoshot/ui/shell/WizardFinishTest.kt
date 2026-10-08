@@ -67,7 +67,7 @@ class WizardFinishTest {
                     state = bigState(),
                     loader = loader,
                     listState = rememberLazyGridState(),
-                    onOpen = {}, onLoadMore = {}, onPickMonth = {}, onFacetClick = { _, _ -> },
+                    onOpen = {}, onLoadMore = {}, onPickMonth = {}, onFacetClick = {},
                     scrollToMonth = "2026-01",
                     onScrolledToMonth = { scrolled++ },
                 )
@@ -86,7 +86,7 @@ class WizardFinishTest {
                     state = bigState(),
                     loader = loader,
                     listState = rememberLazyGridState(),
-                    onOpen = {}, onLoadMore = {}, onPickMonth = {}, onFacetClick = { _, _ -> },
+                    onOpen = {}, onLoadMore = {}, onPickMonth = {}, onFacetClick = {},
                     scrollToMonth = "2019-07",
                     onScrolledToMonth = { scrolled++ },
                 )
@@ -111,7 +111,7 @@ class WizardFinishTest {
                     state = state.value,
                     loader = loader,
                     listState = rememberLazyGridState(),
-                    onOpen = {}, onLoadMore = {}, onPickMonth = {}, onFacetClick = { _, _ -> },
+                    onOpen = {}, onLoadMore = {}, onPickMonth = {}, onFacetClick = {},
                     scrollToMonth = "2026-01",
                     onScrolledToMonth = { scrolled++ },
                 )

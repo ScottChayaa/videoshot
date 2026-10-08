@@ -86,8 +86,15 @@ class HomeViewModelTest {
             return monthsMatchingValue
         }
 
+        /** 只卡「下一次」`filterOptions`，取用後自動歸零。 */
+        var filterOptionsGate: CompletableDeferred<Unit>? = null
+
         override suspend fun filterOptions(upToMonth: String?): List<FilterOption> {
             filterOptionsCalls += upToMonth
+            filterOptionsGate?.let { gate ->
+                filterOptionsGate = null
+                gate.await()
+            }
             return filterOptionsValue
         }
 
@@ -259,6 +266,61 @@ class HomeViewModelTest {
         advanceUntilIdle()
         vm.openFilter()
         assertEquals(setOf("礁溪"), vm.state.value.draft!!.places)
+    }
+
+    /** 階段 17 Task 3 複審：重開抽屜時上一次留下的候選不能先閃一下。 */
+    @Test
+    fun 重開抽屜時在新的讀取回來前候選是空的() = runTest(dispatcher) {
+        val (vm, repo) = newVm()
+        vm.openFilter()
+        advanceUntilIdle()
+        assertEquals(2, vm.state.value.filterOptions.size)
+        vm.dismissFilter()
+
+        val gate = CompletableDeferred<Unit>()
+        repo.filterOptionsGate = gate
+        repo.filterOptionsValue = listOf(place("墾丁"))
+        vm.openFilter()
+        // 同一個 update 就清掉舊候選，不用等任何協程跑
+        assertEquals(emptyList<FilterOption>(), vm.state.value.filterOptions)
+        advanceUntilIdle()
+        assertEquals(emptyList<FilterOption>(), vm.state.value.filterOptions)
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(listOf(place("墾丁")), vm.state.value.filterOptions)
+    }
+
+    @Test
+    fun 候選讀取在關抽屜之後才回來不會寫進狀態() = runTest(dispatcher) {
+        val (vm, repo) = newVm()
+        val gate = CompletableDeferred<Unit>()
+        repo.filterOptionsGate = gate
+        vm.openFilter()
+        advanceUntilIdle()
+        vm.dismissFilter()
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(emptyList<FilterOption>(), vm.state.value.filterOptions)
+        assertNull(vm.state.value.draft)
+    }
+
+    @Test
+    fun 連開兩次抽屜只有最後一次的候選會寫進狀態() = runTest(dispatcher) {
+        val (vm, repo) = newVm()
+        val slow = CompletableDeferred<Unit>()
+        repo.filterOptionsGate = slow
+        repo.filterOptionsValue = listOf(place("舊"))
+        vm.openFilter()
+        advanceUntilIdle()
+
+        repo.filterOptionsValue = listOf(place("新"))
+        vm.openFilter()
+        advanceUntilIdle()
+        slow.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(listOf(place("新")), vm.state.value.filterOptions)
     }
 
     @Test

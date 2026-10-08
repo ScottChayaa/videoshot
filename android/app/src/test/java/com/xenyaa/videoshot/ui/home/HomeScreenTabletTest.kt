@@ -71,7 +71,7 @@ class HomeScreenTabletTest {
                     onOpen = {},
                     onLoadMore = {},
                     onPickMonth = {},
-                    onFacetClick = { _, _ -> },
+                    onFacetClick = {},
                 )
             }
         }

@@ -86,7 +86,7 @@ class HomeFocusTest {
                     onOpen = {},
                     onLoadMore = {},
                     onPickMonth = {},
-                    onFacetClick = { _, _ -> },
+                    onFacetClick = {},
                 )
             }
         }

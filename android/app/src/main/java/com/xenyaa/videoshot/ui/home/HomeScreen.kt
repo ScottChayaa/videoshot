@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.core.home.DEFAULT_THUMB_COLUMNS
 import com.xenyaa.videoshot.core.home.thumbColumnsFor
 import com.xenyaa.videoshot.core.home.monthLabel
+import com.xenyaa.videoshot.data.repo.model.FilterOption
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.chipKindOf
@@ -72,7 +73,19 @@ fun HomeScreen(
     onLoadMore: () -> Unit,
     /** null＝清除篩選。開關選擇器是畫面自己的事，不必讓外面知道 */
     onPickMonth: (String?) -> Unit,
-    onFacetClick: (String, MonthFacet) -> Unit,
+    /** 月份標籤點下去＝在首頁只篩這一個（階段 17 設計決議 6），不再跳到別的分頁 */
+    onFacetClick: (MonthFacet) -> Unit,
+    /** 開地點與標籤篩選抽屜；抽屜開不開看 `state.draft` */
+    onOpenFilter: () -> Unit = {},
+    onToggleDraft: (FilterOption) -> Unit = {},
+    onDraftQuery: (isPlace: Boolean, text: String) -> Unit = { _, _ -> },
+    onExpandDraft: (isPlace: Boolean) -> Unit = {},
+    onClearDraft: () -> Unit = {},
+    onApplyFilter: () -> Unit = {},
+    /** 關抽屜但不套用（滑掉、點背景、返回）：草稿作廢 */
+    onDismissFilter: () -> Unit = {},
+    /** 清掉**已套用**的地點與標籤篩選（空狀態的按鈕用） */
+    onClearFilter: () -> Unit = {},
     /** 手機寬度每列張數（帳號 › 縮圖；平板寬度會再加欄） */
     phoneColumns: Int = DEFAULT_THUMB_COLUMNS,
     /** 取圖完成後要捲到的月份（`YYYY-MM`）；null＝不用捲 */
@@ -105,7 +118,7 @@ fun HomeScreen(
         if (nearEnd && HomeStore.canLoadMore(state)) onLoadMore()
     }
 
-    // 篩選換了就回頂端 —— 選到的那個月是第一個分組，停在原本的捲動位置會看不到它。
+    // 篩選（時間範圍或地點／標籤）換了就回頂端 —— 選到的那個月是第一個分組，停在原本的捲動位置會看不到它。
     //
     // 拿 rememberSaveable 記「上一次真的套用過的篩選」而不是直接把 upToMonth 當 key ——
     // 這個 composable 離開過 composition 再回來的每一次（切分頁、開關 Lightbox）都是一次
@@ -113,10 +126,13 @@ fun HomeScreen(
     // 捲到第 400 張開一張圖、關掉，回來就會被強制捲回頂端（見階段 7 全盤覆查第 4 點）。
     // 用 rememberSaveable 的初始值直接帶入目前的 upToMonth，新掛載的當下兩者天生相等，
     // 這一次自然不會觸發；真的換了篩選（掛載期間 upToMonth 改變）才會不相等而捲動。
-    var lastAppliedFilter by rememberSaveable { mutableStateOf(state.upToMonth) }
-    LaunchedEffect(state.upToMonth) {
-        if (state.upToMonth != lastAppliedFilter) {
-            lastAppliedFilter = state.upToMonth
+    //
+    // key 是把「時間範圍＋地點＋標籤」攤成一個字串（rememberSaveable 存得下；`HomeFilter` 不是可存的型別）。
+    val filterKey = filterScrollKey(state.upToMonth, state.filter)
+    var lastAppliedFilter by rememberSaveable { mutableStateOf(filterKey) }
+    LaunchedEffect(filterKey) {
+        if (filterKey != lastAppliedFilter) {
+            lastAppliedFilter = filterKey
             listState.scrollToItem(0)
         }
     }
@@ -144,7 +160,12 @@ fun HomeScreen(
 
     Column(modifier.fillMaxSize()) {
 
-        HomeTopBar(upToMonth = state.upToMonth, onOpenFilter = { picking = true })
+        HomeTopBar(
+            upToMonth = state.upToMonth,
+            filter = state.filter,
+            onOpenMonths = { picking = true },
+            onOpenFilter = onOpenFilter,
+        )
 
         // 讀取失敗不能無聲無息：loading 沒有接住例外就會卡在 true、清單再也不會重試
         // （見階段 7 全盤覆查第 2 點）。這裡只是提示＋重試，不是破壞性動作，不用 danger 色。
@@ -155,7 +176,12 @@ fun HomeScreen(
         // 用 if/else 而不是提早 return —— 空狀態也要能往下走到選擇器那一段，
         // 不然篩選出 0 筆結果時按日曆鈕會完全沒反應（手冊 §二：這個鈕本來就該打得開選擇器）。
         if (state.items.isEmpty() && state.endReached) {
-            HomeEmpty(filtered = state.upToMonth != null, onClearFilter = { onPickMonth(null) })
+            HomeEmpty(
+                timeFiltered = state.upToMonth != null,
+                facetFiltered = !state.filter.isEmpty,
+                onClearTime = { onPickMonth(null) },
+                onClearFacets = onClearFilter,
+            )
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(columns),
@@ -173,16 +199,17 @@ fun HomeScreen(
                         is HomeSlot.Header -> stickyHeader(key = slot.key, contentType = "header") {
                             MonthHeader(
                                 label = slot.label,
-                                places = state.facets[slot.month].orEmpty().filter { it.isPlace },
+                                // 篩選中不畫月份旁的地點小膠囊（設計決議 4）
+                                places = if (state.filter.isEmpty) state.facets[slot.month].orEmpty().filter { it.isPlace } else emptyList(),
                                 stuck = slot.month == stuckMonth,
-                                onFacetClick = { onFacetClick(slot.month, it) },
+                                onFacetClick = onFacetClick,
                             )
                         }
 
                         is HomeSlot.Facets -> item(key = slot.key, span = { GridItemSpan(maxLineSpan) }, contentType = "facets") {
                             MonthFacetRow(
                                 facets = state.facets[slot.month].orEmpty().filterNot { it.isPlace },
-                                onClick = { onFacetClick(slot.month, it) },
+                                onClick = onFacetClick,
                             )
                         }
 
@@ -207,22 +234,56 @@ fun HomeScreen(
                 onPick = { picking = false; onPickMonth(it) },
                 onClear = { picking = false; onPickMonth(null) },
                 onDismiss = { picking = false },
+                filtering = !state.filter.isEmpty,
+            )
+        }
+
+        state.draft?.let { draft ->
+            FilterSheet(
+                options = state.filterOptions,
+                draft = draft,
+                onToggle = onToggleDraft,
+                onQuery = onDraftQuery,
+                onExpand = onExpandDraft,
+                onClear = onClearDraft,
+                onApply = onApplyFilter,
+                onDismiss = onDismissFilter,
             )
         }
     }
 }
 
+/** 換了這個字串就是換了篩選（任何一項不同都算），畫面要捲回頂端。 */
+private fun filterScrollKey(upToMonth: String?, filter: HomeFilter): String =
+    listOf(
+        upToMonth.orEmpty(),
+        filter.places.sorted().joinToString("\u0001"),
+        filter.tags.sorted().joinToString("\u0001"),
+    ).joinToString("\u0000")
+
 /**
- * 有時間篩選時日曆鈕變成主色淺底圓形＋主色圖示，不另外佔一列狀態列；清除篩選在月份選擇器的【清除】。
+ * 右上角兩顆鈕：〔依地點與標籤篩選〕〔依時間篩選〕。有篩選時那一顆變成主色淺底圓形＋主色圖示，
+ * 不另外佔一列狀態列；清除時間篩選在月份選擇器的【清除】，清除地點與標籤篩選在抽屜的【清除篩選】。
  * TalkBack 用 stateDescription 唸出目前的篩選。
  */
 @Composable
-private fun HomeTopBar(upToMonth: String?, onOpenFilter: () -> Unit) {
+private fun HomeTopBar(upToMonth: String?, filter: HomeFilter, onOpenMonths: () -> Unit, onOpenFilter: () -> Unit) {
     VsTopBar("收藏", divider = false) {
+        TopBarIconButton(
+            VsIcons.Filter,
+            "依地點與標籤篩選",
+            onOpenFilter,
+            modifier = if (!filter.isEmpty) {
+                Modifier.semantics { stateDescription = "已套用 ${filter.size} 個篩選條件" }
+            } else {
+                Modifier
+            },
+            active = !filter.isEmpty,
+        )
         TopBarIconButton(
             VsIcons.Calendar,
             "依時間篩選",
-            onOpenFilter,
+            onOpenMonths,
             modifier = if (upToMonth != null) {
                 Modifier.semantics { stateDescription = "只顯示 ${monthLabel(upToMonth)} 以前的收藏" }
             } else {
@@ -343,13 +404,22 @@ private fun FacetChips(facets: List<MonthFacet>, onClick: (MonthFacet) -> Unit) 
 }
 
 @Composable
-private fun HomeEmpty(filtered: Boolean, onClearFilter: () -> Unit) {
-    if (filtered) {
+private fun HomeEmpty(timeFiltered: Boolean, facetFiltered: Boolean, onClearTime: () -> Unit, onClearFacets: () -> Unit) {
+    if (facetFiltered) {
+        // 地點與標籤篩選優先：【清除篩選】直接清掉已套用的篩選（設計決議 4）
+        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
+            VsEmptyState(
+                message = "沒有符合篩選的收藏",
+                actionText = "清除篩選",
+                onAction = onClearFacets,
+            )
+        }
+    } else if (timeFiltered) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
             VsEmptyState(
                 message = "這個時間點以前沒有收藏",
                 actionText = "清除時間篩選",
-                onAction = onClearFilter,
+                onAction = onClearTime,
             )
         }
     } else {

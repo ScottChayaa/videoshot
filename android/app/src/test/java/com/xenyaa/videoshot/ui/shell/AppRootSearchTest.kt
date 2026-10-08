@@ -1,5 +1,8 @@
 package com.xenyaa.videoshot.ui.shell
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -182,16 +185,20 @@ class AppRootSearchTest {
         compose.onNodeWithText("1 張", substring = true).assertIsDisplayed()
     }
 
+    /** 階段 17 設計決議 6：月份標籤點下去在首頁只篩這一個，不再跳到查詢分頁。 */
     @Test
-    fun 首頁月份標籤點擊直接帶到查詢結果() {
+    fun 首頁月份標籤點擊在首頁套用只篩這一個() {
         val repo = Repo()
         compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
 
-        // 首頁縮圖牆的月份標籤列——HomeScreen 的 MonthFacetRow,chip 文字就是地點名
+        // 首頁縮圖牆的月份標籤列——HomeScreen 的 MonthHeader,chip 文字就是地點名
         compose.onNodeWithText("宜蘭").performClick()
 
-        // 結果列第一行改成單一文字「N 張 · 時間」，不能再精確比對「1 張」，改用子字串比對
-        compose.onNodeWithText("1 張", substring = true).assertIsDisplayed()
+        // 還在首頁：篩選鈕帶「已套用 1 個篩選條件」，月份標籤隱藏，沒有跳到查詢結果
+        compose.onNodeWithContentDescription("依地點與標籤篩選")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "已套用 1 個篩選條件"))
+        compose.onNodeWithText("宜蘭").assertDoesNotExist()
+        compose.onNodeWithText("1 張", substring = true).assertDoesNotExist()
     }
 
     @Test

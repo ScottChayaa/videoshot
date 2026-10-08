@@ -57,6 +57,7 @@ import com.xenyaa.videoshot.ui.folders.FoldersScreen
 import com.xenyaa.videoshot.ui.folders.FoldersViewModel
 import com.xenyaa.videoshot.ui.home.HomeScreen
 import com.xenyaa.videoshot.ui.home.HomeViewModel
+import com.xenyaa.videoshot.ui.home.toFilterOption
 import com.xenyaa.videoshot.ui.search.SearchPhase
 import com.xenyaa.videoshot.ui.search.SearchScreen
 import com.xenyaa.videoshot.ui.search.SearchViewModel
@@ -673,15 +674,16 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                         phoneColumns = accountState.thumbColumns,
                         scrollToMonth = scrollToMonth,
                         onScrolledToMonth = { scrollToMonth = null },
-                        // 規格第六節：「從首頁的月份標籤點進來時，條件與時間自動帶入並直接顯示結果」
-                        onFacetClick = { month, facet ->
-                            searchVm.seedFromHome(month, facet)
-                            // 用 selectAndReset 而不是 select——查詢分頁可能還停在使用者上次
-                            // 留下的舊畫面（例如查詢結果 Lightbox【播放這一段】留下的詳情頁），
-                            // 不清掉的話使用者會落在過期畫面上，看不到剛帶入的新結果
-                            // （Task 12 覆查 Important 2）
-                            nav = nav.selectAndReset(Tab.SEARCH)
-                        },
+                        // 階段 17 設計決議 6：月份標籤點下去直接在首頁只篩這一個，不再跳到查詢分頁
+                        onFacetClick = { homeVm.applySingle(it.toFilterOption()) },
+                        onOpenFilter = homeVm::openFilter,
+                        onToggleDraft = homeVm::toggleDraft,
+                        onDraftQuery = homeVm::setDraftQuery,
+                        onExpandDraft = homeVm::expandDraft,
+                        onClearDraft = homeVm::clearDraft,
+                        onApplyFilter = homeVm::applyFilter,
+                        onDismissFilter = homeVm::dismissFilter,
+                        onClearFilter = homeVm::clearFilter,
                     )
                     Tab.SEARCH -> SearchScreen(
                         state = searchState,

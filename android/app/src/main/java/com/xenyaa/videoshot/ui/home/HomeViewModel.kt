@@ -40,6 +40,12 @@ class HomeViewModel(
     /** [refreshMonths] 目前在跑的讀取；換篩選時要取消，理由同 [loadJob]。 */
     private var monthsJob: Job? = null
 
+    /**
+     * [openFilter] 讀候選的那次讀取。關抽屜或再開一次都要取消它——讀取很慢時，
+     * 晚到的候選不能寫進已經關掉（或已重開）的抽屜。
+     */
+    private var optionsJob: Job? = null
+
     init { reload() }
 
     /** 重新載入目前的篩選條件（完成取圖、刪除整支、還原備份之後都要叫）。 */
@@ -74,11 +80,17 @@ class HomeViewModel(
         loadMore()
     }
 
-    /** 開篩選抽屜：草稿從目前已套用的篩選起算，候選依目前的時間範圍非同步讀進來。 */
+    /**
+     * 開篩選抽屜：草稿從目前已套用的篩選起算，候選依目前的時間範圍非同步讀進來。
+     * 同一個 update 先清掉上一次的候選，讀回來之前抽屜是空的，不會閃出過期的清單。
+     */
     fun openFilter() {
         val current = _state.value
-        _state.update { it.copy(draft = FilterDraft(current.filter.places, current.filter.tags)) }
-        launchGuarded {
+        optionsJob?.cancel()
+        _state.update {
+            it.copy(draft = FilterDraft(current.filter.places, current.filter.tags), filterOptions = emptyList())
+        }
+        optionsJob = launchGuarded {
             val options = repo.filterOptions(current.upToMonth)
             _state.update { it.copy(filterOptions = options) }
         }
@@ -127,6 +139,7 @@ class HomeViewModel(
 
     /** 關抽屜不套用：草稿丟掉。 */
     fun dismissFilter() {
+        optionsJob?.cancel()
         _state.update { it.copy(draft = null) }
     }
 
@@ -143,6 +156,7 @@ class HomeViewModel(
     private fun apply(filter: HomeFilter) {
         // 換條件要先作廢進行中的讀取，否則它晚點回來會把舊條件的資料接到新清單後面
         loadJob?.cancel()
+        optionsJob?.cancel() // 套用會關掉抽屜，還沒回來的候選不用再寫
         _state.update { HomeStore.withFilter(it, filter).copy(draft = null) }
         refreshMonths()
         loadMore()

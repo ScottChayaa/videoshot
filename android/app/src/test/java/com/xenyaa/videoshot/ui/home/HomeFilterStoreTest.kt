@@ -53,6 +53,32 @@ class HomeFilterStoreTest {
         assertEquals(listOf("礁溪", "宜蘭", "墾丁"), section.shown.map { it.name })
     }
 
+    /** 階段 17 Task 3 複審：收合時已勾選的項目不能被藏在【顯示全部】後面。 */
+    @Test
+    fun 收合時超出前50個的已勾選項目照樣列出_其餘算隱藏數() {
+        val options = (1..80).map { place("地點$it") }
+        val section = FilterLists.visible(options, true, draft(places = setOf("地點70", "地點60", "地點10")))
+        assertEquals((1..50).map { "地點$it" } + listOf("地點60", "地點70"), section.shown.map { it.name })
+        // 後 30 個裡有 2 個已勾選、已經列出，剩 28 個還藏著
+        assertEquals(28, section.hiddenCount)
+    }
+
+    @Test
+    fun 收合時前50個內的已勾選項目維持原位() {
+        val options = (1..80).map { place("地點$it") }
+        val section = FilterLists.visible(options, true, draft(places = setOf("地點5")))
+        assertEquals((1..50).map { "地點$it" }, section.shown.map { it.name })
+        assertEquals(30, section.hiddenCount)
+    }
+
+    @Test
+    fun 收合時後面全是已勾選則隱藏數為零() {
+        val options = (1..52).map { place("地點$it") }
+        val section = FilterLists.visible(options, true, draft(places = setOf("地點51", "地點52")))
+        assertEquals(52, section.shown.size)
+        assertEquals(0, section.hiddenCount)
+    }
+
     @Test
     fun 搜尋字比對名稱或別名_不分大小寫_列出全部符合的() {
         val options = (1..60).map { place("礁溪$it") } +
