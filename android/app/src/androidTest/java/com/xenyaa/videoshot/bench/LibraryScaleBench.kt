@@ -97,6 +97,12 @@ class LibraryScaleBench {
         measure("帳號頁統計（16B 讀統計表）") { repo.accountStats("2025-03").totalShots }
         measure("候選清單（2020-01 以前）") { repo.searchFacets("2019-12", 31).size }
         measure("候選清單（顯示更多 500）") { repo.searchFacets(null, 500).size }
+        measure("首頁篩選：抽屜候選（全部時間）") { repo.filterOptions(null).size }
+        measure("首頁篩選：抽屜候選（2019-12 以前）") { repo.filterOptions("2019-12").size }
+        measure("首頁篩選：月份選單（不篩選）") { repo.months().size }
+        measure("首頁篩選：月份選單（選 1 個大標籤＋1 個地點）") { repo.monthsMatching(setOf("宜蘭2"), setOf("標籤1")).size }
+        measure("首頁篩選：第一頁（大標籤）") { repo.searchByFacets(emptySet(), setOf("標籤1"), null, null, 50).items.size }
+        measure("首頁篩選：第一頁（冷門標籤，2019-12 以前）") { repo.searchByFacets(emptySet(), setOf("標籤500"), "2019-12", null, 50).items.size }
         measure("描述查詢：3 字常見詞") {
             runCatching { repo.searchByQuery(ParsedQuery(keywords = listOf("一一丁")), null, null, 50).items.size }
                 .fold({ it }, { "失敗：${it.javaClass.simpleName} ${it.message?.take(60)}" })
