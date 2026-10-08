@@ -396,7 +396,7 @@ Gemini 解析出的地點名、描述關鍵字比對）都認得別名；刪除�
 **行為變更（相對階段 11）**：標籤「改名成既有名稱」原本合併時不留舊名，現在跟新的合併一樣把舊名留成目標的別名
 （仍不覆蓋既有標籤的 kind）。合併在單一寫入交易裡，統計表由 16A 的觸發器跟上；合併後首頁與查詢頁重新讀取。
 三套測試：JVM **1043 個**（`:core:test` 173 ＋ `:app:testDebugUnitTest` 870）全綠；**儀器測試 `OK (254 tests)`**（2107113SG，全部）。
-最終審查修正：標籤查詢也認別名（`TagDao.idsByNames`）、別名欄位壞掉不再讓查詢出錯、合併確認用已儲存的名字；新增 2 個 androidTest（修正後只重跑 `PlaceManagementRepoTest`／`SearchRepoTest`／`AccountRepoTest`，`OK (38 tests)`，全部 254 個未重跑）。
+最終審查修正：標籤查詢也認別名（`TagDao.idsByNames`）、別名欄位壞掉不再讓查詢出錯、合併確認用已儲存的名字；新增 2 個 androidTest（修正後先重跑 `PlaceManagementRepoTest`／`SearchRepoTest`／`AccountRepoTest` `OK (38 tests)`，再全部重跑 **`OK (256 tests)`**）。
 **實測（手機、100 萬張）**：repo 合併地點（10 萬張，含別名更新與檢查）**2.83 秒**（單次樣本，目標 ≤ 3 秒，貼近上限）；
 同一次 SQL 直接合併 1.83～1.86 秒；合併 22 萬筆關聯的大標籤 3.4～3.5 秒；16B 的讀取沒有退步（月份選單 0.012 秒、候選清單 0.010 秒、
 標籤管理 0.048 秒、結果第一頁 0.026～0.048 秒）。repo 合併量測只在 `-e benchMerge true` 時執行（會改動量測庫），跑完已重造量測庫。
