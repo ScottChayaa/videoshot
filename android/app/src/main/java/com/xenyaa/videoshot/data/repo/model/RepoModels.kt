@@ -77,6 +77,9 @@ data class ShotPatch(
  */
 data class MonthFacet(val name: String, val kind: String, val count: Int, val tagKind: String = "other")
 
+/** 首頁篩選抽屜的一個候選（階段 17）。`tagKind` 地點固定 `"other"`；`aliases` 給搜尋框比對。 */
+data class FilterOption(val name: String, val isPlace: Boolean, val tagKind: String, val aliases: List<String>)
+
 /** 「最近取過的影片」清單的一列。資料直接查 video 表，不另存一份歷史（規格第五節第一步）。 */
 data class RecentVideo(
     val videoId: String,

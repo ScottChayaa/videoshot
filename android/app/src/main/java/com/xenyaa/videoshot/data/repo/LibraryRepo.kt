@@ -11,6 +11,7 @@ import com.xenyaa.videoshot.data.repo.model.FolderCard
 import com.xenyaa.videoshot.data.repo.model.FolderNode
 import com.xenyaa.videoshot.data.repo.model.FolderPage
 import com.xenyaa.videoshot.data.repo.model.MonthCount
+import com.xenyaa.videoshot.data.repo.model.FilterOption
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
 import com.xenyaa.videoshot.data.repo.model.NewShot
@@ -47,6 +48,21 @@ interface LibraryRepo {
      * @param limit 想要的張數上限；呼叫端傳 `limit+1` 藉此判斷「顯示更多」
      */
     suspend fun searchFacets(upToMonth: String?, limit: Int): List<MonthFacet>
+
+    /**
+     * 首頁篩選抽屜的候選（階段 17）：全部地點與標籤（不設上限），依**全部時間**張數多到少、同張數依名稱，
+     * 帶別名給搜尋框比對。`upToMonth` 非 null 時只留「那個月（含）以前有圖」的，排序不變。
+     */
+    suspend fun filterOptions(upToMonth: String?): List<FilterOption>
+
+    /** 有圖的月份（`yyyy-MM`），新到舊——月份選單用，不帶張數。 */
+    suspend fun months(): List<String>
+
+    /**
+     * 任一選取的地點或標籤有圖的月份，新到舊——篩選中的月份選單。名稱以名稱或別名比對
+     * （同 [searchByFacets]）；對不到任何地點或標籤回空清單。
+     */
+    suspend fun monthsMatching(places: Set<String>, tagNames: Set<String>): List<String>
 
     /** 查詢頁「標籤與地點」模式的結果。任一個地點或標籤命中即算(OR)；標籤以名稱給（畫面拿到的是 chip 標籤）。 */
     suspend fun searchByFacets(

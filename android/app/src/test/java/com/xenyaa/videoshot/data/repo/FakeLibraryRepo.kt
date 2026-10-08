@@ -10,6 +10,7 @@ import com.xenyaa.videoshot.data.repo.model.FolderCard
 import com.xenyaa.videoshot.data.repo.model.FolderNode
 import com.xenyaa.videoshot.data.repo.model.FolderPage
 import com.xenyaa.videoshot.data.repo.model.MonthCount
+import com.xenyaa.videoshot.data.repo.model.FilterOption
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.NewShot
 import com.xenyaa.videoshot.data.repo.model.Page
@@ -33,6 +34,9 @@ open class FakeLibraryRepo : LibraryRepo {
     override suspend fun videoById(videoId: String): VideoEntity? = null
     override suspend fun monthFacets(month: String): List<MonthFacet> = emptyList()
     override suspend fun searchFacets(upToMonth: String?, limit: Int): List<MonthFacet> = emptyList()
+    override suspend fun filterOptions(upToMonth: String?): List<FilterOption> = emptyList()
+    override suspend fun months(): List<String> = emptyList()
+    override suspend fun monthsMatching(places: Set<String>, tagNames: Set<String>): List<String> = emptyList()
     override suspend fun searchByFacets(places: Set<String>, tagNames: Set<String>, upToMonth: String?, after: ShotCursor?, limit: Int) =
         Page<ShotRow>(emptyList(), null)
     override suspend fun searchByFacetsCount(places: Set<String>, tagNames: Set<String>, upToMonth: String?): Int = 0

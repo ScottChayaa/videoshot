@@ -10,6 +10,7 @@ import com.xenyaa.videoshot.core.query.ParsedQuery
 import com.xenyaa.videoshot.core.query.QueryVocabulary
 import com.xenyaa.videoshot.core.query.TagAlias
 import com.xenyaa.videoshot.data.library.LibraryDatabase
+import com.xenyaa.videoshot.data.library.StatKind
 import com.xenyaa.videoshot.data.library.dao.SearchHitProjection
 import com.xenyaa.videoshot.data.library.dao.ShotRowProjection
 import com.xenyaa.videoshot.data.library.entity.FolderEntity
@@ -23,6 +24,7 @@ import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.AccountStats
 import com.xenyaa.videoshot.data.repo.model.FACET_COUNT_UNION_THRESHOLD
 import com.xenyaa.videoshot.data.repo.model.FACET_UNION_THRESHOLD
+import com.xenyaa.videoshot.data.repo.model.FilterOption
 import com.xenyaa.videoshot.data.repo.model.FolderCard
 import com.xenyaa.videoshot.data.repo.model.FolderNode
 import com.xenyaa.videoshot.data.repo.model.FolderPage
@@ -77,6 +79,20 @@ class RoomLibraryRepo(
 
     override suspend fun searchFacets(upToMonth: String?, limit: Int): List<MonthFacet> = withContext(io) {
         db.statsDao().candidates(upToMonth, limit).map { MonthFacet(it.name, it.kind, it.count, it.tagKind) }
+    }
+
+    override suspend fun filterOptions(upToMonth: String?): List<FilterOption> = withContext(io) {
+        db.statsDao().filterOptions(upToMonth).map {
+            FilterOption(it.name, it.kind == StatKind.PLACE, it.tagKind, decodeAliases(it.aliases))
+        }
+    }
+
+    override suspend fun months(): List<String> = withContext(io) { db.statsDao().allMonths() }
+
+    override suspend fun monthsMatching(places: Set<String>, tagNames: Set<String>): List<String> = withContext(io) {
+        val placeIds = resolvePlaceIds(places)
+        val tagIds = resolveTagIds(tagNames)
+        if (placeIds.isEmpty() && tagIds.isEmpty()) emptyList() else db.statsDao().monthsOf(placeIds, tagIds)
     }
 
     /** 查法決定（設計決議 4）：選取項目總張數小於門檻用分段合併，否則沿時間軸掃描。第一頁與張數各有自己的門檻。 */

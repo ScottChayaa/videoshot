@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.data.library.dao
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.SkipQueryVerification
@@ -61,6 +62,45 @@ interface StatsDao {
     )
     suspend fun candidates(upToMonth: String?, limit: Int): List<MonthFacetProjection>
 
+    /**
+     * 首頁篩選抽屜的候選（階段 17）：全部地點與標籤，依**全部時間**張數排序；`upToMonth` 只過濾（同 [candidates]）。
+     * 跟 [candidates] 的差別：不設上限、帶別名（抽屜的搜尋框要比對）。
+     */
+    @SkipQueryVerification
+    @Query(
+        """
+        SELECT COALESCE(p.name, t.name) AS name,
+               g.kind AS kind,
+               CASE g.kind WHEN 1 THEN 'other' ELSE t.kind END AS tag_kind,
+               COALESCE(p.aliases, t.aliases) AS aliases
+        FROM shot_stat_total g
+        LEFT JOIN place p ON g.kind = 1 AND p.id = g.ref_id
+        LEFT JOIN tag t ON g.kind = 2 AND t.id = g.ref_id
+        WHERE g.kind IN (1, 2) AND g.cnt > 0
+          AND (:upToMonth IS NULL OR EXISTS (
+                SELECT 1 FROM shot_stat s
+                WHERE s.kind = g.kind AND s.ref_id = g.ref_id AND s.month <= :upToMonth AND s.cnt > 0))
+        ORDER BY g.cnt DESC, name, g.kind
+        """
+    )
+    suspend fun filterOptions(upToMonth: String?): List<FilterOptionProjection>
+
+    /** 有圖的月份，新到舊（月份選單；不帶張數，階段 17 設計決議 5）。 */
+    @SkipQueryVerification
+    @Query("SELECT month FROM shot_stat WHERE kind = 0 AND ref_id = 0 AND cnt > 0 ORDER BY month DESC")
+    suspend fun allMonths(): List<String>
+
+    /** 任一選取的地點或標籤有圖的月份，新到舊。走 `shot_stat_by_ref (kind, ref_id, month)`。 */
+    @SkipQueryVerification
+    @Query(
+        """
+        SELECT DISTINCT month FROM shot_stat
+        WHERE cnt > 0 AND ((kind = 1 AND ref_id IN (:placeIds)) OR (kind = 2 AND ref_id IN (:tagIds)))
+        ORDER BY month DESC
+        """
+    )
+    suspend fun monthsOf(placeIds: List<Long>, tagIds: List<Long>): List<String>
+
     @SkipQueryVerification
     @Query("SELECT COALESCE((SELECT cnt FROM shot_stat_total WHERE kind = 0 AND ref_id = 0), 0)")
     suspend fun totalShots(): Int
@@ -104,3 +144,11 @@ interface StatsDao {
     )
     suspend fun selectedTotal(placeIds: List<Long>, tagIds: List<Long>): Long
 }
+
+/** [StatsDao.filterOptions] 的一列；欄位別名要跟這裡的 `@ColumnInfo` 一字不差。 */
+data class FilterOptionProjection(
+    @ColumnInfo(name = "name") val name: String,
+    @ColumnInfo(name = "kind") val kind: Int,
+    @ColumnInfo(name = "tag_kind") val tagKind: String,
+    @ColumnInfo(name = "aliases") val aliases: String,
+)
