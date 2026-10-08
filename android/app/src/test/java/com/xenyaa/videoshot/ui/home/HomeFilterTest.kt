@@ -4,12 +4,13 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.xenyaa.videoshot.data.repo.model.MonthCount
 import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.thumbs.ThumbKey
@@ -52,7 +53,7 @@ class HomeFilterTest {
     private fun loaded(upToMonth: String? = null): HomeState {
         val base = HomeState(
             upToMonth = upToMonth,
-            months = listOf(MonthCount("2026-03", 12), MonthCount("2026-01", 4)),
+            months = listOf("2026-03", "2026-01"),
         )
         return HomeStore.appendPage(base, Page(listOf(row(1, "2026-03-05")), null))
     }
@@ -84,19 +85,20 @@ class HomeFilterTest {
     }
 
     @Test
-    fun 日曆鈕開出月份選擇器_選項帶張數() {
+    fun 日曆鈕開出月份選擇器() {
         show(loaded())
         compose.onNodeWithContentDescription("依時間篩選").performClick()
         compose.onNodeWithText("只顯示這個月以前").assertIsDisplayed()
-        compose.onNodeWithText("2026年3月 · 12 張").assertIsDisplayed()
-        compose.onNodeWithText("2026年1月 · 4 張").assertIsDisplayed()
+        // 2026年3月：清單裡該月的標題一個、選擇器的選項一個（選項不再帶張數，不能靠張數區分）
+        compose.onAllNodesWithText("2026年3月").assertCountEquals(2)
+        compose.onNodeWithText("2026年1月").assertIsDisplayed()
     }
 
     @Test
     fun 選一個月份會回報那個月() {
         show(loaded())
         compose.onNodeWithContentDescription("依時間篩選").performClick()
-        compose.onNodeWithText("2026年1月 · 4 張").performClick()
+        compose.onNodeWithText("2026年1月").performClick()
         assertEquals(true to "2026-01", picked)
     }
 
@@ -142,12 +144,12 @@ class HomeFilterTest {
             HomeState(
                 upToMonth = "2025-01",
                 endReached = true,
-                months = listOf(MonthCount("2026-03", 12), MonthCount("2026-01", 4)),
+                months = listOf("2026-03", "2026-01"),
             )
         )
         compose.onNodeWithContentDescription("依時間篩選").performClick()
-        compose.onNodeWithText("2026年3月 · 12 張").assertIsDisplayed()
-        compose.onNodeWithText("2026年1月 · 4 張").assertIsDisplayed()
+        compose.onNodeWithText("2026年3月").assertIsDisplayed()
+        compose.onNodeWithText("2026年1月").assertIsDisplayed()
     }
 
     /** 圖庫整個是空的（不是篩選出 0 筆）：沒有月份可選，選擇器用一句話收尾，不是空清單。 */

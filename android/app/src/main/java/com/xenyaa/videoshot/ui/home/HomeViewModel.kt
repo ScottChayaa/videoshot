@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xenyaa.videoshot.core.home.monthOf
 import com.xenyaa.videoshot.data.repo.LibraryRepo
+import com.xenyaa.videoshot.data.repo.model.FilterOption
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -36,6 +37,9 @@ class HomeViewModel(
      */
     private var loadJob: Job? = null
 
+    /** [refreshMonths] 目前在跑的讀取；換篩選時要取消，理由同 [loadJob]。 */
+    private var monthsJob: Job? = null
+
     init { reload() }
 
     /** 重新載入目前的篩選條件（完成取圖、刪除整支、還原備份之後都要叫）。 */
@@ -52,9 +56,15 @@ class HomeViewModel(
         loadJob?.cancel()
         _state.value = HomeStore.startLoading(current)
         loadJob = launchGuarded {
-            val page = repo.homeFeed(current.cursor, pageSize, current.upToMonth)
-            _state.value = HomeStore.appendPage(_state.value, page)
-            loadFacets(page.items)
+            val filter = current.filter
+            val page = if (filter.isEmpty) {
+                repo.homeFeed(current.cursor, pageSize, current.upToMonth)
+            } else {
+                repo.searchByFacets(filter.places, filter.tags, current.upToMonth, current.cursor, pageSize)
+            }
+            _state.update { HomeStore.appendPage(it, page) }
+            // 篩選中不畫月份小膠囊，也就不用查
+            if (filter.isEmpty) loadFacets(page.items)
         }
     }
 
@@ -63,6 +73,82 @@ class HomeViewModel(
         _state.value = HomeStore.reset(_state.value, month)
         loadMore()
     }
+
+    /** 開篩選抽屜：草稿從目前已套用的篩選起算，候選依目前的時間範圍非同步讀進來。 */
+    fun openFilter() {
+        val current = _state.value
+        _state.update { it.copy(draft = FilterDraft(current.filter.places, current.filter.tags)) }
+        launchGuarded {
+            val options = repo.filterOptions(current.upToMonth)
+            _state.update { it.copy(filterOptions = options) }
+        }
+    }
+
+    /** 勾選或取消勾選；只改草稿，按【套用】才會重新載入。 */
+    fun toggleDraft(option: FilterOption) {
+        _state.update { state ->
+            val draft = state.draft ?: return@update state
+            state.copy(
+                draft = if (option.isPlace) {
+                    draft.copy(places = draft.places.toggled(option.name))
+                } else {
+                    draft.copy(tags = draft.tags.toggled(option.name))
+                },
+            )
+        }
+    }
+
+    fun setDraftQuery(isPlace: Boolean, text: String) {
+        _state.update { state ->
+            val draft = state.draft ?: return@update state
+            state.copy(draft = draft.copy(query = draft.query + (isPlace to text)))
+        }
+    }
+
+    fun expandDraft(isPlace: Boolean) {
+        _state.update { state ->
+            val draft = state.draft ?: return@update state
+            state.copy(draft = draft.copy(expanded = draft.expanded + isPlace))
+        }
+    }
+
+    /** 清空草稿的勾選；已套用的篩選不動，要按【套用】才生效。 */
+    fun clearDraft() {
+        _state.update { state ->
+            val draft = state.draft ?: return@update state
+            state.copy(draft = draft.copy(places = emptySet(), tags = emptySet()))
+        }
+    }
+
+    fun applyFilter() {
+        val draft = _state.value.draft ?: return
+        apply(HomeFilter(draft.places, draft.tags))
+    }
+
+    /** 關抽屜不套用：草稿丟掉。 */
+    fun dismissFilter() {
+        _state.update { it.copy(draft = null) }
+    }
+
+    /** 月份小膠囊：直接只篩這一個（時間範圍不變）。 */
+    fun applySingle(option: FilterOption) {
+        apply(
+            if (option.isPlace) HomeFilter(places = setOf(option.name)) else HomeFilter(tags = setOf(option.name)),
+        )
+    }
+
+    /** 篩選後沒有結果的空狀態用。 */
+    fun clearFilter() = apply(HomeFilter())
+
+    private fun apply(filter: HomeFilter) {
+        // 換條件要先作廢進行中的讀取，否則它晚點回來會把舊條件的資料接到新清單後面
+        loadJob?.cancel()
+        _state.update { HomeStore.withFilter(it, filter).copy(draft = null) }
+        refreshMonths()
+        loadMore()
+    }
+
+    private fun Set<String>.toggled(name: String) = if (name in this) this - name else this + name
 
     fun onShotDeleted(id: Long) {
         _state.value = HomeStore.removeShot(_state.value, id)
@@ -79,8 +165,11 @@ class HomeViewModel(
 
     /** 先等 repo 再以當下狀態更新——理由見 `DetailViewModel.loadPlayerInfo`：跟 [loadMore] 同時在跑，先取快照會把剛載入的列表蓋掉。 */
     private fun refreshMonths() {
-        launchGuarded {
-            val months = repo.monthCounts()
+        // 換篩選時舊條件的月份清單不能晚到蓋掉新的
+        monthsJob?.cancel()
+        monthsJob = launchGuarded {
+            val filter = _state.value.filter
+            val months = if (filter.isEmpty) repo.months() else repo.monthsMatching(filter.places, filter.tags)
             _state.update { it.copy(months = months) }
         }
     }
@@ -91,7 +180,7 @@ class HomeViewModel(
         if (wanted.isEmpty()) return
         launchGuarded {
             val loaded = wanted.associateWith { repo.monthFacets(it) }
-            _state.value = _state.value.copy(facets = _state.value.facets + loaded)
+            _state.update { it.copy(facets = it.facets + loaded) }
         }
     }
 

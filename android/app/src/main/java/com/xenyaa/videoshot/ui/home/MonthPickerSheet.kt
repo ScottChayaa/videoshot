@@ -19,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.core.home.monthLabel
-import com.xenyaa.videoshot.data.repo.model.MonthCount
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
@@ -34,7 +33,7 @@ private val MonthListMaxHeight = 360.dp
 /**
  * 「只顯示這個月以前」的月份選擇器（手冊 §二第四條）。
  *
- * 選項是**實際有收藏的月份**加上張數 —— 列出沒有資料的月份只會讓人選到空畫面。
+ * 選項是**實際有收藏的月份**（不帶張數）—— 列出沒有資料的月份只會讓人選到空畫面。
  *
  * `skipPartiallyExpanded = true`：這張清單不長，半開狀態只會多一次滑動；
  * 順帶也讓 Robolectric 不必等那段展開動畫。
@@ -42,7 +41,7 @@ private val MonthListMaxHeight = 360.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MonthPickerSheet(
-    months: List<MonthCount>,
+    months: List<String>,
     selected: String?,
     onPick: (String) -> Unit,
     onClear: () -> Unit,
@@ -78,16 +77,16 @@ fun MonthPickerSheet(
                 )
             } else {
                 LazyColumn(Modifier.fillMaxWidth().heightIn(max = MonthListMaxHeight)) {
-                    items(months, key = { it.month }) { month ->
+                    items(months, key = { it }) { month ->
                         Text(
-                            "${monthLabel(month.month)} · ${month.count} 張",
+                            monthLabel(month),
                             style = MaterialTheme.typography.bodyLarge,
-                            color = if (month.month == selected) AppTheme.colors.accent else AppTheme.colors.text,
+                            color = if (month == selected) AppTheme.colors.accent else AppTheme.colors.text,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 // 焦點框（手冊 §零）——實機上用 Tab 走進選擇器時看得到
                                 .focusRing(RoundedCornerShape(AppTheme.radii.sm))
-                                .clickable { onPick(month.month) }
+                                .clickable { onPick(month) }
                                 .padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
                         )
                     }

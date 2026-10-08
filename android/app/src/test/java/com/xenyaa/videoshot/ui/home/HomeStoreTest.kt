@@ -145,4 +145,40 @@ class HomeStoreTest {
         assertEquals(listOf("2026年3月", "2026年1月"), groups.map { it.label })
         assertEquals(listOf(2, 1), groups.map { it.items.size })
     }
+
+    /** 換篩選（階段 17）：清單、游標、月份標籤列一起作廢，upToMonth 保留。 */
+    @Test
+    fun 換篩選條件會清空清單游標與標籤列_時間範圍保留() {
+        val loaded = HomeStore.appendPage(
+            HomeState(upToMonth = "2026-02", facets = mapOf("2026-03" to listOf(MonthFacet("礁溪", "place", 1)))),
+            Page(listOf(row(1)), ShotCursor("2026-03-01", 1)),
+        )
+        val filter = HomeFilter(setOf("礁溪"), emptySet())
+        val after = HomeStore.withFilter(loaded, filter)
+        assertEquals(filter, after.filter)
+        assertEquals(emptyList<ShotRow>(), after.items)
+        assertEquals(null, after.cursor)
+        assertFalse(after.endReached)
+        assertFalse(after.loading)
+        assertEquals(emptyMap<String, List<MonthFacet>>(), after.facets)
+        assertEquals("2026-02", after.upToMonth)
+    }
+
+    /** `reset`（換時間範圍）不能動已套用的篩選。 */
+    @Test
+    fun 換時間範圍不動篩選() {
+        val filter = HomeFilter(emptySet(), setOf("溫泉"))
+        val after = HomeStore.reset(HomeState(filter = filter), "2026-01")
+        assertEquals(filter, after.filter)
+    }
+
+    @Test
+    fun 篩選中不產生標籤列() {
+        val facets = mapOf("2026-03" to listOf(MonthFacet("溫泉", "tag", 1)))
+        val items = listOf(row(1))
+        val noFilter = HomeState(items = items, facets = facets)
+        assertTrue(HomeStore.slots(noFilter).any { it is HomeSlot.Facets })
+        val filtered = noFilter.copy(filter = HomeFilter(setOf("礁溪"), emptySet()))
+        assertFalse(HomeStore.slots(filtered).any { it is HomeSlot.Facets })
+    }
 }

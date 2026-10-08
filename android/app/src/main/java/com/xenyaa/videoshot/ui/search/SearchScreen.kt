@@ -144,7 +144,7 @@ fun SearchScreen(
 
     if (picking) {
         MonthPickerSheet(
-            months = state.months,
+            months = state.months.map { it.month },
             selected = state.upToMonth,
             onPick = { picking = false; onPickMonth(it) },
             onClear = { picking = false; onPickMonth(null) },

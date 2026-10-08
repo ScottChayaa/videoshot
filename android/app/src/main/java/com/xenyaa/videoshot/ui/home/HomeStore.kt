@@ -4,7 +4,7 @@ import com.xenyaa.videoshot.core.home.MonthGroup
 import com.xenyaa.videoshot.core.home.groupByMonth
 import com.xenyaa.videoshot.core.home.monthOf
 import com.xenyaa.videoshot.core.paging.ShotCursor
-import com.xenyaa.videoshot.data.repo.model.MonthCount
+import com.xenyaa.videoshot.data.repo.model.FilterOption
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.ShotRow
@@ -14,7 +14,10 @@ import com.xenyaa.videoshot.data.repo.model.ShotRow
  *
  * @param items 目前**已載入**的清單（keyset 一次 50 筆）。Lightbox 左右滑動的範圍就是它
  * @param upToMonth `YYYY-MM`；null＝沒有時間篩選（手冊 §二第三條：預設看得到最新的資料）
- * @param months 月份選擇器的選項（全部月份與張數，不受篩選影響）
+ * @param filter 已套用的地點／標籤篩選（任一符合）；空＝沒有篩選，分頁走 `homeFeed`
+ * @param months 月份選擇器的選項：有圖的月份；篩選中只列選取項目有圖的月份；不帶張數
+ * @param filterOptions 篩選抽屜的候選（開抽屜時才讀）
+ * @param draft 抽屜開著時的草稿；null＝抽屜關著
  * @param facets 每個月的標籤列，key 是 `YYYY-MM`；捲到才去查，查過就留著
  * @param error 上一次讀取失敗的訊息；null＝沒有錯誤。**不是例外物件** —— 這份狀態要能被
  *        純函式比較與測試，例外物件沒有結構相等
@@ -25,7 +28,10 @@ data class HomeState(
     val endReached: Boolean = false,
     val loading: Boolean = false,
     val upToMonth: String? = null,
-    val months: List<MonthCount> = emptyList(),
+    val filter: HomeFilter = HomeFilter(),
+    val months: List<String> = emptyList(),
+    val filterOptions: List<FilterOption> = emptyList(),
+    val draft: FilterDraft? = null,
     val facets: Map<String, List<MonthFacet>> = emptyMap(),
     val error: String? = null,
 )
@@ -55,6 +61,9 @@ object HomeStore {
         facets = emptyMap(),
         error = null,
     )
+
+    /** 換篩選條件：跟 [reset] 一樣清單、游標、月份標籤列一起作廢，時間範圍保留。 */
+    fun withFilter(state: HomeState, filter: HomeFilter): HomeState = reset(state, state.upToMonth).copy(filter = filter)
 
     fun removeShot(state: HomeState, id: Long): HomeState {
         if (state.items.none { it.id == id }) return state
@@ -91,7 +100,7 @@ object HomeStore {
         var index = 0
         for (group in groups(state)) {
             out += HomeSlot.Header(group.month, group.label)
-            if (state.facets[group.month].orEmpty().any { !it.isPlace }) out += HomeSlot.Facets(group.month)
+            if (state.filter.isEmpty && state.facets[group.month].orEmpty().any { !it.isPlace }) out += HomeSlot.Facets(group.month)
             for (shot in group.items) {
                 out += HomeSlot.Tile(index, shot)
                 index++
