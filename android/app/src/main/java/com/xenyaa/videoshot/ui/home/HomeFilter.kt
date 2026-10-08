@@ -53,3 +53,9 @@ object FilterLists {
 
 /** 首頁月份小膠囊點下去＝只篩這一個（[HomeViewModel.applySingle]）。別名在這裡用不到，留空。 */
 fun MonthFacet.toFilterOption(): FilterOption = FilterOption(name, isPlace, tagKind, emptyList())
+
+/**
+ * 篩選抽屜候選的讀取狀態。讀取中不能說「這段時間沒有地點」（其實是還沒讀到）；
+ * 失敗只標在抽屜上、抽屜自己有【重試】，不變成首頁的錯誤列。
+ */
+enum class FilterOptionsStatus { LOADING, READY, FAILED }

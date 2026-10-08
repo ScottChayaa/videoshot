@@ -38,6 +38,8 @@ import com.xenyaa.videoshot.ui.theme.AppTheme
  * 【套用】固定在底部不跟著捲，候選很多時內容區自己捲。
  *
  * @param options 候選（地點與標籤混在一起，這裡依 `isPlace` 分兩區）
+ * @param status 候選讀取中：兩區各顯示一行「載入中…」（已勾選的照樣列出）；讀取失敗：捲動區最上面
+ *        「讀取失敗」＋【重試】（[onRetry] 只重讀候選，草稿不動）
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,6 +52,8 @@ fun FilterSheet(
     onClear: () -> Unit,
     onApply: () -> Unit,
     onDismiss: () -> Unit,
+    status: FilterOptionsStatus = FilterOptionsStatus.READY,
+    onRetry: () -> Unit = {},
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -78,8 +82,19 @@ fun FilterSheet(
                 Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s4),
             ) {
-                FilterSectionBlock("地點", true, options, draft, onToggle, onQuery, onExpand)
-                FilterSectionBlock("標籤", false, options, draft, onToggle, onQuery, onExpand)
+                if (status == FilterOptionsStatus.FAILED) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "讀取失敗",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = AppTheme.colors.textDim,
+                            modifier = Modifier.weight(1f),
+                        )
+                        VsButton("重試", onRetry, variant = ButtonVariant.Quiet)
+                    }
+                }
+                FilterSectionBlock("地點", true, options, draft, status, onToggle, onQuery, onExpand)
+                FilterSectionBlock("標籤", false, options, draft, status, onToggle, onQuery, onExpand)
             }
             VsButton("套用", onApply, Modifier.fillMaxWidth(), variant = ButtonVariant.Primary)
         }
@@ -93,6 +108,7 @@ private fun FilterSectionBlock(
     isPlace: Boolean,
     options: List<FilterOption>,
     draft: FilterDraft,
+    status: FilterOptionsStatus,
     onToggle: (FilterOption) -> Unit,
     onQuery: (Boolean, String) -> Unit,
     onExpand: (Boolean) -> Unit,
@@ -116,7 +132,7 @@ private fun FilterSectionBlock(
                 leadingIcon = VsIcons.Search,
             )
         }
-        if (section.shown.isEmpty()) {
+        if (section.shown.isEmpty() && status == FilterOptionsStatus.READY) {
             Text(
                 if (query.isBlank()) "這段時間沒有$noun" else "找不到符合的$noun",
                 style = MaterialTheme.typography.bodyMedium,
@@ -134,6 +150,11 @@ private fun FilterSectionBlock(
                     )
                 }
             }
+        }
+        // 讀取中：中性的一行，不說「這段時間沒有…」（其實還沒讀到）；已勾選的在上面照樣列出。
+        // 失敗時說明與【重試】在捲動區最上面，這裡什麼都不加
+        if (status == FilterOptionsStatus.LOADING) {
+            Text("載入中…", style = MaterialTheme.typography.bodyMedium, color = AppTheme.colors.textDim)
         }
         if (section.hiddenCount > 0) {
             VsButton(

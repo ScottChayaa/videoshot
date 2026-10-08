@@ -1,6 +1,9 @@
 package com.xenyaa.videoshot.ui.shell
 
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -19,6 +22,7 @@ import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.CacheRepo
 import com.xenyaa.videoshot.data.repo.LibraryRepo
+import com.xenyaa.videoshot.data.repo.model.FilterOption
 import com.xenyaa.videoshot.data.repo.model.NewShot
 import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
@@ -108,6 +112,13 @@ class AppRootWizardFinishTest {
             items = items + newRows // 接在後面——舊資料排在前面，新圖的月份才會落在畫面捲得到的最後面
             return newRows.map { it.id }
         }
+
+        // 首頁篩選（Ruling H 的測試用）：候選只有「宜蘭」，篩選結果依地點比對
+        override suspend fun filterOptions(upToMonth: String?) = listOf(FilterOption("宜蘭", true, "other", emptyList()))
+        override suspend fun monthsMatching(places: Set<String>, tagNames: Set<String>) =
+            items.filter { it.place in places }.map { it.eventDate.take(7) }.distinct()
+        override suspend fun searchByFacets(places: Set<String>, tagNames: Set<String>, upToMonth: String?, after: ShotCursor?, limit: Int) =
+            Page(items.filter { it.place in places }, null)
     }
 
     private class FakeCacheRepo : CacheRepo {
@@ -191,8 +202,8 @@ class AppRootWizardFinishTest {
             (21..30).map { row(it.toLong(), "2020-02-%02d".format((it % 27) + 1)) } +
             (31..40).map { row(it.toLong(), "2020-01-%02d".format((it % 27) + 1)) }
 
-    private fun show(): Fixture {
-        val fixture = Fixture(seed())
+    private fun show(seed: List<ShotRow> = seed()): Fixture {
+        val fixture = Fixture(seed)
         compose.setContent {
             VideoshotTheme {
                 AppRoot(container = fixture, onExitApp = {})
@@ -230,6 +241,38 @@ class AppRootWizardFinishTest {
         compose.onNodeWithText("已新增 1 張").assertIsDisplayed()
 
         // 捲到新月份：新圖排在清單最後面，沒有捲動的話畫面上看不到它的月份標題
+        compose.onNodeWithText(todayMonthLabel()).assertIsDisplayed()
+    }
+
+    /**
+     * 裁定 H（階段 17 最終審查 Minor 2）：篩選中完成取圖要清掉首頁篩選——新圖多半不符合篩選，
+     * 留著篩選的話新圖看不到，「捲到新圖的月份」也落空。這裡新圖沒有地點，篩選是「宜蘭」。
+     */
+    @Test
+    fun 篩選中完成取圖_篩選清掉並捲到新圖的月份() {
+        // 最舊的 2020-01 那 10 張在宜蘭；篩選後首頁只剩它們
+        show(seed().map { if (it.eventDate.startsWith("2020-01")) it.copy(place = "宜蘭") else it })
+        compose.onNodeWithContentDescription("依地點與標籤篩選").performClick()
+        compose.onNodeWithText("宜蘭").performClick()
+        compose.onNodeWithText("套用").performClick()
+        compose.onNodeWithContentDescription("依地點與標籤篩選")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "已套用 1 個篩選條件"))
+        compose.onNodeWithText(monthLabel("2020-03")).assertDoesNotExist()
+
+        compose.onNodeWithText("取圖").performClick()
+        compose.onNodeWithText("海邊那支").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("第 1 格 00:00").performClick()
+        compose.onNodeWithText("下一步（1 張）").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("完成").performClick()
+        compose.onNodeWithText("仍要完成").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("首頁").assertIsDisplayed()
+        compose.onNodeWithContentDescription("依地點與標籤篩選")
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.StateDescription))
+        compose.onNodeWithText("已新增 1 張").assertIsDisplayed()
         compose.onNodeWithText(todayMonthLabel()).assertIsDisplayed()
     }
 

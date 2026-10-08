@@ -84,6 +84,8 @@ fun HomeScreen(
     onApplyFilter: () -> Unit = {},
     /** 關抽屜但不套用（滑掉、點背景、返回）：草稿作廢 */
     onDismissFilter: () -> Unit = {},
+    /** 抽屜候選讀取失敗時的【重試】：只重讀候選，草稿不動 */
+    onRetryFilterOptions: () -> Unit = {},
     /** 清掉**已套用**的地點與標籤篩選（空狀態的按鈕用） */
     onClearFilter: () -> Unit = {},
     /** 手機寬度每列張數（帳號 › 縮圖；平板寬度會再加欄） */
@@ -248,6 +250,8 @@ fun HomeScreen(
                 onClear = onClearDraft,
                 onApply = onApplyFilter,
                 onDismiss = onDismissFilter,
+                status = state.filterOptionsStatus,
+                onRetry = onRetryFilterOptions,
             )
         }
     }

@@ -98,8 +98,30 @@ class HomeViewModelTest {
                 filterOptionsGate = null
                 gate.await()
             }
+            if (filterOptionsThrows) throw RuntimeException("模擬讀取失敗")
             return value
         }
+
+        /** 每張圖的標籤名稱（`onShotChanged` 篩選中要判斷還符不符合）。 */
+        var tagsByShot: Map<Long, List<String>> = emptyMap()
+        val tagsOfShotCalls = mutableListOf<Long>()
+        var tagsOfShotThrows = false
+
+        /** 只卡「下一次」`tagsOfShot`，取用後自動歸零。 */
+        var tagsGate: CompletableDeferred<Unit>? = null
+
+        override suspend fun tagsOfShot(shotId: Long): List<String> {
+            tagsOfShotCalls += shotId
+            val value = tagsByShot[shotId].orEmpty()
+            tagsGate?.let { gate ->
+                tagsGate = null
+                gate.await()
+            }
+            if (tagsOfShotThrows) throw RuntimeException("模擬讀取失敗")
+            return value
+        }
+
+        var filterOptionsThrows = false
 
         override suspend fun monthFacets(month: String): List<MonthFacet> {
             monthFacetsCalls += month
@@ -484,23 +506,162 @@ class HomeViewModelTest {
         assertFalse(vm.state.value.loading)
     }
 
-    /** 裁定 E：篩選中編輯一張，ShotRow 沒有標籤、無法判斷還符不符合，一律重讀，不就地替換。 */
+    private fun placed(id: Long, date: String, place: String?) = row(id, date).copy(place = place)
+
+    /**
+     * 裁定 G（取代裁定 E）：篩選中編輯一張不重讀——重讀會把清單清空，開著的 Lightbox 會自己關掉
+     * 或跳到別張，首頁捲動位置也丟了。仍符合（這裡是標籤還在）就就地替換，月份照樣重讀。
+     */
     @Test
-    fun 篩選中編輯一張會重新載入_不留下已不符合的那張() = runTest(dispatcher) {
-        val (vm, repo) = newVm()
+    fun 篩選中編輯一張仍符合_就地替換不重讀() = runTest(dispatcher) {
+        val (vm, repo) = newVm { tagsByShot = mapOf(9L to listOf("溫泉")) }
         vm.applySingle(tag("溫泉"))
         advanceUntilIdle()
         assertEquals(listOf(9L), vm.state.value.items.map { it.id })
-        val callsBefore = repo.searchByFacetsCalls.size
+        val searchCalls = repo.searchByFacetsCalls.size
+        val monthsCalls = repo.monthsMatchingCalls.size
+        repo.monthsMatchingValue = listOf("2026-04")
 
-        // 編輯把那張的溫泉標籤拿掉：伺服端（DB）重查就不再回傳它
-        repo.searchItems = emptyList()
-        vm.onShotChanged(row(9, "2026-03-10"))
+        vm.onShotChanged(row(9, "2026-04-10"))
+        // 就地替換是同步的：不用等任何讀取，清單不會有一瞬間是空的
+        assertEquals(listOf("2026-04-10"), vm.state.value.items.map { it.eventDate })
         advanceUntilIdle()
 
-        assertEquals(callsBefore + 1, repo.searchByFacetsCalls.size)
-        assertEquals(emptyList<Long>(), vm.state.value.items.map { it.id })
+        assertEquals("不能重讀", searchCalls, repo.searchByFacetsCalls.size)
+        assertEquals(listOf("2026-04-10"), vm.state.value.items.map { it.eventDate })
+        assertEquals("日期可能改到別的月份，月份要重讀", monthsCalls + 1, repo.monthsMatchingCalls.size)
+        assertEquals(listOf("2026-04"), vm.state.value.months)
+        assertEquals(listOf(9L), repo.tagsOfShotCalls)
+    }
+
+    /** 裁定 G：編輯後不再符合篩選（標籤拿掉了）→ 從清單拿掉（跟刪除一樣），不重讀；月份重讀。 */
+    @Test
+    fun 篩選中編輯一張不再符合_從清單拿掉且月份重讀() = runTest(dispatcher) {
+        val (vm, repo) = newVm {
+            searchItems = listOf(row(9, "2026-03-09"), row(8, "2026-03-08"))
+            tagsByShot = mapOf(9L to listOf("露營"))
+        }
+        vm.applySingle(tag("溫泉"))
+        advanceUntilIdle()
+        assertEquals(listOf(9L, 8L), vm.state.value.items.map { it.id })
+        val searchCalls = repo.searchByFacetsCalls.size
+        repo.monthsMatchingValue = emptyList()
+
+        vm.onShotChanged(row(9, "2026-03-09"))
+        advanceUntilIdle()
+
+        assertEquals("不能重讀", searchCalls, repo.searchByFacetsCalls.size)
+        assertEquals(listOf(8L), vm.state.value.items.map { it.id })
+        assertEquals(emptyList<String>(), vm.state.value.months)
         assertEquals(HomeFilter(emptySet(), setOf("溫泉")), vm.state.value.filter)
+    }
+
+    /** 地點是正式名稱，直接比對；地點符合就不必再讀標籤。地點改掉、標籤也不符合就拿掉。 */
+    @Test
+    fun 篩選中編輯一張_地點符合不讀標籤_地點改掉就拿掉() = runTest(dispatcher) {
+        val (vm, repo) = newVm { searchItems = listOf(placed(9, "2026-03-09", "礁溪")) }
+        vm.applySingle(place("礁溪"))
+        advanceUntilIdle()
+
+        vm.onShotChanged(placed(9, "2026-03-09", "礁溪").copy(description = "泡湯"))
+        advanceUntilIdle()
+        assertEquals(listOf("泡湯"), vm.state.value.items.map { it.description })
+        assertTrue("篩選只有地點時不必讀標籤", repo.tagsOfShotCalls.isEmpty())
+
+        vm.onShotChanged(placed(9, "2026-03-09", "墾丁"))
+        advanceUntilIdle()
+        assertEquals(emptyList<Long>(), vm.state.value.items.map { it.id })
+    }
+
+    /** 判斷還在讀的時候使用者換了篩選：舊篩選的判斷結果不能拿來動新篩選的清單。 */
+    @Test
+    fun 篩選中編輯一張_判斷讀到前換了篩選就不動清單() = runTest(dispatcher) {
+        val (vm, repo) = newVm { tagsByShot = mapOf(9L to emptyList()) }
+        vm.applySingle(tag("溫泉"))
+        advanceUntilIdle()
+        val gate = CompletableDeferred<Unit>()
+        repo.tagsGate = gate
+        vm.onShotChanged(row(9, "2026-03-09"))
+        advanceUntilIdle()
+
+        // 新篩選的結果裡也有 9（地點篩選，跟標籤無關）
+        vm.applySingle(place("礁溪"))
+        advanceUntilIdle()
+        assertEquals(listOf(9L), vm.state.value.items.map { it.id })
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertEquals("舊篩選的判斷不能拿掉新篩選結果裡的圖", listOf(9L), vm.state.value.items.map { it.id })
+        assertEquals(HomeFilter(setOf("礁溪"), emptySet()), vm.state.value.filter)
+    }
+
+    /** 判斷讀取失敗：留在原地（已經就地替換過），不能變成首頁的「載入失敗」錯誤列。 */
+    @Test
+    fun 篩選中編輯一張_讀標籤失敗就留在原地_不設首頁錯誤() = runTest(dispatcher) {
+        val (vm, repo) = newVm { tagsOfShotThrows = true }
+        vm.applySingle(tag("溫泉"))
+        advanceUntilIdle()
+
+        vm.onShotChanged(row(9, "2026-03-20"))
+        advanceUntilIdle()
+
+        assertEquals(listOf("2026-03-20"), vm.state.value.items.map { it.eventDate })
+        assertNull(vm.state.value.error)
+        assertFalse(vm.state.value.loading)
+        assertEquals(listOf(9L), repo.tagsOfShotCalls)
+    }
+
+    // ---- 最終審查 Minor 1：抽屜候選的讀取狀態 ----
+
+    @Test
+    fun openFilter時候選是讀取中_讀完變成就緒() = runTest(dispatcher) {
+        val (vm, repo) = newVm()
+        val gate = CompletableDeferred<Unit>()
+        repo.filterOptionsGate = gate
+        vm.openFilter()
+        assertEquals(FilterOptionsStatus.LOADING, vm.state.value.filterOptionsStatus)
+        advanceUntilIdle()
+        assertEquals(FilterOptionsStatus.LOADING, vm.state.value.filterOptionsStatus)
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(FilterOptionsStatus.READY, vm.state.value.filterOptionsStatus)
+        assertEquals(2, vm.state.value.filterOptions.size)
+    }
+
+    @Test
+    fun 候選讀取失敗只標在抽屜上_不設首頁錯誤() = runTest(dispatcher) {
+        val (vm, _) = newVm { filterOptionsThrows = true }
+        vm.openFilter()
+        advanceUntilIdle()
+
+        val s = vm.state.value
+        assertEquals(FilterOptionsStatus.FAILED, s.filterOptionsStatus)
+        assertNull("首頁的錯誤列不能因為抽屜讀不到候選而出現", s.error)
+        assertFalse(s.loading)
+        assertEquals(listOf(1L), s.items.map { it.id })
+        assertNotNull("抽屜還開著", s.draft)
+    }
+
+    @Test
+    fun 重試候選重新讀取_不清草稿() = runTest(dispatcher) {
+        val (vm, repo) = newVm { filterOptionsThrows = true }
+        vm.openFilter()
+        advanceUntilIdle()
+        vm.toggleDraft(place("礁溪"))
+        vm.setDraftQuery(false, "溫")
+
+        repo.filterOptionsThrows = false
+        vm.retryFilterOptions()
+        assertEquals(FilterOptionsStatus.LOADING, vm.state.value.filterOptionsStatus)
+        advanceUntilIdle()
+
+        val s = vm.state.value
+        assertEquals(FilterOptionsStatus.READY, s.filterOptionsStatus)
+        assertEquals(listOf(place("礁溪"), tag("溫泉")), s.filterOptions)
+        assertEquals(setOf("礁溪"), s.draft!!.places)
+        assertEquals("溫", s.draft!!.query[false])
+        assertEquals(2, repo.filterOptionsCalls.size)
     }
 
     @Test

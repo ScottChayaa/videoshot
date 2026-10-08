@@ -44,10 +44,12 @@ class FilterSheetTest {
     private var cleared = 0
     private var applied = 0
     private var dismissed = 0
+    private var retried = 0
 
     private fun show(
         options: List<FilterOption> = listOf(place("礁溪"), place("墾丁"), tag("溫泉"), tag("露營")),
         draft: FilterDraft = FilterDraft(emptySet(), emptySet()),
+        status: FilterOptionsStatus = FilterOptionsStatus.READY,
     ) {
         compose.setContent {
             VideoshotTheme {
@@ -60,6 +62,8 @@ class FilterSheetTest {
                     onClear = { cleared++ },
                     onApply = { applied++ },
                     onDismiss = { dismissed++ },
+                    status = status,
+                    onRetry = { retried++ },
                 )
             }
         }
@@ -165,5 +169,33 @@ class FilterSheetTest {
         assertEquals(0, applied)
         compose.onNodeWithText("套用").performClick()
         assertEquals(1, applied)
+    }
+
+    // ---- 最終審查 Minor 1：候選還在讀、讀取失敗 ----
+
+    @Test
+    fun 候選讀取中兩區顯示載入中_不說這段時間沒有() {
+        show(options = emptyList(), status = FilterOptionsStatus.LOADING)
+        compose.onAllNodesWithText("載入中…").assertCountEquals(2)
+        compose.onNodeWithText("這段時間沒有地點").assertDoesNotExist()
+        compose.onNodeWithText("這段時間沒有標籤").assertDoesNotExist()
+    }
+
+    @Test
+    fun 候選讀取中已勾選的項目照樣列出() {
+        show(options = emptyList(), draft = FilterDraft(setOf("礁溪"), setOf("溫泉")), status = FilterOptionsStatus.LOADING)
+        compose.onNodeWithText("礁溪").assertIsDisplayed().assertIsSelected()
+        compose.onNodeWithText("溫泉").assertIsDisplayed().assertIsSelected()
+    }
+
+    @Test
+    fun 候選讀取失敗顯示讀取失敗與重試_點了呼叫onRetry() {
+        show(options = emptyList(), status = FilterOptionsStatus.FAILED)
+        compose.onNodeWithText("讀取失敗").assertIsDisplayed()
+        compose.onNodeWithText("這段時間沒有地點").assertDoesNotExist()
+        compose.onNodeWithText("這段時間沒有標籤").assertDoesNotExist()
+        compose.onNodeWithText("重試").assertHasClickAction().performClick()
+        assertEquals(1, retried)
+        assertEquals(0, cleared)
     }
 }

@@ -300,7 +300,10 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
     // （見階段 7 全盤覆查第 5 點）。
     LaunchedEffect(wizardVm) {
         wizardVm.finished.collect { done ->
-            homeVm.reload()
+            // 篩選中完成取圖：清掉首頁的地點與標籤篩選（裁定 H）——新圖多半不符合篩選，留著的話
+            // 新圖看不到，下面「捲到新圖的月份」也會落空。clearFilter 自己會重新載入；
+            // 沒有篩選時照舊 reload()
+            if (homeVm.state.value.filter.isEmpty) homeVm.reload() else homeVm.clearFilter()
             // 帳號頁的統計卡（收藏片段／本月新增／來源影片）跟這次新增的張數直接相關,
             // accountVm 在背景分頁一樣要跟著重查,不能只等使用者自己切過去才看到新數字
             // （最終審查 Important 2：帳號頁的重查是無條件的,不是只有在前景才做）
@@ -654,6 +657,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                         onClearDraft = homeVm::clearDraft,
                         onApplyFilter = homeVm::applyFilter,
                         onDismissFilter = homeVm::dismissFilter,
+                        onRetryFilterOptions = homeVm::retryFilterOptions,
                         onClearFilter = homeVm::clearFilter,
                     )
                     Tab.FOLDERS -> when (nav.current) {

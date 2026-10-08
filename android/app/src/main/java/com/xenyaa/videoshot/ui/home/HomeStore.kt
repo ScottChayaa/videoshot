@@ -17,6 +17,7 @@ import com.xenyaa.videoshot.data.repo.model.ShotRow
  * @param filter 已套用的地點／標籤篩選（任一符合）；空＝沒有篩選，分頁走 `homeFeed`
  * @param months 月份選擇器的選項：有圖的月份；篩選中只列選取項目有圖的月份；不帶張數
  * @param filterOptions 篩選抽屜的候選（開抽屜時才讀）
+ * @param filterOptionsStatus 候選讀到哪裡了；失敗只影響抽屜，不動 [error]
  * @param draft 抽屜開著時的草稿；null＝抽屜關著
  * @param facets 每個月的標籤列，key 是 `YYYY-MM`；捲到才去查，查過就留著
  * @param error 上一次讀取失敗的訊息；null＝沒有錯誤。**不是例外物件** —— 這份狀態要能被
@@ -31,6 +32,7 @@ data class HomeState(
     val filter: HomeFilter = HomeFilter(),
     val months: List<String> = emptyList(),
     val filterOptions: List<FilterOption> = emptyList(),
+    val filterOptionsStatus: FilterOptionsStatus = FilterOptionsStatus.READY,
     val draft: FilterDraft? = null,
     val facets: Map<String, List<MonthFacet>> = emptyMap(),
     val error: String? = null,

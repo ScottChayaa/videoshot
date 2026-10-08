@@ -82,17 +82,47 @@ class HomeViewModel(
 
     /**
      * 開篩選抽屜：草稿從目前已套用的篩選起算，候選依目前的時間範圍非同步讀進來。
-     * 同一個 update 先清掉上一次的候選，讀回來之前抽屜是空的，不會閃出過期的清單。
+     * 同一個 update 先清掉上一次的候選、標成讀取中，讀回來之前抽屜不會閃出過期的清單，
+     * 也不會誤說「這段時間沒有地點」。
      */
     fun openFilter() {
         val current = _state.value
         optionsJob?.cancel()
         _state.update {
-            it.copy(draft = FilterDraft(current.filter.places, current.filter.tags), filterOptions = emptyList())
+            it.copy(
+                draft = FilterDraft(current.filter.places, current.filter.tags),
+                filterOptions = emptyList(),
+                filterOptionsStatus = FilterOptionsStatus.LOADING,
+            )
         }
-        optionsJob = launchGuarded {
-            val options = repo.filterOptions(current.upToMonth)
-            _state.update { it.copy(filterOptions = options) }
+        loadFilterOptions(current.upToMonth)
+    }
+
+    /** 抽屜裡的【重試】：只重讀候選，草稿（勾選、搜尋字、展開）不動。 */
+    fun retryFilterOptions() {
+        val current = _state.value
+        if (current.draft == null) return
+        optionsJob?.cancel()
+        _state.update { it.copy(filterOptionsStatus = FilterOptionsStatus.LOADING) }
+        loadFilterOptions(current.upToMonth)
+    }
+
+    /**
+     * 讀候選。失敗只標在抽屜上（[FilterOptionsStatus.FAILED]，抽屜自己有【重試】），
+     * **不走 [launchGuarded]**——那會把首頁的 `error`／`loading` 一起改掉，抽屜讀不到候選
+     * 不代表首頁清單有問題。`CancellationException` 照樣往外丟（關抽屜、重開會取消它）。
+     */
+    private fun loadFilterOptions(upToMonth: String?) {
+        optionsJob = viewModelScope.launch {
+            val options = try {
+                repo.filterOptions(upToMonth)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                _state.update { it.copy(filterOptionsStatus = FilterOptionsStatus.FAILED) }
+                return@launch
+            }
+            _state.update { it.copy(filterOptions = options, filterOptionsStatus = FilterOptionsStatus.READY) }
         }
     }
 
@@ -171,16 +201,46 @@ class HomeViewModel(
         refreshMonths()
     }
 
+    /**
+     * 就地編輯了一張（Lightbox 或資料夾的【編輯圖資】、詳情頁）。**一律不重讀**——重讀會先把清單
+     * 清空，開著的 Lightbox 看到空清單會自己關掉、沒關也會被換成前 50 張而跳到別張，首頁捲動位置
+     * 也丟了（階段 17 最終審查 Important 1，裁定 G 取代裁定 E）。
+     *
+     * 沒篩選時就地替換就好。篩選中先就地替換，再非同步判斷這張還符不符合：不符合就從清單拿掉
+     * （跟刪除一樣，Lightbox 停在下一張）。判斷讀到的時候篩選已經換了，就不動清單——那是舊篩選的答案。
+     */
     fun onShotChanged(row: ShotRow) {
-        if (!_state.value.filter.isEmpty) {
-            // 篩選中：ShotRow 不帶標籤，無法判斷編輯後這一張還符不符合篩選，就地替換可能把
-            // 已經不符合的那張留在畫面上，一律重新載入
-            reload()
+        _state.update { HomeStore.replace(it, row) }
+        val filter = _state.value.filter
+        if (filter.isEmpty) {
+            // 編輯可能把日期改到別的月份，理由同上
+            refreshMonths()
             return
         }
-        _state.value = HomeStore.replace(_state.value, row)
-        // 編輯可能把日期改到別的月份，理由同上
-        refreshMonths()
+        viewModelScope.launch {
+            val stillMatches = try {
+                matchesFilter(row, filter)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // 判斷不了就留在原地（已經就地替換過）；不當成首頁的讀取失敗
+                true
+            }
+            if (_state.value.filter != filter) return@launch
+            if (!stillMatches) _state.update { HomeStore.removeShot(it, row.id) }
+            // 日期可能改到別的月份、拿掉的那張可能是某個月唯一的一張
+            refreshMonths()
+        }
+    }
+
+    /**
+     * 篩選是任一符合。`row.place` 是正式名稱、篩選的名稱也來自候選清單（正式名稱），直接比對；
+     * 地點符合就不必再讀標籤。
+     */
+    private suspend fun matchesFilter(row: ShotRow, filter: HomeFilter): Boolean {
+        if (row.place != null && row.place in filter.places) return true
+        if (filter.tags.isEmpty()) return false
+        return repo.tagsOfShot(row.id).any { it in filter.tags }
     }
 
     /** 先等 repo 再以當下狀態更新——理由見 `DetailViewModel.loadPlayerInfo`：跟 [loadMore] 同時在跑，先取快照會把剛載入的列表蓋掉。 */

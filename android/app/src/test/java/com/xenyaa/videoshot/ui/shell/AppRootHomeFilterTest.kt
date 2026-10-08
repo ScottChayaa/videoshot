@@ -9,6 +9,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextReplacement
 import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.core.paging.ShotCursor
 import com.xenyaa.videoshot.core.query.QueryVocabulary
@@ -24,6 +25,7 @@ import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.NewShot
 import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
+import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.data.settings.ShellSettings
 import com.xenyaa.videoshot.query.FakeGeminiClient
@@ -40,6 +42,7 @@ import com.xenyaa.videoshot.wizard.FakeHaptics
 import com.xenyaa.videoshot.wizard.LoadedVideo
 import com.xenyaa.videoshot.wizard.WizardData
 import com.xenyaa.videoshot.wizard.frames.FrameSource
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOf
 import org.junit.Assert.assertEquals
@@ -67,26 +70,44 @@ class AppRootHomeFilterTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
     private class Repo : FakeLibraryRepo() {
-        var homeItems = listOf(row(1L, "2026-03-01", place = "宜蘭"), row(2L, "2026-03-02", place = "礁溪"))
+        /** 首頁與篩選共用同一份資料，編輯與刪除直接改它——重查（如果有）看得到改過的結果。 */
+        var items = listOf(row(1L, "2026-03-01", place = "宜蘭"), row(2L, "2026-03-02", place = "礁溪"))
         var facets = listOf(MonthFacet("宜蘭", "place", 1))
-        var searchResults = homeItems
-        val deletedVideoIds = mutableListOf<String>()
+        val searchByFacetsCalls = mutableListOf<Set<String>>()
 
-        override suspend fun homeFeed(after: ShotCursor?, limit: Int, upToMonth: String?) = Page(homeItems, null)
+        /**
+         * 非 null 時之後每一次 `searchByFacets` 都卡到它完成——模擬真機上讀取要花時間：
+         * 篩選中如果重讀，清單會先被清空、Lightbox 看到空清單就自己關掉。
+         */
+        var searchGate: CompletableDeferred<Unit>? = null
+
+        override suspend fun homeFeed(after: ShotCursor?, limit: Int, upToMonth: String?) = Page(items, null)
         override suspend fun monthCounts() = emptyList<com.xenyaa.videoshot.data.repo.model.MonthCount>()
         override suspend fun monthFacets(month: String) = facets
         override suspend fun searchFacets(upToMonth: String?, limit: Int) = facets
         override suspend fun filterOptions(upToMonth: String?) =
             listOf(FilterOption("礁溪", true, "other", emptyList()))
         override suspend fun monthsMatching(places: Set<String>, tagNames: Set<String>) = listOf("2026-03")
-        override suspend fun searchByFacets(places: Set<String>, tagNames: Set<String>, upToMonth: String?, after: ShotCursor?, limit: Int) =
-            Page(searchResults.filter { it.place in places }, null)
-        override suspend fun searchByFacetsCount(places: Set<String>, tagNames: Set<String>, upToMonth: String?) = searchResults.size
-        // 詳情頁需要的兩個查詢——查詢分頁點進來的那張圖是 v1，跟首頁那張同一支影片
-        override suspend fun shotsOfVideo(videoId: String) = searchResults.filter { it.videoId == videoId }
-        override suspend fun videoById(videoId: String) =
-            VideoEntity(videoId, "旅行影片", "c", "2026-03-01T00:00:00Z", 600, "public", null, 1L)
-        override suspend fun deleteVideo(videoId: String) { deletedVideoIds += videoId }
+        override suspend fun searchByFacets(places: Set<String>, tagNames: Set<String>, upToMonth: String?, after: ShotCursor?, limit: Int): Page<ShotRow> {
+            searchByFacetsCalls += places
+            searchGate?.await()
+            return Page(items.filter { it.place in places }, null)
+        }
+        override suspend fun searchByFacetsCount(places: Set<String>, tagNames: Set<String>, upToMonth: String?) =
+            items.count { it.place in places }
+        override suspend fun shotById(id: Long) = items.find { it.id == id }
+        override suspend fun shotsOfVideo(videoId: String) = items.filter { it.videoId == videoId }
+        override suspend fun patchShots(ids: List<Long>, patch: ShotPatch) {
+            items = items.map { row ->
+                if (row.id !in ids) row
+                else row.copy(
+                    eventDate = patch.eventDate ?: row.eventDate,
+                    place = patch.place ?: row.place,
+                    description = patch.description ?: row.description,
+                )
+            }
+        }
+        override suspend fun deleteShot(id: Long) { items = items.filterNot { it.id == id } }
     }
 
     private class FakeShellSettings : ShellSettings {
@@ -141,9 +162,7 @@ class AppRootHomeFilterTest {
             io = Dispatchers.Unconfined,
         )
         override val wizardData: WizardData = object : WizardData {
-            // 詳情頁的播放器會在 init 就呼叫 loadPlayerInfo() → watchPage()（見 DetailViewModel）——
-            // 本檔新增的刪除整支收藏測試會真的走到詳情頁，不能再丟 UnsupportedOperationException，
-            // 跟著 AppRootDetailTest.kt 的手法回一個可用的 WatchPage。
+            // 這組測試不會走到詳情頁；萬一走到（Lightbox【播放這一段】），回一個可用的 WatchPage 而不是丟例外
             override suspend fun watchPage(videoId: String) = com.xenyaa.videoshot.core.youtube.WatchPage(
                 com.xenyaa.videoshot.core.youtube.FetchResult.OK,
                 com.xenyaa.videoshot.core.youtube.VideoMeta(videoId, "旅行影片", "c", "2026-03-01T00:00:00Z", 600, "public", true),
@@ -226,5 +245,93 @@ class AppRootHomeFilterTest {
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "已套用 1 個篩選條件"))
         compose.onNodeWithText("宜蘭").assertDoesNotExist()
         compose.onNodeWithText("1 張", substring = true).assertDoesNotExist()
+    }
+
+    // ---- 最終審查 Important 1：篩選中在 Lightbox 裡編輯或刪除，Lightbox 不能自己關掉或跳走 ----
+
+    /** 新到舊（跟真的 repo 一樣）——就地替換會照日期重排，假資料順序不對的話 Lightbox 會被排到別張。 */
+    private fun items3() = listOf(
+        row(3L, "2026-03-03", place = "礁溪"),
+        row(2L, "2026-03-02", place = "礁溪"),
+        row(1L, "2026-03-01", place = "宜蘭"),
+    )
+
+    private fun openEditFromLightbox(thumb: String) {
+        compose.onNodeWithContentDescription(thumb, substring = true).performClick()
+        compose.onNodeWithContentDescription("更多").performClick()
+        compose.onNodeWithText("編輯圖資").performClick()
+    }
+
+    /**
+     * 裁定 G：篩選中編輯一張不重讀。原本（裁定 E）一律重讀，清單先被清空，Lightbox 看到空清單就
+     * 自己關掉——`searchGate` 讓重讀卡住，把真機上「讀取要花時間」的那段空檔留下來。
+     */
+    @Test
+    fun 篩選中在Lightbox編輯圖資_存檔後Lightbox仍開著停在同一張() {
+        val repo = Repo().apply { items = items3() }
+        compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
+        applyDrawerPlace("礁溪")
+        compose.onNodeWithContentDescription("片段縮圖 00:03", substring = true).assertIsDisplayed()
+        val searchCalls = repo.searchByFacetsCalls.size
+        repo.searchGate = CompletableDeferred()
+
+        openEditFromLightbox("片段縮圖 00:02")
+        compose.onNodeWithContentDescription("描述").performTextReplacement("泡湯")
+        compose.onNodeWithText("儲存").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("播放這一段").assertIsDisplayed()
+        compose.onNodeWithText("00:02").assertIsDisplayed()
+        assertEquals("篩選中編輯一張不能重讀", searchCalls, repo.searchByFacetsCalls.size)
+
+        // 回首頁：改過的描述已經在清單上，另一張還在
+        compose.onNodeWithContentDescription("關閉").performClick()
+        compose.onNodeWithContentDescription("泡湯").assertIsDisplayed()
+        compose.onNodeWithContentDescription("片段縮圖 00:03", substring = true).assertIsDisplayed()
+    }
+
+    /** 裁定 G：編輯後不再符合篩選（地點改掉）→ 從清單拿掉，Lightbox 跟刪除一樣停在下一張。 */
+    @Test
+    fun 篩選中在Lightbox把地點改掉_那張被拿掉_Lightbox停在下一張() {
+        val repo = Repo().apply { items = items3() }
+        compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
+        applyDrawerPlace("礁溪")
+        repo.searchGate = CompletableDeferred()
+
+        openEditFromLightbox("片段縮圖 00:02")
+        compose.onNodeWithContentDescription("地點").performTextReplacement("墾丁")
+        compose.onNodeWithText("儲存").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("播放這一段").assertIsDisplayed()
+        compose.onNodeWithText("00:03").assertIsDisplayed()
+
+        compose.onNodeWithContentDescription("關閉").performClick()
+        compose.onNodeWithContentDescription("片段縮圖 00:03", substring = true).assertIsDisplayed()
+        compose.onNodeWithContentDescription("片段縮圖 00:02", substring = true).assertDoesNotExist()
+        compose.onNodeWithContentDescription("片段縮圖 00:01", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun 篩選中在Lightbox刪除一張_Lightbox停在下一張_篩選還在() {
+        val repo = Repo().apply { items = items3() }
+        compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
+        applyDrawerPlace("礁溪")
+
+        compose.onNodeWithContentDescription("片段縮圖 00:02", substring = true).performClick()
+        compose.onNodeWithContentDescription("更多").performClick()
+        compose.onNodeWithText("刪除這張收藏").performClick()
+        compose.onNodeWithText("刪除").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("播放這一段").assertIsDisplayed()
+        compose.onNodeWithText("00:03").assertIsDisplayed()
+
+        compose.onNodeWithContentDescription("關閉").performClick()
+        compose.onNodeWithContentDescription("依地點與標籤篩選")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "已套用 1 個篩選條件"))
+        compose.onNodeWithContentDescription("片段縮圖 00:03", substring = true).assertIsDisplayed()
+        compose.onNodeWithContentDescription("片段縮圖 00:02", substring = true).assertDoesNotExist()
+        compose.onNodeWithContentDescription("片段縮圖 00:01", substring = true).assertDoesNotExist()
     }
 }
