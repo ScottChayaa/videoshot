@@ -831,6 +831,11 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                 onAskDelete = accountVm::askDeletePlace,
                                 onDismissDelete = accountVm::dismissDeletePlace,
                                 onConfirmDelete = accountVm::confirmDeletePlace,
+                                onStartMerge = accountVm::startPlaceMerge,
+                                onPickMergeTarget = accountVm::pickMergeTarget,
+                                onDismissMergePicker = accountVm::dismissMergePicker,
+                                onCancelMergeTarget = accountVm::cancelMergeTarget,
+                                onConfirmMergeTarget = accountVm::confirmMergeTarget,
                                 onRetry = accountVm::reload,
                             )
                             AccountSection.TAGS -> TagManagementScreen(
@@ -847,6 +852,11 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                 onAskDelete = accountVm::askDeleteTag,
                                 onDismissDelete = accountVm::dismissDeleteTag,
                                 onConfirmDelete = accountVm::confirmDeleteTag,
+                                onStartMerge = accountVm::startTagMerge,
+                                onPickMergeTarget = accountVm::pickMergeTarget,
+                                onDismissMergePicker = accountVm::dismissMergePicker,
+                                onCancelMergeTarget = accountVm::cancelMergeTarget,
+                                onConfirmMergeTarget = accountVm::confirmMergeTarget,
                                 onRetry = accountVm::reload,
                             )
                         }

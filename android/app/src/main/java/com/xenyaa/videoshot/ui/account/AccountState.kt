@@ -15,6 +15,14 @@ data class TagEditor(val id: Long, val name: String, val kind: TagKind, val alia
 /** 地點編輯抽屜的草稿。`id` 是正在編輯的地點，儲存時拿名稱跟既有地點比對決定要不要合併。 */
 data class PlaceEditor(val id: Long, val name: String, val aliasesRaw: String)
 
+enum class MergeKind { PLACE, TAG }
+
+/** 合併：挑目標中（16C）。 */
+data class MergeRequest(val kind: MergeKind, val fromId: Long, val fromName: String, val fromCount: Int)
+
+/** 合併：確認中（16C）。 */
+data class MergeConfirm(val request: MergeRequest, val toId: Long, val toName: String)
+
 data class AccountState(
     val loading: Boolean = true,
     val error: String? = null,
@@ -38,6 +46,10 @@ data class AccountState(
     /** 地點改名會撞名時，放「撞到的那個名字」。 */
     val placePendingMerge: String? = null,
     val placeDeleting: PlaceUsage? = null,
+    val mergePicking: MergeRequest? = null,
+    val mergeConfirm: MergeConfirm? = null,
+    /** 合併進行中（圖很多時要幾秒），畫面顯示不可關閉的「合併中…」。 */
+    val merging: Boolean = false,
     val linkedAccount: LinkedGoogleAccount? = null,
     val lastBackupAtEpochSec: Long = 0L,
     val backingUp: Boolean = false,

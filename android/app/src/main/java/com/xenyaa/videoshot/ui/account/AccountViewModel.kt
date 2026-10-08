@@ -251,6 +251,58 @@ class AccountViewModel(
         }
     }
 
+    /** 合併（16C）：從地點編輯抽屜開始，抽屜關掉、改開目標挑選。 */
+    fun startPlaceMerge() {
+        val editor = _state.value.placeEditor ?: return
+        val count = _state.value.places.firstOrNull { it.id == editor.id }?.shotCount ?: 0
+        _state.update {
+            it.copy(placeEditor = null, mergePicking = MergeRequest(MergeKind.PLACE, editor.id, editor.name, count))
+        }
+    }
+
+    /** 同 [startPlaceMerge]，來源是標籤編輯抽屜。 */
+    fun startTagMerge() {
+        val editor = _state.value.editor ?: return
+        val count = _state.value.tags.firstOrNull { it.id == editor.id }?.shotCount ?: 0
+        _state.update {
+            it.copy(editor = null, pendingMerge = null, mergePicking = MergeRequest(MergeKind.TAG, editor.id, editor.name, count))
+        }
+    }
+
+    fun pickMergeTarget(toId: Long) {
+        val request = _state.value.mergePicking ?: return
+        val toName = when (request.kind) {
+            MergeKind.PLACE -> _state.value.places.firstOrNull { it.id == toId }?.name
+            MergeKind.TAG -> _state.value.tags.firstOrNull { it.id == toId }?.name
+        } ?: return
+        _state.update { it.copy(mergePicking = null, mergeConfirm = MergeConfirm(request, toId, toName)) }
+    }
+
+    fun dismissMergePicker() { _state.update { it.copy(mergePicking = null) } }
+
+    /** 取消合併確認框（標籤既有的 [dismissMergeConfirm] 是改名撞名的確認框，兩者不同）。 */
+    fun cancelMergeTarget() { _state.update { it.copy(mergeConfirm = null) } }
+
+    fun confirmMergeTarget() {
+        val confirm = _state.value.mergeConfirm ?: return
+        _state.update { it.copy(mergeConfirm = null, merging = true) }
+        viewModelScope.launch {
+            try {
+                when (confirm.request.kind) {
+                    MergeKind.PLACE -> deps.mergePlace(confirm.request.fromId, confirm.toId)
+                    MergeKind.TAG -> deps.mergeTag(confirm.request.fromId, confirm.toId)
+                }
+                _state.update { it.copy(merging = false) }
+                reload()
+                _labelsChanged.emit(Unit)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                _state.update { it.copy(merging = false, error = "合併失敗，請再試一次") }
+            }
+        }
+    }
+
     /** 同 [askDeleteTag]：從編輯抽屜按刪除，抽屜要同時關掉。 */
     fun askDeletePlace(place: PlaceUsage) { _state.value = _state.value.copy(placeDeleting = place, placeEditor = null) }
     fun dismissDeletePlace() { _state.value = _state.value.copy(placeDeleting = null) }

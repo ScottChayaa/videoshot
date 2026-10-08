@@ -1,6 +1,8 @@
 package com.xenyaa.videoshot.ui.account
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -25,7 +27,12 @@ class PlaceManagementScreenTest {
         PlaceUsage(2, "沒用到", emptyList(), 0),
     )
 
-    private fun setContent(state: AccountState, onOpenEditor: (PlaceUsage) -> Unit = {}) {
+    private fun setContent(
+        state: AccountState,
+        onOpenEditor: (PlaceUsage) -> Unit = {},
+        onStartMerge: () -> Unit = {},
+        onConfirmMergeTarget: () -> Unit = {},
+    ) {
         compose.setContent {
             VideoshotTheme {
                 PlaceManagementScreen(
@@ -34,6 +41,7 @@ class PlaceManagementScreenTest {
                     onEditName = {}, onEditAliases = {},
                     onRequestSave = {}, onConfirmMerge = {}, onDismissMerge = {},
                     onAskDelete = {}, onDismissDelete = {}, onConfirmDelete = {},
+                    onStartMerge = onStartMerge, onConfirmMergeTarget = onConfirmMergeTarget,
                 )
             }
         }
@@ -64,5 +72,44 @@ class PlaceManagementScreenTest {
         compose.onNodeWithText("這 2 張圖會變成沒有地點", substring = true).assertIsDisplayed()
         compose.onNodeWithText("改用【合併到…】", substring = true).assertIsDisplayed()
         compose.onNodeWithText("刪除").assertIsDisplayed()
+    }
+
+    @Test
+    fun 編輯抽屜的合併到按鈕會呼叫onStartMerge() {
+        var started = false
+        setContent(AccountState(places = places, placeEditor = PlaceEditor(1, "宜蘭礁溪", "礁溪")), onStartMerge = { started = true })
+        compose.onNodeWithText("合併到…").performClick()
+        assert(started)
+    }
+
+    @Test
+    fun 合併確認框說明圖與別名並可確認() {
+        var confirmed = false
+        val request = MergeRequest(MergeKind.PLACE, 3, "礁溪", 1)
+        setContent(
+            AccountState(places = places, mergeConfirm = MergeConfirm(request, 1, "宜蘭礁溪")),
+            onConfirmMergeTarget = { confirmed = true },
+        )
+        compose.onNodeWithText("「礁溪」的 1 張圖會改成「宜蘭礁溪」，「礁溪」會變成它的別名，之後查「礁溪」一樣找得到。").assertIsDisplayed()
+        compose.onNodeWithText("合併").performClick()
+        assert(confirmed)
+    }
+
+    @Test
+    fun 合併中顯示對話框且沒有按鈕() {
+        setContent(AccountState(places = places, merging = true))
+        compose.onNodeWithText("合併中…").assertIsDisplayed()
+        compose.onNodeWithText("取消").assertDoesNotExist()
+        compose.onNodeWithText("合併").assertDoesNotExist()
+    }
+
+    @Test
+    fun 挑目標抽屜列出候選不含來源() {
+        val request = MergeRequest(MergeKind.PLACE, 2, "沒用到", 0)
+        setContent(AccountState(places = places, mergePicking = request))
+        compose.onNodeWithText("把「沒用到」合併到…").assertIsDisplayed()
+        // 候選（宜蘭礁溪）與底下清單各一列；來源「沒用到」同理清單一列、候選不含
+        compose.onAllNodesWithText("宜蘭礁溪").assertCountEquals(2)
+        compose.onAllNodesWithText("沒用到").assertCountEquals(1)
     }
 }

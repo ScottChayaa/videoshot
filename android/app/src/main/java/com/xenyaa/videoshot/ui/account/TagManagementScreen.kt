@@ -40,6 +40,11 @@ fun TagManagementScreen(
     onConfirmDelete: () -> Unit,
     /** 讀取／改名／刪除失敗時的〔重試〕——見上面 KDoc；預設空白，既有呼叫端／測試
      * 不關心錯誤重試時不必跟著改。 */
+    onStartMerge: () -> Unit = {},
+    onPickMergeTarget: (Long) -> Unit = {},
+    onDismissMergePicker: () -> Unit = {},
+    onCancelMergeTarget: () -> Unit = {},
+    onConfirmMergeTarget: () -> Unit = {},
     onRetry: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -69,6 +74,7 @@ fun TagManagementScreen(
             onEditKind = onEditKind,
             onEditAliases = onEditAliases,
             onSave = onRequestSave,
+            onStartMerge = onStartMerge,
             onDelete = { state.tags.firstOrNull { it.id == editor.id }?.let(onAskDelete) },
         )
     }
@@ -84,12 +90,46 @@ fun TagManagementScreen(
         )
     }
 
+    val picking = state.mergePicking
+    if (picking != null && picking.kind == MergeKind.TAG) {
+        MergePickerSheet(
+            sourceName = picking.fromName,
+            candidates = state.tags.filter { it.id != picking.fromId }.map {
+                MergeCandidate(it.id, it.name, it.shotCount, ChipKind.ofTagKind(it.kind).icon, ChipKind.ofTagKind(it.kind).color)
+            },
+            onPick = onPickMergeTarget,
+            onDismiss = onDismissMergePicker,
+        )
+    }
+
+    val mergeConfirm = state.mergeConfirm
+    if (mergeConfirm != null && mergeConfirm.request.kind == MergeKind.TAG) {
+        val from = mergeConfirm.request
+        AlertDialog(
+            onDismissRequest = onCancelMergeTarget,
+            title = { Text("合併到「${mergeConfirm.toName}」") },
+            text = { Text("「${from.fromName}」的 ${from.fromCount} 張圖會改成「${mergeConfirm.toName}」，「${from.fromName}」會變成它的別名。") },
+            confirmButton = { VsButton("合併", onConfirmMergeTarget, variant = ButtonVariant.Primary) },
+            dismissButton = { VsButton("取消", onCancelMergeTarget, variant = ButtonVariant.Quiet) },
+        )
+    }
+
+    if (state.merging) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("合併中…") },
+            text = { Text("圖很多時要幾秒鐘，請稍候。") },
+            confirmButton = {},
+        )
+    }
+
     val deleting = state.deleting
     if (deleting != null) {
         AlertDialog(
             onDismissRequest = onDismissDelete,
             title = { Text("刪除「${deleting.name}」") },
-            text = { Text("只解除標籤關聯，收藏的圖不會被刪除。") },
+            // 16C 設計決議 5：提醒改用合併
+            text = { Text("只解除標籤關聯，收藏的圖不會被刪除。要把它併到別的標籤，請改用【合併到…】。") },
             // 刪除標籤是破壞性動作：Danger（只解除關聯，圖不會被刪）
             confirmButton = { VsButton("刪除", onConfirmDelete, variant = ButtonVariant.Danger) },
             dismissButton = { VsButton("取消", onDismissDelete, variant = ButtonVariant.Quiet) },

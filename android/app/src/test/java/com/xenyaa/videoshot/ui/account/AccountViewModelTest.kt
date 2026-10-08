@@ -89,8 +89,21 @@ class AccountViewModelTest {
             deletedPlaceId = id
             placeList = placeList.filterNot { it.id == id }
         }
-        override suspend fun mergePlace(fromId: Long, toId: Long) = Unit
-        override suspend fun mergeTag(fromId: Long, toId: Long) = Unit
+        var mergePlaceGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+        var mergeTagGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+        var failMerge = false
+        var mergedPlace: Pair<Long, Long>? = null
+        var mergedTag: Pair<Long, Long>? = null
+        override suspend fun mergePlace(fromId: Long, toId: Long) {
+            mergePlaceGate?.await()
+            if (failMerge) throw RuntimeException("boom")
+            mergedPlace = fromId to toId
+        }
+        override suspend fun mergeTag(fromId: Long, toId: Long) {
+            mergeTagGate?.await()
+            if (failMerge) throw RuntimeException("boom")
+            mergedTag = fromId to toId
+        }
 
         override suspend fun storageUsageBytes(): Long = 12_345_678L
 
@@ -570,5 +583,136 @@ class AccountViewModelTest {
         assertNull(viewModel.state.value.placeDeleting)
         assertEquals(1, changedCount)
         job.cancel()
+    }
+
+    // ---- 16C 合併 ----
+
+    @Test
+    fun 開著地點抽屜開始合併會關抽屜並進入挑目標() = runTest {
+        val deps = FakeDeps()
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+        viewModel.openPlaceEditor(deps.placeList[1])
+        viewModel.startPlaceMerge()
+        assertNull(viewModel.state.value.placeEditor)
+        assertEquals(MergeRequest(MergeKind.PLACE, 11, "宜蘭礁溪", 2), viewModel.state.value.mergePicking)
+    }
+
+    @Test
+    fun 挑了目標會帶上目標名稱進確認() = runTest {
+        val deps = FakeDeps()
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+        viewModel.openPlaceEditor(deps.placeList[1])
+        viewModel.startPlaceMerge()
+        viewModel.pickMergeTarget(10)
+        assertNull(viewModel.state.value.mergePicking)
+        assertEquals(10L, viewModel.state.value.mergeConfirm?.toId)
+        assertEquals("宜蘭", viewModel.state.value.mergeConfirm?.toName)
+    }
+
+    @Test
+    fun 確認合併地點進行中merging為true完成後reload並發labelsChanged() = runTest {
+        val deps = FakeDeps()
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        deps.mergePlaceGate = gate
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+        var changedCount = 0
+        val job = launch { viewModel.labelsChanged.collect { changedCount++ } }
+        dispatcher.scheduler.advanceUntilIdle()
+        viewModel.openPlaceEditor(deps.placeList[1])
+        viewModel.startPlaceMerge()
+        viewModel.pickMergeTarget(10)
+
+        viewModel.confirmMergeTarget()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.state.value.merging)
+        assertNull(viewModel.state.value.mergeConfirm)
+        assertEquals(0, changedCount)
+
+        deps.placeList = deps.placeList.filterNot { it.id == 11L }
+        gate.complete(Unit)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertFalse(viewModel.state.value.merging)
+        assertEquals(11L to 10L, deps.mergedPlace)
+        assertEquals(1, viewModel.state.value.places.size)
+        assertEquals(1, changedCount)
+        job.cancel()
+    }
+
+    @Test
+    fun 合併地點丟例外時merging回false並有錯誤訊息() = runTest {
+        val deps = FakeDeps()
+        deps.failMerge = true
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+        viewModel.openPlaceEditor(deps.placeList[1])
+        viewModel.startPlaceMerge()
+        viewModel.pickMergeTarget(10)
+        viewModel.confirmMergeTarget()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertFalse(viewModel.state.value.merging)
+        assertTrue(viewModel.state.value.error != null)
+    }
+
+    @Test
+    fun 標籤合併流程() = runTest {
+        val deps = FakeDeps()
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        deps.mergeTagGate = gate
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+        var changedCount = 0
+        val job = launch { viewModel.labelsChanged.collect { changedCount++ } }
+        dispatcher.scheduler.advanceUntilIdle()
+        viewModel.openTagEditor(deps.tagList[0])
+        viewModel.startTagMerge()
+        assertNull(viewModel.state.value.editor)
+        assertEquals(MergeRequest(MergeKind.TAG, 1, "阿明", 2), viewModel.state.value.mergePicking)
+        viewModel.pickMergeTarget(2)
+        assertEquals("露營", viewModel.state.value.mergeConfirm?.toName)
+        viewModel.confirmMergeTarget()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.state.value.merging)
+        gate.complete(Unit)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertFalse(viewModel.state.value.merging)
+        assertEquals(1L to 2L, deps.mergedTag)
+        assertEquals(1, changedCount)
+        job.cancel()
+    }
+
+    @Test
+    fun 標籤合併丟例外時merging回false並有錯誤訊息() = runTest {
+        val deps = FakeDeps()
+        deps.failMerge = true
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+        viewModel.openTagEditor(deps.tagList[0])
+        viewModel.startTagMerge()
+        viewModel.pickMergeTarget(2)
+        viewModel.confirmMergeTarget()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertFalse(viewModel.state.value.merging)
+        assertTrue(viewModel.state.value.error != null)
+    }
+
+    @Test
+    fun 取消挑選與取消確認只清狀態不呼叫deps() = runTest {
+        val deps = FakeDeps()
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+        viewModel.openPlaceEditor(deps.placeList[1])
+        viewModel.startPlaceMerge()
+        viewModel.dismissMergePicker()
+        assertNull(viewModel.state.value.mergePicking)
+        viewModel.openPlaceEditor(deps.placeList[1])
+        viewModel.startPlaceMerge()
+        viewModel.pickMergeTarget(10)
+        viewModel.cancelMergeTarget()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertNull(viewModel.state.value.mergeConfirm)
+        assertNull(deps.mergedPlace)
     }
 }

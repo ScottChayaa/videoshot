@@ -164,6 +164,7 @@ class TagManagementScreenTest {
         onDismissMerge: () -> Unit = {},
         onAskDelete: (TagUsage) -> Unit = {},
         onDismissDelete: () -> Unit = {},
+        onStartMerge: () -> Unit = {},
     ) {
         compose.setContent {
             VideoshotTheme {
@@ -173,6 +174,7 @@ class TagManagementScreenTest {
                     onEditName = onEditName, onEditKind = onEditKind, onEditAliases = {},
                     onRequestSave = onRequestSave, onConfirmMerge = {}, onDismissMerge = onDismissMerge,
                     onAskDelete = onAskDelete, onDismissDelete = onDismissDelete, onConfirmDelete = {},
+                    onStartMerge = onStartMerge,
                 )
             }
         }
@@ -271,5 +273,35 @@ class TagManagementScreenTest {
         showScreen(AccountState(tags = tags, deleting = tags[0]), onDismissDelete = { dismissed = true })
         compose.onNodeWithText("取消").performClick()
         assert(dismissed)
+    }
+
+    @Test
+    fun 編輯抽屜的合併到按鈕會呼叫onStartMerge() {
+        var started = false
+        showScreen(AccountState(tags = tags, editor = TagEditor(1, "阿明", TagKind.PERSON, "")), onStartMerge = { started = true })
+        compose.onNodeWithText("合併到…").performClick()
+        assert(started)
+    }
+
+    @Test
+    fun 合併確認框文案() {
+        val request = MergeRequest(MergeKind.TAG, 3, "明哥", 1)
+        showScreen(AccountState(tags = tags, mergeConfirm = MergeConfirm(request, 1, "阿明")))
+        compose.onNodeWithText("「明哥」的 1 張圖會改成「阿明」，「明哥」會變成它的別名。").assertIsDisplayed()
+        compose.onNodeWithText("合併").assertIsDisplayed()
+    }
+
+    @Test
+    fun 合併中顯示對話框且沒有按鈕() {
+        showScreen(AccountState(tags = tags, merging = true))
+        compose.onNodeWithText("合併中…").assertIsDisplayed()
+        compose.onNodeWithText("取消").assertDoesNotExist()
+    }
+
+    /** 16C 設計決議 5：刪除確認框提醒改用合併。 */
+    @Test
+    fun 刪除確認框提醒改用合併() {
+        showScreen(AccountState(tags = tags, deleting = tags[0]))
+        compose.onNodeWithText("改用【合併到…】", substring = true).assertIsDisplayed()
     }
 }

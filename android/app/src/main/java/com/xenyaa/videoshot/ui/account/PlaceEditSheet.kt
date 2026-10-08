@@ -31,6 +31,7 @@ fun PlaceEditSheet(
     onEditAliases: (String) -> Unit,
     onSave: () -> Unit,
     onDelete: () -> Unit,
+    onStartMerge: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     ModalBottomSheet(
@@ -58,6 +59,7 @@ fun PlaceEditSheet(
 
             Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
                 VsButton("刪除", onDelete, variant = ButtonVariant.DangerQuiet, icon = VsIcons.Trash)
+                VsButton("合併到…", onStartMerge, variant = ButtonVariant.Quiet)
                 VsButton(
                     "儲存",
                     onSave,

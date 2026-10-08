@@ -34,6 +34,11 @@ fun PlaceManagementScreen(
     onAskDelete: (PlaceUsage) -> Unit,
     onDismissDelete: () -> Unit,
     onConfirmDelete: () -> Unit,
+    onStartMerge: () -> Unit = {},
+    onPickMergeTarget: (Long) -> Unit = {},
+    onDismissMergePicker: () -> Unit = {},
+    onCancelMergeTarget: () -> Unit = {},
+    onConfirmMergeTarget: () -> Unit = {},
     onRetry: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -67,6 +72,7 @@ fun PlaceManagementScreen(
             onEditName = onEditName,
             onEditAliases = onEditAliases,
             onSave = onRequestSave,
+            onStartMerge = onStartMerge,
             onDelete = { state.places.firstOrNull { it.id == editor.id }?.let(onAskDelete) },
         )
     }
@@ -79,6 +85,39 @@ fun PlaceManagementScreen(
             text = { Text("已經有地點叫「$pendingMerge」，這次改名會把兩者的圖合併到既有地點，這個地點的名字會變成它的別名。") },
             confirmButton = { VsButton("合併", onConfirmMerge, variant = ButtonVariant.Primary) },
             dismissButton = { VsButton("取消", onDismissMerge, variant = ButtonVariant.Quiet) },
+        )
+    }
+
+    val picking = state.mergePicking
+    if (picking != null && picking.kind == MergeKind.PLACE) {
+        MergePickerSheet(
+            sourceName = picking.fromName,
+            candidates = state.places.filter { it.id != picking.fromId }.map {
+                MergeCandidate(it.id, it.name, it.shotCount, VsIcons.MapPin, ChipKind.PLACE.color)
+            },
+            onPick = onPickMergeTarget,
+            onDismiss = onDismissMergePicker,
+        )
+    }
+
+    val mergeConfirm = state.mergeConfirm
+    if (mergeConfirm != null && mergeConfirm.request.kind == MergeKind.PLACE) {
+        val from = mergeConfirm.request
+        AlertDialog(
+            onDismissRequest = onCancelMergeTarget,
+            title = { Text("合併到「${mergeConfirm.toName}」") },
+            text = { Text("「${from.fromName}」的 ${from.fromCount} 張圖會改成「${mergeConfirm.toName}」，「${from.fromName}」會變成它的別名，之後查「${from.fromName}」一樣找得到。") },
+            confirmButton = { VsButton("合併", onConfirmMergeTarget, variant = ButtonVariant.Primary) },
+            dismissButton = { VsButton("取消", onCancelMergeTarget, variant = ButtonVariant.Quiet) },
+        )
+    }
+
+    if (state.merging) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("合併中…") },
+            text = { Text("圖很多時要幾秒鐘，請稍候。") },
+            confirmButton = {},
         )
     }
 
