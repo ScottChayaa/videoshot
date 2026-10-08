@@ -39,7 +39,7 @@ import java.util.Random
  * adb shell am instrument -w -e class com.xenyaa.videoshot.bench.LibraryScaleBench -e bench true \
  *   com.xenyaa.videoshot.test/androidx.test.runner.AndroidJUnitRunner
  * ```
- * 可選參數：`-e benchShots 1000000`（張數）、`-e benchRebuild true`（強制重造資料）。
+ * 可選參數：`-e benchShots 1000000`（張數）、`-e benchRebuild true`（強制重造資料）、`-e benchMerge true`（最後加量 repo 合併地點，會改動量測庫）。
  * 結果印在 logcat：`adb logcat -s VsBench`。資料庫檔留著，下次直接重用（造一次要幾分鐘）；
  * Gradle 跑儀器測試會解除安裝 app，檔案會跟著消失。
  */
@@ -190,6 +190,16 @@ class LibraryScaleBench {
         }
         measure("統計正確性抽查（總數＝實際張數）") {
             db.text("SELECT (SELECT cnt FROM shot_stat_total WHERE kind = 0) = (SELECT COUNT(*) FROM shot)")
+        }
+        // 這一項會永久改動量測庫，所以放最後，且要加 -e benchMerge true 才跑；跑完請用 -e benchRebuild true 重造
+        if (args.getString("benchMerge") == "true") {
+            measure("repo 合併地點（宜蘭2 → 地點0）", repeat = 0) {
+                repo.mergePlace(
+                    db.text("SELECT id FROM place WHERE name = '宜蘭2'").toLong(),
+                    db.text("SELECT id FROM place WHERE name = '地點0'").toLong(),
+                )
+                "已合併（量測庫已被改動，下次請重造：-e benchRebuild true）"
+            }
         }
         db.close()
         log("===== 完成 =====")
