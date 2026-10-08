@@ -6,10 +6,14 @@ import com.xenyaa.videoshot.core.home.DEFAULT_THUMB_COLUMNS
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.tags.TagKind
 import com.xenyaa.videoshot.data.repo.model.AccountStats
+import com.xenyaa.videoshot.data.repo.model.PlaceUsage
 import com.xenyaa.videoshot.data.repo.model.TagUsage
 
 /** 標籤編輯抽屜的草稿。`id` 是正在編輯的那個標籤，儲存時拿它跟既有標籤名比對決定要不要合併。 */
 data class TagEditor(val id: Long, val name: String, val kind: TagKind, val aliasesRaw: String)
+
+/** 地點編輯抽屜的草稿。`id` 是正在編輯的地點，儲存時拿名稱跟既有地點比對決定要不要合併。 */
+data class PlaceEditor(val id: Long, val name: String, val aliasesRaw: String)
 
 data class AccountState(
     val loading: Boolean = true,
@@ -29,6 +33,11 @@ data class AccountState(
     /** 儲存時發現會撞名——這裡放「撞到的那個名字」，畫面用它顯示確認文案。 */
     val pendingMerge: String? = null,
     val deleting: TagUsage? = null,
+    val places: List<PlaceUsage> = emptyList(),
+    val placeEditor: PlaceEditor? = null,
+    /** 地點改名會撞名時，放「撞到的那個名字」。 */
+    val placePendingMerge: String? = null,
+    val placeDeleting: PlaceUsage? = null,
     val linkedAccount: LinkedGoogleAccount? = null,
     val lastBackupAtEpochSec: Long = 0L,
     val backingUp: Boolean = false,
@@ -57,5 +66,24 @@ object AccountStore {
         val editor = state.editor ?: return null
         val trimmed = editor.name.trim()
         return state.tags.firstOrNull { it.name == trimmed && it.id != editor.id }
+    }
+
+    fun openPlaceEditor(state: AccountState, place: PlaceUsage): AccountState =
+        state.copy(placeEditor = PlaceEditor(place.id, place.name, place.aliases.joinToString(", ")))
+
+    fun closePlaceEditor(state: AccountState): AccountState =
+        state.copy(placeEditor = null, placePendingMerge = null)
+
+    fun editPlaceName(state: AccountState, name: String): AccountState =
+        state.copy(placeEditor = state.placeEditor?.copy(name = name))
+
+    fun editPlaceAliases(state: AccountState, raw: String): AccountState =
+        state.copy(placeEditor = state.placeEditor?.copy(aliasesRaw = raw))
+
+    /** 儲存前的撞名檢查：名稱相同、id 不同的既有地點。 */
+    fun collidingPlace(state: AccountState): PlaceUsage? {
+        val editor = state.placeEditor ?: return null
+        val trimmed = editor.name.trim()
+        return state.places.firstOrNull { it.name == trimmed && it.id != editor.id }
     }
 }

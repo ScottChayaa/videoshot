@@ -8,6 +8,7 @@ import com.xenyaa.videoshot.backup.LinkedGoogleAccount
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.tags.TagKind
 import com.xenyaa.videoshot.data.repo.model.AccountStats
+import com.xenyaa.videoshot.data.repo.model.PlaceUsage
 import com.xenyaa.videoshot.data.repo.model.TagUsage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -72,6 +73,24 @@ class AccountViewModelTest {
             deletedId = id
             tagList = tagList.filterNot { it.id == id }
         }
+
+        var placeList = listOf(
+            PlaceUsage(10, "宜蘭", listOf("蘭陽"), 4),
+            PlaceUsage(11, "宜蘭礁溪", emptyList(), 2),
+        )
+        override suspend fun places(): List<PlaceUsage> = placeList
+        var renamedPlace: List<Any> = emptyList()
+        override suspend fun renamePlace(id: Long, name: String, aliases: List<String>) {
+            renamedPlace = listOf(id, name, aliases)
+            placeList = placeList.map { if (it.id == id) it.copy(name = name, aliases = aliases) else it }
+        }
+        var deletedPlaceId: Long? = null
+        override suspend fun deletePlace(id: Long) {
+            deletedPlaceId = id
+            placeList = placeList.filterNot { it.id == id }
+        }
+        override suspend fun mergePlace(fromId: Long, toId: Long) = Unit
+        override suspend fun mergeTag(fromId: Long, toId: Long) = Unit
 
         override suspend fun storageUsageBytes(): Long = 12_345_678L
 
@@ -321,16 +340,16 @@ class AccountViewModelTest {
         assertEquals(1L, viewModel.state.value.deleting?.id)
     }
 
-    /** 最終審查 Important 1：改名真的送出之後要發一次 `tagsChanged`——查詢分頁的
+    /** 最終審查 Important 1：改名真的送出之後要發一次 `labelsChanged`——查詢分頁的
      * facet chip 快取靠這個訊號知道要重查,見 `SearchViewModel.loadFacets` 的接線。 */
     @Test
-    fun 改名送出成功後發出tagsChanged事件() = runTest {
+    fun 改名送出成功後發出labelsChanged事件() = runTest {
         val deps = FakeDeps()
         val viewModel = vm(deps)
         dispatcher.scheduler.advanceUntilIdle()
 
         var changedCount = 0
-        val job = launch { viewModel.tagsChanged.collect { changedCount++ } }
+        val job = launch { viewModel.labelsChanged.collect { changedCount++ } }
         dispatcher.scheduler.advanceUntilIdle()
 
         viewModel.openTagEditor(deps.tagList[0])
@@ -344,13 +363,13 @@ class AccountViewModelTest {
 
     /** 同上,刪除標籤那條路徑。 */
     @Test
-    fun 刪除標籤送出成功後發出tagsChanged事件() = runTest {
+    fun 刪除標籤送出成功後發出labelsChanged事件() = runTest {
         val deps = FakeDeps()
         val viewModel = vm(deps)
         dispatcher.scheduler.advanceUntilIdle()
 
         var changedCount = 0
-        val job = launch { viewModel.tagsChanged.collect { changedCount++ } }
+        val job = launch { viewModel.labelsChanged.collect { changedCount++ } }
         dispatcher.scheduler.advanceUntilIdle()
 
         viewModel.askDeleteTag(deps.tagList[1])
@@ -480,5 +499,76 @@ class AccountViewModelTest {
         dispatcher.scheduler.advanceUntilIdle()
 
         assertTrue(deps.continueBackfillOnMobileDataCalled)
+    }
+
+    @Test
+    fun reload會讀進places() = runTest {
+        val viewModel = vm(FakeDeps())
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(2, viewModel.state.value.places.size)
+    }
+
+    @Test
+    fun 地點改名沒撞名時直接送出並發出labelsChanged() = runTest {
+        val deps = FakeDeps()
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+        var changedCount = 0
+        val job = launch { viewModel.labelsChanged.collect { changedCount++ } }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.openPlaceEditor(deps.placeList[0])
+        viewModel.editPlaceName("宜蘭縣")
+        viewModel.editPlaceAliases("蘭陽, 宜蘭縣, 蘭陽")
+        viewModel.requestSavePlace()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        // 與本名相同的別名被拿掉、重複的別名只留一個
+        assertEquals(listOf<Any>(10L, "宜蘭縣", listOf("蘭陽")), deps.renamedPlace)
+        assertNull(viewModel.state.value.placeEditor)
+        assertEquals(1, changedCount)
+        job.cancel()
+    }
+
+    @Test
+    fun 地點改名撞名時先停在確認提示() = runTest {
+        val deps = FakeDeps()
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.openPlaceEditor(deps.placeList[0])
+        viewModel.editPlaceName("宜蘭礁溪")
+        viewModel.requestSavePlace()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("宜蘭礁溪", viewModel.state.value.placePendingMerge)
+        assertEquals(emptyList<Any>(), deps.renamedPlace)
+
+        viewModel.confirmPlaceMerge()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(10L, deps.renamedPlace[0])
+        assertNull(viewModel.state.value.placePendingMerge)
+    }
+
+    @Test
+    fun 刪除地點會關掉抽屜並發出labelsChanged() = runTest {
+        val deps = FakeDeps()
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+        var changedCount = 0
+        val job = launch { viewModel.labelsChanged.collect { changedCount++ } }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.openPlaceEditor(deps.placeList[1])
+        viewModel.askDeletePlace(deps.placeList[1])
+        assertNull(viewModel.state.value.placeEditor)
+        assertEquals(11L, viewModel.state.value.placeDeleting?.id)
+
+        viewModel.confirmDeletePlace()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(11L, deps.deletedPlaceId)
+        assertNull(viewModel.state.value.placeDeleting)
+        assertEquals(1, changedCount)
+        job.cancel()
     }
 }

@@ -6,6 +6,7 @@ import com.xenyaa.videoshot.backup.LinkOutcome
 import com.xenyaa.videoshot.backup.LinkedGoogleAccount
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.data.repo.model.AccountStats
+import com.xenyaa.videoshot.data.repo.model.PlaceUsage
 import com.xenyaa.videoshot.data.repo.model.TagUsage
 import kotlinx.coroutines.flow.Flow
 
@@ -33,6 +34,12 @@ interface AccountDeps {
     suspend fun tags(): List<TagUsage>
     suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>)
     suspend fun deleteTag(id: Long)
+    suspend fun places(): List<PlaceUsage>
+    /** 名稱撞到別的地點＝合併，舊名留成別名（`LibraryRepo.renamePlace`）。 */
+    suspend fun renamePlace(id: Long, name: String, aliases: List<String>)
+    suspend fun mergePlace(fromId: Long, toId: Long)
+    suspend fun deletePlace(id: Long)
+    suspend fun mergeTag(fromId: Long, toId: Long)
 
     /** 縮圖牆手機寬度每列張數（2／3／4）。 */
     val thumbColumns: Flow<Int>

@@ -10,6 +10,7 @@ import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.home.monthOf
 import com.xenyaa.videoshot.core.tags.TagKind
 import com.xenyaa.videoshot.core.tags.parseAliases
+import com.xenyaa.videoshot.data.repo.model.PlaceUsage
 import com.xenyaa.videoshot.data.repo.model.TagUsage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -25,7 +26,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 /**
- * 整個帳號分頁共用一份（比照 `FoldersViewModel`）——六個子畫面看到的是同一份 `stats`／
+ * 整個帳號分頁共用一份（比照 `FoldersViewModel`）——七個子畫面看到的是同一份 `stats`／
  * `tags`／設定值，不必各自重查。
  *
  * @param today 注入而不是直接呼叫 `LocalDate.now()`——理由同 `WizardViewModel.today`：
@@ -40,14 +41,12 @@ class AccountViewModel(
     val state: StateFlow<AccountState> = _state.asStateFlow()
 
     /**
-     * 標籤改名／刪除真的送出（`deps.renameTag`／`deps.deleteTag` 完成）之後發一次——
-     * 查詢分頁的 facet chip 是從 `SearchViewModel` 自己那份快取畫的，改名或刪除標籤之後
-     * 不會自動知道要重查（最終審查 Important 1）。用 `extraBufferCapacity = 1`：
-     * `emit` 不必等 `AppRoot` 那邊的收集端排到才返回，理由同 `WizardViewModel.finished`
-     * 的 KDoc 提到的隱患，這裡用緩衝直接避開,不必比照它改成 `scope.launch`。
+     * 標籤或地點改名、合併、刪除真的送出之後發一次——查詢頁候選與首頁月份標籤、圖上的地點名稱
+     * 都要重讀（`AppRoot` 收到時重查查詢頁候選並重新載入首頁）。用 `extraBufferCapacity = 1`：
+     * `emit` 不必等收集端排到才返回，理由同 `WizardViewModel.finished` 的 KDoc。
      */
-    private val _tagsChanged = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    val tagsChanged: SharedFlow<Unit> = _tagsChanged.asSharedFlow()
+    private val _labelsChanged = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val labelsChanged: SharedFlow<Unit> = _labelsChanged.asSharedFlow()
 
     init {
         viewModelScope.launch { deps.filterStrength.collect { v -> _state.value = _state.value.copy(filterStrength = v) } }
@@ -66,10 +65,11 @@ class AccountViewModel(
         launchGuarded {
             val stats = deps.stats(monthOf(today()))
             val tags = deps.tags()
+            val places = deps.places()
             val usage = deps.storageUsageBytes()
             val backfill = deps.backfillProgress()
             _state.value = _state.value.copy(
-                stats = stats, tags = tags, storageUsageBytes = usage,
+                stats = stats, tags = tags, places = places, storageUsageBytes = usage,
                 backfillProgress = backfill, loading = false, error = null,
             )
         }
@@ -196,7 +196,7 @@ class AccountViewModel(
         deps.renameTag(id, name, kind, aliases)
         _state.value = _state.value.copy(editor = null, pendingMerge = null)
         reload()
-        _tagsChanged.emit(Unit)
+        _labelsChanged.emit(Unit)
     }
 
     /**
@@ -215,7 +215,53 @@ class AccountViewModel(
             deps.deleteTag(tag.id)
             _state.value = _state.value.copy(deleting = null, editor = null)
             reload()
-            _tagsChanged.emit(Unit)
+            _labelsChanged.emit(Unit)
+        }
+    }
+
+    fun openPlaceEditor(place: PlaceUsage) { _state.value = AccountStore.openPlaceEditor(_state.value, place) }
+    fun dismissPlaceEditor() { _state.value = AccountStore.closePlaceEditor(_state.value) }
+    fun editPlaceName(name: String) { _state.value = AccountStore.editPlaceName(_state.value, name) }
+    fun editPlaceAliases(raw: String) { _state.value = AccountStore.editPlaceAliases(_state.value, raw) }
+
+    /** 儲存前先查撞名：撞到停在確認提示（[AccountState.placePendingMerge]），不撞就直接送出。 */
+    fun requestSavePlace() {
+        val collision = AccountStore.collidingPlace(_state.value)
+        if (collision != null) {
+            _state.value = _state.value.copy(placePendingMerge = collision.name)
+        } else {
+            performSavePlace()
+        }
+    }
+
+    fun confirmPlaceMerge() = performSavePlace()
+
+    fun dismissPlaceMerge() { _state.value = _state.value.copy(placePendingMerge = null) }
+
+    private fun performSavePlace() {
+        val editor = _state.value.placeEditor ?: return
+        val name = editor.name.trim()
+        // 別名裡跟本名相同的沒有意義（合併時舊名會被 repo 自己留成別名），先拿掉
+        val aliases = parseAliases(editor.aliasesRaw).filter { it != name }
+        launchGuarded {
+            deps.renamePlace(editor.id, name, aliases)
+            _state.value = _state.value.copy(placeEditor = null, placePendingMerge = null)
+            reload()
+            _labelsChanged.emit(Unit)
+        }
+    }
+
+    /** 同 [askDeleteTag]：從編輯抽屜按刪除，抽屜要同時關掉。 */
+    fun askDeletePlace(place: PlaceUsage) { _state.value = _state.value.copy(placeDeleting = place, placeEditor = null) }
+    fun dismissDeletePlace() { _state.value = _state.value.copy(placeDeleting = null) }
+
+    fun confirmDeletePlace() {
+        val place = _state.value.placeDeleting ?: return
+        launchGuarded {
+            deps.deletePlace(place.id)
+            _state.value = _state.value.copy(placeDeleting = null, placeEditor = null)
+            reload()
+            _labelsChanged.emit(Unit)
         }
     }
 

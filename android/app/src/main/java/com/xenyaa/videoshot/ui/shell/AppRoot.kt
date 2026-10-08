@@ -43,6 +43,7 @@ import com.xenyaa.videoshot.ui.account.CaptureSettingScreen
 import com.xenyaa.videoshot.ui.account.GeminiKeyScreen
 import com.xenyaa.videoshot.ui.account.RestoreScreen
 import com.xenyaa.videoshot.ui.account.RestoreViewModel
+import com.xenyaa.videoshot.ui.account.PlaceManagementScreen
 import com.xenyaa.videoshot.ui.account.TagManagementScreen
 import com.xenyaa.videoshot.ui.account.ThumbsUsageScreen
 import com.xenyaa.videoshot.backup.LinkOutcome
@@ -327,7 +328,10 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
     // 標籤管理改了名字或刪掉標籤之後,查詢分頁的標籤雲還是舊的名字/還留著已刪除的那個,
     // 點下去用舊名字去解析會查到 0 筆（最終審查 Important 1）
     LaunchedEffect(accountVm) {
-        accountVm.tagsChanged.collect { searchVm.loadFacets() }
+        accountVm.labelsChanged.collect {
+            searchVm.loadFacets()
+            homeVm.reload() // 首頁月份標籤與已載入的圖上的地點名稱都可能改了
+        }
     }
 
     // 資料夾頁的返回鍵，以及刪掉自己之後要做的事：退一層；如果因此落回分類清單頁
@@ -813,6 +817,21 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                 afterSec = accountState.aiRangeAfterSec,
                                 onBack = { nav = nav.pop() ?: nav },
                                 onChange = accountVm::setAiRange,
+                            )
+                            AccountSection.PLACES -> PlaceManagementScreen(
+                                state = accountState,
+                                onBack = { nav = nav.pop() ?: nav },
+                                onOpenEditor = accountVm::openPlaceEditor,
+                                onDismissEditor = accountVm::dismissPlaceEditor,
+                                onEditName = accountVm::editPlaceName,
+                                onEditAliases = accountVm::editPlaceAliases,
+                                onRequestSave = accountVm::requestSavePlace,
+                                onConfirmMerge = accountVm::confirmPlaceMerge,
+                                onDismissMerge = accountVm::dismissPlaceMerge,
+                                onAskDelete = accountVm::askDeletePlace,
+                                onDismissDelete = accountVm::dismissDeletePlace,
+                                onConfirmDelete = accountVm::confirmDeletePlace,
+                                onRetry = accountVm::reload,
                             )
                             AccountSection.TAGS -> TagManagementScreen(
                                 state = accountState,

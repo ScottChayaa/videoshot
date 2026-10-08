@@ -58,13 +58,14 @@ class AccountScreenTest {
     }
 
     @Test
-    fun 選單六列與副標都在() {
+    fun 選單七列與副標都在() {
         setContent(state)
-        listOf("備份", "縮圖", "取圖", "查詢", "AI 分析", "標籤管理").forEach {
+        listOf("備份", "縮圖", "取圖", "查詢", "AI 分析", "地點管理", "標籤管理").forEach {
             compose.onNodeWithText(it).assertIsDisplayed()
         }
         compose.onNodeWithText("已使用 11.8 MB").assertIsDisplayed()
         compose.onNodeWithText("過濾相似強度：中").assertIsDisplayed()
+        compose.onNodeWithText("0 個地點").assertIsDisplayed()
     }
 
     @Test

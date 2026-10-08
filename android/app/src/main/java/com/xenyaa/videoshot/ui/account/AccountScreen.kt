@@ -104,6 +104,13 @@ fun AccountScreen(
                     )
                     VsSettingDivider()
                     VsListRow(
+                        "地點管理",
+                        subtitle = "${state.places.size} 個地點",
+                        icon = VsIcons.MapPin,
+                        onClick = { onOpenSection(AccountSection.PLACES) },
+                    )
+                    VsSettingDivider()
+                    VsListRow(
                         "標籤管理",
                         subtitle = "${state.tags.size} 個標籤",
                         icon = VsIcons.Tag,

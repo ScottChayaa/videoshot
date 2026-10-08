@@ -12,7 +12,7 @@ enum class Tab(val label: String) {
 }
 
 /**
- * 帳號頁選單的六個入口（規格第九節）。`id` 是 [NavCodec] 存檔用的短字串，**不可更動**。
+ * 帳號頁選單的七個入口（規格第九節）。`id` 是 [NavCodec] 存檔用的短字串，**不可更動**。
  *
  * [BACKUP]／[THUMBS] 兩格本階段（階段 11）只顯示靜態說明——備份與 Google 帳號連結是階段 12，
  * 縮圖回填進度是階段 13；[THUMBS] 目前只掛「儲存用量」。
@@ -23,6 +23,7 @@ enum class AccountSection(val id: String) {
     CAPTURE("capture"),
     GEMINI("gemini"),
     AI("ai"),
+    PLACES("places"),
     TAGS("tags"),
 }
 

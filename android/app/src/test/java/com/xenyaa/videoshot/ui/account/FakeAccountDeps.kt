@@ -7,6 +7,7 @@ import com.xenyaa.videoshot.backup.LinkOutcome
 import com.xenyaa.videoshot.backup.LinkedGoogleAccount
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.data.repo.model.AccountStats
+import com.xenyaa.videoshot.data.repo.model.PlaceUsage
 import com.xenyaa.videoshot.data.repo.model.TagUsage
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -31,6 +32,11 @@ open class FakeAccountDeps : AccountDeps {
     override suspend fun tags(): List<TagUsage> = emptyList()
     override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>) = Unit
     override suspend fun deleteTag(id: Long) = Unit
+    override suspend fun places(): List<PlaceUsage> = emptyList()
+    override suspend fun renamePlace(id: Long, name: String, aliases: List<String>) = Unit
+    override suspend fun mergePlace(fromId: Long, toId: Long) = Unit
+    override suspend fun deletePlace(id: Long) = Unit
+    override suspend fun mergeTag(fromId: Long, toId: Long) = Unit
 
     override suspend fun storageUsageBytes(): Long = 0L
 
