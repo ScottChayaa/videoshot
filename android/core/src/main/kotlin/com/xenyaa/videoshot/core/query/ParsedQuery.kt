@@ -22,6 +22,8 @@ data class ParsedQuery(
 data class QueryVocabulary(
     val places: List<String>,
     val tags: List<TagAlias>,
+    /** 地點本名 → 別名（`place.aliases`，檢索時視同本名，規格第四節）。 */
+    val placeAliases: Map<String, List<String>> = emptyMap(),
 )
 
 /** 一個標籤的可比對詞：正式名稱＋別名（`tag.aliases`，檢索時視同 name，規格第四節）。 */

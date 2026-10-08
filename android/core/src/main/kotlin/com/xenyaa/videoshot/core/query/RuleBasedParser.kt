@@ -19,6 +19,9 @@ object RuleBasedParser {
         val candidates = buildList {
             for (place in vocabulary.places) {
                 if (place.isNotBlank()) add(Candidate(place, place, null))
+                for (alias in vocabulary.placeAliases[place].orEmpty()) {
+                    if (alias.isNotBlank()) add(Candidate(alias, place, null))
+                }
             }
             for (tag in vocabulary.tags) {
                 if (tag.name.isNotBlank()) add(Candidate(tag.name, null, tag.name))

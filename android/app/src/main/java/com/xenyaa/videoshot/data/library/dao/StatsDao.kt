@@ -69,6 +69,17 @@ interface StatsDao {
     @Query("SELECT COALESCE((SELECT cnt FROM shot_stat WHERE month = :month AND kind = 0 AND ref_id = 0), 0)")
     suspend fun shotsInMonth(month: String): Int
 
+    /** 地點管理：全部地點 ＋ 張數（沒有圖的是 0），依名稱排序。 */
+    @SkipQueryVerification
+    @Query(
+        """
+        SELECT p.id AS id, p.name AS name, p.aliases AS aliases, COALESCE(g.cnt, 0) AS shotCount
+        FROM place p LEFT JOIN shot_stat_total g ON g.kind = 1 AND g.ref_id = p.id
+        ORDER BY p.name
+        """
+    )
+    suspend fun placesWithUsage(): List<PlaceUsageProjection>
+
     /** 標籤管理：全部標籤 ＋ 張數（沒有圖的標籤是 0），依名稱排序。 */
     @SkipQueryVerification
     @Query(

@@ -18,6 +18,7 @@ import com.xenyaa.videoshot.data.repo.model.SearchPage
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.ShotRow
+import com.xenyaa.videoshot.data.repo.model.PlaceUsage
 import com.xenyaa.videoshot.data.repo.model.TagUsage
 
 /**
@@ -167,4 +168,25 @@ interface LibraryRepo {
 
     /** 刪除標籤。只解除關聯（`shot_tag` 由外鍵連動一起刪），圖不動。 */
     suspend fun deleteTag(id: Long)
+
+    /** 地點管理頁（16C）：全部地點 ＋ 張數（含 0 張的），依名稱排序。 */
+    suspend fun allPlacesWithUsage(): List<PlaceUsage>
+
+    /**
+     * 地點改名／改別名。**改名成既有的名稱＝合併**（同 [mergePlace]：這個 `id` 被併進既有地點，
+     * 這次編輯的別名草稿不寫入）。單一交易。
+     */
+    suspend fun renamePlace(id: Long, name: String, aliases: List<String>)
+
+    /**
+     * 把 `fromId` 併進 `toId`：圖改指向目標、來源的本名與別名併進目標別名（去空白、去重、去掉跟目標本名相同的；
+     * 目標原有的排前面）、來源地點刪除。單一交易；`fromId == toId` 丟 [IllegalArgumentException]。
+     */
+    suspend fun mergePlace(fromId: Long, toId: Long)
+
+    /** 刪除地點：圖還在，只是沒有地點（外鍵 `ON DELETE SET NULL`）。 */
+    suspend fun deletePlace(id: Long)
+
+    /** 標籤合併，規則同 [mergePlace]（舊名留成別名；同一張圖兩個都有只算一次）。單一交易；合併到自己丟 [IllegalArgumentException]。 */
+    suspend fun mergeTag(fromId: Long, toId: Long)
 }

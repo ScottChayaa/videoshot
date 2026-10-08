@@ -35,6 +35,7 @@ import com.xenyaa.videoshot.data.repo.model.SearchPage
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.ShotRow
+import com.xenyaa.videoshot.data.repo.model.PlaceUsage
 import com.xenyaa.videoshot.data.repo.model.TagUsage
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
@@ -255,9 +256,11 @@ class RoomLibraryRepo(
     override suspend fun allTagNames(): List<String> = withContext(io) { db.tagDao().allNames() }
 
     override suspend fun queryVocabulary(): QueryVocabulary = withContext(io) {
-        val places = db.placeDao().usedNames()
+        val placeRows = db.placeDao().usedWithAliases()
+        val places = placeRows.map { it.name }
+        val placeAliases = placeRows.associate { it.name to decodeAliases(it.aliases) }.filterValues { it.isNotEmpty() }
         val tags = db.tagDao().allWithAliases().map { TagAlias(it.name, decodeAliases(it.aliases)) }
-        QueryVocabulary(places, tags)
+        QueryVocabulary(places, tags, placeAliases)
     }
 
     /** 標籤名轉 id；查不到的名字略過（同 `TagDao.idsByNames` 的 KDoc：查詢不會新建標籤）。 */
@@ -444,14 +447,71 @@ class RoomLibraryRepo(
             db.inWriteTransaction {
                 val existing = db.tagDao().byName(trimmed)
                 if (existing != null && existing.id != id) {
-                    db.tagDao().reassignLinks(id, existing.id)
-                    db.tagDao().deleteById(id)
+                    mergeTagInTx(id, existing.id) // 16C 起撞名合併也把舊名留成別名
                 } else {
                     db.tagDao().update(id, trimmed, kind, encodeAliases(aliases))
                 }
             }
             onChanged()
         }
+
+    /** 合併後目標的別名：目標原有的在前，接著來源的本名與別名；去掉空白、重複、跟目標本名相同的（設計決議 3）。 */
+    private fun mergedAliases(target: String, targetAliases: List<String>, source: String, sourceAliases: List<String>): List<String> =
+        (targetAliases + source + sourceAliases).map { it.trim() }.filter { it.isNotEmpty() && it != target }.distinct()
+
+    override suspend fun allPlacesWithUsage(): List<PlaceUsage> = withContext(io) {
+        db.statsDao().placesWithUsage().map { PlaceUsage(it.id, it.name, decodeAliases(it.aliases), it.shotCount) }
+    }
+
+    override suspend fun renamePlace(id: Long, name: String, aliases: List<String>): Unit = withContext(io) {
+        val trimmed = name.trim()
+        require(trimmed.isNotEmpty()) { "地點名稱不能是空的" }
+        db.inWriteTransaction {
+            val existing = db.placeDao().byName(trimmed)
+            if (existing != null && existing.id != id) mergePlaceInTx(id, existing.id)
+            else db.placeDao().update(id, trimmed, encodeAliases(aliases))
+        }
+        onChanged()
+    }
+
+    override suspend fun mergePlace(fromId: Long, toId: Long): Unit = withContext(io) {
+        require(fromId != toId) { "不能合併到自己" }
+        db.inWriteTransaction { mergePlaceInTx(fromId, toId) }
+        onChanged()
+    }
+
+    private suspend fun mergePlaceInTx(fromId: Long, toId: Long) {
+        val from = requireNotNull(db.placeDao().byId(fromId)) { "地點 $fromId 不存在" }
+        val to = requireNotNull(db.placeDao().byId(toId)) { "地點 $toId 不存在" }
+        db.placeDao().reassignShots(fromId, toId)
+        db.placeDao().update(
+            toId, to.name,
+            encodeAliases(mergedAliases(to.name, decodeAliases(to.aliases), from.name, decodeAliases(from.aliases))),
+        )
+        db.placeDao().deleteById(fromId)
+    }
+
+    override suspend fun deletePlace(id: Long): Unit = withContext(io) {
+        db.placeDao().deleteById(id)
+        onChanged()
+    }
+
+    override suspend fun mergeTag(fromId: Long, toId: Long): Unit = withContext(io) {
+        require(fromId != toId) { "不能合併到自己" }
+        db.inWriteTransaction { mergeTagInTx(fromId, toId) }
+        onChanged()
+    }
+
+    private suspend fun mergeTagInTx(fromId: Long, toId: Long) {
+        val from = requireNotNull(db.tagDao().byId(fromId)) { "標籤 $fromId 不存在" }
+        val to = requireNotNull(db.tagDao().byId(toId)) { "標籤 $toId 不存在" }
+        db.tagDao().reassignLinks(fromId, toId)
+        db.tagDao().update(
+            toId, to.name, to.kind,
+            encodeAliases(mergedAliases(to.name, decodeAliases(to.aliases), from.name, decodeAliases(from.aliases))),
+        )
+        db.tagDao().deleteById(fromId)
+    }
 
     override suspend fun deleteTag(id: Long): Unit = withContext(io) {
         db.tagDao().deleteById(id)

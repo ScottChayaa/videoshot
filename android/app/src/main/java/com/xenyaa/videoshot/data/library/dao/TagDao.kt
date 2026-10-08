@@ -48,6 +48,9 @@ interface TagDao {
     @Query("SELECT id FROM tag WHERE name IN (:names)")
     suspend fun idsByNames(names: List<String>): List<Long>
 
+    @Query("SELECT * FROM tag WHERE id = :id")
+    suspend fun byId(id: Long): TagEntity?
+
     @Query("UPDATE tag SET name = :name, kind = :kind, aliases = :aliases WHERE id = :id")
     suspend fun update(id: Long, name: String, kind: String, aliases: String)
 

@@ -15,3 +15,11 @@ data class TagUsage(
     val aliases: List<String>,
     val shotCount: Int,
 )
+
+/** 地點管理頁的一列（16C）。張數讀統計表；沒有圖在用的地點是 0。 */
+data class PlaceUsage(
+    val id: Long,
+    val name: String,
+    val aliases: List<String>,
+    val shotCount: Int,
+)

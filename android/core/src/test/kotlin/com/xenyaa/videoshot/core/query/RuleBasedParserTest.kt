@@ -72,4 +72,16 @@ class RuleBasedParserTest {
         val p = RuleBasedParser.parse("加勒比海到加勒比海的旅程", vocab)
         assertEquals(listOf("加勒比海"), p.places)
     }
+
+    @Test
+    fun 地點別名對應到本名() {
+        val vocab = QueryVocabulary(
+            places = listOf("宜蘭礁溪"),
+            tags = emptyList(),
+            placeAliases = mapOf("宜蘭礁溪" to listOf("礁溪")),
+        )
+        val parsed = RuleBasedParser.parse("礁溪的溫泉", vocab)
+        assertEquals(listOf("宜蘭礁溪"), parsed.places)
+        assertEquals(listOf("溫泉"), parsed.keywords)
+    }
 }

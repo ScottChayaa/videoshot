@@ -104,7 +104,8 @@ class AccountRepoTest {
         assertEquals("阿明", merged.name)
         assertEquals(2, merged.shotCount)
         assertEquals("person", merged.kind)
-        assertEquals(listOf("小明"), merged.aliases)
+        // 16C 設計決議 3：合併後舊名（阿明哥）留成目標的別名；草稿的別名（哥哥）不會蓋過去
+        assertEquals(listOf("小明", "阿明哥"), merged.aliases)
     }
 
     @Test

@@ -43,6 +43,11 @@ open class FakeLibraryRepo : LibraryRepo {
     override suspend fun commitPicks(video: VideoEntity, picks: List<NewShot>): List<Long> = emptyList()
     override suspend fun distinctPlaces(): List<String> = emptyList()
     override suspend fun allTagNames(): List<String> = emptyList()
+    override suspend fun allPlacesWithUsage(): List<com.xenyaa.videoshot.data.repo.model.PlaceUsage> = emptyList()
+    override suspend fun renamePlace(id: Long, name: String, aliases: List<String>) = Unit
+    override suspend fun mergePlace(fromId: Long, toId: Long) = Unit
+    override suspend fun deletePlace(id: Long) = Unit
+    override suspend fun mergeTag(fromId: Long, toId: Long) = Unit
     override suspend fun allTagsWithUsage(): List<TagUsage> = emptyList()
     override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>) = Unit
     override suspend fun deleteTag(id: Long) = Unit
