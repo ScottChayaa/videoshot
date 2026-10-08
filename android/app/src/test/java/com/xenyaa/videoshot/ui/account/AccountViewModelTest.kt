@@ -599,6 +599,21 @@ class AccountViewModelTest {
     }
 
     @Test
+    fun 抽屜裡改了名字還沒存就開始合併_確認用已儲存的名字() = runTest {
+        val deps = FakeDeps()
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+        viewModel.openPlaceEditor(deps.placeList[1])
+        viewModel.editPlaceName("改到一半的草稿")
+        viewModel.startPlaceMerge()
+        assertEquals("宜蘭礁溪", viewModel.state.value.mergePicking?.fromName)
+        viewModel.openTagEditor(deps.tagList[0])
+        viewModel.editTagName("標籤草稿")
+        viewModel.startTagMerge()
+        assertEquals("阿明", viewModel.state.value.mergePicking?.fromName)
+    }
+
+    @Test
     fun 挑了目標會帶上目標名稱進確認() = runTest {
         val deps = FakeDeps()
         val viewModel = vm(deps)

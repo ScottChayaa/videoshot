@@ -84,7 +84,7 @@ fun TagManagementScreen(
         AlertDialog(
             onDismissRequest = onDismissMerge,
             title = { Text("合併到「$pendingMerge」") },
-            text = { Text("已經有標籤叫「$pendingMerge」，這次改名會把兩者的圖合併到既有標籤，這個標籤會被刪除。") },
+            text = { Text("已經有標籤叫「$pendingMerge」，這次改名會把兩者的圖合併到既有標籤，這個標籤的名字會變成它的別名。") },
             confirmButton = { VsButton("合併", onConfirmMerge, variant = ButtonVariant.Primary) },
             dismissButton = { VsButton("取消", onDismissMerge, variant = ButtonVariant.Quiet) },
         )

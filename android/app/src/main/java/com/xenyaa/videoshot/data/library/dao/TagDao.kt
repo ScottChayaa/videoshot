@@ -42,10 +42,17 @@ interface TagDao {
     suspend fun allWithAliases(): List<TagAliasProjection>
 
     /**
-     * 名稱轉 id。查不到的名字直接略過——檢索不像 `commitPicks`／`patchShots` 會新建標籤，
+     * 名稱或別名轉 id（別名視同本名，合併後打舊名照樣找得到）。查不到的名字直接略過——檢索不像 `commitPicks`／`patchShots` 會新建標籤，
      * 使用者勾的是「既有」的標籤 chip，查詢裡不該無中生有一個新標籤。
      */
-    @Query("SELECT id FROM tag WHERE name IN (:names)")
+    @Query(
+        """
+        SELECT id FROM tag
+        WHERE name IN (:names) OR EXISTS (
+            SELECT 1 FROM json_each(CASE WHEN json_valid(tag.aliases) THEN tag.aliases ELSE '[]' END) j WHERE j.value IN (:names)
+        )
+        """
+    )
     suspend fun idsByNames(names: List<String>): List<Long>
 
     @Query("SELECT * FROM tag WHERE id = :id")

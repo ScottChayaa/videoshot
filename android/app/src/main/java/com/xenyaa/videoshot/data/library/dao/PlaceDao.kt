@@ -30,7 +30,7 @@ interface PlaceDao {
     @Query(
         """
         SELECT id FROM place
-        WHERE name IN (:names) OR EXISTS (SELECT 1 FROM json_each(place.aliases) j WHERE j.value IN (:names))
+        WHERE name IN (:names) OR EXISTS (SELECT 1 FROM json_each(CASE WHEN json_valid(place.aliases) THEN place.aliases ELSE '[]' END) j WHERE j.value IN (:names))
         """
     )
     suspend fun idsByNames(names: List<String>): List<Long>
@@ -40,7 +40,7 @@ interface PlaceDao {
         """
         SELECT id FROM place
         WHERE name LIKE '%' || :keyword || '%'
-           OR EXISTS (SELECT 1 FROM json_each(place.aliases) j WHERE j.value LIKE '%' || :keyword || '%')
+           OR EXISTS (SELECT 1 FROM json_each(CASE WHEN json_valid(place.aliases) THEN place.aliases ELSE '[]' END) j WHERE j.value LIKE '%' || :keyword || '%')
         """
     )
     suspend fun idsNameContains(keyword: String): List<Long>

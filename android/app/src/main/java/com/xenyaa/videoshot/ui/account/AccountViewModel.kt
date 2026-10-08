@@ -254,18 +254,23 @@ class AccountViewModel(
     /** 合併（16C）：從地點編輯抽屜開始，抽屜關掉、改開目標挑選。 */
     fun startPlaceMerge() {
         val editor = _state.value.placeEditor ?: return
-        val count = _state.value.places.firstOrNull { it.id == editor.id }?.shotCount ?: 0
+        val saved = _state.value.places.firstOrNull { it.id == editor.id }
+        val count = saved?.shotCount ?: 0
+        // 用已儲存的名字，不用編輯中尚未存的草稿
+        val fromName = saved?.name ?: editor.name
         _state.update {
-            it.copy(placeEditor = null, mergePicking = MergeRequest(MergeKind.PLACE, editor.id, editor.name, count))
+            it.copy(placeEditor = null, mergePicking = MergeRequest(MergeKind.PLACE, editor.id, fromName, count))
         }
     }
 
     /** 同 [startPlaceMerge]，來源是標籤編輯抽屜。 */
     fun startTagMerge() {
         val editor = _state.value.editor ?: return
-        val count = _state.value.tags.firstOrNull { it.id == editor.id }?.shotCount ?: 0
+        val saved = _state.value.tags.firstOrNull { it.id == editor.id }
+        val count = saved?.shotCount ?: 0
+        val fromName = saved?.name ?: editor.name
         _state.update {
-            it.copy(editor = null, pendingMerge = null, mergePicking = MergeRequest(MergeKind.TAG, editor.id, editor.name, count))
+            it.copy(editor = null, pendingMerge = null, mergePicking = MergeRequest(MergeKind.TAG, editor.id, fromName, count))
         }
     }
 

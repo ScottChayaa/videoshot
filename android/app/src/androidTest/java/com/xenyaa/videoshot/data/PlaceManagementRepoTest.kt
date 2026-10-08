@@ -139,4 +139,26 @@ class PlaceManagementRepoTest {
         )
         assertEquals(1, page.items.size)
     }
+
+    @Test fun 標籤合併後查詢打舊名字照樣找得到() = runTest {
+        seed()
+        val tags = repo.allTagsWithUsage().associateBy { it.name }
+        repo.mergeTag(tags.getValue("明哥").id, tags.getValue("阿明").id)
+        val byQuery = repo.searchByQuery(
+            com.xenyaa.videoshot.core.query.ParsedQuery(tags = listOf("明哥")),
+            upToMonth = null, after = null, limit = 10,
+        )
+        assertEquals(3, byQuery.items.size)
+        val byFacets = repo.searchByFacets(emptySet(), setOf("明哥"), upToMonth = null, after = null, limit = 10)
+        assertEquals(3, byFacets.items.size)
+    }
+
+    @Test fun 別名欄位壞掉不會讓依名稱查詢出錯() = runTest {
+        seed()
+        db.execOnWriter("UPDATE place SET aliases = '' WHERE name = '花蓮'")
+        val page = repo.searchByFacets(setOf("宜蘭礁溪"), emptySet(), upToMonth = null, after = null, limit = 10)
+        assertEquals(2, page.items.size)
+        val none = repo.searchByFacets(setOf("不存在"), emptySet(), upToMonth = null, after = null, limit = 10)
+        assertEquals(0, none.items.size)
+    }
 }
