@@ -6,7 +6,6 @@ import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -17,6 +16,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import com.xenyaa.videoshot.data.repo.model.FilterOption
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
@@ -98,9 +98,16 @@ class FilterSheetTest {
     @Test
     fun 小膠囊不顯示張數() {
         show()
-        // 只有名稱文字，沒有數字
-        compose.onAllNodesWithText("礁溪", substring = true).assertCountEquals(1)
-        compose.onNodeWithText("礁溪").assert(hasText("礁溪"))
+        // 文字要剛好等於名稱（substring = false）；後面多接一個張數就會對不到
+        for (name in listOf("礁溪", "墾丁", "溫泉", "露營")) {
+            compose.onNodeWithText(name, substring = false).assertIsDisplayed()
+        }
+        // 而且整個抽屜裡沒有任何文字帶數字
+        compose.onAllNodes(
+            SemanticsMatcher("文字含數字") { node ->
+                node.config.getOrNull(SemanticsProperties.Text)?.any { t -> t.text.any(Char::isDigit) } == true
+            },
+        ).assertCountEquals(0)
     }
 
     @Test

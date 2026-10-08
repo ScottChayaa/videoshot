@@ -91,11 +91,14 @@ class HomeViewModelTest {
 
         override suspend fun filterOptions(upToMonth: String?): List<FilterOption> {
             filterOptionsCalls += upToMonth
+            // 呼叫當下就定下這次的回傳值：被卡住的那一次晚到時回的是「它自己那時候」的資料，
+            // 這樣沒被取消的舊讀取才會真的蓋掉新結果、測得出來
+            val value = filterOptionsValue
             filterOptionsGate?.let { gate ->
                 filterOptionsGate = null
                 gate.await()
             }
-            return filterOptionsValue
+            return value
         }
 
         override suspend fun monthFacets(month: String): List<MonthFacet> {
@@ -318,6 +321,9 @@ class HomeViewModelTest {
         repo.filterOptionsValue = listOf(place("新"))
         vm.openFilter()
         advanceUntilIdle()
+        // 第二次（沒被卡）先讀完
+        assertEquals(listOf(place("新")), vm.state.value.filterOptions)
+        // 第一次（被卡住）之後才完成：它回的是「舊」，不能蓋掉第二次的結果
         slow.complete(Unit)
         advanceUntilIdle()
         assertEquals(listOf(place("新")), vm.state.value.filterOptions)
