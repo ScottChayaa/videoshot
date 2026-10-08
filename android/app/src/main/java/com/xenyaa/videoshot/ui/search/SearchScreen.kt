@@ -74,6 +74,7 @@ import com.xenyaa.videoshot.ui.thumb.ThumbLoader
 /**
  * 查詢分頁（規格第六節「查詢」、驗收手冊 §五）。條件與結果**同一頁切換**——
  * [SearchState.phase] 決定畫的是條件表單還是結果格線，不是導覽到另一個畫面。
+ * **階段 17 起沒有入口**（底部導覽拿掉了查詢分頁，改由首頁篩選），程式碼保留待日後接回。
  */
 @Composable
 fun SearchScreen(

@@ -22,7 +22,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * 手冊 §零：實體鍵盤走得到導覽五格，而且看得到焦點框。
+ * 手冊 §零：實體鍵盤走得到導覽四格，而且看得到焦點框。
  *
  * `NavigationBarItem` 把 focusable 藏在內部，外面只套得到容器 —— `focusRing` 判斷用 `hasFocus`
  * 就是為了這種元件（見 `FocusRingTest`）。

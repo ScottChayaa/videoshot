@@ -28,9 +28,10 @@ class VsBottomNavTest {
         compose.setContent { VideoshotTheme { VsBottomNav(current, onSelect, initial) } }
     }
 
-    @Test fun 五格都有文字() {
+    @Test fun 四格都有文字且沒有查詢() {
         show()
-        for (label in listOf("首頁", "查詢", "取圖", "分類", "帳號")) compose.onNodeWithText(label).assertIsDisplayed()
+        for (label in listOf("首頁", "取圖", "分類", "帳號")) compose.onNodeWithText(label).assertIsDisplayed()
+        compose.onNodeWithText("查詢").assertDoesNotExist()
     }
 
     @Test fun 目前分頁標成已選() {
@@ -42,15 +43,15 @@ class VsBottomNavTest {
     @Test fun 點一格回報分頁() {
         var picked: Tab? = null
         show(onSelect = { picked = it })
-        compose.onNodeWithText("查詢").performClick()
-        assertEquals(Tab.SEARCH, picked)
+        compose.onNodeWithText("分類").performClick()
+        assertEquals(Tab.FOLDERS, picked)
     }
 
-    /** 設計文件決定 4：連結後第五格顯示頭像字母，文字仍是「帳號」。 */
-    @Test fun 有頭像字母時第五格的無障礙名稱仍只有帳號() {
+    /** 設計文件決定 4：連結後第四格顯示頭像字母，文字仍是「帳號」。 */
+    @Test fun 有頭像字母時帳號格的無障礙名稱仍只有帳號() {
         show(initial = 'S')
         // 字母只是視覺頭像（clearAndSetSemantics 清掉了它的語意，所以語意樹裡找不到字母本身）；
-        // 重點是第五格合併後的文字只剩「帳號」，TalkBack 不會唸成「S，帳號」
+        // 重點是帳號格合併後的文字只剩「帳號」，TalkBack 不會唸成「S，帳號」
         compose.onNodeWithText("S", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithText("帳號").assertIsDisplayed().assertTextEquals("帳號")
     }

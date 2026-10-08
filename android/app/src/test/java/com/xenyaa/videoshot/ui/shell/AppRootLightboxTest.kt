@@ -202,7 +202,7 @@ class AppRootLightboxTest {
         compose.onNodeWithContentDescription("片段縮圖 00:20").performClick()
         compose.onNodeWithText("00:20").assertIsDisplayed()
         // assertDoesNotExist：不是被蓋住，是這一輪組合裡整個沒有這個節點（手冊 §六）
-        for (label in listOf("首頁", "查詢", "取圖", "分類", "帳號")) {
+        for (label in listOf("首頁", "取圖", "分類", "帳號")) {
             compose.onNodeWithText(label).assertDoesNotExist()
         }
     }

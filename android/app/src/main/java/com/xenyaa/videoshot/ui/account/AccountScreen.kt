@@ -89,13 +89,8 @@ fun AccountScreen(
                         onClick = { onOpenSection(AccountSection.CAPTURE) },
                     )
                     VsSettingDivider()
-                    VsListRow(
-                        "查詢",
-                        subtitle = if (state.geminiKeySet) "Gemini 金鑰：已設定" else "Gemini 金鑰：尚未設定",
-                        icon = VsIcons.Search,
-                        onClick = { onOpenSection(AccountSection.GEMINI) },
-                    )
-                    VsSettingDivider()
+                    // 階段 17：描述查詢下架，「查詢 · Gemini 金鑰」這一列先藏起來——
+                    // AccountSection.GEMINI 與 GeminiKeyScreen 都留著，日後重新開放時把這一列接回即可
                     VsListRow(
                         "AI 分析",
                         subtitle = "往前 ${state.aiRangeBeforeSec} 秒／往後 ${state.aiRangeAfterSec} 秒",

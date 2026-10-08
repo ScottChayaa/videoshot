@@ -2,17 +2,16 @@ package com.xenyaa.videoshot.ui.shell
 
 import androidx.compose.runtime.Immutable
 
-/** 底部導覽的五格（手冊 §零：五個項目都是圖示＋文字）。 */
+/** 底部導覽的四格（手冊 §零：每個項目都是圖示＋文字；階段 17 拿掉了「查詢」）。 */
 enum class Tab(val label: String) {
     HOME("首頁"),
-    SEARCH("查詢"),
     CAPTURE("取圖"),
     FOLDERS("分類"),
     ACCOUNT("帳號"),
 }
 
 /**
- * 帳號頁選單的七個入口（規格第九節）。`id` 是 [NavCodec] 存檔用的短字串，**不可更動**。
+ * 帳號頁選單的七個入口（規格第九節；[GEMINI] 階段 17 起選單上沒有那一列，畫面保留）。`id` 是 [NavCodec] 存檔用的短字串，**不可更動**。
  *
  * [BACKUP]／[THUMBS] 兩格本階段（階段 11）只顯示靜態說明——備份與 Google 帳號連結是階段 12，
  * 縮圖回填進度是階段 13；[THUMBS] 目前只掛「儲存用量」。
@@ -85,23 +84,6 @@ data class NavState(
     fun select(target: Tab): NavState =
         if (target == tab) this
         else copy(tab = target, returnTo = if (target == Tab.CAPTURE) tab else returnTo)
-
-    /**
-     * 切到某一格，**同時把它的堆疊重置成只剩 [Dest.Root]**。目前只給「首頁月份標籤點進查詢」
-     * 這條路徑用——查詢分頁被剛帶入的新條件蓋過一次結果之後，那一格不能還停在使用者先前留在
-     * 那裡的舊畫面（例如查詢結果 Lightbox【播放這一段】留下的詳情頁），不然使用者會落在一個
-     * 過期的畫面上，看不到規格第六節要求的「直接顯示結果」。
-     *
-     * 跟 [select] 不同：[select] 只換作用中的分頁，不動堆疊本身——那是給「使用者自己點底部
-     * 導覽切分頁」用的，那種情況本來就該留住那一格原來停在哪裡。這裡兩件事綁在一起做，
-     * 因為呼叫端（`seedFromHome`）永遠是「把查詢分頁重新帶到最新結果」，不會有只想換分頁、
-     * 卻不想清掉舊畫面的情境。
-     *
-     * 不複製 [select] 對 `returnTo` 的 [Tab.CAPTURE] 特別處理——這裡的 `target` 只會是
-     * [Tab.SEARCH]，不會是 [Tab.CAPTURE]，`returnTo` 不需要跟著換。
-     */
-    fun selectAndReset(target: Tab): NavState =
-        copy(tab = target, stacks = stacks + (target to listOf(Dest.Root)))
 
     fun push(dest: Dest): NavState =
         copy(stacks = stacks + (tab to stacks.getValue(tab) + dest))

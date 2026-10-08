@@ -40,9 +40,9 @@ class AppShellTest {
     }
 
     @Test
-    fun 五格都有文字() {
+    fun 四格都有文字() {
         show()
-        for (label in listOf("首頁", "查詢", "取圖", "分類", "帳號")) {
+        for (label in listOf("首頁", "取圖", "分類", "帳號")) {
             compose.onNodeWithText(label).assertIsDisplayed()
         }
     }

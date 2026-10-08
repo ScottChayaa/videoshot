@@ -483,4 +483,35 @@ class HomeViewModelTest {
         assertEquals("舊篩選晚到的結果不能混進來", listOf(1L), vm.state.value.items.map { it.id })
         assertFalse(vm.state.value.loading)
     }
+
+    /** 裁定 E：篩選中編輯一張，ShotRow 沒有標籤、無法判斷還符不符合，一律重讀，不就地替換。 */
+    @Test
+    fun 篩選中編輯一張會重新載入_不留下已不符合的那張() = runTest(dispatcher) {
+        val (vm, repo) = newVm()
+        vm.applySingle(tag("溫泉"))
+        advanceUntilIdle()
+        assertEquals(listOf(9L), vm.state.value.items.map { it.id })
+        val callsBefore = repo.searchByFacetsCalls.size
+
+        // 編輯把那張的溫泉標籤拿掉：伺服端（DB）重查就不再回傳它
+        repo.searchItems = emptyList()
+        vm.onShotChanged(row(9, "2026-03-10"))
+        advanceUntilIdle()
+
+        assertEquals(callsBefore + 1, repo.searchByFacetsCalls.size)
+        assertEquals(emptyList<Long>(), vm.state.value.items.map { it.id })
+        assertEquals(HomeFilter(emptySet(), setOf("溫泉")), vm.state.value.filter)
+    }
+
+    @Test
+    fun 沒篩選時編輯一張維持就地替換_不重新載入() = runTest(dispatcher) {
+        val (vm, repo) = newVm()
+        val feedCallsBefore = repo.homeFeedCallsByMonth.size
+
+        vm.onShotChanged(row(1, "2026-03-20"))
+        advanceUntilIdle()
+
+        assertEquals(feedCallsBefore, repo.homeFeedCallsByMonth.size)
+        assertEquals("2026-03-20", vm.state.value.items.single().eventDate)
+    }
 }

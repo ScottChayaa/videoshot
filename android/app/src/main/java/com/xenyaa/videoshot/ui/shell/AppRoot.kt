@@ -58,9 +58,6 @@ import com.xenyaa.videoshot.ui.folders.FoldersViewModel
 import com.xenyaa.videoshot.ui.home.HomeScreen
 import com.xenyaa.videoshot.ui.home.HomeViewModel
 import com.xenyaa.videoshot.ui.home.toFilterOption
-import com.xenyaa.videoshot.ui.search.SearchPhase
-import com.xenyaa.videoshot.ui.search.SearchScreen
-import com.xenyaa.videoshot.ui.search.SearchViewModel
 import com.xenyaa.videoshot.ui.lightbox.LightboxActions
 import com.xenyaa.videoshot.ui.lightbox.LightboxScreen
 import com.xenyaa.videoshot.ui.lightbox.shareTextOf
@@ -158,17 +155,6 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
     )
     val homeState by homeVm.state.collectAsStateWithLifecycle()
     val homeListState = rememberLazyGridState()
-
-    val searchVm: SearchViewModel = viewModel(
-        factory = object : ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                SearchViewModel(container.libraryRepo, container.queryResolver) as T
-        },
-        key = "search",
-    )
-    val searchState by searchVm.state.collectAsStateWithLifecycle()
-    val searchListState = rememberLazyGridState()
 
     val foldersVm: FoldersViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
@@ -325,14 +311,11 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
         }
     }
 
-    // 標籤改名／刪除完成——查詢分頁的 facet chip 快取要跟著失效,不然使用者在帳號頁的
-    // 標籤管理改了名字或刪掉標籤之後,查詢分頁的標籤雲還是舊的名字/還留著已刪除的那個,
-    // 點下去用舊名字去解析會查到 0 筆（最終審查 Important 1）
+    // 地點或標籤改名、合併、刪除完成——首頁已套用的篩選清空（階段 17 設計決議 8）：舊名稱可能
+    // 已經不存在，留著只會查不到東西又看不出原因。clearFilter 本身會重新載入清單與月份，
+    // 首頁月份標籤與已載入的圖上的地點名稱也因此一併刷新，不必另外 reload()
     LaunchedEffect(accountVm) {
-        accountVm.labelsChanged.collect {
-            searchVm.loadFacets()
-            homeVm.reload() // 首頁月份標籤與已載入的圖上的地點名稱都可能改了
-        }
+        accountVm.labelsChanged.collect { homeVm.clearFilter() }
     }
 
     // 資料夾頁的返回鍵，以及刪掉自己之後要做的事：退一層；如果因此落回分類清單頁
@@ -359,23 +342,19 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             // 來源依目前在哪一格切換：分類分頁開著資料夾頁時，左右滑動範圍
             // 是那個資料夾本層，不是首頁的 homeState（規格第六節：「資料夾＝該資料夾本層」）。
             val inFolder = nav.tab == Tab.FOLDERS && folderVm != null
-            val inSearch = nav.tab == Tab.SEARCH
             val folderState by (folderVm?.state ?: MutableStateFlow(FolderState())).collectAsStateWithLifecycle()
-            // 規格第六節：Lightbox 左右滑動的範圍是「進來時的清單」——查詢結果、資料夾本層、
-            // 首頁目前顯示中的時間軸三選一，依目前在哪一格決定
+            // 規格第六節：Lightbox 左右滑動的範圍是「進來時的清單」——資料夾本層、
+            // 首頁目前顯示中的時間軸（有篩選時是篩選後的清單）二選一，依目前在哪一格決定
             val items = when {
                 inFolder -> folderState.items
-                inSearch -> searchState.results
                 else -> homeState.items
             }
             val hasMore = when {
                 inFolder -> !folderState.endReached
-                inSearch -> !searchState.endReached
                 else -> !homeState.endReached
             }
             val loadMore: () -> Unit = when {
                 inFolder -> folderVm!!::loadMore
-                inSearch -> searchVm::loadMore
                 else -> homeVm::loadMore
             }
             LightboxScreen(
@@ -435,10 +414,6 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                 // items 一旦被清空成空清單，Lightbox 甚至會誤判成「沒東西可看」
                                 // 自動關掉自己（LightboxScreen 的 items.isEmpty() 那段）
                                 folderVm?.onShotDeleted(shot.id)
-                                // 查詢分頁同一個理由（Task 12 覆查 Important 1）：查詢分頁可能在
-                                // 背景分頁活著，這張圖若剛好在它的結果裡，清單與結果頁的「N 張」都要
-                                // 跟著更新，不能只在 nav.tab == Tab.SEARCH 時才呼叫
-                                searchVm.onShotDeleted(shot.id)
                                 // 分類分頁（清單頁）也要跟著更新——這張圖所屬資料夾的張數與
                                 // 預覽拼貼都可能變了，原本只有加入分類那條路徑會呼叫（N4）
                                 foldersVm.reload()
@@ -646,10 +621,6 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                     // 也可能刪掉那個資料夾本層的某幾張，不重查的話切回去看到的
                                     // 還是刪除前的張數與預覽（最終審查 Finding 5）
                                     folderVm?.reload()
-                                    // 詳情頁也可能是從查詢分頁的結果開出來的——刪掉整支影片，
-                                    // 查詢結果裡屬於那支影片的列要一起拔掉，不然會留著點了會
-                                    // 導去不存在的 videoId 的殘影（這次最終審查 Important 4）
-                                    searchVm.onVideoDeleted(current.videoId)
                                     // 帳號頁的「收藏片段」／「來源影片」統計整支都少了,同一個
                                     // 理由——背景分頁也要跟著重查（這次最終審查 Important 2）
                                     accountVm.reload()
@@ -684,21 +655,6 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                         onApplyFilter = homeVm::applyFilter,
                         onDismissFilter = homeVm::dismissFilter,
                         onClearFilter = homeVm::clearFilter,
-                    )
-                    Tab.SEARCH -> SearchScreen(
-                        state = searchState,
-                        loader = container.thumbLoader,
-                        listState = searchListState,
-                        onSetMode = searchVm::setMode,
-                        onSetTextQuery = searchVm::setTextQuery,
-                        onToggleFacet = searchVm::toggleFacet,
-                        onShowMoreFacets = searchVm::showMoreFacets,
-                        onPickMonth = searchVm::setUpToMonth,
-                        onRunSearch = searchVm::runSearch,
-                        onLoadMore = searchVm::loadMore,
-                        onShowConditions = searchVm::showConditions,
-                        onOpen = { nav = nav.push(Dest.Lightbox(it)) },
-                        phoneColumns = accountState.thumbColumns,
                     )
                     Tab.FOLDERS -> when (nav.current) {
                         // 資料夾頁：上半子資料夾、下半本層的圖。folderVm 一定不是 null——
@@ -792,11 +748,6 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                             // 開著的資料夾頁本層張數與預覽拼貼都可能變了，
                                             // 同 onDeleteVideo 的既有處理
                                             folderVm?.reload()
-                                            // 查詢分頁只有在「正停在結果畫面」時才重查。一定要
-                                            // 用 phase 擋住：SearchStore.canQuery() 在使用者只是
-                                            // 勾了 chip、還沒按查詢時也是 true，無條件呼叫
-                                            // runSearch() 會把人從條件畫面硬拉進結果畫面
-                                            if (searchState.phase == SearchPhase.RESULTS) searchVm.runSearch()
                                             accountVm.reload()
                                         }
                                     },
@@ -887,7 +838,6 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             homeVm = homeVm,
             folderVm = folderVm,
             detailVm = detailVm,
-            searchVm = searchVm,
             scope = scope,
             snackbarHostState = snackbarHostState,
             onDismiss = { editing = null },
@@ -1020,7 +970,6 @@ private fun EditingSheet(
     homeVm: HomeViewModel,
     folderVm: FolderViewModel?,
     detailVm: DetailViewModel?,
-    searchVm: SearchViewModel,
     scope: CoroutineScope,
     snackbarHostState: SnackbarHostState,
     onDismiss: () -> Unit,
@@ -1067,8 +1016,6 @@ private fun EditingSheet(
                 container.libraryRepo.shotById(shot.id)?.let { updated ->
                     homeVm.onShotChanged(updated)
                     detailVm?.onShotChanged(updated)
-                    // 查詢分頁同步，理由同刪除那一段（Task 12 覆查 Important 1）
-                    searchVm.onShotChanged(updated)
                 }
                 folderVm?.reload()
                 snackbarHostState.showSnackbar("已儲存")

@@ -37,22 +37,6 @@ class NavStateTest {
         assertEquals(Dest.Lightbox(3), nav.select(Tab.FOLDERS).current)
     }
 
-    /**
-     * 首頁月份標籤點進查詢分頁：查詢分頁上次留下的舊畫面（例如詳情頁）要被清掉，
-     * 不能讓使用者切過去卻看到過期的那一層（見 Task 12 覆查 Important 2）。
-     */
-    @Test
-    fun selectAndReset會換分頁並把該格堆疊清回根層() {
-        val nav = NavState()
-            .select(Tab.SEARCH).push(Dest.Lightbox(1)).push(Dest.Detail("v1", 9L))
-            .select(Tab.HOME)
-        val reseeded = nav.selectAndReset(Tab.SEARCH)
-        assertEquals(Tab.SEARCH, reseeded.tab)
-        assertEquals(Dest.Root, reseeded.current)
-        // 其他格的堆疊不受影響
-        assertEquals(Dest.Root, reseeded.select(Tab.HOME).current)
-    }
-
     /** 非首頁的根層按返回 → 回首頁分頁，不是直接離開 app。 */
     @Test
     fun 其他分頁的根層按返回會回到首頁分頁() {
@@ -102,7 +86,7 @@ class NavStateTest {
 
     @Test
     fun 壞掉的資料夾編碼退回預設() {
-        assertEquals(NavState(), NavCodec.decode("HOME|HOME|HOME=R;SEARCH=R;CAPTURE=R;FOLDERS=R,F不是數字;ACCOUNT=R"))
+        assertEquals(NavState(), NavCodec.decode("HOME|HOME|HOME=R;CAPTURE=R;FOLDERS=R,F不是數字;ACCOUNT=R"))
     }
 
     /** Lightbox 疊在資料夾頁上面時，要問得出「現在開的是哪個資料夾」。 */
@@ -153,7 +137,33 @@ class NavStateTest {
 
     @Test
     fun account區段解不出來時退回預設NavState() {
-        assertEquals(NavState(), NavCodec.decode("ACCOUNT|HOME|HOME=R;SEARCH=R;CAPTURE=R;FOLDERS=R;ACCOUNT=A不存在的區段"))
+        assertEquals(NavState(), NavCodec.decode("ACCOUNT|HOME|HOME=R;CAPTURE=R;FOLDERS=R;ACCOUNT=A不存在的區段"))
+    }
+
+    /** 階段 17 拿掉查詢分頁：舊版存檔（目前分頁是 SEARCH、或堆疊裡有 SEARCH 那一格）要安全退回預設。 */
+    @Test
+    fun 舊版存檔的目前分頁是SEARCH時退回預設NavState() {
+        assertEquals(
+            NavState(),
+            NavCodec.decode("SEARCH|HOME|HOME=R;SEARCH=R;CAPTURE=R;FOLDERS=R;ACCOUNT=R"),
+        )
+    }
+
+    @Test
+    fun 舊版存檔的堆疊含SEARCH那一格時退回預設NavState() {
+        assertEquals(
+            NavState(),
+            NavCodec.decode("HOME|HOME|HOME=R;SEARCH=R,L1;CAPTURE=R;FOLDERS=R;ACCOUNT=R"),
+        )
+        assertEquals(
+            NavState(),
+            NavCodec.decode("HOME|SEARCH|HOME=R;CAPTURE=R;FOLDERS=R;ACCOUNT=R"),
+        )
+    }
+
+    @Test
+    fun 分頁只有四格() {
+        assertEquals(listOf("首頁", "取圖", "分類", "帳號"), Tab.entries.map { it.label })
     }
 
     @Test

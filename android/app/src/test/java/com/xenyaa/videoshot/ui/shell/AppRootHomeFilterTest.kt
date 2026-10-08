@@ -19,6 +19,7 @@ import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.CacheRepo
 import com.xenyaa.videoshot.data.repo.FakeLibraryRepo
 import com.xenyaa.videoshot.data.repo.LibraryRepo
+import com.xenyaa.videoshot.data.repo.model.FilterOption
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.NewShot
 import com.xenyaa.videoshot.data.repo.model.Page
@@ -55,28 +56,31 @@ private fun row(id: Long, date: String, place: String? = null) = ShotRow(
 )
 
 /**
- * 查詢分頁的接線(階段 10):底部導覽切到「查詢」、選 chip、查詢、開 Lightbox;
- * 首頁月份標籤點擊帶條件切到查詢分頁並直接顯示結果。
+ * 首頁篩選的接線(階段 17,取代階段 10 的查詢分頁):開篩選抽屜、勾地點、套用後首頁只剩符合的圖,
+ * 篩選中開 Lightbox;首頁月份標籤點擊在首頁套用只篩這一個,不切分頁。
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], qualifiers = "w411dp-h891dp")
-class AppRootSearchTest {
+class AppRootHomeFilterTest {
 
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
     private class Repo : FakeLibraryRepo() {
-        var homeItems = listOf(row(1L, "2026-03-01", place = "宜蘭"))
+        var homeItems = listOf(row(1L, "2026-03-01", place = "宜蘭"), row(2L, "2026-03-02", place = "礁溪"))
         var facets = listOf(MonthFacet("宜蘭", "place", 1))
-        var searchResults = listOf(row(1L, "2026-03-01", place = "宜蘭"))
+        var searchResults = homeItems
         val deletedVideoIds = mutableListOf<String>()
 
         override suspend fun homeFeed(after: ShotCursor?, limit: Int, upToMonth: String?) = Page(homeItems, null)
         override suspend fun monthCounts() = emptyList<com.xenyaa.videoshot.data.repo.model.MonthCount>()
         override suspend fun monthFacets(month: String) = facets
         override suspend fun searchFacets(upToMonth: String?, limit: Int) = facets
+        override suspend fun filterOptions(upToMonth: String?) =
+            listOf(FilterOption("礁溪", true, "other", emptyList()))
+        override suspend fun monthsMatching(places: Set<String>, tagNames: Set<String>) = listOf("2026-03")
         override suspend fun searchByFacets(places: Set<String>, tagNames: Set<String>, upToMonth: String?, after: ShotCursor?, limit: Int) =
-            Page(searchResults, null)
+            Page(searchResults.filter { it.place in places }, null)
         override suspend fun searchByFacetsCount(places: Set<String>, tagNames: Set<String>, upToMonth: String?) = searchResults.size
         // 詳情頁需要的兩個查詢——查詢分頁點進來的那張圖是 v1，跟首頁那張同一支影片
         override suspend fun shotsOfVideo(videoId: String) = searchResults.filter { it.videoId == videoId }
@@ -172,17 +176,40 @@ class AppRootSearchTest {
         override suspend fun restore(backup: com.xenyaa.videoshot.backup.RemoteBackup) = error("這組測試不碰還原")
     }
 
+    private fun applyDrawerPlace(name: String) {
+        compose.onNodeWithContentDescription("依地點與標籤篩選").performClick()
+        compose.onNodeWithText(name).performClick()
+        compose.onNodeWithText("套用").performClick()
+    }
+
+    /** 設計決議 3、4：開抽屜勾一個地點、按【套用】，首頁縮圖牆只剩那個地點的圖。 */
     @Test
-    fun 切到查詢分頁選chip查詢後看到結果() {
+    fun 開篩選抽屜勾地點套用後首頁只剩符合的圖() {
+        val repo = Repo()
+        compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
+        compose.onNodeWithContentDescription("片段縮圖 00:01", substring = true).assertIsDisplayed()
+        compose.onNodeWithContentDescription("片段縮圖 00:02", substring = true).assertIsDisplayed()
+
+        applyDrawerPlace("礁溪")
+
+        compose.onNodeWithContentDescription("依地點與標籤篩選")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "已套用 1 個篩選條件"))
+        compose.onNodeWithContentDescription("片段縮圖 00:02", substring = true).assertIsDisplayed()
+        compose.onNodeWithContentDescription("片段縮圖 00:01", substring = true).assertDoesNotExist()
+        // 還在首頁：沒有底部導覽的「查詢」格
+        compose.onNodeWithText("查詢").assertDoesNotExist()
+    }
+
+    /** 篩選中點圖開 Lightbox（左右滑的範圍由首頁已篩過的清單決定）。 */
+    @Test
+    fun 篩選中點縮圖開啟Lightbox() {
         val repo = Repo()
         compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
 
-        compose.onNodeWithText("查詢").performClick() // 底部導覽的「查詢」分頁
-        compose.onNodeWithText("宜蘭").performClick() // chip
-        compose.onNodeWithText("查詢 1 個條件").performClick()
+        applyDrawerPlace("礁溪")
+        compose.onNodeWithContentDescription("片段縮圖 00:02", substring = true).performClick()
 
-        // 結果列第一行改成單一文字「N 張 · 時間」，不能再精確比對「1 張」，改用子字串比對
-        compose.onNodeWithText("1 張", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("播放這一段").assertIsDisplayed()
     }
 
     /** 階段 17 設計決議 6：月份標籤點下去在首頁只篩這一個，不再跳到查詢分頁。 */
@@ -199,94 +226,5 @@ class AppRootSearchTest {
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "已套用 1 個篩選條件"))
         compose.onNodeWithText("宜蘭").assertDoesNotExist()
         compose.onNodeWithText("1 張", substring = true).assertDoesNotExist()
-    }
-
-    @Test
-    fun 查詢結果點縮圖開啟Lightbox() {
-        val repo = Repo()
-        compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
-
-        compose.onNodeWithText("查詢").performClick()
-        compose.onNodeWithText("宜蘭").performClick()
-        compose.onNodeWithText("查詢 1 個條件").performClick()
-        compose.onNodeWithContentDescription("片段縮圖 00:01", substring = true).performClick()
-
-        compose.onNodeWithText("播放這一段").assertIsDisplayed()
-    }
-
-    /**
-     * 查詢結果 → Lightbox →【播放這一段】→ 詳情頁 →〔刪除整支收藏〕：`AppRoot.onDeleteVideo`
-     * 原本只刷新 homeVm／foldersVm／folderVm，沒接查詢分頁，刪完那支影片查詢結果還留著
-     * 已經不存在的列（最終審查 Important 4）。
-     */
-    @Test
-    fun 從查詢分頁開的詳情頁刪除整支收藏後查詢結果同步拔掉() {
-        val repo = Repo()
-        compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
-
-        compose.onNodeWithText("查詢").performClick()
-        compose.onNodeWithText("宜蘭").performClick()
-        compose.onNodeWithText("查詢 1 個條件").performClick()
-        // 結果列第一行改成單一文字「N 張 · 時間」，不能再精確比對「1 張」，改用子字串比對
-        compose.onNodeWithText("1 張", substring = true).assertIsDisplayed()
-
-        compose.onNodeWithContentDescription("片段縮圖 00:01", substring = true).performClick()
-        compose.onNodeWithText("播放這一段").performClick()
-        compose.onNodeWithContentDescription("這支影片的更多操作").performClick()
-        compose.onNodeWithText("刪除整支收藏").performClick()
-        compose.onNodeWithText("刪除", substring = false).performClick()
-
-        assertEquals(listOf("v1"), repo.deletedVideoIds)
-
-        // 刪除完會導回首頁分頁——切回查詢分頁看背景那個 SearchViewModel 的結果是不是
-        // 已經同步拔掉了（不是重新整頁查詢，是就地拔掉，理由同 onShotDeleted）
-        compose.onNodeWithText("查詢").performClick()
-        compose.onNodeWithText("沒有符合的收藏").assertIsDisplayed()
-    }
-
-    private fun pressSystemBack() {
-        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
-        compose.waitForIdle()
-    }
-
-    /**
-     * 結果頁的系統返回鍵要回條件頁（跟頂欄箭頭「改條件」同一個去處），不是直接回首頁
-     * （階段 15D 最終審查 I1）。條件頁再按一次才回首頁。
-     */
-    @Test
-    fun 查詢結果頁按系統返回回到條件頁再按一次才回首頁() {
-        val repo = Repo()
-        compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
-
-        compose.onNodeWithText("查詢").performClick()
-        compose.onNodeWithText("宜蘭").performClick()
-        compose.onNodeWithText("查詢 1 個條件").performClick()
-        compose.onNodeWithText("查詢結果").assertIsDisplayed()
-
-        pressSystemBack()
-        // 回到條件頁：結果頂欄不見了，查詢按鈕與模式分頁回來
-        compose.onNodeWithText("查詢結果").assertDoesNotExist()
-        compose.onNodeWithText("查詢 1 個條件").assertIsDisplayed()
-
-        pressSystemBack()
-        // 條件頁的返回照舊回首頁：查詢頁的動作列不見
-        compose.onNodeWithText("查詢 1 個條件").assertDoesNotExist()
-    }
-
-    /** Lightbox 蓋在結果頁上時，返回先關 Lightbox、回到結果頁，不是直接跳回條件頁。 */
-    @Test
-    fun 結果頁開著Lightbox時按系統返回先關Lightbox() {
-        val repo = Repo()
-        compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
-
-        compose.onNodeWithText("查詢").performClick()
-        compose.onNodeWithText("宜蘭").performClick()
-        compose.onNodeWithText("查詢 1 個條件").performClick()
-        compose.onNodeWithContentDescription("片段縮圖 00:01", substring = true).performClick()
-        compose.onNodeWithText("播放這一段").assertIsDisplayed()
-
-        pressSystemBack()
-        compose.onNodeWithText("播放這一段").assertDoesNotExist()
-        compose.onNodeWithText("查詢結果").assertIsDisplayed()
     }
 }

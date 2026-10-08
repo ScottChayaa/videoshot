@@ -54,6 +54,7 @@ private data class TextCriteria(val parsed: ParsedQuery, val upToMonth: String?)
 
 /**
  * 查詢分頁的資料接線（規格第六節「查詢」、第八節「檢索」）。
+ * **階段 17 起沒有入口**（底部導覽拿掉了查詢分頁，改由首頁篩選），程式碼保留待日後接回。
  * @param pageSize 測試會調小，正式一律 50
  */
 class SearchViewModel(

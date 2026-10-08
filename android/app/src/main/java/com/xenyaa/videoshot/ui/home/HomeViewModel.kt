@@ -172,6 +172,12 @@ class HomeViewModel(
     }
 
     fun onShotChanged(row: ShotRow) {
+        if (!_state.value.filter.isEmpty) {
+            // 篩選中：ShotRow 不帶標籤，無法判斷編輯後這一張還符不符合篩選，就地替換可能把
+            // 已經不符合的那張留在畫面上，一律重新載入
+            reload()
+            return
+        }
         _state.value = HomeStore.replace(_state.value, row)
         // 編輯可能把日期改到別的月份，理由同上
         refreshMonths()

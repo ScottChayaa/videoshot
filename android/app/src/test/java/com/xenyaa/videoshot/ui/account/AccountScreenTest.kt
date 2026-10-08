@@ -58,11 +58,14 @@ class AccountScreenTest {
     }
 
     @Test
-    fun 選單七列與副標都在() {
+    fun 選單六列與副標都在_沒有Gemini金鑰那一列() {
         setContent(state)
-        listOf("備份", "縮圖", "取圖", "查詢", "AI 分析", "地點管理", "標籤管理").forEach {
+        listOf("備份", "縮圖", "取圖", "AI 分析", "地點管理", "標籤管理").forEach {
             compose.onNodeWithText(it).assertIsDisplayed()
         }
+        // 階段 17：描述查詢下架，查詢 · Gemini 金鑰入口隱藏（畫面與 GeminiKeyScreen 仍保留）
+        compose.onNodeWithText("查詢").assertDoesNotExist()
+        compose.onNodeWithText("Gemini", substring = true).assertDoesNotExist()
         compose.onNodeWithText("已使用 11.8 MB").assertIsDisplayed()
         compose.onNodeWithText("過濾相似強度：中").assertIsDisplayed()
         compose.onNodeWithText("0 個地點").assertIsDisplayed()
