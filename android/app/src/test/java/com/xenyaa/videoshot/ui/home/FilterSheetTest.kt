@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -174,11 +175,38 @@ class FilterSheetTest {
     // ---- 最終審查 Minor 1：候選還在讀、讀取失敗 ----
 
     @Test
-    fun 候選讀取中兩區顯示載入中_不說這段時間沒有() {
+    fun 候選讀取中兩區顯示骨架_不說這段時間沒有() {
         show(options = emptyList(), status = FilterOptionsStatus.LOADING)
-        compose.onAllNodesWithText("載入中…").assertCountEquals(2)
+        // 骨架整塊是一個節點，TalkBack 唸「載入中…」
+        compose.onAllNodesWithContentDescription("載入中…").assertCountEquals(2)
         compose.onNodeWithText("這段時間沒有地點").assertDoesNotExist()
         compose.onNodeWithText("這段時間沒有標籤").assertDoesNotExist()
+    }
+
+    @Test
+    fun 候選讀到後骨架消失() {
+        show()
+        compose.onAllNodesWithContentDescription("載入中…").assertCountEquals(0)
+    }
+
+    @Test
+    fun 抽屜滑出來時只有骨架_停穩後才畫小膠囊() {
+        compose.mainClock.autoAdvance = false
+        show()
+        // 外框與搜尋框第一個畫面就在
+        compose.onNodeWithText("篩選").assertExists()
+        compose.onNodeWithContentDescription("搜尋地點").assertExists()
+        compose.onAllNodesWithContentDescription("載入中…").assertCountEquals(2)
+        compose.onNodeWithText("礁溪").assertDoesNotExist()
+
+        compose.mainClock.advanceTimeByFrame()
+        compose.mainClock.advanceTimeByFrame()
+        compose.onNodeWithText("礁溪").assertDoesNotExist()
+
+        compose.mainClock.advanceTimeBy(2_000)
+        compose.onNodeWithText("礁溪").assertExists()
+        compose.onNodeWithText("溫泉").assertExists()
+        compose.onAllNodesWithContentDescription("載入中…").assertCountEquals(0)
     }
 
     @Test

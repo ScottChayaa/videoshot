@@ -26,6 +26,7 @@ import androidx.compose.ui.semantics.semantics
 import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.ChipKind
 import com.xenyaa.videoshot.ui.common.ChipSize
+import com.xenyaa.videoshot.ui.common.VsChipSkeleton
 import com.xenyaa.videoshot.ui.common.PillStyle
 import com.xenyaa.videoshot.ui.common.TextFieldSize
 import com.xenyaa.videoshot.ui.common.TopBarNav
@@ -155,6 +156,8 @@ private fun ChipSection() = Section("標籤小膠囊") {
         VsTagChip("加勒比海", ChipKind.PLACE, size = ChipSize.Mini, selected = miniPicked, isToggle = true, onClick = { miniPicked = !miniPicked })
         VsTagChip("夜潛", ChipKind.TOPIC, size = ChipSize.Mini, onClick = {})
     }
+    // 骨架屏（資料還沒畫上去之前，例如首頁篩選抽屜剛打開、候選讀取中）
+    VsChipSkeleton(6)
 }
 
 @Composable

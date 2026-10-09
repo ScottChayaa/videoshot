@@ -12,9 +12,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.xenyaa.videoshot.data.repo.model.FilterOption
@@ -22,10 +29,12 @@ import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.ChipKind
 import com.xenyaa.videoshot.ui.common.TextFieldSize
 import com.xenyaa.videoshot.ui.common.VsButton
+import com.xenyaa.videoshot.ui.common.VsChipSkeleton
 import com.xenyaa.videoshot.ui.common.VsTagChip
 import com.xenyaa.videoshot.ui.common.VsTextField
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
+import kotlinx.coroutines.flow.first
 
 /**
  * 首頁的地點與標籤篩選抽屜（階段 17 設計決議 3）。純顯示元件——勾選、搜尋字、展開都在
@@ -38,7 +47,11 @@ import com.xenyaa.videoshot.ui.theme.AppTheme
  * 【套用】固定在底部不跟著捲，候選很多時內容區自己捲。
  *
  * @param options 候選（地點與標籤混在一起，這裡依 `isPlace` 分兩區）
- * @param status 候選讀取中：兩區各顯示一行「載入中…」（已勾選的照樣列出）；讀取失敗：捲動區最上面
+ * **抽屜滑出來的期間只畫骨架**（[VsChipSkeleton]），停穩了才換成小膠囊。幾十顆小膠囊組起來要一整幀
+ * （開發測試版實測 31 顆約 0.14 秒）：跟抽屜外框擠在第一幀，抽屜要等它畫完才開始滑（按下去頓一下，
+ * 比月份選擇器慢約 0.1 秒）；放在滑動途中，滑到一半會卡一下。停穩後才畫，那一幀沒有東西在動，看不出來。
+ *
+ * @param status 候選讀取中：兩區各顯示骨架（已勾選的照樣列出，骨架接在後面）；讀取失敗：捲動區最上面
  *        「讀取失敗」＋【重試】（[onRetry] 只重讀候選，草稿不動）
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,9 +68,16 @@ fun FilterSheet(
     status: FilterOptionsStatus = FilterOptionsStatus.READY,
     onRetry: () -> Unit = {},
 ) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var chipsReady by remember { mutableStateOf(false) }
+    LaunchedEffect(sheetState) {
+        // currentValue 在展開動畫結束、停穩時才變成 Expanded
+        snapshotFlow { sheetState.currentValue }.first { it == SheetValue.Expanded }
+        chipsReady = true
+    }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetState = sheetState,
         containerColor = AppTheme.colors.surface,
     ) {
         Column(
@@ -93,8 +113,8 @@ fun FilterSheet(
                         VsButton("重試", onRetry, variant = ButtonVariant.Quiet)
                     }
                 }
-                FilterSectionBlock("地點", true, options, draft, status, onToggle, onQuery, onExpand)
-                FilterSectionBlock("標籤", false, options, draft, status, onToggle, onQuery, onExpand)
+                FilterSectionBlock("地點", true, options, draft, status, chipsReady, onToggle, onQuery, onExpand)
+                FilterSectionBlock("標籤", false, options, draft, status, chipsReady, onToggle, onQuery, onExpand)
             }
             VsButton("套用", onApply, Modifier.fillMaxWidth(), variant = ButtonVariant.Primary)
         }
@@ -109,6 +129,7 @@ private fun FilterSectionBlock(
     options: List<FilterOption>,
     draft: FilterDraft,
     status: FilterOptionsStatus,
+    chipsReady: Boolean,
     onToggle: (FilterOption) -> Unit,
     onQuery: (Boolean, String) -> Unit,
     onExpand: (Boolean) -> Unit,
@@ -132,31 +153,34 @@ private fun FilterSectionBlock(
                 leadingIcon = VsIcons.Search,
             )
         }
-        if (section.shown.isEmpty() && status == FilterOptionsStatus.READY) {
+        if (!chipsReady) {
+            // 滑動中：骨架的塊數跟等一下要畫的小膠囊差不多（有上限），換上小膠囊時抽屜高度不會差太多
+            VsChipSkeleton(section.shown.size.coerceIn(SKELETON_MIN, SKELETON_MAX))
+        } else if (section.shown.isEmpty() && status == FilterOptionsStatus.READY) {
             Text(
                 if (query.isBlank()) "這段時間沒有$noun" else "找不到符合的$noun",
                 style = MaterialTheme.typography.bodyMedium,
                 color = AppTheme.colors.textDim,
             )
         } else {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
-                for (option in section.shown) {
-                    VsTagChip(
-                        name = option.name,
-                        kind = if (isPlace) ChipKind.PLACE else ChipKind.ofTagKind(option.tagKind),
-                        selected = draft.isSelected(option),
-                        isToggle = true,
-                        onClick = { onToggle(option) },
-                    )
+            if (section.shown.isNotEmpty()) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
+                    for (option in section.shown) {
+                        VsTagChip(
+                            name = option.name,
+                            kind = if (isPlace) ChipKind.PLACE else ChipKind.ofTagKind(option.tagKind),
+                            selected = draft.isSelected(option),
+                            isToggle = true,
+                            onClick = { onToggle(option) },
+                        )
+                    }
                 }
             }
+            // 讀取中：已勾選的在上面照樣列出，骨架接在後面，不說「這段時間沒有…」（其實還沒讀到）。
+            // 失敗時說明與【重試】在捲動區最上面，這裡什麼都不加
+            if (status == FilterOptionsStatus.LOADING) VsChipSkeleton(SKELETON_MIN)
         }
-        // 讀取中：中性的一行，不說「這段時間沒有…」（其實還沒讀到）；已勾選的在上面照樣列出。
-        // 失敗時說明與【重試】在捲動區最上面，這裡什麼都不加
-        if (status == FilterOptionsStatus.LOADING) {
-            Text("載入中…", style = MaterialTheme.typography.bodyMedium, color = AppTheme.colors.textDim)
-        }
-        if (section.hiddenCount > 0) {
+        if (chipsReady && section.hiddenCount > 0) {
             VsButton(
                 "顯示全部（${section.shown.size + section.hiddenCount}）",
                 { onExpand(isPlace) },
@@ -165,3 +189,7 @@ private fun FilterSectionBlock(
         }
     }
 }
+
+/** 骨架的塊數：讀取中不知道會有幾個，放一排的量；滑動中依目前的候選數，有上限。 */
+private const val SKELETON_MIN = 6
+private const val SKELETON_MAX = 10
