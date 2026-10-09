@@ -273,7 +273,7 @@ private fun SettingSection() {
     var after by remember { mutableIntStateOf(10) }
     FullWidthTitle("設定群組")
     VsSettingGroup(title = "取圖") {
-        VsListRow("過濾相似強度", subtitle = "中", icon = VsIcons.Filter, onClick = {})
+        VsListRow("過濾相似強度", subtitle = "中", icon = VsIcons.Sliders, onClick = {})
         VsSettingDivider()
         VsListRow("版本", subtitle = "不可點的資訊列")
     }

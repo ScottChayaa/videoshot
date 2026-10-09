@@ -38,7 +38,7 @@ class VsListRowTest {
     @Test fun 顯示主標與副標且可點() {
         var opened = false
         compose.setContent {
-            VideoshotTheme { VsListRow("取圖", subtitle = "過濾相似強度：中", icon = VsIcons.Filter, onClick = { opened = true }) }
+            VideoshotTheme { VsListRow("取圖", subtitle = "過濾相似強度：中", icon = VsIcons.Sliders, onClick = { opened = true }) }
         }
         compose.onNodeWithText("過濾相似強度：中", substring = true).assertIsDisplayed()
         compose.onNodeWithText("取圖", substring = true).performClick()

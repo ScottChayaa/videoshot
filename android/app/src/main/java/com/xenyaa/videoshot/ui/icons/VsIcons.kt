@@ -161,9 +161,23 @@ object VsIcons {
         )
     }
 
-    /** 取圖（規格第九節：漏斗＝取圖）。原型 `filter` 是 `<polygon>`，改寫成封閉路徑（隱式 lineto）。 */
+    /**
+     * 篩選（首頁篩選鈕、取圖第二步【隱藏相似】）。原型 `filter` 是 `<polygon>`，改寫成封閉路徑（隱式 lineto）。
+     * 帳號頁「取圖」那一列 2026-10-09 起改用 [Sliders]，避免跟首頁篩選鈕同圖示不同語意。
+     */
     val Filter: ImageVector by lazy {
         strokeIcon("filter", "M22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3Z")
+    }
+
+    /** 取圖設定（帳號頁「取圖」列：調整過濾相似強度）。Lucide `sliders-horizontal`，`<line>` 改寫成 path。 */
+    val Sliders: ImageVector by lazy {
+        strokeIcon(
+            "sliders-horizontal",
+            "M21 4h-7", "M10 4H3",
+            "M21 12h-9", "M8 12H3",
+            "M21 20h-5", "M12 20H3",
+            "M14 2v4", "M8 10v4", "M16 18v4",
+        )
     }
 
     /** AI 分析（規格第九節：星芒＝AI 分析）。原型 `sparkles`；中心圓改寫成兩段弧線。 */

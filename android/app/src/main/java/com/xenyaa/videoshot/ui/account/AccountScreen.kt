@@ -85,7 +85,7 @@ fun AccountScreen(
                     VsListRow(
                         "取圖",
                         subtitle = "過濾相似強度：${filterStrengthLabel(state.filterStrength)}",
-                        icon = VsIcons.Filter,
+                        icon = VsIcons.Sliders,
                         onClick = { onOpenSection(AccountSection.CAPTURE) },
                     )
                     VsSettingDivider()
