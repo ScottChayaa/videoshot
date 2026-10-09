@@ -4,6 +4,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
@@ -121,12 +122,45 @@ class FilterSheetTest {
     @Test
     fun 搜尋框打字回報是哪一區() {
         show()
+        compose.onNodeWithContentDescription("搜尋地點").performClick()
         compose.onNodeWithContentDescription("搜尋地點").performTextInput("礁")
         assertEquals(listOf(true to "礁"), queries)
         queries.clear()
+        compose.onNodeWithContentDescription("搜尋標籤").performClick()
         compose.onNodeWithContentDescription("搜尋標籤").performTextInput("溫")
         // draft 在測試裡是固定的（沒有 ViewModel 把字寫回去），地點框會被重設成空字串而多回報一次；只看標籤區那一筆
         assertEquals(listOf(false to "溫"), queries.filter { !it.first })
+    }
+
+    @Test
+    fun 搜尋平常是圖示鈕_點了才展開成輸入框並聚焦() {
+        show()
+        // 收合時是按鈕、不是輸入框
+        compose.onNodeWithContentDescription("搜尋地點")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+        compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.EditableText)).assertCountEquals(0)
+
+        compose.onNodeWithContentDescription("搜尋地點").performClick()
+        compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.EditableText)).assertCountEquals(1)
+        compose.onNodeWithContentDescription("搜尋地點").assertIsFocused()
+        // 標籤區還是圖示鈕
+        compose.onNodeWithContentDescription("搜尋標籤")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+    }
+
+    @Test
+    fun 搜尋框空著時沒有清除鈕() {
+        show()
+        compose.onNodeWithContentDescription("搜尋地點").performClick()
+        compose.onNodeWithContentDescription("清除搜尋文字").assertDoesNotExist()
+    }
+
+    @Test
+    fun 有搜尋字時一直展開_清除鈕一按清空() {
+        show(draft = FilterDraft(emptySet(), emptySet(), query = mapOf(true to "礁", false to "")))
+        compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.EditableText)).assertCountEquals(1)
+        compose.onNodeWithContentDescription("清除搜尋文字").assertHasClickAction().performClick()
+        assertEquals(listOf(true to ""), queries)
     }
 
     @Test

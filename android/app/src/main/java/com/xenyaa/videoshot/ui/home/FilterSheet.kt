@@ -1,13 +1,18 @@
 package com.xenyaa.videoshot.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
@@ -16,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -23,23 +29,31 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.xenyaa.videoshot.ui.common.VsBottomSheet
 import com.xenyaa.videoshot.data.repo.model.FilterOption
 import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.ChipKind
 import com.xenyaa.videoshot.ui.common.TagChipMetrics
 import com.xenyaa.videoshot.ui.common.TextFieldSize
+import com.xenyaa.videoshot.ui.common.TopBarIconButton
+import com.xenyaa.videoshot.ui.common.VsBottomSheet
 import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsChipSkeleton
 import com.xenyaa.videoshot.ui.common.VsSheetHeader
@@ -157,21 +171,7 @@ private fun FilterSectionBlock(
     val section = FilterLists.visible(options, isPlace, draft)
     val query = draft.query[isPlace].orEmpty()
     Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s3),
-        ) {
-            Text(title, style = MaterialTheme.typography.labelLarge, color = AppTheme.colors.text)
-            VsTextField(
-                value = query,
-                onValueChange = { onQuery(isPlace, it) },
-                modifier = Modifier.weight(1f),
-                placeholder = "搜尋",
-                size = TextFieldSize.Dense,
-                semanticLabel = "搜尋$noun",
-                leadingIcon = VsIcons.Search,
-            )
-        }
+        SectionHeader(title, noun, query) { onQuery(isPlace, it) }
         if (!chipsReady) {
             // 滑動中：骨架的塊數跟等一下要畫的小膠囊差不多（有上限），換上小膠囊時抽屜高度不會差太多
             ChipSkeleton(section.shown.size.coerceIn(SKELETON_MIN, SKELETON_MAX))
@@ -199,6 +199,75 @@ private fun FilterSectionBlock(
                 color = AppTheme.colors.textDim,
             )
         }
+    }
+}
+
+/**
+ * 一區的標題列：平常是標題＋右邊的〔搜尋〕圖示鈕；點了展開成搜尋框並自動聚焦（鍵盤跳出來）。
+ * 有字時框內右邊多一顆【✕】一鍵清除。搜尋框空著時，失去焦點或鍵盤收起就收回成圖示；有字時一直展開（看得到正在過濾什麼）。
+ * 標題列高度固定 44dp，展開收合版面不跳。
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SectionHeader(title: String, noun: String, query: String, onQuery: (String) -> Unit) {
+    var searching by remember { mutableStateOf(query.isNotEmpty()) }
+    Row(
+        Modifier.fillMaxWidth().height(AppTheme.spacing.tap),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s3),
+    ) {
+        Text(title, style = MaterialTheme.typography.labelLarge, color = AppTheme.colors.text)
+        if (searching || query.isNotEmpty()) {
+            val focusRequester = remember { FocusRequester() }
+            // 聚焦過一次之後才看「失去焦點」——剛展開、還沒拿到焦點的那一下不能算失去焦點
+            var hadFocus by remember { mutableStateOf(false) }
+            val currentQuery by rememberUpdatedState(query)
+            VsTextField(
+                value = query,
+                onValueChange = onQuery,
+                modifier = Modifier.weight(1f),
+                placeholder = "搜尋$noun",
+                size = TextFieldSize.Dense,
+                semanticLabel = "搜尋$noun",
+                leadingIcon = VsIcons.Search,
+                fieldModifier = Modifier
+                    .focusRequester(focusRequester)
+                    .onFocusChanged { f ->
+                        if (f.isFocused) hadFocus = true
+                        else if (hadFocus && currentQuery.isEmpty()) searching = false
+                    },
+                trailing = if (query.isNotEmpty()) {
+                    { ClearQueryButton { onQuery("") } }
+                } else {
+                    null
+                },
+            )
+            LaunchedEffect(Unit) { if (query.isEmpty()) focusRequester.requestFocus() }
+            // 鍵盤收起來時框是空的也收回：點小膠囊不會讓輸入框失去焦點，只靠失去焦點會一直開著
+            val imeVisible = WindowInsets.isImeVisible
+            var imeWasVisible by remember { mutableStateOf(false) }
+            LaunchedEffect(imeVisible) {
+                if (imeVisible) imeWasVisible = true
+                else if (imeWasVisible && currentQuery.isEmpty()) searching = false
+            }
+        } else {
+            Spacer(Modifier.weight(1f))
+            TopBarIconButton(VsIcons.Search, "搜尋$noun", { searching = true })
+        }
+    }
+}
+
+/** 搜尋框裡的【✕】：跟欄位一樣高（44dp），寬 40dp，按了清空搜尋字（焦點留在框裡，可以接著打）。 */
+@Composable
+private fun ClearQueryButton(onClick: () -> Unit) {
+    Box(
+        Modifier
+            .size(width = 40.dp, height = AppTheme.spacing.tap)
+            .clickable(role = Role.Button, onClickLabel = "清除") { onClick() }
+            .semantics { contentDescription = "清除搜尋文字" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(VsIcons.Close, contentDescription = null, tint = AppTheme.colors.textDim, modifier = Modifier.size(18.dp))
     }
 }
 

@@ -57,6 +57,8 @@ enum class TextFieldSize { Regular, Dense }
  * [isError] 用 `warn` 色，不用紅（紅只留給破壞性動作）。
  * 整個欄位的 `contentDescription` 取 [semanticLabel]（預設同 [label]）——既有精靈測試用它定位欄位。
  * [leadingIcon]＝欄位內左側的圖示（查詢頁文字框的放大鏡，原型 `.search .ic`）：20dp、`textDim`，不進語意樹。
+ * [trailing]＝欄位內右側的按鈕（篩選抽屜搜尋框的【✕】清除），跟欄位一樣高、在內距外面，觸控區撐得到 44dp。
+ * [fieldModifier]＝套在輸入框本身（例如 `focusRequester`、`onFocusChanged`），[modifier] 套在整個欄位外框。
  * [visualTransformation]＝輸入內容的遮罩（Gemini 金鑰用 `PasswordVisualTransformation`，語意樹會標成密碼欄）。
  * 聚焦的 3dp `accentWeak` 外圈用 `drawBehind` 畫在框外（原型 `box-shadow` 不佔版面），聚焦與否不會讓版面位移。
  */
@@ -78,6 +80,8 @@ fun VsTextField(
     semanticLabel: String? = label,
     leadingIcon: ImageVector? = null,
     visualTransformation: VisualTransformation = VisualTransformation.None,
+    fieldModifier: Modifier = Modifier,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val colors = AppTheme.colors
     val dense = size == TextFieldSize.Dense
@@ -122,6 +126,7 @@ fun VsTextField(
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth()
+                .then(fieldModifier)
                 .then(if (semanticLabel != null) Modifier.semantics { contentDescription = semanticLabel } else Modifier),
             enabled = enabled,
             textStyle = textStyle,
@@ -150,29 +155,38 @@ fun VsTextField(
                         .background(if (dense) colors.surface2 else colors.surface, shape)
                         .border(1.dp, line, shape)
                         // 觸控區至少 44dp（Dense 的內容只有 38dp 高）
-                        .defaultMinSize(minHeight = AppTheme.spacing.tap)
-                        .padding(
-                            horizontal = AppTheme.spacing.s3,
-                            vertical = if (dense) AppTheme.spacing.s2 else AppTheme.spacing.s3,
-                        ),
+                        .defaultMinSize(minHeight = AppTheme.spacing.tap),
                     contentAlignment = Alignment.CenterStart,
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
-                        if (leadingIcon != null) {
-                            Icon(leadingIcon, null, tint = colors.textDim, modifier = Modifier.size(20.dp))
-                        }
-                        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                            if (value.isEmpty() && placeholder != null) {
-                                Text(
-                                    placeholder,
-                                    style = textStyle.copy(
-                                        color = if (mixedPlaceholder) colors.textDim else colors.textFaint,
-                                        fontStyle = if (mixedPlaceholder) FontStyle.Italic else FontStyle.Normal,
-                                    ),
-                                )
+                    // 右側按鈕（[trailing]）在內距外面，跟欄位一樣高，觸控區才撐得到 44dp
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            Modifier.weight(1f).padding(
+                                start = AppTheme.spacing.s3,
+                                end = if (trailing != null) 0.dp else AppTheme.spacing.s3,
+                                top = if (dense) AppTheme.spacing.s2 else AppTheme.spacing.s3,
+                                bottom = if (dense) AppTheme.spacing.s2 else AppTheme.spacing.s3,
+                            ),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
+                        ) {
+                            if (leadingIcon != null) {
+                                Icon(leadingIcon, null, tint = colors.textDim, modifier = Modifier.size(20.dp))
                             }
-                            inner()
+                            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                                if (value.isEmpty() && placeholder != null) {
+                                    Text(
+                                        placeholder,
+                                        style = textStyle.copy(
+                                            color = if (mixedPlaceholder) colors.textDim else colors.textFaint,
+                                            fontStyle = if (mixedPlaceholder) FontStyle.Italic else FontStyle.Normal,
+                                        ),
+                                    )
+                                }
+                                inner()
+                            }
                         }
+                        trailing?.invoke()
                     }
                 }
             },
