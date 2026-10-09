@@ -5,7 +5,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,20 +14,33 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.paint
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
@@ -72,6 +84,7 @@ fun VsTagChip(
     isToggle: Boolean = false,
     count: Int? = null,
     size: ChipSize = ChipSize.Regular,
+    textLayout: TextLayoutResult? = null,
     onClick: (() -> Unit)? = null,
 ) {
     val regular = size == ChipSize.Regular
@@ -92,11 +105,28 @@ fun VsTagChip(
 
     // 可點時：觸控區是至少 44dp 高的透明外框、膠囊置中（手冊 §零），但按下的漣漪與鍵盤焦點框
     // 只畫在看得到的膠囊上，按下時的範圍跟看到的按鈕一樣大。
-    // 外框的 selectable 是唯一的合併點（文字＋選取＋點擊）；內層再合併一次會讓內層自成一個節點，外框反而沒有文字
+    // 外框的 selectable 是唯一的合併點（文字＋選取＋點擊）；內層再合併一次會讓內層自成一個節點，外框反而沒有文字。
+    // 焦點用 onFocusChanged 記在一個狀態裡、只在繪製階段讀（焦點框畫在膠囊上），不為每一顆開一個收集焦點的協程——
+    // 篩選抽屜一次畫幾十顆，這些固定成本加起來就是抽屜開啟時那一幀的耗時
     val interaction = remember { MutableInteractionSource() }
-    val focused by interaction.collectIsFocusedAsState()
+    val focused = remember { mutableStateOf(false) }
+    val ringColor = AppTheme.colors.focusRing
     var m = if (onClick != null) {
-        Modifier.border(FocusRingWidth, if (focused) AppTheme.colors.focusRing else Color.Transparent, shape)
+        Modifier
+            .drawWithContent {
+                drawContent()
+                if (focused.value) {
+                    val r = AppTheme.radii.sm.toPx()
+                    val w = FocusRingWidth.toPx()
+                    drawRoundRect(
+                        ringColor,
+                        topLeft = Offset(w / 2, w / 2),
+                        size = Size(this.size.width - w, this.size.height - w),
+                        cornerRadius = CornerRadius(r, r),
+                        style = Stroke(w),
+                    )
+                }
+            }
             .clip(shape)
             .indication(interaction, ripple())
     } else {
@@ -109,26 +139,39 @@ fun VsTagChip(
     // 選取只靠變色表示：實心主色＋白字 vs 淺底＋深字，明暗差夠大，不只靠色相；TalkBack 由 selectable 唸已選取
     val chip: @Composable () -> Unit = {
         Row(m, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TagChipMetrics.IconGap)) {
-            Icon(kind.icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(iconSize))
-            Text(
-                buildAnnotatedString {
-                    append(name)
-                    if (count != null) {
+            // 圖示直接畫向量圖，不經 Icon（少一層語意與版面節點；本來就不唸）
+            Box(Modifier.size(iconSize).paint(rememberVectorPainter(kind.icon), colorFilter = ColorFilter.tint(iconTint)))
+            if (textLayout != null && count == null) {
+                // 呼叫端已經量過這段文字（篩選抽屜分頁時量的），直接畫，不再排版一次；文字語意照樣補上
+                val density = LocalDensity.current
+                Box(
+                    Modifier
+                        .size(with(density) { textLayout.size.width.toDp() }, with(density) { textLayout.size.height.toDp() })
+                        .semantics { text = AnnotatedString(name) }
+                        .drawBehind { drawText(textLayout, color = ink) },
+                )
+            } else if (count == null) {
+                Text(name, style = textStyle, color = ink)
+            } else {
+                Text(
+                    buildAnnotatedString {
+                        append(name)
                         append(' ')
                         withStyle(SpanStyle(color = if (selected) AppTheme.colors.accentInk else AppTheme.colors.textDim)) {
                             append(count.toString())
                         }
-                    }
-                },
-                style = textStyle,
-                color = ink,
-            )
+                    },
+                    style = textStyle,
+                    color = ink,
+                )
+            }
         }
     }
     if (onClick != null) {
         Box(
             modifier
                 .defaultMinSize(minHeight = AppTheme.spacing.tap)
+                .onFocusChanged { focused.value = it.isFocused }
                 .chipClickable(isToggle, selected, interaction, onClick),
             contentAlignment = Alignment.Center,
         ) { chip() }

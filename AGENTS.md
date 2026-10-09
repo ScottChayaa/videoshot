@@ -599,7 +599,12 @@ cd android
 ./gradlew :core:test        # :core 的 JVM 單元測試
 ./gradlew assembleDebug     # 建置 debug APK
 ./gradlew installDebug      # 安裝到 USB 連接的手機
+./gradlew assembleBenchmark # 效能量測版：跟 release 一樣不可除錯，但用 debug 金鑰簽，`adb install -r` 直接覆蓋開發測試版、圖庫不會清掉
 ```
+
+**量畫面耗時要用效能量測版**（開發測試版可除錯，Compose 慢一倍以上）：裝完先 `adb shell cmd package compile -m speed -f com.xenyaa.videoshot`
+（模擬商店安裝後的完整編譯），再用 `adb shell atrace -a com.xenyaa.videoshot gfx view input` 看每一幀（`Choreographer#doFrame`）。
+效能量測版不含開發測試版專用工具（元件總覽頁、假資料匯入），要用時重裝 `app-debug.apk`。
 
 這台開發機**系統 PATH 上沒有 java**，直接跑 `./gradlew` 會失敗。用 Android Studio 內建的 JDK：
 
@@ -626,3 +631,9 @@ export PATH=$PATH:$ANDROID_HOME/platform-tools   # adb
 - **無法重建的在 `library.db`（要備份），DB 外面的都能重建**（`cache.db`、`thumbs/`、草稿都不備份）。
 - **DB 裡不存檔案路徑**：縮圖以邏輯識別碼 `{videoId}/L{level}/{frameIndex}` 定位，`library.db` 的 schema 是跨平台資料格式（規格第四節「跨平台的資料契約」）。
 - **重運算（裁切、dHash）放背景執行緒**（`Dispatchers.Default`），不卡 UI 執行緒。純邏輯放 `:core`（不依賴 Android SDK）。
+- **抽屜或頁面打開時一次要畫很多東西（覺得「頓一下」），照首頁篩選抽屜的做法優化**（2026-10-09，scott 實際操作後認可，範本是 `FilterSheet.kt`）：
+  1. **先量再改**：用效能量測版＋完整編譯＋`atrace`（見「指令」）看每一幀，先確認慢的是畫面還是資料（篩選抽屜的資料庫查詢只要 5～9ms，加快取沒用）。
+  2. **第一幀只畫外框＋骨架屏**（`VsChipSkeleton` 這類，形狀跟真內容一樣），讓抽屜／頁面立刻開始動。
+  3. **之後一幀多畫一小塊**（一列、一區）：`LaunchedEffect` 裡 `withFrameNanos {}` 一次加一列，區塊高度一開始就是最終高度、版面不跳；
+     一區畫完再換下一區。不要等動畫停穩才畫（太晚，scott 嫌慢），也不要在動畫途中一次畫完（會卡）。目標：動畫途中每幀 ≲ 30ms。
+  4. **同一件事不做兩次**：例如分頁時量過的文字排版直接交給元件畫，不再排版一次。

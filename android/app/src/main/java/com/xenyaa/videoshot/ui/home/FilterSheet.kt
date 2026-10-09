@@ -17,16 +17,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -49,7 +48,6 @@ import com.xenyaa.videoshot.ui.common.VsTextAction
 import com.xenyaa.videoshot.ui.common.VsTextField
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
-import kotlinx.coroutines.flow.first
 
 /** 每一頁最多幾列小膠囊；多的往右滑。 */
 const val FILTER_ROWS_PER_PAGE = 4
@@ -69,9 +67,10 @@ private val RowSpacing = (-2).dp
  * 每區最多列 [FilterLists.MAX_SHOWN] 個，其餘用搜尋框找。分頁要先知道每顆多寬：用文字量測算
  * （[TagChipMetrics]），不必先把小膠囊畫出來；分頁器只組看得到的那一頁，候選再多，一次也只畫幾十顆。
  *
- * **抽屜滑出來的期間只畫骨架**（[VsChipSkeleton]），停穩了才換成小膠囊。幾十顆小膠囊組起來要一整幀
- * （開發測試版實測 31 顆約 0.14 秒）：跟抽屜外框擠在第一幀，抽屜要等它畫完才開始滑（按下去頓一下，
- * 比月份選擇器慢約 0.1 秒）；放在滑動途中，滑到一半會卡一下。停穩後才畫，那一幀沒有東西在動，看不出來。
+ * **第一幀只畫抽屜外框與骨架**（[VsChipSkeleton]），之後一幀換一區（先地點、再標籤），抽屜滑動途中就出現：
+ * 跟外框擠在第一幀，抽屜要等它畫完才開始滑（按下去頓一下）。小膠囊要夠輕，放在滑動途中才不會卡——
+ * 文字在分頁時已經量過（[TagChipMetrics]），直接交給 [VsTagChip] 畫，不再排版第二次。
+ * （2026-10-09 曾改成「停穩才畫」避開卡頓，scott 嫌小膠囊出現太晚，精簡小膠囊後改回滑動中出現。）
  *
  * `skipPartiallyExpanded = true`：理由同 [MonthPickerSheet]，也讓 Robolectric 不必等展開動畫。
  * 【套用】固定在底部不跟著捲，內容區太高時自己捲。
@@ -94,11 +93,14 @@ fun FilterSheet(
     onRetry: () -> Unit = {},
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var chipsReady by remember { mutableStateOf(false) }
-    LaunchedEffect(sheetState) {
-        // currentValue 在展開動畫結束、停穩時才變成 Expanded
-        snapshotFlow { sheetState.currentValue }.first { it == SheetValue.Expanded }
-        chipsReady = true
+    // 0：只有骨架；1：地點區開始一列一列換上小膠囊；2：地點區換完，標籤區開始換。
+    // 一幀只多畫一列（約 5 顆），抽屜滑動途中每幀的負擔夠小、不掉幀——實測一次畫兩區那一幀 50～60ms、
+    // 一幀一區 30～47ms（正式版、完整編譯），都會在滑動途中掉幀
+    var chipsStage by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        // 第一幀（抽屜外框＋骨架）畫完、抽屜開始滑了，才開始換
+        withFrameNanos { }
+        chipsStage = 1
     }
     VsBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         // 有勾選才能按【清除】（主色＋底線），沒勾選時灰字不可點
@@ -129,8 +131,10 @@ fun FilterSheet(
                         VsButton("重試", onRetry, variant = ButtonVariant.Quiet)
                     }
                 }
-                FilterSectionBlock("地點", true, options, draft, status, chipsReady, onToggle, onQuery)
-                FilterSectionBlock("標籤", false, options, draft, status, chipsReady, onToggle, onQuery)
+                FilterSectionBlock("地點", true, options, draft, status, chipsStage >= 1, onToggle, onQuery) {
+                    if (chipsStage == 1) chipsStage = 2
+                }
+                FilterSectionBlock("標籤", false, options, draft, status, chipsStage >= 2, onToggle, onQuery) {}
             }
             VsButton("套用", onApply, Modifier.fillMaxWidth(), variant = ButtonVariant.Primary)
         }
@@ -147,6 +151,7 @@ private fun FilterSectionBlock(
     chipsReady: Boolean,
     onToggle: (FilterOption) -> Unit,
     onQuery: (Boolean, String) -> Unit,
+    onRevealed: () -> Unit,
 ) {
     val noun = if (isPlace) "地點" else "標籤"
     val section = FilterLists.visible(options, isPlace, draft)
@@ -178,12 +183,15 @@ private fun FilterSectionBlock(
             )
         } else {
             if (section.shown.isNotEmpty()) {
-                ChipPager(section.shown, isPlace, draft, query, onToggle)
+                ChipPager(section.shown, isPlace, draft, query, onToggle, onRevealed)
             }
             // 讀取中：已勾選的在上面照樣列出，骨架接在後面，不說「這段時間沒有…」（其實還沒讀到）。
             // 失敗時說明與【重試】在捲動區最上面，這裡什麼都不加
             if (status == FilterOptionsStatus.LOADING) ChipSkeleton(SKELETON_MIN)
         }
+        // 這一區沒有小膠囊要一列一列換（空的、還在讀），直接算換完，下一區才不會卡著
+        val hasPager = chipsReady && section.shown.isNotEmpty()
+        LaunchedEffect(chipsReady, hasPager) { if (chipsReady && !hasPager) onRevealed() }
         if (chipsReady && section.hiddenCount > 0) {
             Text(
                 "還有 ${section.hiddenCount} 個沒列出，請用搜尋找",
@@ -200,6 +208,9 @@ private fun ChipSkeleton(count: Int) = VsChipSkeleton(count, chipGap = ChipGap, 
 /**
  * 一區的小膠囊：依寬度排列、每頁最多 [FILTER_ROWS_PER_PAGE] 列，左右滑換頁，超過一頁時下面有點點。
  * 分頁器的高度取最多列的那一頁，滑到列數較少的最後一頁時高度不會跳。搜尋字一變就回第一頁。
+ *
+ * 第一次出現時**一幀多畫一列**（高度一開始就是最終高度，版面不跳），畫完呼叫 [onRevealed]；
+ * 之後換頁、搜尋都直接畫整頁。
  */
 @Composable
 private fun ChipPager(
@@ -208,6 +219,7 @@ private fun ChipPager(
     draft: FilterDraft,
     query: String,
     onToggle: (FilterOption) -> Unit,
+    onRevealed: () -> Unit,
 ) {
     // 快取量過的名字：搜尋框每打一個字清單就變一次，同樣的名字不必重量
     val measurer = rememberTextMeasurer(cacheSize = FilterLists.MAX_SHOWN * 2)
@@ -215,11 +227,19 @@ private fun ChipPager(
     val density = LocalDensity.current
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val maxWidth = constraints.maxWidth
-        val pages = remember(shown, maxWidth, textStyle, density) {
-            val widths = shown.map { o ->
-                TagChipMetrics.regularWidthPx(measurer.measure(o.name, textStyle).size.width, density.density)
-            }
+        // 量好的文字排版留著，畫小膠囊時直接用（不再排版第二次）
+        val layouts = remember(shown, textStyle, density) { shown.map { o -> measurer.measure(o.name, textStyle) } }
+        val pages = remember(layouts, maxWidth) {
+            val widths = layouts.map { TagChipMetrics.regularWidthPx(it.size.width, density.density) }
             paginateChips(widths, maxWidth, with(density) { ChipGap.roundToPx() }, FILTER_ROWS_PER_PAGE)
+        }
+        var revealedRows by remember { mutableIntStateOf(1) }
+        LaunchedEffect(Unit) {
+            while (revealedRows < FILTER_ROWS_PER_PAGE) {
+                withFrameNanos { }
+                revealedRows++
+            }
+            onRevealed()
         }
         val pagerState = rememberPagerState { pages.size }
         LaunchedEffect(query) { if (pagerState.currentPage != 0) pagerState.scrollToPage(0) }
@@ -233,7 +253,7 @@ private fun ChipPager(
                 verticalAlignment = Alignment.Top,
             ) { page ->
                 Column(verticalArrangement = Arrangement.spacedBy(RowSpacing)) {
-                    for (row in pages[page]) {
+                    for (row in pages[page].take(revealedRows)) {
                         Row(horizontalArrangement = Arrangement.spacedBy(ChipGap)) {
                             for (i in row) {
                                 val option = shown[i]
@@ -242,6 +262,7 @@ private fun ChipPager(
                                     kind = if (isPlace) ChipKind.PLACE else ChipKind.ofTagKind(option.tagKind),
                                     selected = draft.isSelected(option),
                                     isToggle = true,
+                                    textLayout = layouts[i],
                                     onClick = { onToggle(option) },
                                 )
                             }

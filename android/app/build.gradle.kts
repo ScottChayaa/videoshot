@@ -27,6 +27,13 @@ android {
                 enable = false
             }
         }
+        // 效能量測用：跟 release 一樣（不可除錯），但用 debug 金鑰簽，能直接覆蓋裝在開發測試版上、圖庫不會被清掉。
+        // 開發測試版可除錯，Compose 慢好幾倍，畫面耗時要在這一版量才準。不含 src/debug 的開發工具。
+        create("benchmark") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

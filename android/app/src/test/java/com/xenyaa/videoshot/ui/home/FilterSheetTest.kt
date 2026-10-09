@@ -219,7 +219,7 @@ class FilterSheetTest {
     }
 
     @Test
-    fun 抽屜滑出來時只有骨架_停穩後才畫小膠囊() {
+    fun 第一幀只有骨架_接著一列一列畫上小膠囊_不等抽屜停穩() {
         compose.mainClock.autoAdvance = false
         show()
         // 外框與搜尋框第一個畫面就在
@@ -228,12 +228,11 @@ class FilterSheetTest {
         compose.onAllNodesWithContentDescription("載入中…").assertCountEquals(2)
         compose.onNodeWithText("礁溪").assertDoesNotExist()
 
-        compose.mainClock.advanceTimeByFrame()
-        compose.mainClock.advanceTimeByFrame()
-        compose.onNodeWithText("礁溪").assertDoesNotExist()
-
-        compose.mainClock.advanceTimeBy(2_000)
+        // 下一幀地點區第一列就出現
+        repeat(2) { compose.mainClock.advanceTimeByFrame() }
         compose.onNodeWithText("礁溪").assertExists()
+        // 地點區一列一列畫完才輪到標籤區；十來幀（約 0.2 秒，抽屜展開動畫還沒跑完）內兩區都畫完
+        repeat(12) { compose.mainClock.advanceTimeByFrame() }
         compose.onNodeWithText("溫泉").assertExists()
         compose.onAllNodesWithContentDescription("載入中…").assertCountEquals(0)
     }
