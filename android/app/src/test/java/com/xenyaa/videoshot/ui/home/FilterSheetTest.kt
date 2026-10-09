@@ -4,16 +4,21 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -41,7 +46,6 @@ class FilterSheetTest {
 
     private val toggled = mutableListOf<FilterOption>()
     private val queries = mutableListOf<Pair<Boolean, String>>()
-    private val expanded = mutableListOf<Boolean>()
     private var cleared = 0
     private var applied = 0
     private var dismissed = 0
@@ -59,7 +63,6 @@ class FilterSheetTest {
                     draft = draft,
                     onToggle = { toggled += it },
                     onQuery = { isPlace, text -> queries += isPlace to text },
-                    onExpand = { expanded += it },
                     onClear = { cleared++ },
                     onApply = { applied++ },
                     onDismiss = { dismissed++ },
@@ -71,10 +74,10 @@ class FilterSheetTest {
     }
 
     @Test
-    fun 標題_清除篩選_套用_兩個搜尋框都在() {
+    fun 標題_清除_套用_兩個搜尋框都在() {
         show()
         compose.onNodeWithText("篩選").assertIsDisplayed()
-        compose.onNodeWithText("清除篩選").assertIsDisplayed().assertHasClickAction()
+        compose.onNodeWithText("清除").assertIsDisplayed().assertHasClickAction()
         compose.onNodeWithText("套用").assertIsDisplayed().assertHasClickAction()
         compose.onNodeWithText("地點").assertIsDisplayed()
         compose.onNodeWithText("標籤").assertIsDisplayed()
@@ -127,21 +130,40 @@ class FilterSheetTest {
     }
 
     @Test
-    fun 超過50個出現顯示全部_點了呼叫onExpand() {
-        show(options = (1..60).map { place("地點$it") } + listOf(tag("溫泉")))
-        compose.onNodeWithText("顯示全部（60）").performScrollTo().assertIsDisplayed().performClick()
-        assertEquals(listOf(true), expanded)
-        // 標籤區只有一個，不需要展開
-        compose.onAllNodesWithText("顯示全部", substring = true).assertCountEquals(1)
+    fun 少量小膠囊只有一頁_沒有點點() {
+        show()
+        compose.onNodeWithContentDescription("頁，共", substring = true).assertDoesNotExist()
     }
 
     @Test
-    fun 已展開後沒有顯示全部() {
-        show(
-            options = (1..60).map { place("地點$it") },
-            draft = FilterDraft(emptySet(), emptySet(), expanded = setOf(true)),
-        )
-        compose.onAllNodesWithText("顯示全部", substring = true).assertCountEquals(0)
+    fun 超過四列分頁_點點表示第幾頁_往左滑換到下一頁() {
+        show(options = (1..60).map { place("地點$it") } + listOf(tag("溫泉")))
+        compose.onNodeWithText("地點1", substring = false).assertIsDisplayed()
+        // 第一頁放不下 60 個，後面的地點不在畫面上（分頁器只組看得到的那頁）
+        compose.onNodeWithText("地點60").assertDoesNotExist()
+        val dots = compose.onNodeWithContentDescription("第 1 頁，共", substring = true)
+        dots.assertExists()
+        // 地點區的分頁器（可水平捲動的節點）往左滑一頁
+        // 地點區在上面，第一個就是它（標籤區只有一頁，也是分頁器）
+        compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.CollectionInfo))
+            .onFirst()
+            .performTouchInput { swipeLeft() }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("第 2 頁，共", substring = true).assertExists()
+        // 標籤區只有一個，不分頁：只有地點區有點點
+        compose.onAllNodesWithContentDescription("頁，共", substring = true).assertCountEquals(1)
+    }
+
+    @Test
+    fun 超過100個時提示還有幾個沒列出() {
+        show(options = (1..130).map { place("地點$it") })
+        compose.onNodeWithText("還有 30 個沒列出，請用搜尋找").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun 不到100個沒有沒列出的提示() {
+        show()
+        compose.onNodeWithText("沒列出", substring = true).assertDoesNotExist()
     }
 
     @Test
@@ -163,13 +185,20 @@ class FilterSheetTest {
     }
 
     @Test
-    fun 清除篩選與套用各自回報() {
-        show()
-        compose.onNodeWithText("清除篩選").performClick()
+    fun 有勾選時清除可以按_與套用各自回報() {
+        show(draft = FilterDraft(setOf("礁溪"), emptySet()))
+        compose.onNodeWithText("清除").assertIsEnabled().performClick()
         assertEquals(1, cleared)
         assertEquals(0, applied)
         compose.onNodeWithText("套用").performClick()
         assertEquals(1, applied)
+    }
+
+    @Test
+    fun 沒有勾選時清除不能按() {
+        show()
+        compose.onNodeWithText("清除").assertIsNotEnabled().performClick()
+        assertEquals(0, cleared)
     }
 
     // ---- 最終審查 Minor 1：候選還在讀、讀取失敗 ----

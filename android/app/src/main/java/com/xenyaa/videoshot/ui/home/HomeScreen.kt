@@ -79,7 +79,6 @@ fun HomeScreen(
     onOpenFilter: () -> Unit = {},
     onToggleDraft: (FilterOption) -> Unit = {},
     onDraftQuery: (isPlace: Boolean, text: String) -> Unit = { _, _ -> },
-    onExpandDraft: (isPlace: Boolean) -> Unit = {},
     onClearDraft: () -> Unit = {},
     onApplyFilter: () -> Unit = {},
     /** 關抽屜但不套用（滑掉、點背景、返回）：草稿作廢 */
@@ -246,7 +245,6 @@ fun HomeScreen(
                 draft = draft,
                 onToggle = onToggleDraft,
                 onQuery = onDraftQuery,
-                onExpand = onExpandDraft,
                 onClear = onClearDraft,
                 onApply = onApplyFilter,
                 onDismiss = onDismissFilter,

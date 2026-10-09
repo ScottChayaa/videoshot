@@ -147,13 +147,6 @@ class HomeViewModel(
         }
     }
 
-    fun expandDraft(isPlace: Boolean) {
-        _state.update { state ->
-            val draft = state.draft ?: return@update state
-            state.copy(draft = draft.copy(expanded = draft.expanded + isPlace))
-        }
-    }
-
     /** 清空草稿的勾選；已套用的篩選不動，要按【套用】才生效。 */
     fun clearDraft() {
         _state.update { state ->

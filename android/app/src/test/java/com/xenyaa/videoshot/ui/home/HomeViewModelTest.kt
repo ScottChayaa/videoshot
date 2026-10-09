@@ -371,16 +371,14 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun 草稿的搜尋字與展開() = runTest(dispatcher) {
+    fun 草稿的搜尋字() = runTest(dispatcher) {
         val (vm, _) = newVm()
         vm.openFilter()
         advanceUntilIdle()
         vm.setDraftQuery(true, "礁")
-        vm.expandDraft(false)
         val d = vm.state.value.draft!!
         assertEquals("礁", d.query[true])
         assertEquals("", d.query[false])
-        assertEquals(setOf(false), d.expanded)
     }
 
     @Test

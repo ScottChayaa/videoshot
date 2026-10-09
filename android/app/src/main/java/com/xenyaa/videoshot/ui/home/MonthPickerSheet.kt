@@ -1,7 +1,6 @@
 package com.xenyaa.videoshot.ui.home
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -10,16 +9,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.xenyaa.videoshot.ui.common.VsBottomSheet
 import com.xenyaa.videoshot.core.home.monthLabel
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.xenyaa.videoshot.ui.common.VsSheetHeader
+import com.xenyaa.videoshot.ui.common.VsTextAction
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
 
@@ -52,25 +50,10 @@ fun MonthPickerSheet(
     onDismiss: () -> Unit,
     filtering: Boolean = false,
 ) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = AppTheme.colors.surface,
-    ) {
+    VsBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(bottom = AppTheme.spacing.s5)) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.s4),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "只顯示這個月以前",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = AppTheme.colors.text,
-                    modifier = Modifier.weight(1f),
-                )
-                if (selected != null) {
-                    TextButton(onClick = onClear) { Text("清除") }
-                }
+            VsSheetHeader("只顯示這個月以前") {
+                if (selected != null) VsTextAction("清除", onClear)
             }
             if (months.isEmpty()) {
                 // 沒有月份可選，給一句話收尾就好，不必另做一套空狀態設計；

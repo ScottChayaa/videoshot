@@ -23,9 +23,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.xenyaa.videoshot.ui.common.VsBottomSheet
 import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.data.repo.model.FolderCard
 import com.xenyaa.videoshot.ui.common.ButtonVariant
@@ -176,11 +175,7 @@ fun FoldersScreen(
     }
 
     if (sortPicking) {
-        ModalBottomSheet(
-            onDismissRequest = { sortPicking = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = AppTheme.colors.surface,
-        ) {
+        VsBottomSheet(onDismissRequest = { sortPicking = false }) {
             Column(Modifier.fillMaxWidth().padding(bottom = AppTheme.spacing.s5)) {
                 Text(
                     "排序方式",

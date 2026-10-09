@@ -27,6 +27,8 @@ import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.ChipKind
 import com.xenyaa.videoshot.ui.common.ChipSize
 import com.xenyaa.videoshot.ui.common.VsChipSkeleton
+import com.xenyaa.videoshot.ui.common.VsSheetHeader
+import com.xenyaa.videoshot.ui.common.VsTextAction
 import com.xenyaa.videoshot.ui.common.PillStyle
 import com.xenyaa.videoshot.ui.common.TextFieldSize
 import com.xenyaa.videoshot.ui.common.TopBarNav
@@ -158,6 +160,10 @@ private fun ChipSection() = Section("標籤小膠囊") {
     }
     // 骨架屏（資料還沒畫上去之前，例如首頁篩選抽屜剛打開、候選讀取中）
     VsChipSkeleton(6)
+    // 底部抽屜的標題列：右邊有沒有按鈕都一樣高
+    VsSheetHeader("篩選") { VsTextAction("清除", onClick = {}) }
+    VsSheetHeader("篩選（沒有勾選）") { VsTextAction("清除", onClick = {}, enabled = false) }
+    VsSheetHeader("只顯示這個月以前")
 }
 
 @Composable

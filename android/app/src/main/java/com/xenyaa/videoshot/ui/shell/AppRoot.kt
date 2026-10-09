@@ -653,7 +653,6 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                         onOpenFilter = homeVm::openFilter,
                         onToggleDraft = homeVm::toggleDraft,
                         onDraftQuery = homeVm::setDraftQuery,
-                        onExpandDraft = homeVm::expandDraft,
                         onClearDraft = homeVm::clearDraft,
                         onApplyFilter = homeVm::applyFilter,
                         onDismissFilter = homeVm::dismissFilter,

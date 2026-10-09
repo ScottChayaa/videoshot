@@ -9,10 +9,8 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import com.xenyaa.videoshot.ui.common.VsBottomSheet
 import com.xenyaa.videoshot.core.folders.compareNaturally
 import com.xenyaa.videoshot.data.repo.model.FolderNode
 import com.xenyaa.videoshot.ui.theme.AppTheme
@@ -74,11 +73,7 @@ fun AddToFolderSheet(
     // 改名對話框同一種「同一層兩個 sibling」寫法，只是這裡兩者可能同時顯示）。
     var creatingName by remember { mutableStateOf<String?>(null) }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = AppTheme.colors.surface,
-    ) {
+    VsBottomSheet(onDismissRequest = onDismiss) {
         Column(
             Modifier.fillMaxWidth().padding(bottom = AppTheme.spacing.s5),
             verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),

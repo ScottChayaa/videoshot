@@ -39,6 +39,21 @@ import com.xenyaa.videoshot.ui.theme.FocusRingWidth
 enum class ChipSize { Regular, Mini }
 
 /**
+ * 一般尺寸小膠囊的寬度組成：左右內距＋圖示＋圖示與文字的間距＋文字。篩選抽屜分頁要在畫之前先算出
+ * 每顆多寬（[regularWidthPx]），所以這幾個數字只寫在這裡，小膠囊本身也讀它們。
+ * 左右內距 8（2026-10-09 scott 要求再緊一點，原本 10；迷你從 8 改 6）。
+ */
+object TagChipMetrics {
+    val PadRegular = 8.dp
+    val IconRegular = 14.dp
+    val IconGap = 4.dp
+
+    /** 一般尺寸、不帶張數的小膠囊寬度（px）。 */
+    fun regularWidthPx(textWidthPx: Int, density: Float): Int =
+        textWidthPx + ((PadRegular * 2 + IconRegular + IconGap).value * density).let { kotlin.math.ceil(it).toInt() }
+}
+
+/**
  * 標籤／地點小膠囊（原型 `styles.css`「chip」＋ `app.js` 的 `tagChip`）。
  *
  * 種類靠**圖示＋顏色**兩者一起區分；選取只靠變色（實心主色＋白字，跟淺底深字的明暗差夠大，不只靠色相）。
@@ -71,9 +86,9 @@ fun VsTagChip(
     val ink = if (selected) AppTheme.colors.accentInk else AppTheme.colors.text
     val iconTint = if (selected) AppTheme.colors.accentInk else kind.color
     val textStyle = MaterialTheme.typography.bodySmall
-    val iconSize = if (regular) 14.dp else 13.dp
-    val pad = if (regular) PaddingValues(horizontal = 10.dp, vertical = AppTheme.spacing.s1)
-    else PaddingValues(horizontal = AppTheme.spacing.s2, vertical = 2.dp)
+    val iconSize = if (regular) TagChipMetrics.IconRegular else 13.dp
+    val pad = if (regular) PaddingValues(horizontal = TagChipMetrics.PadRegular, vertical = AppTheme.spacing.s1)
+    else PaddingValues(horizontal = 6.dp, vertical = 2.dp)
 
     // 可點時：觸控區是至少 44dp 高的透明外框、膠囊置中（手冊 §零），但按下的漣漪與鍵盤焦點框
     // 只畫在看得到的膠囊上，按下時的範圍跟看到的按鈕一樣大。
@@ -93,7 +108,7 @@ fun VsTagChip(
 
     // 選取只靠變色表示：實心主色＋白字 vs 淺底＋深字，明暗差夠大，不只靠色相；TalkBack 由 selectable 唸已選取
     val chip: @Composable () -> Unit = {
-        Row(m, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1)) {
+        Row(m, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TagChipMetrics.IconGap)) {
             Icon(kind.icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(iconSize))
             Text(
                 buildAnnotatedString {
