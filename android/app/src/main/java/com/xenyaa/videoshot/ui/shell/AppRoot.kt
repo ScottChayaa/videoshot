@@ -484,7 +484,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                 throw e
                             } catch (e: Exception) {
                                 checkedFolders = container.libraryRepo.foldersOf(shot.id)
-                                snackbarHostState.showSnackbar("加入分類失敗，請再試一次")
+                                snackbarHostState.showSnackbar("加入相簿失敗，請再試一次")
                             }
                         }
                     },
@@ -507,7 +507,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                             } catch (e: Exception) {
                                 // repo／檔案系統的例外不接住的話會直接把 process 帶走
                                 // （同這個檔案別處的註解、見階段 7 全盤覆查第 2 點）
-                                snackbarHostState.showSnackbar("新增資料夾失敗，請再試一次")
+                                snackbarHostState.showSnackbar("新增相簿失敗，請再試一次")
                             }
                         }
                     },
@@ -680,7 +680,6 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                 onOpenChild = { child -> nav = nav.push(Dest.Folder(child.id)) },
                                 onOpenShot = { index -> nav = nav.push(Dest.Lightbox(index)) },
                                 onLoadMore = vm::loadMore,
-                                onStartCreateChild = vm::startCreateChild,
                                 onStartRename = vm::startRename,
                                 onAskDeleteSelf = vm::askDeleteSelf,
                                 onRenameChild = vm::startRenameChild,

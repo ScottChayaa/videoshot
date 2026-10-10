@@ -77,7 +77,7 @@ fun ThumbsUsageScreen(
                     }
                 }
             }
-            VsSettingNote("套用到首頁、查詢結果、資料夾內容。張數越多縮圖越小；平板會依寬度自動多 2～3 欄。")
+            VsSettingNote("套用到首頁、相簿內容。張數越多縮圖越小；平板會依寬度自動多 2～3 欄。")
 
             VsSettingGroup(title = "儲存用量") {
                 Row(

@@ -83,9 +83,9 @@ class AddToFolderSheetTest {
     @Test
     fun 沒有任何分類時帶一顆新增資料夾() {
         show(tree = emptyList(), checked = emptySet())
-        compose.onNodeWithText("還沒有任何分類").assertIsDisplayed()
-        compose.onNodeWithText("新增資料夾").performClick()
-        compose.onNodeWithContentDescription("資料夾名稱").performTextInput("旅行")
+        compose.onNodeWithText("還沒有任何相簿").assertIsDisplayed()
+        compose.onNodeWithText("新增相簿").performClick()
+        compose.onNodeWithContentDescription("相簿名稱").performTextInput("旅行")
         compose.onNodeWithText("建立").performClick()
         assertEquals("旅行", created)
     }

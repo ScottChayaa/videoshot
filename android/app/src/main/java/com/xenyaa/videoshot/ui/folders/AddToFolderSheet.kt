@@ -79,7 +79,7 @@ fun AddToFolderSheet(
             verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
         ) {
             Text(
-                "加入分類",
+                "加入相簿",
                 style = MaterialTheme.typography.titleMedium,
                 color = AppTheme.colors.text,
                 modifier = Modifier.padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s2),
@@ -88,7 +88,7 @@ fun AddToFolderSheet(
             val flat = flattenTree(tree)
             if (flat.isEmpty()) {
                 Text(
-                    "還沒有任何分類",
+                    "還沒有任何相簿",
                     style = MaterialTheme.typography.bodyMedium,
                     color = AppTheme.colors.textDim,
                     modifier = Modifier.padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s2),
@@ -127,7 +127,7 @@ fun AddToFolderSheet(
                 onClick = { creatingName = "" },
                 modifier = Modifier.focusRing().padding(horizontal = AppTheme.spacing.s2),
             ) {
-                Text("新增資料夾")
+                Text("新增相簿")
             }
         }
     }

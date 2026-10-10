@@ -153,9 +153,6 @@ class FolderViewModel(
     /** 子資料夾列固定名稱升冪（`FolderSort` 的 KDoc：清單頁與資料夾頁共用同一組排序）。 */
     private suspend fun loadChildren(): List<FolderCard> = FolderSort.NAME_ASC.sort(repo.folderCards(folderId))
 
-    /** 新增子資料夾。`FoldersStore` 的那幾個轉換是給清單頁的 `FoldersState` 用的，型別不同，不要硬轉 */
-    fun startCreateChild() { _state.value = _state.value.copy(editor = FolderEditor(target = null, name = "")) }
-
     /** 改的是**這一頁自己**（頂列的〔改名〕）。 */
     fun startRename() {
         val node = _state.value.node ?: return
@@ -175,10 +172,12 @@ class FolderViewModel(
 
     fun confirmEditor() {
         val editor = _state.value.editor ?: return
+        // 這一頁只有重新命名（不能在相簿裡建子相簿），對話框一定帶著要改的 id
+        val target = editor.target ?: return
         val name = editor.name.trim()
         launchGuarded {
             try {
-                if (editor.target == null) repo.createFolder(folderId, name) else repo.renameFolder(editor.target, name)
+                repo.renameFolder(target, name)
                 _state.value = _state.value.copy(editor = null)
                 reload()
             } catch (e: IllegalArgumentException) {

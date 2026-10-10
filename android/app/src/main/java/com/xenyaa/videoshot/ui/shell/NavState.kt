@@ -6,7 +6,7 @@ import androidx.compose.runtime.Immutable
 enum class Tab(val label: String) {
     HOME("首頁"),
     CAPTURE("取圖"),
-    FOLDERS("分類"),
+    FOLDERS("相簿"),
     ACCOUNT("帳號"),
 }
 

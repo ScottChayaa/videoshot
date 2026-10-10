@@ -42,7 +42,7 @@ class AppShellTest {
     @Test
     fun 四格都有文字() {
         show()
-        for (label in listOf("首頁", "取圖", "分類", "帳號")) {
+        for (label in listOf("首頁", "取圖", "相簿", "帳號")) {
             compose.onNodeWithText(label).assertIsDisplayed()
         }
     }
@@ -51,7 +51,7 @@ class AppShellTest {
     fun 點導覽會回報要切到哪一格() {
         var picked: Tab? = null
         show(onSelectTab = { picked = it })
-        compose.onNodeWithText("分類").performClick()
+        compose.onNodeWithText("相簿").performClick()
         assertEquals(Tab.FOLDERS, picked)
     }
 
@@ -66,7 +66,7 @@ class AppShellTest {
     fun 取圖分頁沒有底部導覽() {
         show(NavState().select(Tab.CAPTURE))
         compose.onNodeWithText("內容：取圖").assertIsDisplayed()
-        compose.onNodeWithText("分類").assertDoesNotExist()
+        compose.onNodeWithText("相簿").assertDoesNotExist()
         compose.onNodeWithText("首頁").assertDoesNotExist()
     }
 

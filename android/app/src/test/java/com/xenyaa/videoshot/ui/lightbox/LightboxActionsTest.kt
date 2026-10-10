@@ -83,7 +83,7 @@ class LightboxActionsTest {
     @Test
     fun 兩顆圖示鈕在外層() {
         show()
-        compose.onNodeWithContentDescription("加入分類").performClick()
+        compose.onNodeWithContentDescription("加入相簿").performClick()
         compose.onNodeWithContentDescription("分享").performClick()
         assertEquals(listOf("folder", "share"), clicked)
     }

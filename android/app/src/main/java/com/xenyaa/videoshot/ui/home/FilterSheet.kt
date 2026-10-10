@@ -1,7 +1,6 @@
 package com.xenyaa.videoshot.ui.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -21,7 +20,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -40,7 +38,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -56,6 +53,7 @@ import com.xenyaa.videoshot.ui.common.TopBarIconButton
 import com.xenyaa.videoshot.ui.common.VsBottomSheet
 import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsChipSkeleton
+import com.xenyaa.videoshot.ui.common.VsClearQueryButton
 import com.xenyaa.videoshot.ui.common.VsSheetHeader
 import com.xenyaa.videoshot.ui.common.VsTagChip
 import com.xenyaa.videoshot.ui.common.VsTextAction
@@ -237,7 +235,7 @@ private fun SectionHeader(title: String, noun: String, query: String, onQuery: (
                         else if (hadFocus && currentQuery.isEmpty()) searching = false
                     },
                 trailing = if (query.isNotEmpty()) {
-                    { ClearQueryButton { onQuery("") } }
+                    { VsClearQueryButton { onQuery("") } }
                 } else {
                     null
                 },
@@ -254,20 +252,6 @@ private fun SectionHeader(title: String, noun: String, query: String, onQuery: (
             Spacer(Modifier.weight(1f))
             TopBarIconButton(VsIcons.Search, "搜尋$noun", { searching = true })
         }
-    }
-}
-
-/** 搜尋框裡的【✕】：跟欄位一樣高（44dp），寬 40dp，按了清空搜尋字（焦點留在框裡，可以接著打）。 */
-@Composable
-private fun ClearQueryButton(onClick: () -> Unit) {
-    Box(
-        Modifier
-            .size(width = 40.dp, height = AppTheme.spacing.tap)
-            .clickable(role = Role.Button, onClickLabel = "清除") { onClick() }
-            .semantics { contentDescription = "清除搜尋文字" },
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(VsIcons.Close, contentDescription = null, tint = AppTheme.colors.textDim, modifier = Modifier.size(18.dp))
     }
 }
 

@@ -135,13 +135,13 @@ fun FolderCardTile(
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(
-                        text = { Text("改名") },
+                        text = { Text("重新命名") },
                         leadingIcon = { Icon(VsIcons.Edit, contentDescription = null) },
                         onClick = { menuOpen = false; onRename() },
                     )
                     DropdownMenuItem(
                         // 破壞性動作：這是這一頁唯一用 danger 色的地方（手冊 §零第二條）
-                        text = { Text("刪除資料夾", color = AppTheme.colors.danger) },
+                        text = { Text("移除相簿", color = AppTheme.colors.danger) },
                         leadingIcon = { Icon(VsIcons.Trash, contentDescription = null, tint = AppTheme.colors.danger) },
                         onClick = { menuOpen = false; onDelete() },
                     )

@@ -163,7 +163,7 @@ class NavStateTest {
 
     @Test
     fun 分頁只有四格() {
-        assertEquals(listOf("首頁", "取圖", "分類", "帳號"), Tab.entries.map { it.label })
+        assertEquals(listOf("首頁", "取圖", "相簿", "帳號"), Tab.entries.map { it.label })
     }
 
     @Test

@@ -47,7 +47,7 @@ fun FolderNameDialog(
             verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s3),
         ) {
             Text(
-                if (editor.target == null) "新增資料夾" else "資料夾改名",
+                if (editor.target == null) "新增相簿" else "重新命名相簿",
                 style = MaterialTheme.typography.titleMedium,
                 color = AppTheme.colors.text,
             )
@@ -61,7 +61,7 @@ fun FolderNameDialog(
                 supportingText = editor.error?.let { { Text(it) } },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .semantics { contentDescription = "資料夾名稱" },
+                    .semantics { contentDescription = "相簿名稱" },
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = onDismiss) { Text("取消") }

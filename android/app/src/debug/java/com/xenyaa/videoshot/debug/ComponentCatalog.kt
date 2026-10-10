@@ -109,7 +109,7 @@ private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) 
 
 @Composable
 private fun TopBarSection() = Section("頂欄") {
-    VsTopBar("分類")
+    VsTopBar("相簿")
     VsTopBar(
         "加勒比海",
         nav = TopBarNav.Back(onClick = {}),

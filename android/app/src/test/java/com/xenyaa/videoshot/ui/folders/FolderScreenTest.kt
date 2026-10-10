@@ -69,7 +69,6 @@ class FolderScreenTest {
                     onOpenChild = {},
                     onOpenShot = { openedIndex = it },
                     onLoadMore = { loadMoreCalls++ },
-                    onStartCreateChild = {},
                     onStartRename = {},
                     onAskDeleteSelf = {},
                     onRenameChild = { renamedChild = it },
@@ -114,23 +113,19 @@ class FolderScreenTest {
     @Test
     fun 空的資料夾說得出圖要從哪裡加() {
         show(FolderState(node = FolderNode(1, null, "旅行", 1)))
-        compose.onNodeWithText("這個資料夾還沒有圖片").assertIsDisplayed()
-        compose.onNodeWithText("在圖片的全屏檢視裡用【加入分類】把圖放進來").assertIsDisplayed()
+        compose.onNodeWithText("這個相簿還沒有圖片").assertIsDisplayed()
+        compose.onNodeWithText("在圖片的全屏檢視裡用【加入相簿】把圖放進來").assertIsDisplayed()
     }
 
+    /** 相簿裡不能再建子相簿：〔⋯〕只有重新命名與移除相簿。 */
     @Test
-    fun 第五層不給再建子資料夾並說明原因() {
-        show(FolderState(node = FolderNode(9, 8, "第 5 層", 5)))
-        compose.onNodeWithContentDescription("這個資料夾的更多操作").performClick()
-        compose.onNodeWithText("新增子資料夾").assertIsNotEnabled()
-        compose.onNodeWithText("已經是第 5 層，不能再往下分").assertIsDisplayed()
-    }
-
-    @Test
-    fun 第四層還可以建子資料夾() {
-        show(FolderState(node = FolderNode(9, 8, "第 4 層", 4)))
-        compose.onNodeWithContentDescription("這個資料夾的更多操作").performClick()
-        compose.onNodeWithText("新增子資料夾").assertIsEnabled()
+    fun 更多操作沒有新增子相簿() {
+        show(FolderState(node = FolderNode(1, null, "旅行", 1)))
+        compose.onNodeWithContentDescription("這個相簿的更多操作").performClick()
+        compose.onNodeWithText("重新命名").assertIsDisplayed()
+        compose.onNodeWithText("移除相簿").assertIsDisplayed()
+        compose.onNodeWithText("新增子資料夾").assertDoesNotExist()
+        compose.onNodeWithText("新增子相簿").assertDoesNotExist()
     }
 
     @Test
@@ -153,7 +148,7 @@ class FolderScreenTest {
             )
         )
         compose.onNodeWithContentDescription("「宜蘭」的更多操作").performClick()
-        compose.onNodeWithText("改名").performClick()
+        compose.onNodeWithText("重新命名").performClick()
         assertEquals(2L, renamedChild?.id)
         assertEquals("宜蘭", renamedChild?.name)
     }
@@ -168,7 +163,7 @@ class FolderScreenTest {
             )
         )
         compose.onNodeWithContentDescription("「宜蘭」的更多操作").performClick()
-        compose.onNodeWithText("刪除資料夾").performClick()
+        compose.onNodeWithText("移除相簿").performClick()
         assertEquals(2L, deleteAskedChild?.id)
         assertEquals("宜蘭", deleteAskedChild?.name)
     }
@@ -181,7 +176,7 @@ class FolderScreenTest {
     fun 讀取失敗顯示錯誤列不顯示資料夾是空的() {
         show(FolderState(node = FolderNode(1, null, "旅行", 1), error = "載入失敗，請再試一次"))
         compose.onNodeWithText("載入失敗，請再試一次").assertIsDisplayed()
-        compose.onNodeWithText("這個資料夾還沒有圖片").assertDoesNotExist()
+        compose.onNodeWithText("這個相簿還沒有圖片").assertDoesNotExist()
 
         // 點〔重試〕要能再叫一次 onLoadMore——不管掛載當下的續載偵測（空清單一律判定「近底」，
         // 跟 HomeScreen 同一個算法）已經先自動打過幾次，點下去之後那一次一定要多算進去。
@@ -193,13 +188,13 @@ class FolderScreenTest {
     @Test
     fun 顯示麵包屑() {
         show(FolderState(node = FolderNode(2, 1, "加勒比海之旅", 2), breadcrumb = listOf("加勒比海之旅")))
-        compose.onNodeWithText("分類 / 加勒比海之旅").assertIsDisplayed()
+        compose.onNodeWithText("相簿 / 加勒比海之旅").assertIsDisplayed()
     }
 
     @Test
     fun 多層麵包屑用斜線串起來() {
         show(FolderState(node = FolderNode(3, 2, "夜潛", 3), breadcrumb = listOf("旅行", "宜蘭", "夜潛")))
-        compose.onNodeWithText("分類 / 旅行 / 宜蘭 / 夜潛").assertIsDisplayed()
+        compose.onNodeWithText("相簿 / 旅行 / 宜蘭 / 夜潛").assertIsDisplayed()
     }
 
     @Test
@@ -223,7 +218,7 @@ class FolderScreenTest {
                 FolderScreen(
                     state = FolderState(node = FolderNode(1, null, "旅行", 1), children = listOf(card(2, "夜潛", 7))),
                     loader = loader, onBack = {}, onOpenChild = { opened = it }, onOpenShot = {}, onLoadMore = {},
-                    onStartCreateChild = {}, onStartRename = {}, onAskDeleteSelf = {}, onRenameChild = {},
+                    onStartRename = {}, onAskDeleteSelf = {}, onRenameChild = {},
                     onAskDeleteChild = {}, onEditorName = {}, onConfirmEditor = {}, onDismissEditor = {},
                     onConfirmDelete = {}, onDismissDelete = {},
                 )
@@ -237,6 +232,6 @@ class FolderScreenTest {
     fun 有子資料夾沒有圖時仍顯示空狀態() {
         show(FolderState(node = FolderNode(1, null, "旅行", 1), children = listOf(card(2, "夜潛", 0))))
         compose.onNodeWithText("夜潛").assertIsDisplayed()
-        compose.onNodeWithText("這個資料夾還沒有圖片").assertIsDisplayed()
+        compose.onNodeWithText("這個相簿還沒有圖片").assertIsDisplayed()
     }
 }

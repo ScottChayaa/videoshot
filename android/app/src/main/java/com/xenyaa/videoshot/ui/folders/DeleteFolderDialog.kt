@@ -15,10 +15,10 @@ import com.xenyaa.videoshot.ui.theme.AppTheme
 fun DeleteFolderDialog(card: FolderCard, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("刪除「${card.name}」") },
-        text = { Text("子資料夾會一起刪除，圖片不會被刪除。") },
+        title = { Text("移除相簿「${card.name}」") },
+        text = { Text("裡面的子相簿會一起移除，圖片不會被刪除。") },
         confirmButton = {
-            TextButton(onClick = onConfirm) { Text("刪除", color = AppTheme.colors.danger) }
+            TextButton(onClick = onConfirm) { Text("移除", color = AppTheme.colors.danger) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
     )

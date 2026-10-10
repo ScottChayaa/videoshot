@@ -363,8 +363,8 @@ class RoomLibraryRepo(
     }
 
     override suspend fun createFolder(parentId: Long?, name: String): Long = withContext(io) {
-        require(name.isNotBlank()) { "資料夾名稱不可空白" }
-        require(name.length <= 50) { "資料夾名稱上限 50 字，收到 ${name.length} 字" }
+        require(name.isNotBlank()) { "相簿名稱不可空白" }
+        require(name.length <= 50) { "相簿名稱上限 50 字，收到 ${name.length} 字" }
         val id = db.inWriteTransaction {
             // 同層不重名：SQLite 的唯一索引把多個 NULL 視為互異，根層擋不住，只能在這裡查
             require(db.folderDao().countSameNameInLayer(parentId, name) == 0) { "同一層已經有「$name」了" }
@@ -372,7 +372,7 @@ class RoomLibraryRepo(
             var cursor = parentId
             while (cursor != null) {
                 depth++
-                require(depth <= 5) { "資料夾深度上限 5 層" }
+                require(depth <= 5) { "相簿深度上限 5 層" }
                 cursor = db.folderDao().parentOf(cursor)
             }
             db.folderDao().insert(FolderEntity(0, parentId, name, System.currentTimeMillis() / 1000))
@@ -382,8 +382,8 @@ class RoomLibraryRepo(
     }
 
     override suspend fun renameFolder(id: Long, name: String): Unit = withContext(io) {
-        require(name.isNotBlank()) { "資料夾名稱不可空白" }
-        require(name.length <= 50) { "資料夾名稱上限 50 字，收到 ${name.length} 字" }
+        require(name.isNotBlank()) { "相簿名稱不可空白" }
+        require(name.length <= 50) { "相簿名稱上限 50 字，收到 ${name.length} 字" }
         db.inWriteTransaction {
             val parentId = db.folderDao().parentOf(id)
             require(db.folderDao().countSameNameInLayerExcept(parentId, name, id) == 0) {

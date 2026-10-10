@@ -69,14 +69,13 @@ fun FolderScreen(
     onOpenChild: (FolderCard) -> Unit,
     onOpenShot: (Int) -> Unit,
     onLoadMore: () -> Unit,
-    onStartCreateChild: () -> Unit,
-    /** 頂列〔⋯〕的〔改名〕——改的是**這一頁自己**。 */
+    /** 頂列〔⋯〕的〔重新命名〕——改的是**這一頁自己**。 */
     onStartRename: () -> Unit,
-    /** 頂列〔⋯〕的〔刪除資料夾〕——刪的是**這一頁自己**。 */
+    /** 頂列〔⋯〕的〔移除相簿〕——刪的是**這一頁自己**。 */
     onAskDeleteSelf: () -> Unit,
-    /** 子資料夾列〔⋯〕的〔改名〕——改的是**那張子卡片**，不是這一頁（裁決 2）。 */
+    /** 子資料夾列〔⋯〕的〔重新命名〕——改的是**那張子卡片**，不是這一頁（裁決 2）。 */
     onRenameChild: (FolderCard) -> Unit,
-    /** 子資料夾列〔⋯〕的〔刪除〕——問的是**那張子卡片**，不是這一頁（裁決 2）。 */
+    /** 子資料夾列〔⋯〕的〔移除相簿〕——問的是**那張子卡片**，不是這一頁（裁決 2）。 */
     onAskDeleteChild: (FolderCard) -> Unit,
     onEditorName: (String) -> Unit,
     onConfirmEditor: () -> Unit,
@@ -89,7 +88,6 @@ fun FolderScreen(
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val gridState = rememberLazyGridState()
-    val canGoDeeper = (state.node?.depth ?: 1) < 5
 
     // 捲到剩最後幾列就先去要下一頁（寫法真的照 HomeScreen.kt：`nearEnd` 用 derivedStateOf
     // 算，`LaunchedEffect` 的 block 不是常駐的 collector，而是每次 key 換了就重新跑一次、
@@ -115,31 +113,15 @@ fun FolderScreen(
 
         VsTopBar(state.node?.name.orEmpty(), nav = TopBarNav.Back(onBack)) {
             Box {
-                TopBarIconButton(VsIcons.More, "這個資料夾的更多操作", { menuOpen = true })
+                TopBarIconButton(VsIcons.More, "這個相簿的更多操作", { menuOpen = true })
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(
-                        text = { Text("新增子資料夾") },
-                        leadingIcon = { Icon(VsIcons.FolderPlus, contentDescription = null) },
-                        // 規格：已在第 5 層則 UI 阻擋再建子層。停用之後要說得出原因，
-                        // 不然使用者只會覺得按鈕壞了
-                        enabled = canGoDeeper,
-                        onClick = { menuOpen = false; onStartCreateChild() },
-                    )
-                    if (!canGoDeeper) {
-                        Text(
-                            "已經是第 5 層，不能再往下分",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = AppTheme.colors.textDim,
-                            modifier = Modifier.padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s1),
-                        )
-                    }
-                    DropdownMenuItem(
-                        text = { Text("改名") },
+                        text = { Text("重新命名") },
                         leadingIcon = { Icon(VsIcons.Edit, contentDescription = null) },
                         onClick = { menuOpen = false; onStartRename() },
                     )
                     DropdownMenuItem(
-                        text = { Text("刪除資料夾", color = AppTheme.colors.danger) },
+                        text = { Text("移除相簿", color = AppTheme.colors.danger) },
                         leadingIcon = { Icon(VsIcons.Trash, contentDescription = null, tint = AppTheme.colors.danger) },
                         onClick = { menuOpen = false; onAskDeleteSelf() },
                     )
@@ -150,7 +132,7 @@ fun FolderScreen(
         // 麵包屑（原型 `.fd-breadcrumb`）：15 textDim，內距上 12 左右 16。還沒載到（空）就先不畫
         if (state.breadcrumb.isNotEmpty()) {
             Text(
-                "分類 / " + state.breadcrumb.joinToString(" / "),
+                "相簿 / " + state.breadcrumb.joinToString(" / "),
                 style = MaterialTheme.typography.bodyMedium,
                 color = AppTheme.colors.textDim,
                 modifier = Modifier
@@ -208,9 +190,9 @@ fun FolderScreen(
             if (state.items.isEmpty() && !state.loading && state.error == null) {
                 item(key = "empty", span = { GridItemSpan(maxLineSpan) }) {
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                        VsEmptyState("這個資料夾還沒有圖片", icon = VsIcons.ImagePlus)
+                        VsEmptyState("這個相簿還沒有圖片", icon = VsIcons.ImagePlus)
                         Text(
-                            "在圖片的全屏檢視裡用【加入分類】把圖放進來",
+                            "在圖片的全屏檢視裡用【加入相簿】把圖放進來",
                             style = MaterialTheme.typography.bodyMedium,
                             color = AppTheme.colors.textDim,
                             textAlign = TextAlign.Center,
@@ -300,13 +282,13 @@ private fun ChildFolderRow(
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 DropdownMenuItem(
-                    text = { Text("改名") },
+                    text = { Text("重新命名") },
                     leadingIcon = { Icon(VsIcons.Edit, contentDescription = null) },
                     onClick = { menuOpen = false; onRename() },
                 )
                 DropdownMenuItem(
                     // 破壞性動作：唯一用 danger 色的地方（手冊 §零第二條）
-                    text = { Text("刪除資料夾", color = AppTheme.colors.danger) },
+                    text = { Text("移除相簿", color = AppTheme.colors.danger) },
                     leadingIcon = { Icon(VsIcons.Trash, contentDescription = null, tint = AppTheme.colors.danger) },
                     onClick = { menuOpen = false; onDelete() },
                 )

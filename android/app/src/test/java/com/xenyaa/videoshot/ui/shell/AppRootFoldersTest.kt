@@ -261,7 +261,7 @@ class AppRootFoldersTest {
     @Test
     fun 分類分頁列出資料夾點進去看得到內容() {
         show()
-        compose.onNodeWithText("分類").performClick()
+        compose.onNodeWithText("相簿").performClick()
         compose.onNodeWithText("旅行").performClick()
         // 資料夾頁：標題是名稱，本層有兩張圖
         compose.onNodeWithContentDescription("返回").assertIsDisplayed()
@@ -271,14 +271,14 @@ class AppRootFoldersTest {
     @Test
     fun 返回鍵從_Lightbox_退回資料夾頁再退回清單頁() {
         show()
-        compose.onNodeWithText("分類").performClick()
+        compose.onNodeWithText("相簿").performClick()
         compose.onNodeWithText("旅行").performClick()
         compose.onAllNodesWithContentDescription("片段縮圖 00:30")[0].performClick()
 
         compose.onNodeWithContentDescription("關閉").performClick()
         compose.onNodeWithContentDescription("返回").performClick()
 
-        compose.onNodeWithText("1 個分類").assertIsDisplayed()
+        compose.onNodeWithText("1 個相簿").assertIsDisplayed()
     }
 
     @Test
@@ -286,7 +286,7 @@ class AppRootFoldersTest {
         show()
         // 首頁 → 開第一張的 Lightbox → 加入分類 → 勾「旅行」
         compose.onAllNodesWithContentDescription("片段縮圖 00:30")[0].performClick()
-        compose.onNodeWithContentDescription("加入分類").performClick()
+        compose.onNodeWithContentDescription("加入相簿").performClick()
         compose.onNodeWithContentDescription("旅行").performClick()
 
         assertEquals(listOf(1L to 1L), repo.added)
@@ -302,13 +302,13 @@ class AppRootFoldersTest {
         repo.addShotToFolderShouldFail = true
 
         compose.onAllNodesWithContentDescription("片段縮圖 00:30")[0].performClick()
-        compose.onNodeWithContentDescription("加入分類").performClick()
+        compose.onNodeWithContentDescription("加入相簿").performClick()
         compose.onNodeWithContentDescription("旅行").performClick()
         compose.waitForIdle()
 
         assertEquals("寫失敗就不該真的寫進去", emptyList<Pair<Long, Long>>(), repo.added)
         compose.onNodeWithContentDescription("旅行").assertIsOff()
-        compose.onNodeWithText("加入分類失敗，請再試一次").assertIsDisplayed()
+        compose.onNodeWithText("加入相簿失敗，請再試一次").assertIsDisplayed()
     }
 
     /**
@@ -323,7 +323,7 @@ class AppRootFoldersTest {
         repo.folderItems = listOf(row(1L, 30.0), row(12L, 90.0))
         show()
 
-        compose.onNodeWithText("分類").performClick()
+        compose.onNodeWithText("相簿").performClick()
         compose.onNodeWithText("4 張").assertIsDisplayed() // 旅行：folderItems(2) + childItems(2)
         compose.onNodeWithText("首頁").performClick()
 
@@ -334,7 +334,7 @@ class AppRootFoldersTest {
         compose.waitForIdle()
         compose.onNodeWithContentDescription("關閉").performClick()
 
-        compose.onNodeWithText("分類").performClick()
+        compose.onNodeWithText("相簿").performClick()
         compose.onNodeWithText("3 張").assertIsDisplayed()
     }
 
@@ -347,7 +347,7 @@ class AppRootFoldersTest {
     @Test
     fun 子資料夾頁刪圖返回後父頁與清單頁的張數是新的() {
         show()
-        compose.onNodeWithText("分類").performClick()
+        compose.onNodeWithText("相簿").performClick()
         compose.onNodeWithText("4 張").assertIsDisplayed() // 旅行：2（自己）+ 2（宜蘭）
 
         compose.onNodeWithText("旅行").performClick() // 進「旅行」
@@ -381,12 +381,12 @@ class AppRootFoldersTest {
     @Test
     fun 資料夾頁取消勾選目前資料夾會就地移除不重打folderShots() {
         show()
-        compose.onNodeWithText("分類").performClick()
+        compose.onNodeWithText("相簿").performClick()
         compose.onNodeWithText("旅行").performClick()
         compose.onAllNodesWithContentDescription("片段縮圖 00:30")[0].performClick()
         val callsBeforeToggle = repo.folderShotsCalls
 
-        compose.onNodeWithContentDescription("加入分類").performClick()
+        compose.onNodeWithContentDescription("加入相簿").performClick()
         compose.onNodeWithContentDescription("旅行").assertIsOn() // 這張圖本來就是「旅行」的成員
         compose.onNodeWithContentDescription("旅行").performClick() // 取消勾選
         compose.waitForIdle()

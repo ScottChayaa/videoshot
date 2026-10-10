@@ -235,7 +235,7 @@ fun LightboxScreen(
                         variant = ButtonVariant.Primary,
                         icon = VsIcons.Play,
                     )
-                    DarkIconButton(VsIcons.FolderPlus, "加入分類") { actions.onAddToFolder(shot) }
+                    DarkIconButton(VsIcons.FolderPlus, "加入相簿") { actions.onAddToFolder(shot) }
                     DarkIconButton(VsIcons.Share, "分享") { actions.onShare(shot) }
                 }
             }

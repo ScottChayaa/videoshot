@@ -160,7 +160,7 @@ class WizardShellTest {
     fun 沒有底部導覽列() {
         show()
         compose.onNodeWithText("首頁").assertDoesNotExist()
-        compose.onNodeWithText("分類").assertDoesNotExist()
+        compose.onNodeWithText("相簿").assertDoesNotExist()
     }
 
     /** 原型 .wz-top：第一步的頂欄標題是「取圖」，左邊是【✕】。 */

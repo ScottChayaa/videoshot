@@ -45,7 +45,7 @@ class ShellFocusTest {
                 AppShell(nav = NavState(), onSelectTab = {}) { Text("內容") }
             }
         }
-        val folders = compose.onNodeWithText("分類")
+        val folders = compose.onNodeWithText("相簿")
         val before = compose.pixelsAround(folders)
 
         compose.runOnIdle { inputMode.requestInputMode(InputMode.Keyboard) }

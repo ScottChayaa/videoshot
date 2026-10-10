@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.folders
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -40,6 +41,7 @@ import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsEmptyState
 import com.xenyaa.videoshot.ui.common.VsRadioRow
 import com.xenyaa.videoshot.ui.common.VsTextField
+import com.xenyaa.videoshot.ui.common.VsSearchTopBar
 import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
@@ -47,7 +49,7 @@ import com.xenyaa.videoshot.ui.theme.focusRing
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
 
 /**
- * 分類清單頁(手冊 §六、規格第六節)。**只列根層** —— 子資料夾在資料夾頁的上半。
+ * 相簿清單頁（程式碼裡仍叫 folder）(手冊 §六、規格第六節)。**只列根層** —— 子資料夾在資料夾頁的上半。
  *
  * 排序用文字不用圖示(狀態列那顆按鈕):箭頭圖示說不出「現在是照什麼排的」。
  */
@@ -79,27 +81,19 @@ fun FoldersScreen(
 
     Column(modifier.fillMaxSize()) {
 
-        VsTopBar("分類") {
-            TopBarIconButton(VsIcons.Search, "篩選分類名稱", { onSearching(!state.searching) })
-            TopBarIconButton(VsIcons.FolderPlus, "新增資料夾", onStartCreate, tint = AppTheme.colors.accent)
-        }
-
         if (state.searching) {
-            // 原型 `.fd-search`：內距 上 8／左右 12／下 0，間距 8
-            Row(
-                Modifier.fillMaxWidth().padding(start = AppTheme.spacing.s3, top = AppTheme.spacing.s2, end = AppTheme.spacing.s3),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
-            ) {
-                VsTextField(
-                    value = state.query,
-                    onValueChange = onQuery,
-                    placeholder = "搜尋分類名稱",
-                    semanticLabel = "搜尋分類名稱",
-                    leadingIcon = VsIcons.Search,
-                    modifier = Modifier.weight(1f),
-                )
-                VsButton("取消", { onSearching(false) }, variant = ButtonVariant.Quiet)
+            // 點〔搜尋〕整條頂欄換成搜尋框（同首頁篩選抽屜的搜尋框）；【取消】與系統返回鍵都清掉搜尋字並收回
+            BackHandler { onSearching(false) }
+            VsSearchTopBar(
+                query = state.query,
+                onQuery = onQuery,
+                placeholder = "搜尋相簿名稱",
+                onCancel = { onSearching(false) },
+            )
+        } else {
+            VsTopBar("相簿") {
+                TopBarIconButton(VsIcons.Search, "搜尋相簿", { onSearching(true) })
+                TopBarIconButton(VsIcons.FolderPlus, "新增相簿", onStartCreate, tint = AppTheme.colors.accent)
             }
         }
 
@@ -110,7 +104,7 @@ fun FoldersScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                if (state.query.isBlank()) "${state.cards.size} 個分類" else "符合 ${visible.size} 個",
+                if (state.query.isBlank()) "${state.cards.size} 個相簿" else "符合 ${visible.size} 個",
                 style = MaterialTheme.typography.bodySmall,
                 color = AppTheme.colors.textDim,
                 modifier = Modifier.weight(1f),
@@ -139,14 +133,14 @@ fun FoldersScreen(
 
         when (FoldersStore.emptyKind(state)) {
             FoldersEmpty.NO_FOLDERS -> VsEmptyState(
-                message = "還沒有任何分類",
+                message = "還沒有任何相簿",
                 modifier = Modifier.fillMaxSize().wrapContentHeight(Alignment.CenterVertically),
                 icon = VsIcons.Folder,
-                actionText = "新增資料夾",
+                actionText = "新增相簿",
                 onAction = onStartCreate,
             )
             FoldersEmpty.NO_MATCH -> VsEmptyState(
-                message = "沒有符合的分類",
+                message = "沒有符合的相簿",
                 modifier = Modifier.fillMaxSize().wrapContentHeight(Alignment.CenterVertically),
                 icon = VsIcons.Folder,
                 actionText = "清除篩選",

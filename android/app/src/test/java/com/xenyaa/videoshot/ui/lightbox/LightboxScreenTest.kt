@@ -177,7 +177,7 @@ class LightboxScreenTest {
     fun 圖示用白色() {
         show()
         // 不用 captureToImage()（Robolectric 下 forceRedraw 逾時），改用 FocusProbe 的 pixelsAround
-        val pixels = compose.pixelsAround(compose.onNodeWithContentDescription("加入分類"), margin = 0)
+        val pixels = compose.pixelsAround(compose.onNodeWithContentDescription("加入相簿"), margin = 0)
         var maxBrightness = 0f
         for (x in 0 until pixels.width) for (y in 0 until pixels.height) {
             val c = pixels[x, y]

@@ -247,20 +247,6 @@ class FolderViewModelTest {
     }
 
     @Test
-    fun 新增子資料夾parentId是這個資料夾的id不是null() = runTest {
-        val repo = Repo()
-        val model = vm(repo, folderId = 1)
-        advanceUntilIdle()
-
-        model.startCreateChild()
-        model.editName("宜蘭二訪")
-        model.confirmEditor()
-        advanceUntilIdle()
-
-        assertEquals(1L, repo.createdParent)
-    }
-
-    @Test
     fun `deleteSelf 會呼叫 repo deleteFolder 並執行回呼`() = runTest {
         val repo = Repo()
         val model = vm(repo, folderId = 1)

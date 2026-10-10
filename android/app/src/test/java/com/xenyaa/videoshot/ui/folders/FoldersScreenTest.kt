@@ -136,27 +136,27 @@ class FoldersScreenTest {
     fun 卡片上的更多可以改名() {
         show(FoldersState(cards = listOf(card(1, "旅行"))))
         compose.onNodeWithContentDescription("「旅行」的更多操作").performClick()
-        compose.onNodeWithText("改名").performClick()
+        compose.onNodeWithText("重新命名").performClick()
         // performTextReplacement 不靠游標位置，比 performTextInput 穩（控制端裁決第 2 點）
-        compose.onNodeWithContentDescription("資料夾名稱").performTextReplacement("旅行 2")
+        compose.onNodeWithContentDescription("相簿名稱").performTextReplacement("旅行 2")
         compose.onNodeWithText("儲存").performClick()
         assertEquals(1L to "旅行 2", renamed)
     }
 
     @Test
-    fun 刪除確認說得出會連子資料夾一起刪且圖不動() {
+    fun 移除確認說得出會連子相簿一起移除且圖不動() {
         show(FoldersState(cards = listOf(card(1, "旅行")), deleting = card(1, "旅行")))
-        compose.onNodeWithText("刪除「旅行」").assertIsDisplayed()
-        compose.onNodeWithText("子資料夾會一起刪除，圖片不會被刪除。").assertIsDisplayed()
+        compose.onNodeWithText("移除相簿「旅行」").assertIsDisplayed()
+        compose.onNodeWithText("裡面的子相簿會一起移除，圖片不會被刪除。").assertIsDisplayed()
     }
 
     /** 手冊 §六第三條：沒有任何資料夾時，空狀態帶一顆【新增資料夾】。 */
     @Test
     fun 完全沒有資料夾時空狀態帶新增按鈕() {
         show(FoldersState(cards = emptyList()))
-        compose.onNodeWithText("還沒有任何分類").assertIsDisplayed()
-        compose.onNodeWithText("新增資料夾").performClick()
-        compose.onNodeWithContentDescription("資料夾名稱").performTextInput("旅行")
+        compose.onNodeWithText("還沒有任何相簿").assertIsDisplayed()
+        compose.onNodeWithText("新增相簿").performClick()
+        compose.onNodeWithContentDescription("相簿名稱").performTextInput("旅行")
         compose.onNodeWithText("建立").performClick()
         assertEquals("旅行", created)
     }
@@ -164,14 +164,14 @@ class FoldersScreenTest {
     @Test
     fun 篩掉光了給的是清除篩選() {
         show(FoldersState(cards = listOf(card(1, "旅行")), searching = true, query = "找不到的"))
-        compose.onNodeWithText("沒有符合的分類").assertIsDisplayed()
+        compose.onNodeWithText("沒有符合的相簿").assertIsDisplayed()
         compose.onNodeWithText("清除篩選").assertIsDisplayed()
     }
 
     @Test
     fun 狀態列說得出數量與目前排序() {
         show(FoldersState(cards = listOf(card(1, "旅行"), card(2, "貓")), sort = FolderSort.RECENT))
-        compose.onNodeWithText("2 個分類").assertIsDisplayed()
+        compose.onNodeWithText("2 個相簿").assertIsDisplayed()
         compose.onNodeWithText("最近加入").assertIsDisplayed()
     }
 
@@ -198,7 +198,7 @@ class FoldersScreenTest {
     fun 讀取失敗顯示錯誤列不顯示還沒有任何分類() {
         show(FoldersState(cards = emptyList(), error = "載入失敗，請再試一次"))
         compose.onNodeWithText("載入失敗，請再試一次").assertIsDisplayed()
-        compose.onNodeWithText("還沒有任何分類").assertDoesNotExist()
+        compose.onNodeWithText("還沒有任何相簿").assertDoesNotExist()
 
         compose.onNodeWithText("重試").performClick()
         assertEquals(1, retryCalls)
@@ -243,8 +243,27 @@ class FoldersScreenTest {
     @Test
     fun 搜尋列的取消會收起() {
         show(FoldersState(cards = listOf(card(1, "旅行")), searching = true))
-        compose.onNodeWithContentDescription("搜尋分類名稱").assertIsDisplayed()
+        compose.onNodeWithContentDescription("搜尋相簿名稱").assertIsDisplayed()
         compose.onNodeWithText("取消").performClick()
-        compose.onNodeWithContentDescription("搜尋分類名稱").assertDoesNotExist()
+        compose.onNodeWithContentDescription("搜尋相簿名稱").assertDoesNotExist()
+    }
+
+    /** 點〔搜尋〕整條頂欄換成搜尋框（標題與新增鈕收起來）；【取消】清掉搜尋字並回到原本的頂欄。 */
+    @Test
+    fun 點搜尋頂欄換成搜尋框_取消後復原() {
+        show(FoldersState(cards = listOf(card(1, "旅行"), card(2, "宜蘭"))))
+        compose.onNodeWithContentDescription("搜尋相簿").performClick()
+        compose.onNodeWithContentDescription("搜尋相簿名稱").assertIsDisplayed()
+        compose.onNodeWithContentDescription("新增相簿").assertDoesNotExist()
+
+        compose.onNodeWithContentDescription("搜尋相簿名稱").performTextInput("宜")
+        compose.onNodeWithText("符合 1 個").assertIsDisplayed()
+        compose.onNodeWithContentDescription("清除搜尋文字").assertIsDisplayed()
+
+        compose.onNodeWithText("取消").performClick()
+        assertEquals("", state.query)
+        compose.onNodeWithContentDescription("搜尋相簿名稱").assertDoesNotExist()
+        compose.onNodeWithContentDescription("新增相簿").assertIsDisplayed()
+        compose.onNodeWithText("2 個相簿").assertIsDisplayed()
     }
 }
