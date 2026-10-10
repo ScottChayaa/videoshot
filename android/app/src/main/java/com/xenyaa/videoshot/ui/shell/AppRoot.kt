@@ -149,7 +149,11 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                HomeViewModel(container.libraryRepo) as T
+                HomeViewModel(
+                    container.libraryRepo,
+                    filterOptionsSource = container.facetUsage::filterOptions,
+                    markFacetsUsed = container.facetUsage::markUsed,
+                ) as T
         },
         key = "home",
     )

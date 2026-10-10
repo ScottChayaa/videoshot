@@ -19,10 +19,14 @@ import kotlinx.coroutines.launch
  * 首頁的資料接線。**一次 50 筆 keyset**（規格第六節），篩選下推到 SQL。
  *
  * @param pageSize 測試會調小，正式一律 50
+ * @param filterOptionsSource 抽屜候選。正式環境傳 `FacetUsage::filterOptions`（依最近使用重排，規格第六節「首頁」）；預設直接讀 repo 的張數排序。
+ * @param markFacetsUsed 套用篩選時記下用到的地點與標籤（`FacetUsage.markUsed`）。盡力而為：失敗不影響套用。
  */
 class HomeViewModel(
     private val repo: LibraryRepo,
     private val pageSize: Int = 50,
+    private val filterOptionsSource: suspend (String?) -> List<FilterOption> = repo::filterOptions,
+    private val markFacetsUsed: suspend (places: Set<String>, tags: Set<String>) -> Unit = { _, _ -> },
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeState())
@@ -115,7 +119,7 @@ class HomeViewModel(
     private fun loadFilterOptions(upToMonth: String?) {
         optionsJob = viewModelScope.launch {
             val options = try {
-                repo.filterOptions(upToMonth)
+                filterOptionsSource(upToMonth)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
@@ -183,6 +187,11 @@ class HomeViewModel(
         _state.update { HomeStore.withFilter(it, filter).copy(draft = null) }
         refreshMonths()
         loadMore()
+
+        // 規格第六節「首頁」：套用（含月份小膠囊）才算使用；空篩選（清除）不算
+        if (!filter.isEmpty) {
+            viewModelScope.launch { runCatching { markFacetsUsed(filter.places, filter.tags) } }
+        }
     }
 
     private fun Set<String>.toggled(name: String) = if (name in this) this - name else this + name

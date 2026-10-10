@@ -673,4 +673,68 @@ class HomeViewModelTest {
         assertEquals(feedCallsBefore, repo.homeFeedCallsByMonth.size)
         assertEquals("2026-03-20", vm.state.value.items.single().eventDate)
     }
+
+    // ---- Task 4：篩選候選最近使用排序 ----
+
+    @Test
+    fun 抽屜候選讀自注入的來源() = runTest(dispatcher) {
+        val repo = FakeLibraryRepo().apply { filterOptionsValue = listOf(place("礁溪"), tag("溫泉")) }
+        val vm = HomeViewModel(repo, pageSize = 10, filterOptionsSource = { listOf(tag("溫泉"), place("礁溪")) })
+        advanceUntilIdle()
+        vm.openFilter()
+        advanceUntilIdle()
+        assertEquals(listOf(tag("溫泉"), place("礁溪")), vm.state.value.filterOptions)
+    }
+
+    @Test
+    fun 套用時記下勾選的地點與標籤() = runTest(dispatcher) {
+        val used = mutableListOf<Pair<Set<String>, Set<String>>>()
+        val repo = FakeLibraryRepo().apply { filterOptionsValue = listOf(place("礁溪"), tag("溫泉")) }
+        val vm = HomeViewModel(repo, pageSize = 10, markFacetsUsed = { p, t -> used += p to t })
+        advanceUntilIdle()
+        vm.openFilter(); advanceUntilIdle()
+        vm.toggleDraft(place("礁溪"))
+        vm.toggleDraft(tag("溫泉"))
+        vm.applyFilter(); advanceUntilIdle()
+        assertEquals(listOf(setOf("礁溪") to setOf("溫泉")), used)
+    }
+
+    @Test
+    fun 點月份小膠囊也算使用() = runTest(dispatcher) {
+        val used = mutableListOf<Pair<Set<String>, Set<String>>>()
+        val vm = HomeViewModel(FakeLibraryRepo(), pageSize = 10, markFacetsUsed = { p, t -> used += p to t })
+        advanceUntilIdle()
+        vm.applySingle(tag("溫泉")); advanceUntilIdle()
+        assertEquals(listOf(emptySet<String>() to setOf("溫泉")), used)
+    }
+
+    @Test
+    fun 只勾選_清除_關抽屜_清除篩選都不算使用() = runTest(dispatcher) {
+        val used = mutableListOf<Pair<Set<String>, Set<String>>>()
+        val repo = FakeLibraryRepo().apply { filterOptionsValue = listOf(place("礁溪")) }
+        val vm = HomeViewModel(repo, pageSize = 10, markFacetsUsed = { p, t -> used += p to t })
+        advanceUntilIdle()
+        vm.openFilter(); advanceUntilIdle()
+        vm.toggleDraft(place("礁溪"))
+        vm.dismissFilter()
+        vm.openFilter(); advanceUntilIdle()
+        vm.toggleDraft(place("礁溪"))
+        vm.clearDraft()
+        vm.applyFilter() // 草稿已清空＝套用空篩選
+        vm.clearFilter()
+        advanceUntilIdle()
+        assertEquals(emptyList<Pair<Set<String>, Set<String>>>(), used)
+    }
+
+    @Test
+    fun 記錄失敗不影響套用() = runTest(dispatcher) {
+        val repo = FakeLibraryRepo().apply { filterOptionsValue = listOf(place("礁溪")) }
+        val vm = HomeViewModel(repo, pageSize = 10, markFacetsUsed = { _, _ -> throw IllegalStateException("寫不進去") })
+        advanceUntilIdle()
+        vm.openFilter(); advanceUntilIdle()
+        vm.toggleDraft(place("礁溪"))
+        vm.applyFilter(); advanceUntilIdle()
+        assertEquals(setOf("礁溪"), vm.state.value.filter.places)
+        assertEquals(null, vm.state.value.error)
+    }
 }
