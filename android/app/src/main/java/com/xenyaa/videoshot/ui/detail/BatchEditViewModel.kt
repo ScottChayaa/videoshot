@@ -42,6 +42,8 @@ sealed interface BatchEditState {
 class BatchEditViewModel(
     private val videoId: String,
     private val library: LibraryRepo,
+    /** 【完成】寫入後記下這一輪套用過的地點與標籤（`FacetUsage.markUsed`，規格第六節「首頁」）。盡力而為。 */
+    private val markFacetsUsed: suspend (places: Set<String>, tags: Set<String>) -> Unit = { _, _ -> },
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<BatchEditState>(BatchEditState.Loading)
@@ -112,6 +114,7 @@ class BatchEditViewModel(
         val ready = ready() ?: return
         val snapshot = ready.store.state.value
         viewModelScope.launch {
+            var wrote = false
             for (cell in snapshot.cells) {
                 val d = snapshot.details[cell.cell] ?: continue
                 if (!d.applied) continue
@@ -127,8 +130,9 @@ class BatchEditViewModel(
                             tagNames = d.tags,
                         ),
                     )
-                }
+                }.onSuccess { wrote = true }
             }
+            if (wrote) runCatching { markFacetsUsed(snapshot.usedPlaces, snapshot.usedTags) }
             _finished.emit(Unit)
         }
     }

@@ -38,6 +38,12 @@ data class Step3State(
      * 使用者一動欄位或勾選就清回 `null`（設計文件決定 6），所以只有 [Step3Store.applyPatch] 會設它。
      */
     val lastAppliedCount: Int? = null,
+    /**
+     * 這一輪各次【套用】時抽屜裡填的地點與標籤（沒動過的欄位、圖上原本就有的不算；清空地點不算）。
+     * 【完成】寫入成功後記成最近使用（規格第六節「首頁」）。**不進草稿**：從草稿接續時離開前那幾輪不記。
+     */
+    val usedPlaces: Set<String> = emptySet(),
+    val usedTags: Set<String> = emptySet(),
 ) {
     val appliedCount: Int get() = details.count { (cell, d) -> d.applied && cells.any { it.cell == cell } }
 
@@ -162,6 +168,8 @@ class Step3Store(
             details = applyToCells(current.details, current.selected, current.patch),
             patch = DetailsPatch(),
             lastAppliedCount = current.selected.size,
+            usedPlaces = current.usedPlaces + listOfNotNull(current.patch.place?.trim()?.takeIf { it.isNotEmpty() }),
+            usedTags = current.usedTags + normalizeTags(current.patch.tags.orEmpty()),
         )
     }
 

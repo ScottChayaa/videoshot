@@ -57,6 +57,8 @@ class WizardViewModel(
     private val captureFor: (Player) -> Capture?,
     /** 注入而不是直接呼叫 `LocalDate.now()` —— 測試要能確定地驗「上傳日期缺漏時用今天」。 */
     private val today: () -> String = { java.time.LocalDate.now().toString() },
+    /** 【完成】寫入成功後記下這一輪套用過的地點與標籤（`FacetUsage.markUsed`，規格第六節「首頁」）。盡力而為。 */
+    private val markFacetsUsed: suspend (places: Set<String>, tags: Set<String>) -> Unit = { _, _ -> },
 ) : ViewModel() {
 
     private val _captureError = MutableStateFlow<CaptureError?>(null)
@@ -605,6 +607,8 @@ class WizardViewModel(
                 // thumb_state 可由「縮圖檔在不在」重新推導，草稿目錄下次取同一支影片會覆蓋
                 runCatching { data.markThumbStates(video.videoId, level, cropped.written, cropped.missing) }
                 runCatching { data.clearDraft(video.videoId) }
+                // 跟上面兩步一樣是另一個 DB（cache.db），沒做到只影響篩選抽屜的順序
+                runCatching { markFacetsUsed(state.usedPlaces, state.usedTags) }
                 _hasDraft.value = false
                 // 第 4 步的「標記有變更」由 repo 的 onChanged 做掉了，這裡不必再呼叫
                 _finished.emit(Finished(eventDate = picks.first().eventDate, count = picks.size))

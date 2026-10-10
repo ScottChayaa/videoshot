@@ -51,6 +51,7 @@ class WizardStep3WiringTest {
         var draftCleared = false
         var cropped: List<Int> = emptyList()
         var commitCount = 0
+        var failCommit = false
 
         /**
          * 第幾次裁圖要花多久（毫秒）。驗「上一批裁圖有沒有被取消」時要讓兩批**倒過來完成** ——
@@ -77,6 +78,7 @@ class WizardStep3WiringTest {
         }
         override suspend fun commit(video: VideoEntity, picks: List<NewShot>): List<Long> {
             commitCount++
+            if (failCommit) throw IllegalStateException("撞到唯一索引")
             committed = video to picks
             return picks.indices.map { it.toLong() + 1 }
         }
@@ -89,7 +91,10 @@ class WizardStep3WiringTest {
         override suspend fun currentDraft(): String? = null
     }
 
-    private fun vmWith(data: RecordingData) = WizardViewModel(
+    private fun vmWith(
+        data: RecordingData,
+        markFacetsUsed: suspend (Set<String>, Set<String>) -> Unit = { _, _ -> },
+    ) = WizardViewModel(
         data = data,
         frameSourceFactory = { FakeFrameSource.of(frameCount = 4, intervalSec = 10.0) },
         strength = flowOf(FilterStrength.MEDIUM),
@@ -98,6 +103,7 @@ class WizardStep3WiringTest {
         manualImages = { error("這個測試不碰手動圖") },
         captureFor = { null },
         today = { "2026-09-15" },
+        markFacetsUsed = markFacetsUsed,
     )
 
     private fun pageOf() = WatchPage(FetchResult.OK, meta, storyboardSpec = null)
@@ -113,6 +119,39 @@ class WizardStep3WiringTest {
         vm.goTo(WizardStep.DETAILS)
         advanceUntilIdle()
         assertEquals(listOf(0, 2), vm.step3.value!!.state.value.cells.map { it.cell })
+    }
+
+    @Test
+    fun 完成寫入成功後記下這一輪套用過的地點與標籤() = runTest(dispatcher) {
+        val used = mutableListOf<Pair<Set<String>, Set<String>>>()
+        val data = RecordingData(pageOf())
+        val vm = vmWith(data) { p, t -> used += p to t }
+        vm.openRecent("v1"); advanceUntilIdle()
+        vm.step2.value!!.toggle(0)
+        vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
+        val s3 = vm.step3.value!!
+        s3.editPlace("冬山河")
+        s3.editTags(listOf("玩水"))
+        s3.applyPatch()
+        assertEquals(emptyList<Pair<Set<String>, Set<String>>>(), used) // 套用當下還不記
+        vm.finish(force = true)
+        advanceUntilIdle()
+        assertEquals(listOf(setOf("冬山河") to setOf("玩水")), used)
+    }
+
+    @Test
+    fun 寫入失敗不記() = runTest(dispatcher) {
+        val used = mutableListOf<Pair<Set<String>, Set<String>>>()
+        val data = RecordingData(pageOf()).apply { failCommit = true }
+        val vm = vmWith(data) { p, t -> used += p to t }
+        vm.openRecent("v1"); advanceUntilIdle()
+        vm.step2.value!!.toggle(0)
+        vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
+        vm.step3.value!!.editPlace("冬山河")
+        vm.step3.value!!.applyPatch()
+        vm.finish(force = true)
+        advanceUntilIdle()
+        assertEquals(emptyList<Pair<Set<String>, Set<String>>>(), used)
     }
 
     @Test

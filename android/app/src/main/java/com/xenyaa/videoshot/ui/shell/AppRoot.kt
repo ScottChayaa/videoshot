@@ -245,7 +245,11 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             factory = object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    BatchEditViewModel(videoId = detailVideoId!!, library = container.libraryRepo) as T
+                    BatchEditViewModel(
+                        videoId = detailVideoId!!,
+                        library = container.libraryRepo,
+                        markFacetsUsed = container.facetUsage::markUsed,
+                    ) as T
             },
             key = "batchedit-$detailVideoId",
         )
@@ -266,6 +270,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                     manualImages = { container.manualImagesFor(it) },
                     captureFor = { container.captureFor(it) },
                     today = { LocalDate.now().toString() },
+                    markFacetsUsed = container.facetUsage::markUsed,
                 ) as T
         }
     }

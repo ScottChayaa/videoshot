@@ -212,4 +212,28 @@ class Step3StoreTest {
     fun 還沒套用過沒有提示() {
         assertNull(store().state.value.appliedNotice)
     }
+
+    @Test
+    fun 套用時累積抽屜裡填的地點與標籤_沒動過的欄位不算() {
+        val store = Step3Store(listOf(Step3Cell(0, 0.0, false), Step3Cell(1, 10.0, false)), defaultEventDate = "2026-01-01")
+        store.selectNone(); store.toggle(0)
+        store.editPlace(" 宜蘭 ")
+        store.applyPatch()
+        store.selectNone(); store.toggle(1) // 換勾第二張
+        store.editTags(listOf("露營", "玩水"))
+        store.applyPatch()
+        store.editEventDate("2026-02-02") // 只改時間
+        store.applyPatch()
+        assertEquals(setOf("宜蘭"), store.state.value.usedPlaces)
+        assertEquals(setOf("玩水", "露營"), store.state.value.usedTags)
+    }
+
+    @Test
+    fun 清空地點不算使用() {
+        val store = Step3Store(listOf(Step3Cell(0, 0.0, false)), defaultEventDate = "2026-01-01")
+        store.selectNone(); store.toggle(0)
+        store.editPlace("")
+        store.applyPatch()
+        assertEquals(emptySet<String>(), store.state.value.usedPlaces)
+    }
 }

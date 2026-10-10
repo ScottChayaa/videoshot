@@ -131,4 +131,30 @@ class BatchEditViewModelTest {
         assertTrue(fired)
         job.cancel()
     }
+
+    @Test
+    fun 完成後記下這一輪套用過的地點與標籤_原本就有的不算() = runTest(dispatcher) {
+        val used = mutableListOf<Pair<Set<String>, Set<String>>>()
+        val (s1, t1) = shot(1, 10.0, place = "宜蘭", tags = listOf("露營"))
+        val repo = Repo().apply { shots = listOf(s1); tagsById = mapOf(1L to t1) }
+        val vm = BatchEditViewModel("v1", repo) { p, t -> used += p to t }
+        advanceUntilIdle()
+        vm.editPlace("羅東")
+        vm.apply()
+        vm.finish()
+        advanceUntilIdle()
+        assertEquals(listOf(setOf("羅東") to emptySet<String>()), used)
+    }
+
+    @Test
+    fun 沒有套用過就完成_不記() = runTest(dispatcher) {
+        val used = mutableListOf<Pair<Set<String>, Set<String>>>()
+        val (s1, _) = shot(1, 10.0, place = "宜蘭")
+        val repo = Repo().apply { shots = listOf(s1) }
+        val vm = BatchEditViewModel("v1", repo) { p, t -> used += p to t }
+        advanceUntilIdle()
+        vm.finish()
+        advanceUntilIdle()
+        assertEquals(emptyList<Pair<Set<String>, Set<String>>>(), used)
+    }
 }
