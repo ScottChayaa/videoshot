@@ -92,12 +92,15 @@ object VsIcons {
 
     val Play: ImageVector by lazy { strokeIcon("play", "M6 3 20 12 6 21Z") }
 
+    /** 三點連線（Lucide `share-2`，Android 慣用的分享圖示；原型是 iOS 式的方框加箭頭）。三個 r=3 的圓改寫成 path。 */
     val Share: ImageVector by lazy {
         strokeIcon(
             "share",
-            "M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8",
-            "M16 6 12 2 8 6",
-            "M12 2v13",
+            "M15 5a3 3 0 1 0 6 0a3 3 0 1 0 -6 0",
+            "M3 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0",
+            "M15 19a3 3 0 1 0 6 0a3 3 0 1 0 -6 0",
+            "m8.59 13.51 6.83 3.98",
+            "m15.41 6.51-6.82 3.98",
         )
     }
 
