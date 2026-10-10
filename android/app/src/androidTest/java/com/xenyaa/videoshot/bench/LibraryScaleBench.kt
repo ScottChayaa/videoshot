@@ -19,6 +19,12 @@ import com.xenyaa.videoshot.data.library.LibrarySchemaCallback
 import com.xenyaa.videoshot.data.library.STATS_REBUILD_SQL
 import com.xenyaa.videoshot.data.library.STATS_SETUP_SQL
 import com.xenyaa.videoshot.data.library.STATS_TRIGGER_NAMES
+import com.xenyaa.videoshot.data.FacetUsage
+import com.xenyaa.videoshot.data.cache.CACHE_MIGRATIONS
+import com.xenyaa.videoshot.data.cache.CacheDatabase
+import com.xenyaa.videoshot.data.library.StatKind
+import com.xenyaa.videoshot.data.repo.RoomCacheRepo
+import com.xenyaa.videoshot.data.repo.model.FacetRef
 import com.xenyaa.videoshot.data.repo.RoomLibraryRepo
 import com.xenyaa.videoshot.data.repo.model.NewShot
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
@@ -99,6 +105,21 @@ class LibraryScaleBench {
         measure("候選清單（顯示更多 500）") { repo.searchFacets(null, 500).size }
         measure("首頁篩選：抽屜候選（全部時間）") { repo.filterOptions(null).size }
         measure("首頁篩選：抽屜候選（2019-12 以前）") { repo.filterOptions("2019-12").size }
+        // 最近使用排序（規格第六節「首頁」）：一半的候選有使用紀錄，最壞情況是每一個都要查表重排
+        val cacheDb = Room.inMemoryDatabaseBuilder(context, CacheDatabase::class.java)
+            .setDriver(BundledSQLiteDriver()).addMigrations(*CACHE_MIGRATIONS).build()
+        val cacheRepo = RoomCacheRepo(cacheDb, Dispatchers.IO)
+        val allOptions = repo.filterOptions(null)
+        cacheRepo.touchFacets(
+            allOptions.filterIndexed { i, _ -> i % 2 == 0 }
+                .map { FacetRef(if (it.isPlace) StatKind.PLACE else StatKind.TAG, it.id) },
+            usedAt = 1_000,
+        )
+        val usage = FacetUsage(repo, cacheRepo)
+        measure("首頁篩選：抽屜候選＋最近使用排序（全部時間，${allOptions.size} 個、一半用過）") { usage.filterOptions(null).size }
+        measure("首頁篩選：抽屜候選＋最近使用排序（2019-12 以前）") { usage.filterOptions("2019-12").size }
+        measure("首頁篩選：記錄使用（1 個地點＋1 個標籤）") { usage.markUsed(setOf("宜蘭2"), setOf("標籤1")) }
+        cacheDb.close()
         measure("首頁篩選：月份選單（不篩選）") { repo.months().size }
         measure("首頁篩選：月份選單（選 1 個大標籤＋1 個地點）") { repo.monthsMatching(setOf("宜蘭2"), setOf("標籤1")).size }
         measure("首頁篩選：第一頁（大標籤）") { repo.searchByFacets(emptySet(), setOf("標籤1"), null, null, 50).items.size }
