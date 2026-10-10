@@ -236,4 +236,45 @@ class Step3StoreTest {
         store.applyPatch()
         assertEquals(emptySet<String>(), store.state.value.usedPlaces)
     }
+
+    private fun storeWith(vararg initial: com.xenyaa.videoshot.core.details.ShotDetails): Step3Store {
+        val s = Step3Store(initial.indices.map { Step3Cell(it, it * 10.0, false) }, defaultEventDate = "2026-01-01")
+        s.restore(initial.indices.associateWith { initial[it] }, initial.indices.toSet())
+        return s
+    }
+
+    private fun d(place: String? = null, tags: List<String> = emptyList()) =
+        com.xenyaa.videoshot.core.details.ShotDetails("2026-01-01", place = place, tags = tags)
+
+    @Test
+    fun 抽屜送整份標籤時_圖上原本就有的不算使用() {
+        val s = storeWith(d(tags = listOf("A", "B")))
+        s.editTags(listOf("A", "B", "C"))
+        s.applyPatch()
+        assertEquals(setOf("C"), s.state.value.usedTags)
+    }
+
+    @Test
+    fun 勾選的格子各有不同標籤_聯集裡有的都不算() {
+        val s = storeWith(d(tags = listOf("A")), d(tags = listOf("B")))
+        s.editTags(listOf("A", "B", "C"))
+        s.applyPatch()
+        assertEquals(setOf("C"), s.state.value.usedTags)
+    }
+
+    @Test
+    fun 所有勾選格子地點都已經是它_不算使用() {
+        val s = storeWith(d(place = "宜蘭"), d(place = "宜蘭"))
+        s.editPlace("宜蘭")
+        s.applyPatch()
+        assertEquals(emptySet<String>(), s.state.value.usedPlaces)
+    }
+
+    @Test
+    fun 至少一張勾選格子的地點不同_算使用() {
+        val s = storeWith(d(place = "宜蘭"), d(place = "花蓮"))
+        s.editPlace("宜蘭")
+        s.applyPatch()
+        assertEquals(setOf("宜蘭"), s.state.value.usedPlaces)
+    }
 }

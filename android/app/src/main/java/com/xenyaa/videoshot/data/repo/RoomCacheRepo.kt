@@ -76,8 +76,9 @@ class RoomCacheRepo(
     }
 
     override suspend fun clearAll() = withContext(io) {
+        // facet_recent 放最前面：還原後舊的地點／標籤編號對不上，這張表最該被清到，後面失敗也不能漏掉
+        db.facetRecentDao().clear()
         db.thumbStateDao().clear()
         db.draftDao().clear()
-        db.facetRecentDao().clear()
     }
 }

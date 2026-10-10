@@ -39,7 +39,8 @@ data class Step3State(
      */
     val lastAppliedCount: Int? = null,
     /**
-     * 這一輪各次【套用】時抽屜裡填的地點與標籤（沒動過的欄位、圖上原本就有的不算；清空地點不算）。
+     * 這一輪各次【套用】時抽屜裡填的地點與標籤（沒動過的欄位不算；清空地點不算）。
+     * 「新加」以套用前的圖資判斷：標籤要不在勾選格子套用前各自標籤的聯集裡，地點要至少一張勾選格子原本不是它。
      * 【完成】寫入成功後記成最近使用（規格第六節「首頁」）。**不進草稿**：從草稿接續時離開前那幾輪不記。
      */
     val usedPlaces: Set<String> = emptySet(),
@@ -164,12 +165,16 @@ class Step3Store(
     fun applyPatch() {
         val current = _state.value
         if (current.patch.isEmpty) return
+        // 「新加」要用套用前的圖資判斷：抽屜的標籤欄位送出的是整份清單（起始值是勾選格子的共同標籤）
+        val before = current.selected.mapNotNull { current.details[it] }
+        val beforeTags = before.flatMapTo(mutableSetOf()) { it.tags }
+        val newPlace = current.patch.place?.trim()?.takeIf { it.isNotEmpty() && before.any { d -> d.place != it } }
         _state.value = current.copy(
             details = applyToCells(current.details, current.selected, current.patch),
             patch = DetailsPatch(),
             lastAppliedCount = current.selected.size,
-            usedPlaces = current.usedPlaces + listOfNotNull(current.patch.place?.trim()?.takeIf { it.isNotEmpty() }),
-            usedTags = current.usedTags + normalizeTags(current.patch.tags.orEmpty()),
+            usedPlaces = current.usedPlaces + listOfNotNull(newPlace),
+            usedTags = current.usedTags + (normalizeTags(current.patch.tags.orEmpty()) - beforeTags),
         )
     }
 

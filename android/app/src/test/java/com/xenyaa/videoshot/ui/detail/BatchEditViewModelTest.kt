@@ -31,7 +31,7 @@ class BatchEditViewModelTest {
             eventDate = "2026-03-01", place = place, description = null,
         ) to tags
 
-    private class Repo : com.xenyaa.videoshot.data.repo.FakeLibraryRepo() {
+    private open class Repo : com.xenyaa.videoshot.data.repo.FakeLibraryRepo() {
         var shots: List<ShotRow> = emptyList()
         var tagsById: Map<Long, List<String>> = emptyMap()
         val patchCalls = mutableListOf<Pair<List<Long>, ShotPatch>>()
@@ -153,6 +153,36 @@ class BatchEditViewModelTest {
         val repo = Repo().apply { shots = listOf(s1) }
         val vm = BatchEditViewModel("v1", repo) { p, t -> used += p to t }
         advanceUntilIdle()
+        vm.finish()
+        advanceUntilIdle()
+        assertEquals(emptyList<Pair<Set<String>, Set<String>>>(), used)
+    }
+
+    @Test
+    fun 圖上原本有的標籤不記_只記新加的() = runTest(dispatcher) {
+        val used = mutableListOf<Pair<Set<String>, Set<String>>>()
+        val (s1, t1) = shot(1, 10.0, tags = listOf("露營"))
+        val repo = Repo().apply { shots = listOf(s1); tagsById = mapOf(1L to t1) }
+        val vm = BatchEditViewModel("v1", repo) { p, t -> used += p to t }
+        advanceUntilIdle()
+        vm.editTags(listOf("露營", "玩水"))
+        vm.apply()
+        vm.finish()
+        advanceUntilIdle()
+        assertEquals(listOf(emptySet<String>() to setOf("玩水")), used)
+    }
+
+    @Test
+    fun 全部寫入都失敗時不記() = runTest(dispatcher) {
+        val used = mutableListOf<Pair<Set<String>, Set<String>>>()
+        val (s1, _) = shot(1, 10.0)
+        val repo = object : Repo() {
+            override suspend fun patchShots(ids: List<Long>, patch: ShotPatch) = throw RuntimeException("boom")
+        }.apply { shots = listOf(s1) }
+        val vm = BatchEditViewModel("v1", repo) { p, t -> used += p to t }
+        advanceUntilIdle()
+        vm.editPlace("羅東")
+        vm.apply()
         vm.finish()
         advanceUntilIdle()
         assertEquals(emptyList<Pair<Set<String>, Set<String>>>(), used)
