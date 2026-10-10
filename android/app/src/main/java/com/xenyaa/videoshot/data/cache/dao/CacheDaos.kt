@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
 import com.xenyaa.videoshot.data.cache.entity.DraftEntity
+import com.xenyaa.videoshot.data.cache.entity.FacetRecentEntity
 import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
 
 @Dao
@@ -63,5 +64,22 @@ interface DraftDao {
     suspend fun count(): Int
 
     @Query("DELETE FROM draft")
+    suspend fun clear()
+}
+
+@Dao
+interface FacetRecentDao {
+    @Upsert suspend fun upsertAll(rows: List<FacetRecentEntity>)
+
+    @Query("SELECT * FROM facet_recent")
+    suspend fun all(): List<FacetRecentEntity>
+
+    @Query("SELECT * FROM facet_recent WHERE kind = :kind AND ref_id = :refId")
+    suspend fun byKey(kind: Int, refId: Long): FacetRecentEntity?
+
+    @Query("DELETE FROM facet_recent WHERE kind = :kind AND ref_id = :refId")
+    suspend fun delete(kind: Int, refId: Long)
+
+    @Query("DELETE FROM facet_recent")
     suspend fun clear()
 }

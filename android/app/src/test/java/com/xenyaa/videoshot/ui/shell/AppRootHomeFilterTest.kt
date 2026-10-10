@@ -157,6 +157,10 @@ class AppRootHomeFilterTest {
                 override suspend fun saveDraft(draft: com.xenyaa.videoshot.data.cache.entity.DraftEntity) = Unit
                 override suspend fun currentDraft(): com.xenyaa.videoshot.data.cache.entity.DraftEntity? = null
                 override suspend fun clearDraft() = Unit
+                override suspend fun touchFacets(refs: Collection<com.xenyaa.videoshot.data.repo.model.FacetRef>, usedAt: Long) = Unit
+                override suspend fun facetRecent(): Map<com.xenyaa.videoshot.data.repo.model.FacetRef, Long> = emptyMap()
+                override suspend fun mergeFacetRecent(kind: Int, fromId: Long, toId: Long) = Unit
+                override suspend fun forgetFacetRecent(kind: Int, id: Long) = Unit
                 override suspend fun clearAll() = Unit
             },
             io = Dispatchers.Unconfined,

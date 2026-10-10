@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.data.repo
 
 import com.xenyaa.videoshot.data.cache.entity.DraftEntity
 import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
+import com.xenyaa.videoshot.data.repo.model.FacetRef
 
 /**
  * cache.db 的唯一對外入口（規格第三節模組邊界第 1 條）。
@@ -29,6 +30,18 @@ interface CacheRepo {
     suspend fun currentDraft(): DraftEntity?
     suspend fun clearDraft()
 
-    /** 還原備份之後呼叫：裝置本地狀態全部作廢，回填作業會重新掃一遍。 */
+    /** 把這幾個地點或標籤的最近使用時間記成 [usedAt]（Unix 秒）；已有的覆蓋（規格第六節「首頁」）。 */
+    suspend fun touchFacets(refs: Collection<FacetRef>, usedAt: Long)
+
+    /** 全部的最近使用時間。 */
+    suspend fun facetRecent(): Map<FacetRef, Long>
+
+    /** 合併地點或標籤：目標取兩者中較新的時間，來源那一列刪掉（規格第九節）。來源沒有紀錄就什麼都不動。 */
+    suspend fun mergeFacetRecent(kind: Int, fromId: Long, toId: Long)
+
+    /** 刪除地點或標籤時連同使用時間刪掉。 */
+    suspend fun forgetFacetRecent(kind: Int, id: Long)
+
+    /** 還原備份之後呼叫：裝置本地狀態全部作廢（回填作業會重新掃一遍缺圖；還原後地點與標籤的編號對不上，最近使用時間也不能沿用）。 */
     suspend fun clearAll()
 }

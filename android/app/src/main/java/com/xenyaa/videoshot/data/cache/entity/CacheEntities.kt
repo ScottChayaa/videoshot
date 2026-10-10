@@ -41,3 +41,16 @@ data class DraftEntity(
 
     companion object { const val ONLY_ROW = 1 }
 }
+
+/**
+ * 地點與標籤最近一次被「使用」的時間（規格第四節 cache.db；首頁篩選抽屜的排序用）。
+ * kind／ref_id 同統計表：1＝地點（place.id）、2＝標籤（tag.id）。
+ * 不進備份：是使用習慣不是圖資，掉了只是抽屜順序退回張數排序。
+ */
+@Entity(tableName = "facet_recent", primaryKeys = ["kind", "ref_id"])
+data class FacetRecentEntity(
+    @ColumnInfo(name = "kind") val kind: Int,
+    @ColumnInfo(name = "ref_id") val refId: Long,
+    /** 最後一次使用的時間，Unix 秒 */
+    @ColumnInfo(name = "used_at") val usedAt: Long,
+)

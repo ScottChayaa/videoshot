@@ -5,6 +5,7 @@ import androidx.room.useReaderConnection
 import androidx.room.useWriterConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.test.platform.app.InstrumentationRegistry
+import com.xenyaa.videoshot.data.cache.CACHE_MIGRATIONS
 import com.xenyaa.videoshot.data.cache.CacheDatabase
 import com.xenyaa.videoshot.data.library.LibraryDatabase
 import com.xenyaa.videoshot.data.library.LIBRARY_MIGRATIONS
@@ -46,6 +47,7 @@ fun inMemoryCacheDb(): CacheDatabase =
         CacheDatabase::class.java,
     )
         .setDriver(BundledSQLiteDriver())
+        .addMigrations(*CACHE_MIGRATIONS)
         .build()
 
 /** 測試用：地點名稱轉 id，不存在就建（正式程式走 `RoomLibraryRepo.placeIdForWrite`，同一套規則）。null／空白回 null。 */

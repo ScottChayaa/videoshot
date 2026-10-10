@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.data.repo
 
 import com.xenyaa.videoshot.data.cache.entity.DraftEntity
 import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
+import com.xenyaa.videoshot.data.repo.model.FacetRef
 
 /**
  * `CacheRepo` 的記憶體版測試替身（比照 `FakeLibraryRepo` 的風格：`open class`，
@@ -10,6 +11,7 @@ import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
 open class FakeCacheRepo : CacheRepo {
     private val states = mutableMapOf<Triple<String, Int, Int>, ThumbStateEntity>()
     private var draft: DraftEntity? = null
+    private val recent = mutableMapOf<FacetRef, Long>()
 
     private fun key(videoId: String, sbLevel: Int, frameIndex: Int) = Triple(videoId, sbLevel, frameIndex)
 
@@ -48,8 +50,25 @@ open class FakeCacheRepo : CacheRepo {
     override suspend fun currentDraft(): DraftEntity? = draft
     override suspend fun clearDraft() { draft = null }
 
+    override suspend fun touchFacets(refs: Collection<FacetRef>, usedAt: Long) {
+        refs.forEach { recent[it] = usedAt }
+    }
+
+    override suspend fun facetRecent(): Map<FacetRef, Long> = recent.toMap()
+
+    override suspend fun mergeFacetRecent(kind: Int, fromId: Long, toId: Long) {
+        val from = recent.remove(FacetRef(kind, fromId)) ?: return
+        val to = FacetRef(kind, toId)
+        recent[to] = maxOf(from, recent[to] ?: Long.MIN_VALUE)
+    }
+
+    override suspend fun forgetFacetRecent(kind: Int, id: Long) {
+        recent.remove(FacetRef(kind, id))
+    }
+
     override suspend fun clearAll() {
         states.clear()
         draft = null
+        recent.clear()
     }
 }

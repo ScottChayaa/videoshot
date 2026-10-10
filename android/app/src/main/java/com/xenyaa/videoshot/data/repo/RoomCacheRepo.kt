@@ -1,8 +1,12 @@
 package com.xenyaa.videoshot.data.repo
 
+import androidx.room.Transactor
+import androidx.room.useWriterConnection
 import com.xenyaa.videoshot.data.cache.CacheDatabase
 import com.xenyaa.videoshot.data.cache.entity.DraftEntity
+import com.xenyaa.videoshot.data.cache.entity.FacetRecentEntity
 import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
+import com.xenyaa.videoshot.data.repo.model.FacetRef
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 
@@ -45,8 +49,35 @@ class RoomCacheRepo(
 
     override suspend fun clearDraft() = withContext(io) { db.draftDao().clear() }
 
+    override suspend fun touchFacets(refs: Collection<FacetRef>, usedAt: Long) = withContext(io) {
+        db.facetRecentDao().upsertAll(refs.distinct().map { FacetRecentEntity(it.kind, it.id, usedAt) })
+    }
+
+    override suspend fun facetRecent(): Map<FacetRef, Long> = withContext(io) {
+        db.facetRecentDao().all().associate { FacetRef(it.kind, it.refId) to it.usedAt }
+    }
+
+    override suspend fun mergeFacetRecent(kind: Int, fromId: Long, toId: Long) = withContext(io) {
+        db.useWriterConnection { transactor ->
+            transactor.withTransaction(Transactor.SQLiteTransactionType.IMMEDIATE) {
+                val dao = db.facetRecentDao()
+                val from = dao.byKey(kind, fromId) ?: return@withTransaction
+                val to = dao.byKey(kind, toId)
+                if (to == null || to.usedAt < from.usedAt) {
+                    dao.upsertAll(listOf(FacetRecentEntity(kind, toId, from.usedAt)))
+                }
+                dao.delete(kind, fromId)
+            }
+        }
+    }
+
+    override suspend fun forgetFacetRecent(kind: Int, id: Long) = withContext(io) {
+        db.facetRecentDao().delete(kind, id)
+    }
+
     override suspend fun clearAll() = withContext(io) {
         db.thumbStateDao().clear()
         db.draftDao().clear()
+        db.facetRecentDao().clear()
     }
 }

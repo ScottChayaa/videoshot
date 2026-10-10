@@ -19,6 +19,7 @@ import com.xenyaa.videoshot.backup.RestoreManager
 import com.xenyaa.videoshot.backup.RestoreResult
 import com.xenyaa.videoshot.backfill.BackfillManager
 import com.xenyaa.videoshot.data.ShotDeleter
+import com.xenyaa.videoshot.data.cache.CACHE_MIGRATIONS
 import com.xenyaa.videoshot.data.cache.CacheDatabase
 import com.xenyaa.videoshot.data.library.LibraryDatabase
 import com.xenyaa.videoshot.data.library.LIBRARY_MIGRATIONS
@@ -101,6 +102,7 @@ class AppContainer(context: Context) : AppRootDeps {
             File(appContext.filesDir, "cache.db").path,
         )
             .setDriver(BundledSQLiteDriver())
+            .addMigrations(*CACHE_MIGRATIONS)
             .build()
     }
 

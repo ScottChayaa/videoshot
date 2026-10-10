@@ -77,6 +77,10 @@ data class ShotPatch(
  */
 data class MonthFacet(val name: String, val kind: String, val count: Int, val tagKind: String = "other")
 
+/** 一個地點或標籤在統計表裡的鍵（`kind` 同 `StatKind`：1＝地點、2＝標籤；`id` 是 place.id 或 tag.id）。 */
+data class FacetRef(val kind: Int, val id: Long)
+
+
 /** 首頁篩選抽屜的一個候選（階段 17）。`tagKind` 地點固定 `"other"`；`aliases` 給搜尋框比對。 */
 data class FilterOption(val name: String, val isPlace: Boolean, val tagKind: String, val aliases: List<String>)
 
