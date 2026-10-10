@@ -11,6 +11,7 @@ import com.xenyaa.videoshot.data.repo.model.FolderCard
 import com.xenyaa.videoshot.data.repo.model.FolderNode
 import com.xenyaa.videoshot.data.repo.model.FolderPage
 import com.xenyaa.videoshot.data.repo.model.MonthCount
+import com.xenyaa.videoshot.data.repo.model.FacetRef
 import com.xenyaa.videoshot.data.repo.model.FilterOption
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
@@ -54,6 +55,12 @@ interface LibraryRepo {
      * 帶別名給搜尋框比對。`upToMonth` 非 null 時只留「那個月（含）以前有圖」的，排序不變。
      */
     suspend fun filterOptions(upToMonth: String?): List<FilterOption>
+
+    /**
+     * 名稱轉成統計表的鍵（最近使用時間要用，規格第六節「首頁」）。**名稱要完全相同**（前後空白先去掉），
+     * 不認別名——傳進來的都是候選或剛寫進圖庫的本名；查不到的略過。
+     */
+    suspend fun facetRefs(places: Set<String>, tagNames: Set<String>): List<FacetRef>
 
     /** 有圖的月份（`yyyy-MM`），新到舊——月份選單用，不帶張數。 */
     suspend fun months(): List<String>
@@ -179,8 +186,9 @@ interface LibraryRepo {
      * 這個 `id` 的標籤列被刪除（規格第九節「標籤管理的規則」）。合併發生時，
      * **既有那個標籤的 kind／別名不會被這次編輯的值覆蓋**——合併保留的是「既有的那個」，
      * 這次編輯的草稿只在沒有撞名時才會真的寫入。
+     * @return 改完之後持有這個名稱的編號：撞名合併時是目標的編號，否則就是 [id]
      */
-    suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>)
+    suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>): Long
 
     /** 刪除標籤。只解除關聯（`shot_tag` 由外鍵連動一起刪），圖不動。 */
     suspend fun deleteTag(id: Long)
@@ -191,8 +199,9 @@ interface LibraryRepo {
     /**
      * 地點改名／改別名。**改名成既有的名稱＝合併**（同 [mergePlace]：這個 `id` 被併進既有地點，
      * 這次編輯的別名草稿不寫入）。單一交易。
+     * @return 改完之後持有這個名稱的編號：撞名合併時是目標的編號，否則就是 [id]
      */
-    suspend fun renamePlace(id: Long, name: String, aliases: List<String>)
+    suspend fun renamePlace(id: Long, name: String, aliases: List<String>): Long
 
     /**
      * 把 `fromId` 併進 `toId`：圖改指向目標、來源的本名與別名併進目標別名（去空白、去重、去掉跟目標本名相同的；

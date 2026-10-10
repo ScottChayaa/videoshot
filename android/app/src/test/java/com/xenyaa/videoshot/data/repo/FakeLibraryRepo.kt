@@ -10,6 +10,7 @@ import com.xenyaa.videoshot.data.repo.model.FolderCard
 import com.xenyaa.videoshot.data.repo.model.FolderNode
 import com.xenyaa.videoshot.data.repo.model.FolderPage
 import com.xenyaa.videoshot.data.repo.model.MonthCount
+import com.xenyaa.videoshot.data.repo.model.FacetRef
 import com.xenyaa.videoshot.data.repo.model.FilterOption
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import com.xenyaa.videoshot.data.repo.model.NewShot
@@ -35,6 +36,7 @@ open class FakeLibraryRepo : LibraryRepo {
     override suspend fun monthFacets(month: String): List<MonthFacet> = emptyList()
     override suspend fun searchFacets(upToMonth: String?, limit: Int): List<MonthFacet> = emptyList()
     override suspend fun filterOptions(upToMonth: String?): List<FilterOption> = emptyList()
+    override suspend fun facetRefs(places: Set<String>, tagNames: Set<String>): List<FacetRef> = emptyList()
     override suspend fun months(): List<String> = emptyList()
     override suspend fun monthsMatching(places: Set<String>, tagNames: Set<String>): List<String> = emptyList()
     override suspend fun searchByFacets(places: Set<String>, tagNames: Set<String>, upToMonth: String?, after: ShotCursor?, limit: Int) =
@@ -48,12 +50,12 @@ open class FakeLibraryRepo : LibraryRepo {
     override suspend fun distinctPlaces(): List<String> = emptyList()
     override suspend fun allTagNames(): List<String> = emptyList()
     override suspend fun allPlacesWithUsage(): List<com.xenyaa.videoshot.data.repo.model.PlaceUsage> = emptyList()
-    override suspend fun renamePlace(id: Long, name: String, aliases: List<String>) = Unit
+    override suspend fun renamePlace(id: Long, name: String, aliases: List<String>) = id
     override suspend fun mergePlace(fromId: Long, toId: Long) = Unit
     override suspend fun deletePlace(id: Long) = Unit
     override suspend fun mergeTag(fromId: Long, toId: Long) = Unit
     override suspend fun allTagsWithUsage(): List<TagUsage> = emptyList()
-    override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>) = Unit
+    override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>) = id
     override suspend fun deleteTag(id: Long) = Unit
     override suspend fun queryVocabulary() = com.xenyaa.videoshot.core.query.QueryVocabulary(emptyList(), emptyList())
     override suspend fun accountStats(thisMonth: String): AccountStats = AccountStats(0, 0, 0)

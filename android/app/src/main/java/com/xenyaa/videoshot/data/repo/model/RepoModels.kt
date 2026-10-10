@@ -80,9 +80,18 @@ data class MonthFacet(val name: String, val kind: String, val count: Int, val ta
 /** 一個地點或標籤在統計表裡的鍵（`kind` 同 `StatKind`：1＝地點、2＝標籤；`id` 是 place.id 或 tag.id）。 */
 data class FacetRef(val kind: Int, val id: Long)
 
-
-/** 首頁篩選抽屜的一個候選（階段 17）。`tagKind` 地點固定 `"other"`；`aliases` 給搜尋框比對。 */
-data class FilterOption(val name: String, val isPlace: Boolean, val tagKind: String, val aliases: List<String>)
+/**
+ * 首頁篩選抽屜的一個候選（階段 17）。`tagKind` 地點固定 `"other"`；`aliases` 給搜尋框比對。
+ * @param id place.id 或 tag.id（依 [isPlace]）；`0`＝不知道（已勾選但不在候選裡的補位項目、月份小膠囊），
+ *        最近使用排序（`FacetUsage`）把它當成沒用過
+ */
+data class FilterOption(
+    val name: String,
+    val isPlace: Boolean,
+    val tagKind: String,
+    val aliases: List<String>,
+    val id: Long = 0L,
+)
 
 /** 「最近取過的影片」清單的一列。資料直接查 video 表，不另存一份歷史（規格第五節第一步）。 */
 data class RecentVideo(

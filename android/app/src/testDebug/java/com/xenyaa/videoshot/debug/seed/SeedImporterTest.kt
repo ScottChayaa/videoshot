@@ -35,7 +35,7 @@ class SeedImporterTest {
         }
         override suspend fun allTagsWithUsage() = tags.toList()
         override suspend fun deleteTag(id: Long) { deletedTagIds += id; tags.removeAll { it.id == id } }
-        override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>) { kindChanges[name] = kind }
+        override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>): Long { kindChanges[name] = kind; return id }
         override suspend fun createFolder(parentId: Long?, name: String): Long = nextFolder++.also { folders[it] = name }
         override suspend fun addShotToFolder(shotId: Long, folderId: Long, atSec: Long) { links += shotId to folderId }
     }

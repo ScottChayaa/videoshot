@@ -7,6 +7,8 @@ import com.xenyaa.videoshot.data.repo.RoomLibraryRepo
 import com.xenyaa.videoshot.data.repo.model.NewShot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
+import com.xenyaa.videoshot.data.library.StatKind
+import com.xenyaa.videoshot.data.repo.model.FacetRef
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -78,5 +80,26 @@ class FilterOptionsRepoTest {
         seed()
         repo.renamePlace(db.placeDao().byName("宜蘭")!!.id, "宜蘭", listOf("噶瑪蘭"))
         assertEquals(listOf("2026-01"), repo.monthsMatching(places = setOf("噶瑪蘭"), tagNames = emptySet()))
+    }
+
+    @Test fun 候選帶著地點與標籤的編號() = runTest {
+        seed()
+        val all = repo.filterOptions(upToMonth = null)
+        assertEquals(db.placeDao().byName("宜蘭")!!.id, all.first { it.name == "宜蘭" }.id)
+        assertEquals(db.tagDao().byName("露營")!!.id, all.first { it.name == "露營" }.id)
+    }
+
+    @Test fun 名稱轉編號_名稱要完全相同_查不到的略過() = runTest {
+        seed()
+        repo.renamePlace(db.placeDao().byName("宜蘭")!!.id, "宜蘭", listOf("噶瑪蘭"))
+        val refs = repo.facetRefs(places = setOf("宜蘭", "噶瑪蘭", "不存在", " 台北 "), tagNames = setOf("露營", "沒有這個"))
+        assertEquals(
+            setOf(
+                FacetRef(StatKind.PLACE, db.placeDao().byName("宜蘭")!!.id),
+                FacetRef(StatKind.PLACE, db.placeDao().byName("台北")!!.id),
+                FacetRef(StatKind.TAG, db.tagDao().byName("露營")!!.id),
+            ),
+            refs.toSet(),
+        )
     }
 }

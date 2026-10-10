@@ -161,4 +161,20 @@ class PlaceManagementRepoTest {
         val none = repo.searchByFacets(setOf("不存在"), emptySet(), upToMonth = null, after = null, limit = 10)
         assertEquals(0, none.items.size)
     }
+
+    @Test fun 地點改名回傳保留下來的編號_撞名合併時是目標() = runTest {
+        seed()
+        val from = placeId("礁溪")
+        val target = placeId("宜蘭礁溪")
+        assertEquals(target, repo.renamePlace(from, "宜蘭礁溪", emptyList()))
+        assertEquals(target, repo.renamePlace(target, "宜蘭礁溪鄉", emptyList()))
+    }
+
+    @Test fun 標籤改名回傳保留下來的編號_撞名合併時是目標() = runTest {
+        seed()
+        val from = db.tagDao().byName("明哥")!!.id
+        val target = db.tagDao().byName("阿明")!!.id
+        assertEquals(target, repo.renameTag(from, "阿明", "person", emptyList()))
+        assertEquals(target, repo.renameTag(target, "阿明哥", "person", emptyList()))
+    }
 }

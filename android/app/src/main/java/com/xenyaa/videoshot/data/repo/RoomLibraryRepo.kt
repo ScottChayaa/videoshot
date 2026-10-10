@@ -24,6 +24,7 @@ import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.AccountStats
 import com.xenyaa.videoshot.data.repo.model.FACET_COUNT_UNION_THRESHOLD
 import com.xenyaa.videoshot.data.repo.model.FACET_UNION_THRESHOLD
+import com.xenyaa.videoshot.data.repo.model.FacetRef
 import com.xenyaa.videoshot.data.repo.model.FilterOption
 import com.xenyaa.videoshot.data.repo.model.FolderCard
 import com.xenyaa.videoshot.data.repo.model.FolderNode
@@ -83,8 +84,18 @@ class RoomLibraryRepo(
 
     override suspend fun filterOptions(upToMonth: String?): List<FilterOption> = withContext(io) {
         db.statsDao().filterOptions(upToMonth).map {
-            FilterOption(it.name, it.kind == StatKind.PLACE, it.tagKind, decodeAliases(it.aliases))
+            FilterOption(it.name, it.kind == StatKind.PLACE, it.tagKind, decodeAliases(it.aliases), it.refId)
         }
+    }
+
+    override suspend fun facetRefs(places: Set<String>, tagNames: Set<String>): List<FacetRef> = withContext(io) {
+        val placeRefs = places.mapNotNull { name ->
+            name.trim().takeIf { it.isNotEmpty() }?.let { db.placeDao().byName(it) }?.let { FacetRef(StatKind.PLACE, it.id) }
+        }
+        val tagRefs = tagNames.mapNotNull { name ->
+            name.trim().takeIf { it.isNotEmpty() }?.let { db.tagDao().byName(it) }?.let { FacetRef(StatKind.TAG, it.id) }
+        }
+        (placeRefs + tagRefs).distinct()
     }
 
     override suspend fun months(): List<String> = withContext(io) { db.statsDao().allMonths() }
@@ -456,19 +467,22 @@ class RoomLibraryRepo(
         db.statsDao().tagsWithUsage().map { TagUsage(it.id, it.name, it.kind, decodeAliases(it.aliases), it.shotCount) }
     }
 
-    override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>): Unit =
+    override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>): Long =
         withContext(io) {
             val trimmed = name.trim()
             require(trimmed.isNotEmpty()) { "標籤名稱不能是空的" }
-            db.inWriteTransaction {
+            val kept = db.inWriteTransaction {
                 val existing = db.tagDao().byName(trimmed)
                 if (existing != null && existing.id != id) {
                     mergeTagInTx(id, existing.id) // 16C 起撞名合併也把舊名留成別名
+                    existing.id
                 } else {
                     db.tagDao().update(id, trimmed, kind, encodeAliases(aliases))
+                    id
                 }
             }
             onChanged()
+            kept
         }
 
     /** 合併後目標的別名：目標原有的在前，接著來源的本名與別名；去掉空白、重複、跟目標本名相同的（設計決議 3）。 */
@@ -479,15 +493,21 @@ class RoomLibraryRepo(
         db.statsDao().placesWithUsage().map { PlaceUsage(it.id, it.name, decodeAliases(it.aliases), it.shotCount) }
     }
 
-    override suspend fun renamePlace(id: Long, name: String, aliases: List<String>): Unit = withContext(io) {
+    override suspend fun renamePlace(id: Long, name: String, aliases: List<String>): Long = withContext(io) {
         val trimmed = name.trim()
         require(trimmed.isNotEmpty()) { "地點名稱不能是空的" }
-        db.inWriteTransaction {
+        val kept = db.inWriteTransaction {
             val existing = db.placeDao().byName(trimmed)
-            if (existing != null && existing.id != id) mergePlaceInTx(id, existing.id)
-            else db.placeDao().update(id, trimmed, encodeAliases(aliases))
+            if (existing != null && existing.id != id) {
+                mergePlaceInTx(id, existing.id)
+                existing.id
+            } else {
+                db.placeDao().update(id, trimmed, encodeAliases(aliases))
+                id
+            }
         }
         onChanged()
+        kept
     }
 
     override suspend fun mergePlace(fromId: Long, toId: Long): Unit = withContext(io) {

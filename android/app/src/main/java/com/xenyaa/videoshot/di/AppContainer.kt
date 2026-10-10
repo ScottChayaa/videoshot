@@ -295,12 +295,14 @@ class AppContainer(context: Context) : AppRootDeps {
 
             override suspend fun stats(thisMonth: String) = libraryRepo.accountStats(thisMonth)
             override suspend fun tags() = libraryRepo.allTagsWithUsage()
-            override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>) =
+            override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>) {
                 libraryRepo.renameTag(id, name, kind, aliases)
+            }
             override suspend fun deleteTag(id: Long) = libraryRepo.deleteTag(id)
             override suspend fun places() = libraryRepo.allPlacesWithUsage()
-            override suspend fun renamePlace(id: Long, name: String, aliases: List<String>) =
+            override suspend fun renamePlace(id: Long, name: String, aliases: List<String>) {
                 libraryRepo.renamePlace(id, name, aliases)
+            }
             override suspend fun mergePlace(fromId: Long, toId: Long) = libraryRepo.mergePlace(fromId, toId)
             override suspend fun deletePlace(id: Long) = libraryRepo.deletePlace(id)
             override suspend fun mergeTag(fromId: Long, toId: Long) = libraryRepo.mergeTag(fromId, toId)
