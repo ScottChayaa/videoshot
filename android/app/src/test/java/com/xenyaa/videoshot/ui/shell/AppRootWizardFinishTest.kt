@@ -1,5 +1,7 @@
 package com.xenyaa.videoshot.ui.shell
 
+import com.xenyaa.videoshot.data.repo.FakeCacheRepo
+import com.xenyaa.videoshot.data.FacetUsage
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -181,6 +183,7 @@ class AppRootWizardFinishTest {
         val repo = FakeLibraryRepo(seed)
         override val libraryRepo: LibraryRepo = repo
         override val thumbLoader = ThumbLoader(FakeThumbs(), { null }, { null }, { null })
+        override val facetUsage: FacetUsage by lazy { FacetUsage(libraryRepo, FakeCacheRepo()) { 0L } }
         override val shotDeleter = ShotDeleter(repo, FakeThumbs(), FakeCacheRepo(), Dispatchers.Default)
         override val wizardData: WizardData = FakeWizardData(repo)
         override val haptics = FakeHaptics()

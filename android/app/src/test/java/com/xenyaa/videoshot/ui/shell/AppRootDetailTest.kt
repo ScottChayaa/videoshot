@@ -1,5 +1,7 @@
 package com.xenyaa.videoshot.ui.shell
 
+import com.xenyaa.videoshot.data.repo.FakeCacheRepo
+import com.xenyaa.videoshot.data.FacetUsage
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -119,6 +121,7 @@ class AppRootDetailTest {
     private fun deps(repo: Repo): AppRootDeps = object : AppRootDeps {
         override val libraryRepo: LibraryRepo = repo
         override val thumbLoader: ThumbLoader = loader
+        override val facetUsage: FacetUsage by lazy { FacetUsage(libraryRepo, FakeCacheRepo()) { 0L } }
         override val shotDeleter: ShotDeleter = ShotDeleter(
             repo,
             thumbs = object : Thumbs {

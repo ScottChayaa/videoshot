@@ -18,6 +18,8 @@ import com.xenyaa.videoshot.backup.RemoteBackup
 import com.xenyaa.videoshot.backup.RestoreManager
 import com.xenyaa.videoshot.backup.RestoreResult
 import com.xenyaa.videoshot.backfill.BackfillManager
+import com.xenyaa.videoshot.data.FacetEdits
+import com.xenyaa.videoshot.data.FacetUsage
 import com.xenyaa.videoshot.data.ShotDeleter
 import com.xenyaa.videoshot.data.cache.CACHE_MIGRATIONS
 import com.xenyaa.videoshot.data.cache.CacheDatabase
@@ -124,6 +126,10 @@ class AppContainer(context: Context) : AppRootDeps {
     val cacheRepo: CacheRepo by lazy { RoomCacheRepo(cacheDb, Dispatchers.IO) }
 
     override val shotDeleter: ShotDeleter by lazy { ShotDeleter(libraryRepo, thumbs, cacheRepo, Dispatchers.IO) }
+
+    override val facetUsage: FacetUsage by lazy { FacetUsage(libraryRepo, cacheRepo) }
+
+    private val facetEdits: FacetEdits by lazy { FacetEdits(libraryRepo, facetUsage) }
 
     /** 整個 app 共用一個 OkHttpClient —— 它自帶連線池與執行緒池，每次 new 一個會把資源用光。 */
     private val httpClient: OkHttpClient by lazy { OkHttpClient() }
@@ -295,17 +301,15 @@ class AppContainer(context: Context) : AppRootDeps {
 
             override suspend fun stats(thisMonth: String) = libraryRepo.accountStats(thisMonth)
             override suspend fun tags() = libraryRepo.allTagsWithUsage()
-            override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>) {
-                libraryRepo.renameTag(id, name, kind, aliases)
-            }
-            override suspend fun deleteTag(id: Long) = libraryRepo.deleteTag(id)
+            override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>) =
+                facetEdits.renameTag(id, name, kind, aliases)
+            override suspend fun deleteTag(id: Long) = facetEdits.deleteTag(id)
             override suspend fun places() = libraryRepo.allPlacesWithUsage()
-            override suspend fun renamePlace(id: Long, name: String, aliases: List<String>) {
-                libraryRepo.renamePlace(id, name, aliases)
-            }
-            override suspend fun mergePlace(fromId: Long, toId: Long) = libraryRepo.mergePlace(fromId, toId)
-            override suspend fun deletePlace(id: Long) = libraryRepo.deletePlace(id)
-            override suspend fun mergeTag(fromId: Long, toId: Long) = libraryRepo.mergeTag(fromId, toId)
+            override suspend fun renamePlace(id: Long, name: String, aliases: List<String>) =
+                facetEdits.renamePlace(id, name, aliases)
+            override suspend fun mergePlace(fromId: Long, toId: Long) = facetEdits.mergePlace(fromId, toId)
+            override suspend fun deletePlace(id: Long) = facetEdits.deletePlace(id)
+            override suspend fun mergeTag(fromId: Long, toId: Long) = facetEdits.mergeTag(fromId, toId)
 
             override val thumbColumns = settings.thumbColumns
             override suspend fun setThumbColumns(value: Int) = settings.setThumbColumns(value)

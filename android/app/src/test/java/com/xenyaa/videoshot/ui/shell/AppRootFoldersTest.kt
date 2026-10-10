@@ -1,5 +1,7 @@
 package com.xenyaa.videoshot.ui.shell
 
+import com.xenyaa.videoshot.data.repo.FakeCacheRepo
+import com.xenyaa.videoshot.data.FacetUsage
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
@@ -230,6 +232,7 @@ class AppRootFoldersTest {
             decodeBytes = { null },
             cover = { null },
         )
+        override val facetUsage: FacetUsage by lazy { FacetUsage(libraryRepo, FakeCacheRepo()) { 0L } }
         override val shotDeleter = ShotDeleter(repo, thumbs, cache, Dispatchers.Default)
         override val wizardData: WizardData = NoopWizardData()
         override val haptics = FakeHaptics()

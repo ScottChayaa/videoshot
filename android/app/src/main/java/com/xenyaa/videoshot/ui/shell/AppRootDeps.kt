@@ -4,6 +4,7 @@ import com.xenyaa.videoshot.backup.RemoteBackup
 import com.xenyaa.videoshot.backup.RestoreResult
 import com.xenyaa.videoshot.capture.Capture
 import com.xenyaa.videoshot.capture.ManualImageStore
+import com.xenyaa.videoshot.data.FacetUsage
 import com.xenyaa.videoshot.data.ShotDeleter
 import com.xenyaa.videoshot.data.repo.LibraryRepo
 import com.xenyaa.videoshot.data.settings.ShellSettings
@@ -34,6 +35,10 @@ interface AppRootDeps {
     val libraryRepo: LibraryRepo
     val thumbLoader: ThumbLoader
     val shotDeleter: ShotDeleter
+
+    /** 篩選候選的最近使用排序與記錄（規格第六節「首頁」）。 */
+    val facetUsage: FacetUsage
+
     val wizardData: WizardData
     val haptics: Haptics
     val settings: ShellSettings
