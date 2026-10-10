@@ -44,6 +44,16 @@ object VsIcons {
         strokeIcon("home", "m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z", "M9 22V12h6v10")
     }
 
+    /** Lucide `image`：照片分頁（底部導覽第一格）。 */
+    val Image: ImageVector by lazy {
+        strokeIcon(
+            "image",
+            "M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z",
+            "M7 9a2 2 0 1 0 4 0a2 2 0 1 0 -4 0",
+            "m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21",
+        )
+    }
+
     val Search: ImageVector by lazy {
         // 原型的 <circle cx=11 cy=11 r=8> 改寫成兩段半圓弧
         strokeIcon("search", "M3 11a8 8 0 1 0 16 0a8 8 0 1 0 -16 0", "m21 21-4.3-4.3")

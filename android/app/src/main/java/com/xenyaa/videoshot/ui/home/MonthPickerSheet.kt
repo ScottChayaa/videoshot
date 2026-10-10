@@ -59,7 +59,7 @@ fun MonthPickerSheet(
                 // 沒有月份可選，給一句話收尾就好，不必另做一套空狀態設計；
                 // 篩選中說成「沒有符合篩選的月份」，不要讓人以為圖庫是空的
                 Text(
-                    if (filtering) "沒有符合篩選的月份" else "還沒有任何收藏的月份",
+                    if (filtering) "沒有符合篩選的月份" else "還沒有任何照片的月份",
                     style = MaterialTheme.typography.bodyMedium,
                     color = AppTheme.colors.textDim,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),

@@ -325,7 +325,7 @@ class AppRootFoldersTest {
 
         compose.onNodeWithText("相簿").performClick()
         compose.onNodeWithText("4 張").assertIsDisplayed() // 旅行：folderItems(2) + childItems(2)
-        compose.onNodeWithText("首頁").performClick()
+        compose.onNodeWithText("照片").performClick()
 
         compose.onAllNodesWithContentDescription("片段縮圖 00:30")[0].performClick()
         compose.onNodeWithContentDescription("更多").performClick()

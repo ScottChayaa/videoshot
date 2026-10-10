@@ -49,7 +49,7 @@ fun flattenTree(nodes: List<FolderNode>): List<FolderNode> {
 }
 
 /**
- * Lightbox 動作列的【加入分類】（手冊 §三第四條）。
+ * Lightbox 動作列與照片頁多選的【加入相簿】（手冊 §三第四條）。
  *
  * **勾一下就寫一次**（本階段決定 3）：每一次 [onToggle] 由呼叫端立刻 insert／delete
  * `shot_folder`，這張 sheet 純粹呈現目前狀態，關掉不需要做任何事、中途被系統殺掉也不會遺失。
@@ -67,6 +67,8 @@ fun AddToFolderSheet(
     onToggle: (Long, Boolean) -> Unit,
     onCreate: (String) -> Unit,
     onDismiss: () -> Unit,
+    /** 抽屜標題；照片頁多選時寫成「把 N 張加入相簿」 */
+    title: String = "加入相簿",
 ) {
     // null＝沒有在新增；有值＝正在輸入新資料夾的名字。跟 FolderNameDialog 自己的 ModalBottomSheet
     // 疊在這張 sheet 上面（兩個都是 sheet，實測不會卡死 —— 跟 FoldersScreen 排序抽屜 ＋
@@ -79,7 +81,7 @@ fun AddToFolderSheet(
             verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
         ) {
             Text(
-                "加入相簿",
+                title,
                 style = MaterialTheme.typography.titleMedium,
                 color = AppTheme.colors.text,
                 modifier = Modifier.padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s2),

@@ -193,7 +193,7 @@ class HomeScreenTest {
                 )
             }
         }
-        compose.onNodeWithText("這個時間點以前沒有收藏").assertIsDisplayed()
+        compose.onNodeWithText("這個時間點以前沒有照片").assertIsDisplayed()
         // 狀態列與空狀態各有一個「清除時間篩選」：點文字那顆（空狀態的按鈕）
         compose.onNodeWithText("清除時間篩選").performClick()
         assertEquals(true, cleared)
@@ -252,8 +252,8 @@ class HomeScreenTest {
     fun 篩選中零張時空狀態帶清除篩選() {
         var cleared = 0
         show(HomeState(filter = applied2, endReached = true), onClearFilter = { cleared++ })
-        compose.onNodeWithText("沒有符合篩選的收藏").assertIsDisplayed()
-        compose.onNodeWithText("這個時間點以前沒有收藏").assertDoesNotExist()
+        compose.onNodeWithText("沒有符合篩選的照片").assertIsDisplayed()
+        compose.onNodeWithText("這個時間點以前沒有照片").assertDoesNotExist()
         compose.onNodeWithText("清除篩選").performClick()
         assertEquals(1, cleared)
     }
@@ -290,7 +290,7 @@ class HomeScreenTest {
     @Test
     fun 完全沒有收藏時的空狀態() {
         show(HomeState(endReached = true))
-        compose.onNodeWithText("還沒有收藏").assertIsDisplayed()
+        compose.onNodeWithText("還沒有照片").assertIsDisplayed()
         compose.onNodeWithText("按下方的【取圖】，貼一支 YouTube 網址就可以開始").assertIsDisplayed()
     }
 

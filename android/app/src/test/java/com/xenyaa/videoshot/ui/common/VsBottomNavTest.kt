@@ -30,14 +30,14 @@ class VsBottomNavTest {
 
     @Test fun 四格都有文字且沒有查詢() {
         show()
-        for (label in listOf("首頁", "取圖", "相簿", "帳號")) compose.onNodeWithText(label).assertIsDisplayed()
+        for (label in listOf("照片", "取圖", "相簿", "帳號")) compose.onNodeWithText(label).assertIsDisplayed()
         compose.onNodeWithText("查詢").assertDoesNotExist()
     }
 
     @Test fun 目前分頁標成已選() {
         show(current = Tab.FOLDERS)
         compose.onNodeWithText("相簿").assertIsSelected()
-        compose.onNodeWithText("首頁").assertIsNotSelected()
+        compose.onNodeWithText("照片").assertIsNotSelected()
     }
 
     @Test fun 點一格回報分頁() {

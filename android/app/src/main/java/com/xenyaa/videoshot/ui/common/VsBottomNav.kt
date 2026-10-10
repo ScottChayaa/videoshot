@@ -38,7 +38,7 @@ import com.xenyaa.videoshot.ui.theme.focusRing
 fun avatarInitialOf(displayName: String?): Char? = displayName?.trim()?.firstOrNull()?.uppercaseChar()
 
 private fun iconOf(tab: Tab): ImageVector = when (tab) {
-    Tab.HOME -> VsIcons.Home
+    Tab.HOME -> VsIcons.Image
     Tab.CAPTURE -> VsIcons.Plus
     Tab.FOLDERS -> VsIcons.Folder
     Tab.ACCOUNT -> VsIcons.Person

@@ -3,6 +3,8 @@ package com.xenyaa.videoshot.ui.shell
 import com.xenyaa.videoshot.data.repo.FakeCacheRepo
 import com.xenyaa.videoshot.data.FacetUsage
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.test.isSelectable
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -177,7 +179,7 @@ class AppRootFirstRunGateTest {
     fun 既有安裝升級時不顯示閘門並補寫旗標() {
         val fixture = show(totalShots = 42)
         compose.onNodeWithText("歡迎使用 videoshot").assertDoesNotExist()
-        compose.onNodeWithText("首頁").assertIsDisplayed()
+        compose.onNode(hasText("照片") and isSelectable()).assertIsDisplayed()
         assertTrue("要把旗標補寫回去", fixture.fakeSettings.markCalls == 1)
     }
 }

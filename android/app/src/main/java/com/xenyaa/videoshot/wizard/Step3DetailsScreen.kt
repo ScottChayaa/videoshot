@@ -72,6 +72,7 @@ import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsTagChip
 import com.xenyaa.videoshot.ui.common.VsTextField
 import com.xenyaa.videoshot.ui.common.VsToolbarPill
+import com.xenyaa.videoshot.ui.common.VsSelectedBadge
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
@@ -239,7 +240,7 @@ private fun Step3Thumb(
         if (selected) {
             // 外框畫在格子內緣、疊在圖上
             Box(Modifier.fillMaxSize().border(3.dp, AppTheme.colors.accent, shape))
-            SelectedBadge(Modifier.align(Alignment.TopStart), semanticLabel = null)
+            VsSelectedBadge(Modifier.align(Alignment.TopStart), semanticLabel = null)
         }
         if (applied) {
             // 右上 22dp ok 色圓角方塊、白色打勾、外圈 2dp 白邊（原型 .done-mark）

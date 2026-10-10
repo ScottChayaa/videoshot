@@ -81,7 +81,7 @@ class HomeFilterTest {
     @Test
     fun 預設沒有篩選狀態列() {
         show(loaded())
-        compose.onNodeWithText("只顯示 2026年3月 以前的收藏").assertDoesNotExist()
+        compose.onNodeWithText("只顯示 2026年3月 以前的照片").assertDoesNotExist()
     }
 
     @Test
@@ -107,7 +107,7 @@ class HomeFilterTest {
     fun 沒有任何月份時選單說還沒有收藏的月份() {
         show(HomeState(endReached = true))
         compose.onNodeWithContentDescription("依時間篩選").performClick()
-        compose.onNodeWithText("還沒有任何收藏的月份").assertIsDisplayed()
+        compose.onNodeWithText("還沒有任何照片的月份").assertIsDisplayed()
     }
 
     /** 篩選把月份全濾掉時，不能說成「還沒有任何收藏」。 */
@@ -116,7 +116,7 @@ class HomeFilterTest {
         show(HomeState(filter = HomeFilter(places = setOf("礁溪")), endReached = true))
         compose.onNodeWithContentDescription("依時間篩選").performClick()
         compose.onNodeWithText("沒有符合篩選的月份").assertIsDisplayed()
-        compose.onNodeWithText("還沒有任何收藏的月份").assertDoesNotExist()
+        compose.onNodeWithText("還沒有任何照片的月份").assertDoesNotExist()
     }
 
     @Test
@@ -131,9 +131,9 @@ class HomeFilterTest {
     @Test
     fun 有篩選時不出現狀態列_日曆鈕帶狀態描述() {
         show(loaded(upToMonth = "2026-03"))
-        compose.onNodeWithText("只顯示 2026年3月 以前的收藏").assertDoesNotExist()
+        compose.onNodeWithText("只顯示 2026年3月 以前的照片").assertDoesNotExist()
         compose.onNodeWithContentDescription("依時間篩選")
-            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "只顯示 2026年3月 以前的收藏"))
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "只顯示 2026年3月 以前的照片"))
     }
 
     @Test
@@ -154,7 +154,7 @@ class HomeFilterTest {
     @Test
     fun 篩選後沒有資料的空狀態帶清除鈕() {
         show(HomeState(upToMonth = "2025-01", endReached = true))
-        compose.onNodeWithText("這個時間點以前沒有收藏").assertIsDisplayed()
+        compose.onNodeWithText("這個時間點以前沒有照片").assertIsDisplayed()
         compose.onNodeWithText("清除時間篩選").performClick()
         assertEquals(true to null, picked)
     }
@@ -182,7 +182,7 @@ class HomeFilterTest {
     fun 完全沒有收藏時選擇器顯示中性訊息() {
         show(HomeState(endReached = true))
         compose.onNodeWithContentDescription("依時間篩選").performClick()
-        compose.onNodeWithText("還沒有任何收藏的月份").assertIsDisplayed()
+        compose.onNodeWithText("還沒有任何照片的月份").assertIsDisplayed()
     }
 
     @Test

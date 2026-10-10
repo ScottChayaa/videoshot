@@ -291,6 +291,22 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
     var checkedFolders by remember { mutableStateOf(emptySet<Long>()) }
     var folderTree by remember { mutableStateOf(emptyList<FolderNode>()) }
 
+    // 照片頁多選：已選的照片 id（空＝不在多選模式）。轉螢幕後還在（存成 LongArray）
+    var homeSelection by rememberSaveable(stateSaver = LongSetSaver) { mutableStateOf(emptySet<Long>()) }
+    // 多選的【加入相簿】：非 null＝sheet 開著，值是開的當下選的那幾張。勾選＝那幾張「全部都在」的相簿
+    var addingSelection by remember { mutableStateOf<Set<Long>?>(null) }
+    var selectionCheckedFolders by remember { mutableStateOf(emptySet<Long>()) }
+    // 這次 sheet 開著時有沒有真的寫過——有的話關掉 sheet 就順便離開多選（事情做完了）
+    var selectionAlbumChanged by remember { mutableStateOf(false) }
+    suspend fun foldersOfAll(ids: Set<Long>): Set<Long> =
+        ids.map { container.libraryRepo.foldersOf(it) }.reduceOrNull { acc, f -> acc intersect f }.orEmpty()
+
+    LaunchedEffect(addingSelection) {
+        val ids = addingSelection ?: return@LaunchedEffect
+        folderTree = container.libraryRepo.folderTree()
+        selectionCheckedFolders = foldersOfAll(ids)
+    }
+
     LaunchedEffect(addingTo) {
         val shot = addingTo ?: return@LaunchedEffect
         folderTree = container.libraryRepo.folderTree()
@@ -594,7 +610,9 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             )
         }
 
-        Dest.Root, is Dest.Folder, is Dest.Detail, is Dest.AccountSetting -> AppShell(nav = nav, onSelectTab = { nav = nav.select(it) }, snackbarHostState = snackbarHostState, accountInitial = avatarInitialOf(accountState.linkedAccount?.displayName)) { tab ->
+        Dest.Root, is Dest.Folder, is Dest.Detail, is Dest.AccountSetting -> AppShell(nav = nav, onSelectTab = { nav = nav.select(it) }, snackbarHostState = snackbarHostState, accountInitial = avatarInitialOf(accountState.linkedAccount?.displayName),
+            // 照片頁多選時藏起底部導覽，由照片頁自己的【刪除】【加入相簿】動作列取代
+            showBottomNav = !(nav.tab == Tab.HOME && nav.current == Dest.Root && homeSelection.isNotEmpty())) { tab ->
             when (val current = nav.current) {
                 is Dest.Detail -> {
                     val vm = detailVm!!
@@ -647,7 +665,8 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                     )
                 }
                 else -> when (tab) {
-                    Tab.HOME -> HomeScreen(
+                    Tab.HOME -> {
+                    HomeScreen(
                         state = homeState,
                         loader = container.thumbLoader,
                         listState = homeListState,
@@ -667,7 +686,101 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                         onDismissFilter = homeVm::dismissFilter,
                         onRetryFilterOptions = homeVm::retryFilterOptions,
                         onClearFilter = homeVm::clearFilter,
+                        selection = homeSelection,
+                        onToggleSelect = { id ->
+                            homeSelection = if (id in homeSelection) homeSelection - id else homeSelection + id
+                        },
+                        onClearSelection = { homeSelection = emptySet() },
+                        onDeleteSelected = {
+                            val ids = homeSelection
+                            homeSelection = emptySet()
+                            scope.launch {
+                                // 一張一張刪（每張都要清縮圖檔與 cache，同 Lightbox 的單張刪除）；
+                                // 中途失敗時已刪掉的照樣從畫面拿掉，沒刪到的留著
+                                var done = 0
+                                try {
+                                    for (id in ids) {
+                                        container.shotDeleter.delete(id)
+                                        container.thumbLoader.evict(id)
+                                        homeVm.onShotDeleted(id)
+                                        done++
+                                    }
+                                    snackbarHostState.showSnackbar("已刪除 $done 張")
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    snackbarHostState.showSnackbar("刪除失敗，請再試一次")
+                                } finally {
+                                    if (done > 0) {
+                                        // 相簿的張數與預覽、帳號頁統計都可能變了（同 Lightbox 單張刪除的理由）
+                                        folderVm?.reload()
+                                        foldersVm.reload()
+                                        accountVm.reload()
+                                    }
+                                }
+                            }
+                        },
+                        onAddSelectedToAlbum = {
+                            selectionAlbumChanged = false
+                            addingSelection = homeSelection
+                        },
                     )
+                    // 多選的【加入相簿】：同 Lightbox 的那張 sheet（勾一下寫一次），只是一次寫進所有選了的照片。
+                    // 勾起來＝這幾張全部加進去；取消勾選＝這幾張全部移出
+                    addingSelection?.let { ids ->
+                        AddToFolderSheet(
+                            tree = folderTree,
+                            checked = selectionCheckedFolders,
+                            onToggle = { folderId, checked ->
+                                selectionCheckedFolders =
+                                    if (checked) selectionCheckedFolders + folderId else selectionCheckedFolders - folderId
+                                scope.launch {
+                                    try {
+                                        for (id in ids) {
+                                            if (checked) {
+                                                container.libraryRepo.addShotToFolder(id, folderId)
+                                            } else {
+                                                container.libraryRepo.removeShotFromFolder(id, folderId)
+                                            }
+                                        }
+                                        selectionAlbumChanged = true
+                                        foldersVm.reload()
+                                        folderVm?.reload()
+                                    } catch (e: CancellationException) {
+                                        throw e
+                                    } catch (e: Exception) {
+                                        selectionCheckedFolders = foldersOfAll(ids)
+                                        snackbarHostState.showSnackbar("加入相簿失敗，請再試一次")
+                                    }
+                                }
+                            },
+                            // 【＋新增相簿】建在根層，建完把選了的照片全部放進去
+                            onCreate = { name ->
+                                scope.launch {
+                                    try {
+                                        val folderId = container.libraryRepo.createFolder(null, name)
+                                        for (id in ids) container.libraryRepo.addShotToFolder(id, folderId)
+                                        selectionAlbumChanged = true
+                                        folderTree = container.libraryRepo.folderTree()
+                                        selectionCheckedFolders = foldersOfAll(ids)
+                                        foldersVm.reload()
+                                    } catch (e: CancellationException) {
+                                        throw e
+                                    } catch (e: IllegalArgumentException) {
+                                        snackbarHostState.showSnackbar(e.message ?: "名稱不能用")
+                                    } catch (e: Exception) {
+                                        snackbarHostState.showSnackbar("新增相簿失敗，請再試一次")
+                                    }
+                                }
+                            },
+                            onDismiss = {
+                                addingSelection = null
+                                if (selectionAlbumChanged) homeSelection = emptySet()
+                            },
+                            title = "把 ${ids.size} 張加入相簿",
+                        )
+                    }
+                    }
                     Tab.FOLDERS -> when (nav.current) {
                         // 資料夾頁：上半子資料夾、下半本層的圖。folderVm 一定不是 null——
                         // openFolderId 非 null 時它才會被建出來，兩者同一個條件
@@ -1034,3 +1147,9 @@ private fun EditingSheet(
         },
     )
 }
+
+/** 照片頁多選的已選 id：存成 LongArray，轉螢幕或被系統回收重建之後還在。 */
+private val LongSetSaver = Saver<Set<Long>, LongArray>(
+    save = { it.toLongArray() },
+    restore = { it.toSet() },
+)

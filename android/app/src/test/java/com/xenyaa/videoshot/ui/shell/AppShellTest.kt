@@ -42,7 +42,7 @@ class AppShellTest {
     @Test
     fun 四格都有文字() {
         show()
-        for (label in listOf("首頁", "取圖", "相簿", "帳號")) {
+        for (label in listOf("照片", "取圖", "相簿", "帳號")) {
             compose.onNodeWithText(label).assertIsDisplayed()
         }
     }
@@ -67,7 +67,20 @@ class AppShellTest {
         show(NavState().select(Tab.CAPTURE))
         compose.onNodeWithText("內容：取圖").assertIsDisplayed()
         compose.onNodeWithText("相簿").assertDoesNotExist()
-        compose.onNodeWithText("首頁").assertDoesNotExist()
+        compose.onNodeWithText("照片").assertDoesNotExist()
+    }
+
+    /** 照片頁多選時藏起底部導覽（由照片頁自己的動作列取代），內容照常顯示。 */
+    @Test
+    fun 藏起底部導覽時只剩內容() {
+        compose.setContent {
+            VideoshotTheme {
+                AppShell(nav = NavState(), onSelectTab = {}, showBottomNav = false) { tab -> Text("內容：${tab.label}") }
+            }
+        }
+        compose.onNodeWithText("內容：照片").assertIsDisplayed()
+        compose.onNodeWithText("相簿").assertDoesNotExist()
+        compose.onNodeWithText("帳號").assertDoesNotExist()
     }
 
     @Test

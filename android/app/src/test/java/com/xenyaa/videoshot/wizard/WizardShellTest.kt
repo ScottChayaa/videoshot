@@ -159,7 +159,7 @@ class WizardShellTest {
     @Test
     fun 沒有底部導覽列() {
         show()
-        compose.onNodeWithText("首頁").assertDoesNotExist()
+        compose.onNodeWithText("照片").assertDoesNotExist()
         compose.onNodeWithText("相簿").assertDoesNotExist()
     }
 

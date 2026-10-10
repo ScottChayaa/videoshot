@@ -3,6 +3,8 @@ package com.xenyaa.videoshot.ui.shell
 import com.xenyaa.videoshot.data.repo.FakeCacheRepo
 import com.xenyaa.videoshot.data.FacetUsage
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.test.isSelectable
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -209,7 +211,7 @@ class AppRootLightboxTest {
         compose.onNodeWithContentDescription("片段縮圖 00:20").performClick()
         compose.onNodeWithText("00:20").assertIsDisplayed()
         // assertDoesNotExist：不是被蓋住，是這一輪組合裡整個沒有這個節點（手冊 §六）
-        for (label in listOf("首頁", "取圖", "相簿", "帳號")) {
+        for (label in listOf("照片", "取圖", "相簿", "帳號")) {
             compose.onNodeWithText(label).assertDoesNotExist()
         }
     }
@@ -221,7 +223,7 @@ class AppRootLightboxTest {
         show()
         compose.onNodeWithContentDescription("片段縮圖 00:10").performClick()
         compose.onNodeWithContentDescription("關閉").performClick()
-        compose.onNodeWithText("首頁").assertIsDisplayed()
+        compose.onNode(hasText("照片") and isSelectable()).assertIsDisplayed()
         compose.onNodeWithContentDescription("片段縮圖 00:10").assertIsDisplayed()
         compose.onNodeWithContentDescription("片段縮圖 00:20").assertIsDisplayed()
     }
@@ -246,7 +248,7 @@ class AppRootLightboxTest {
 
         compose.onNodeWithContentDescription("關閉").performClick()
 
-        compose.onNodeWithText("首頁").assertIsDisplayed()
+        compose.onNode(hasText("照片") and isSelectable()).assertIsDisplayed()
         compose.onNodeWithContentDescription("收藏的大圖").assertDoesNotExist()
     }
 

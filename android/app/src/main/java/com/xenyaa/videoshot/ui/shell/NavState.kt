@@ -4,7 +4,7 @@ import androidx.compose.runtime.Immutable
 
 /** 底部導覽的四格（手冊 §零：每個項目都是圖示＋文字；階段 17 拿掉了「查詢」）。 */
 enum class Tab(val label: String) {
-    HOME("首頁"),
+    HOME("照片"),
     CAPTURE("取圖"),
     FOLDERS("相簿"),
     ACCOUNT("帳號"),

@@ -1,6 +1,21 @@
 package com.xenyaa.videoshot.ui.home
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import com.xenyaa.videoshot.ui.theme.focusRing
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
+import com.xenyaa.videoshot.ui.common.TopBarNav
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.heightIn
@@ -58,7 +73,7 @@ import com.xenyaa.videoshot.ui.thumb.ThumbGridGap
 import com.xenyaa.videoshot.ui.thumb.ThumbTile
 
 /**
- * 首頁：依 `event_date` 年月分組的縮圖牆，由新到舊。
+ * 照片頁（程式碼裡仍叫 home）：依 `event_date` 年月分組的縮圖牆，由新到舊。
  *
  * **每個月份同欄數**（手機欄數看帳號 › 縮圖的設定、§零「600dp 以上加欄」）——
  * 欄數隨當月張數變的話，捲動時每個月的格子大小都不一樣。
@@ -93,9 +108,22 @@ fun HomeScreen(
     scrollToMonth: String? = null,
     /** 捲完（或發現那個月不在清單裡）回報一次，讓外面把 scrollToMonth 清掉 */
     onScrolledToMonth: () -> Unit = {},
+    /** 多選中已選的照片 id；空＝不在多選模式。長按一張進入多選，取消最後一張就離開 */
+    selection: Set<Long> = emptySet(),
+    /** 長按（進入多選）與多選中點一下都走這裡：選了就取消、沒選就選 */
+    onToggleSelect: (Long) -> Unit = {},
+    /** 頂欄【✕】與系統返回鍵：離開多選 */
+    onClearSelection: () -> Unit = {},
+    /** 底部【刪除】按下、確認框按【刪除】之後才呼叫 */
+    onDeleteSelected: () -> Unit = {},
+    /** 底部【加入相簿】 */
+    onAddSelectedToAlbum: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var picking by rememberSaveable { mutableStateOf(false) }
+    var confirmingDelete by remember { mutableStateOf(false) }
+    val selecting = selection.isNotEmpty()
+    BackHandler(enabled = selecting) { onClearSelection() }
     val columns = thumbColumnsFor(LocalConfiguration.current.screenWidthDp, phoneColumns)
     val slots = remember(state.items, state.facets) { HomeStore.slots(state) }
 
@@ -161,12 +189,17 @@ fun HomeScreen(
 
     Column(modifier.fillMaxSize()) {
 
-        HomeTopBar(
-            upToMonth = state.upToMonth,
-            filter = state.filter,
-            onOpenMonths = { picking = true },
-            onOpenFilter = onOpenFilter,
-        )
+        if (selecting) {
+            // 多選中頂欄換成「已選 N 張」＋左邊【✕】；篩選與日曆鈕收起來（多選時不換篩選）
+            VsTopBar("已選 ${selection.size} 張", nav = TopBarNav.Close(onClearSelection, "取消選取"), divider = false)
+        } else {
+            HomeTopBar(
+                upToMonth = state.upToMonth,
+                filter = state.filter,
+                onOpenMonths = { picking = true },
+                onOpenFilter = onOpenFilter,
+            )
+        }
 
         // 讀取失敗不能無聲無息：loading 沒有接住例外就會卡在 true、清單再也不會重試
         // （見階段 7 全盤覆查第 2 點）。這裡只是提示＋重試，不是破壞性動作，不用 danger 色。
@@ -176,6 +209,8 @@ fun HomeScreen(
 
         // 用 if/else 而不是提早 return —— 空狀態也要能往下走到選擇器那一段，
         // 不然篩選出 0 筆結果時按日曆鈕會完全沒反應（手冊 §二：這個鈕本來就該打得開選擇器）。
+        // 清單佔掉剩下的高度，多選時底部的動作列才排得在它下面（多選時底部導覽藏起來，由它取代）
+        Box(Modifier.weight(1f)) {
         if (state.items.isEmpty() && state.endReached) {
             HomeEmpty(
                 timeFiltered = state.upToMonth != null,
@@ -220,12 +255,37 @@ fun HomeScreen(
                             ThumbTile(
                                 shot = slot.shot,
                                 loader = loader,
-                                onClick = { onOpen(slot.index) },
+                                onClick = { if (selecting) onToggleSelect(slot.shot.id) else onOpen(slot.index) },
+                                selected = if (selecting) slot.shot.id in selection else null,
+                                onLongClick = { onToggleSelect(slot.shot.id) },
                             )
                         }
                     }
                 }
             }
+        }
+        }
+
+        if (selecting) {
+            SelectionBar(onDelete = { confirmingDelete = true }, onAddToAlbum = onAddSelectedToAlbum)
+        }
+
+        if (confirmingDelete && selecting) {
+            AlertDialog(
+                onDismissRequest = { confirmingDelete = false },
+                title = { Text("刪除 ${selection.size} 張照片？") },
+                text = { Text("YouTube 原片不受影響") },
+                confirmButton = {
+                    VsButton(
+                        text = "刪除",
+                        onClick = { confirmingDelete = false; onDeleteSelected() },
+                        variant = ButtonVariant.Danger,
+                    )
+                },
+                dismissButton = {
+                    VsButton(text = "取消", onClick = { confirmingDelete = false }, variant = ButtonVariant.Quiet)
+                },
+            )
         }
 
         if (picking) {
@@ -255,6 +315,37 @@ fun HomeScreen(
     }
 }
 
+/**
+ * 多選時取代底部導覽的動作列（外殼這時藏起底部導覽，所以這一列自己鋪到系統導覽列底下）：【刪除】【加入相簿】，
+ * 圖示在上、文字在下，平分寬度。高度、分隔線、字級都跟底部導覽一樣，兩者互換時畫面不跳。
+ * 刪除是破壞性動作，但按下去還有確認框，這裡不用 danger 色（跟 Lightbox 的 ⋯ 選單一樣）。
+ */
+@Composable
+private fun SelectionBar(onDelete: () -> Unit, onAddToAlbum: () -> Unit) {
+    Column(Modifier.fillMaxWidth().background(AppTheme.colors.surface).navigationBarsPadding()) {
+        HorizontalDivider(thickness = (1f / LocalDensity.current.density).dp, color = AppTheme.colors.border)
+        Row(Modifier.fillMaxWidth().height(AppTheme.spacing.navHeight)) {
+            SelectionAction(VsIcons.Trash, "刪除", onDelete, Modifier.weight(1f).fillMaxHeight())
+            SelectionAction(VsIcons.FolderPlus, "加入相簿", onAddToAlbum, Modifier.weight(1f).fillMaxHeight())
+        }
+    }
+}
+
+@Composable
+private fun SelectionAction(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier) {
+    Column(
+        modifier
+            .focusRing()
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics(mergeDescendants = true) {},
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(icon, contentDescription = null, tint = AppTheme.colors.text, modifier = Modifier.size(24.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium), color = AppTheme.colors.text)
+    }
+}
+
 /** 換了這個字串就是換了篩選（任何一項不同都算），畫面要捲回頂端。 */
 private fun filterScrollKey(upToMonth: String?, filter: HomeFilter): String =
     listOf(
@@ -270,7 +361,7 @@ private fun filterScrollKey(upToMonth: String?, filter: HomeFilter): String =
  */
 @Composable
 private fun HomeTopBar(upToMonth: String?, filter: HomeFilter, onOpenMonths: () -> Unit, onOpenFilter: () -> Unit) {
-    VsTopBar("收藏", divider = false) {
+    VsTopBar("照片", divider = false) {
         TopBarIconButton(
             VsIcons.Filter,
             "依地點與標籤篩選",
@@ -287,7 +378,7 @@ private fun HomeTopBar(upToMonth: String?, filter: HomeFilter, onOpenMonths: () 
             "依時間篩選",
             onOpenMonths,
             modifier = if (upToMonth != null) {
-                Modifier.semantics { stateDescription = "只顯示 ${monthLabel(upToMonth)} 以前的收藏" }
+                Modifier.semantics { stateDescription = "只顯示 ${monthLabel(upToMonth)} 以前的照片" }
             } else {
                 Modifier
             },
@@ -411,7 +502,7 @@ private fun HomeEmpty(timeFiltered: Boolean, facetFiltered: Boolean, onClearTime
         // 地點與標籤篩選優先：【清除篩選】直接清掉已套用的篩選（設計決議 4）
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
             VsEmptyState(
-                message = "沒有符合篩選的收藏",
+                message = "沒有符合篩選的照片",
                 actionText = "清除篩選",
                 onAction = onClearFacets,
             )
@@ -419,7 +510,7 @@ private fun HomeEmpty(timeFiltered: Boolean, facetFiltered: Boolean, onClearTime
     } else if (timeFiltered) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
             VsEmptyState(
-                message = "這個時間點以前沒有收藏",
+                message = "這個時間點以前沒有照片",
                 actionText = "清除時間篩選",
                 onAction = onClearTime,
             )
@@ -430,7 +521,7 @@ private fun HomeEmpty(timeFiltered: Boolean, facetFiltered: Boolean, onClearTime
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            VsEmptyState(message = "還沒有收藏", icon = VsIcons.ImagePlus)
+            VsEmptyState(message = "還沒有照片", icon = VsIcons.ImagePlus)
             Text(
                 "按下方的【取圖】，貼一支 YouTube 網址就可以開始",
                 style = MaterialTheme.typography.bodyMedium,

@@ -55,6 +55,7 @@ import com.xenyaa.videoshot.ui.common.VsActionDock
 import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsHintCard
 import com.xenyaa.videoshot.ui.common.VsToolbarPill
+import com.xenyaa.videoshot.ui.common.VsSelectedBadge
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
@@ -358,7 +359,7 @@ private fun FrameCell(
             }
 
             if (selected) {
-                SelectedBadge(Modifier.align(Alignment.TopStart))
+                VsSelectedBadge(Modifier.align(Alignment.TopStart))
             }
 
             if (taken) {
@@ -491,25 +492,3 @@ private fun FrameImage(
 }
 
 
-/**
- * 左上 20dp 主色圓形打勾徽章，外圈 2dp 白邊（原型 .wz-cell.sel::before）。
- * 第二步與第三步的「已選」共用同一個外觀；語意名稱「已選」讓輔助技術不只靠顏色辨識。
- * 第三步整格的名稱已經含「已勾選」，徽章傳 null 當純裝飾，避免唸兩次。
- */
-@Composable
-internal fun SelectedBadge(modifier: Modifier = Modifier, semanticLabel: String? = "已選") {
-    Box(
-        modifier
-            .padding(2.dp)
-            .size(24.dp)
-            .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.92f))
-            .padding(2.dp)
-            .clip(CircleShape)
-            .background(AppTheme.colors.accent)
-            .then(if (semanticLabel != null) Modifier.semantics { contentDescription = semanticLabel } else Modifier),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(VsIcons.Check, contentDescription = null, tint = AppTheme.colors.accentInk, modifier = Modifier.size(12.dp))
-    }
-}

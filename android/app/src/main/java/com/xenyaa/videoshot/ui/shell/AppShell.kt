@@ -4,7 +4,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -29,6 +32,11 @@ fun AppShell(
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     accountInitial: Char? = null,
+    /**
+     * false＝藏起底部導覽（照片頁多選時，換成頁面自己的動作列，不然兩列疊在一起很怪）。
+     * 藏起來時內容不墊系統導覽列的高度，由頁面自己的動作列 `navigationBarsPadding()` 鋪到螢幕底。
+     */
+    showBottomNav: Boolean = true,
     content: @Composable (Tab) -> Unit,
 ) {
     if (nav.tab == Tab.CAPTURE) {
@@ -44,7 +52,12 @@ fun AppShell(
         modifier = modifier,
         containerColor = AppTheme.colors.bg,
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        bottomBar = { VsBottomNav(current = nav.tab, onSelect = onSelectTab, accountInitial = accountInitial) },
+        bottomBar = { if (showBottomNav) VsBottomNav(current = nav.tab, onSelect = onSelectTab, accountInitial = accountInitial) },
+        contentWindowInsets = if (showBottomNav) {
+            ScaffoldDefaults.contentWindowInsets
+        } else {
+            ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+        },
     ) { padding ->
         // consumeWindowInsets：Scaffold 已把系統列 inset 換成 padding 給內容，但不會標記成已消耗；
         // 不標的話內容裡的 VsActionDock（自己 navigationBarsPadding）會再墊一次導覽列高度

@@ -4,6 +4,8 @@ import com.xenyaa.videoshot.data.repo.FakeCacheRepo
 import com.xenyaa.videoshot.data.FacetUsage
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.isSelectable
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
@@ -239,7 +241,7 @@ class AppRootWizardFinishTest {
         compose.waitForIdle()
 
         // 回首頁分頁：CAPTURE 分頁沒有底部導覽，導覽列重新出現就代表真的切走了
-        compose.onNodeWithText("首頁").assertIsDisplayed()
+        compose.onNode(hasText("照片") and isSelectable()).assertIsDisplayed()
 
         // 重新整理：新圖真的寫進了首頁清單背後那個 repo（同一份 commit 路徑）
         assertEquals(41, fixture.repo.items.size)
@@ -276,7 +278,7 @@ class AppRootWizardFinishTest {
         compose.onNodeWithText("仍要完成").performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithText("首頁").assertIsDisplayed()
+        compose.onNode(hasText("照片") and isSelectable()).assertIsDisplayed()
         compose.onNodeWithContentDescription("依地點與標籤篩選")
             .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.StateDescription))
         compose.onNodeWithText("已新增 1 張").assertIsDisplayed()
