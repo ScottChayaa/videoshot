@@ -1,7 +1,6 @@
 package com.xenyaa.videoshot.ui.common
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -34,7 +33,6 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.text
@@ -49,6 +47,9 @@ import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.FocusRingWidth
 
 enum class ChipSize { Regular, Mini }
+
+/** 沒選的小膠囊底色：文字色的不透明度。 */
+private const val UNSELECTED_FILL_ALPHA = 0.07f
 
 /**
  * 一般尺寸小膠囊的寬度組成：左右內距＋圖示＋圖示與文字的間距＋文字。篩選抽屜分頁要在畫之前先算出
@@ -68,7 +69,8 @@ object TagChipMetrics {
 /**
  * 標籤／地點小膠囊（原型 `styles.css`「chip」＋ `app.js` 的 `tagChip`）。
  *
- * 種類靠**圖示＋顏色**兩者一起區分；選取只靠變色（實心主色＋白字，跟淺底深字的明暗差夠大，不只靠色相）。
+ * 種類靠**圖示＋顏色**兩者一起區分；底色不帶種類也不帶主色：沒選是中性半透明底、無框，
+ * 選取只靠變色（實心主色＋白字，跟中性淺底深字的明暗差夠大，不只靠色相）。主色只出現在「已選」。
  *
  * 可點的小膠囊分兩種（設計 §八，與 [VsToolbarPill] 的 `isToggle` 同一條規則）：
  * - [isToggle] = false（預設）：動作／導覽（首頁月份標籤、第三步的建議標籤），當成按鈕，**不帶選取語意**，
@@ -89,13 +91,9 @@ fun VsTagChip(
 ) {
     val regular = size == ChipSize.Regular
     val shape = RoundedCornerShape(AppTheme.radii.sm)
-    // 一般尺寸不畫框線，靠主色淺底表示「可以按」：accentWeak 在 bg 上太淡、accentLine 太重，取偏 accentWeak 的四分之一處；
-    // 迷你維持白底＋框線（純顯示）
-    val bg = when {
-        selected -> AppTheme.colors.accent
-        regular -> lerp(AppTheme.colors.accentWeak, AppTheme.colors.accentLine, 0.25f)
-        else -> AppTheme.colors.surface
-    }
+    // 沒選的一律是「文字色 7% 半透明」的中性底、無框（2026-10-12）：跟 Lightbox 的白色 12% 半透明底同一條規則，
+    // 疊在白色抽屜或淺灰首頁上都分得出邊界，色系換了也跟著文字色走。主色只留給「已選」，選與沒選一眼分得出來
+    val bg = if (selected) AppTheme.colors.accent else AppTheme.colors.text.copy(alpha = UNSELECTED_FILL_ALPHA)
     val ink = if (selected) AppTheme.colors.accentInk else AppTheme.colors.text
     val iconTint = if (selected) AppTheme.colors.accentInk else kind.color
     val textStyle = MaterialTheme.typography.bodySmall
@@ -133,7 +131,6 @@ fun VsTagChip(
         modifier.semantics(mergeDescendants = true) {}.clip(shape)
     }
     m = m.background(bg)
-    if (!regular) m = m.border(1.dp, if (selected) AppTheme.colors.accent else AppTheme.colors.border, shape)
     m = m.padding(pad)
 
     // 選取只靠變色表示：實心主色＋白字 vs 淺底＋深字，明暗差夠大，不只靠色相；TalkBack 由 selectable 唸已選取
