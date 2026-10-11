@@ -176,7 +176,8 @@ fun LightboxScreen(
                 }
                 Text(
                     chineseDate(shot.eventDate),
-                    style = MaterialTheme.typography.titleSmall,
+                    // 20sp，跟其他頁面頂欄標題同級（2026-10-12 scott 要求放大，原本 15sp）
+                    style = MaterialTheme.typography.titleMedium,
                     color = OnDarkColors.primary,
                     maxLines = 1,
                 )
