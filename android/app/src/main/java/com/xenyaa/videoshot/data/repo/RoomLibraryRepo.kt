@@ -327,7 +327,7 @@ class RoomLibraryRepo(
             // 名稱→id 的解析在交易內（理由同 commitPicks：回滾後不留空標籤）
             val tagIds = patch.tagNames?.map { name ->
                 db.tagDao().byName(name)?.id
-                    ?: db.tagDao().insert(TagEntity(id = 0, name = name, kind = "other", aliases = "[]"))
+                    ?: db.tagDao().insert(TagEntity(id = 0, name = name, kind = patch.newTagKinds[name] ?: "other", aliases = "[]"))
             } ?: patch.tagIds
             // 名稱→id 的解析在交易內（理由同標籤）；null＝沒動過，空字串＝清空
             val placeId = patch.place?.let { placeIdForWrite(it) }

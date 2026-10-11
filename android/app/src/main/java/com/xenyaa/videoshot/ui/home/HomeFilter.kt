@@ -62,27 +62,3 @@ fun MonthFacet.toFilterOption(): FilterOption = FilterOption(name, isPlace, tagK
  * 失敗只標在抽屜上、抽屜自己有【重試】，不變成首頁的錯誤列。
  */
 enum class FilterOptionsStatus { LOADING, READY, FAILED }
-
-/**
- * 篩選抽屜的小膠囊分頁（純函式）：依寬度由左到右排成列，排不下就換列，每 [rowsPerPage] 列一頁。
- * 一顆比整列還寬的照樣自己佔一列（畫的時候會被截）。
- *
- * @param widths 每顆的寬度（px），順序就是顯示順序
- * @return 頁 → 列 → 那一列的項目索引
- */
-fun paginateChips(widths: List<Int>, maxWidth: Int, gap: Int, rowsPerPage: Int): List<List<List<Int>>> {
-    require(rowsPerPage > 0) { "rowsPerPage 要大於 0" }
-    val rows = mutableListOf<MutableList<Int>>()
-    var used = 0
-    widths.forEachIndexed { i, w ->
-        val row = rows.lastOrNull()
-        if (row != null && used + gap + w <= maxWidth) {
-            row += i
-            used += gap + w
-        } else {
-            rows += mutableListOf(i)
-            used = w
-        }
-    }
-    return rows.chunked(rowsPerPage)
-}

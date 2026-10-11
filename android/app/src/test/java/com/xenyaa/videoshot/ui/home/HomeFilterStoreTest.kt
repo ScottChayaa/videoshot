@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.home
 
+import com.xenyaa.videoshot.ui.common.paginateChips
 import com.xenyaa.videoshot.data.repo.model.FilterOption
 import com.xenyaa.videoshot.data.repo.model.MonthFacet
 import org.junit.Assert.assertEquals

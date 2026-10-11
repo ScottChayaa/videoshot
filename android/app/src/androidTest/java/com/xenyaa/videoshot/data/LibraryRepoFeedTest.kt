@@ -131,6 +131,24 @@ class LibraryRepoFeedTest {
         assertEquals(1, db.tagDao().count())
     }
 
+    /** 詳細資料抽屜新打的標籤帶著使用者選的種類建立；既有標籤的種類不被改掉。 */
+    @Test
+    fun 新建的標籤用指定的種類_既有標籤不變() = runTest {
+        val ids = seed("v1", "2026-03-10", 1)
+        db.tagDao().insert(TagEntity(0, "露營", "topic", "[]"))
+        repo.patchShots(
+            ids,
+            ShotPatch(
+                null, null, null, tagIds = null, tagNames = listOf("海龜", "露營"),
+                newTagKinds = mapOf("海龜" to "pet", "露營" to "person"),
+            ),
+        )
+        assertEquals(
+            listOf(TagNameKind("海龜", "pet"), TagNameKind("露營", "topic")),
+            repo.tagsWithKindOfShot(ids[0]),
+        )
+    }
+
     @Test
     fun 同時給_tagIds_與_tagNames_會被擋下來() = runTest {
         val ids = seed("v1", "2026-03-10", 1)

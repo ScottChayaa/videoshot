@@ -63,11 +63,13 @@ data class ShotPatch(
     val tagIds: List<Long>?,
     /**
      * 標籤以**名稱**給定時用這個 —— 就地編輯的畫面只有名稱。
-     * repo 在同一個交易內解析成 id，查不到就新建（`kind = 'other'`），
+     * repo 在同一個交易內解析成 id，查不到就新建（種類看 [newTagKinds]，沒給是 `'other'`），
      * 與 `commitPicks` 同樣的理由：在交易外先建好的話，回滾後會留下沒有任何圖引用的空標籤。
      * 與 [tagIds] **互斥**，同時給會丟 IllegalArgumentException。
      */
     val tagNames: List<String>? = null,
+    /** [tagNames] 裡要新建的標籤用什麼種類（名稱 → `tag.kind`）；沒列到的新標籤是 `other`，既有標籤不受影響。 */
+    val newTagKinds: Map<String, String> = emptyMap(),
 )
 
 /**

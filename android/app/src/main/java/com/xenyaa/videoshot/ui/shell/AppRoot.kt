@@ -34,6 +34,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xenyaa.videoshot.core.details.ShotDetails
 import com.xenyaa.videoshot.core.home.monthOf
 import com.xenyaa.videoshot.data.repo.model.FolderNode
+import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.ui.account.AccountScreen
@@ -1159,8 +1160,13 @@ private fun EditingSheet(
     val places by produceState(emptyList<String>()) {
         value = runCatching { container.libraryRepo.distinctPlaces() }.getOrDefault(emptyList())
     }
-    val allTags by produceState(emptyList<String>()) {
-        value = runCatching { container.libraryRepo.allTagNames() }.getOrDefault(emptyList())
+    // 標籤要帶種類（小膠囊依種類畫圖示），用過越多張的排越前面
+    val allTags by produceState(emptyList<TagNameKind>()) {
+        value = runCatching {
+            container.libraryRepo.allTagsWithUsage()
+                .sortedByDescending { it.shotCount }
+                .map { TagNameKind(it.name, it.kind) }
+        }.getOrDefault(emptyList())
     }
     ShotEditSheet(
         details = details,
@@ -1178,6 +1184,7 @@ private fun EditingSheet(
                         description = patch.description,
                         tagIds = null,
                         tagNames = patch.tags,
+                        newTagKinds = patch.newTagKinds,
                     ),
                 )
                 // 存檔後把這張圖寫回首頁快取 —— 不然使用者回到首頁還會看到編輯前的舊圖資。

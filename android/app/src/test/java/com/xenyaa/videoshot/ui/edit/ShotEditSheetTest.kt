@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import com.xenyaa.videoshot.core.details.DetailsPatch
 import com.xenyaa.videoshot.core.details.ShotDetails
+import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -43,8 +44,11 @@ class ShotEditSheetTest {
             VideoshotTheme {
                 ShotEditSheet(
                     details = value,
-                    placeSuggestions = listOf("花蓮"),
-                    tagSuggestions = listOf("玩水"),
+                    placeSuggestions = listOf("花蓮", "宜蘭", "花東縱谷"),
+                    tagSuggestions = listOf(
+                        TagNameKind("玩水", "topic"), TagNameKind("露營", "topic"),
+                        TagNameKind("阿明", "person"), TagNameKind("夜潛", "other"),
+                    ),
                     onDismiss = { dismissed++ },
                     onSave = { saved = it },
                 )
@@ -91,7 +95,7 @@ class ShotEditSheetTest {
     fun 加一個標籤會整組送出並正規化() {
         show()
         compose.onNodeWithContentDescription("新增標籤").performTextInput("　玩水　")
-        compose.onNodeWithText("＋").performClick()
+        compose.onNodeWithText("加入").performClick()
         compose.onNodeWithText("儲存").performClick()
         assertEquals(listOf("玩水", "露營", "阿明").sorted(), saved?.tags)
     }
@@ -151,5 +155,74 @@ class ShotEditSheetTest {
         show()
         compose.onNodeWithContentDescription("時間").performTextReplacement("2026-01-09")
         compose.onNodeWithText("儲存").assertIsEnabled()
+    }
+
+    // ---- 2026-10-12：候選即時過濾、新標籤選種類 ----
+
+    @Test
+    fun 打地點會即時過濾候選() {
+        show()
+        compose.onNodeWithText("花蓮").assertIsDisplayed()
+        compose.onNodeWithContentDescription("地點").performTextReplacement("縱谷")
+        compose.onNodeWithText("花東縱谷").assertIsDisplayed()
+        compose.onNodeWithText("花蓮").assertDoesNotExist()
+    }
+
+    @Test
+    fun 點地點候選會填進欄位() {
+        show()
+        compose.onNodeWithText("花蓮").performClick()
+        compose.onNodeWithText("儲存").performClick()
+        assertEquals(DetailsPatch(place = "花蓮"), saved)
+    }
+
+    @Test
+    fun 打標籤會即時過濾候選_已選的不列() {
+        show()
+        compose.onNodeWithText("玩水").assertIsDisplayed()
+        compose.onNodeWithText("夜潛").assertIsDisplayed()
+        compose.onNodeWithContentDescription("新增標籤").performTextInput("潛")
+        compose.onNodeWithText("夜潛").assertIsDisplayed()
+        compose.onNodeWithText("玩水").assertDoesNotExist()
+    }
+
+    @Test
+    fun 新標籤加入後出現種類選擇_預設主題() {
+        show()
+        compose.onNodeWithContentDescription("新增標籤").performTextInput("海龜")
+        compose.onNodeWithText("加入").performClick()
+        compose.onNodeWithText("「海龜」是：").assertIsDisplayed()
+        compose.onNodeWithText("儲存").performClick()
+        assertEquals(mapOf("海龜" to "topic"), saved?.newTagKinds)
+    }
+
+    @Test
+    fun 新標籤可以改選種類() {
+        show()
+        compose.onNodeWithContentDescription("新增標籤").performTextInput("海龜")
+        compose.onNodeWithText("加入").performClick()
+        compose.onNodeWithText("動物").performClick()
+        compose.onNodeWithText("儲存").performClick()
+        assertEquals(mapOf("海龜" to "pet"), saved?.newTagKinds)
+        assertEquals(listOf("海龜", "露營", "阿明").sorted(), saved?.tags)
+    }
+
+    @Test
+    fun 挑既有標籤不會出現種類選擇() {
+        show()
+        compose.onNodeWithText("玩水").performClick()
+        compose.onNodeWithText("「玩水」是：").assertDoesNotExist()
+        compose.onNodeWithText("儲存").performClick()
+        assertEquals(emptyMap<String, String>(), saved?.newTagKinds)
+    }
+
+    @Test
+    fun 移除新標籤就不送它的種類() {
+        show()
+        compose.onNodeWithContentDescription("新增標籤").performTextInput("海龜")
+        compose.onNodeWithText("加入").performClick()
+        compose.onNodeWithContentDescription("移除標籤 海龜").performClick()
+        compose.onNodeWithText("「海龜」是：").assertDoesNotExist()
+        compose.onNodeWithText("儲存").assertIsNotEnabled()
     }
 }

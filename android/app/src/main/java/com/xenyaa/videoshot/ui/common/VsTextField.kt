@@ -81,6 +81,8 @@ fun VsTextField(
     leadingIcon: ImageVector? = null,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     fieldModifier: Modifier = Modifier,
+    /** 輸入區固定幾行高；大於 1 時可以換行，超過的在欄位裡捲動。 */
+    lines: Int = 1,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val colors = AppTheme.colors
@@ -130,7 +132,9 @@ fun VsTextField(
                 .then(if (semanticLabel != null) Modifier.semantics { contentDescription = semanticLabel } else Modifier),
             enabled = enabled,
             textStyle = textStyle,
-            singleLine = true,
+            singleLine = lines == 1,
+            minLines = lines,
+            maxLines = lines,
             keyboardOptions = keyboardOptions,
             keyboardActions = keyboardActions,
             visualTransformation = visualTransformation,

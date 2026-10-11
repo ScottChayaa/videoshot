@@ -1,9 +1,6 @@
 package com.xenyaa.videoshot.ui.home
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
@@ -14,10 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -37,15 +31,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.data.repo.model.FilterOption
 import com.xenyaa.videoshot.ui.common.ButtonVariant
+import com.xenyaa.videoshot.ui.common.CHIP_ROWS_PER_PAGE
+import com.xenyaa.videoshot.ui.common.ChipPagerGap
+import com.xenyaa.videoshot.ui.common.ChipPagerRowSpacing
+import com.xenyaa.videoshot.ui.common.VsChipPager
 import com.xenyaa.videoshot.ui.common.ChipKind
 import com.xenyaa.videoshot.ui.common.TagChipMetrics
 import com.xenyaa.videoshot.ui.common.TextFieldSize
@@ -62,11 +53,10 @@ import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 
 /** 每一頁最多幾列小膠囊；多的往右滑。 */
-const val FILTER_ROWS_PER_PAGE = 4
+const val FILTER_ROWS_PER_PAGE = CHIP_ROWS_PER_PAGE
 
-/** 小膠囊左右間距（比一般的 8 少 1）與列距（44dp 觸控區彼此疊 2dp，看起來的間距少 2）。2026-10-09 scott 要求。 */
-private val ChipGap = 7.dp
-private val RowSpacing = (-2).dp
+private val ChipGap = ChipPagerGap
+private val RowSpacing = ChipPagerRowSpacing
 
 /**
  * 首頁的地點與標籤篩選抽屜（階段 17 設計決議 3）。純顯示元件——勾選、搜尋字都在
@@ -258,13 +248,7 @@ private fun SectionHeader(title: String, noun: String, query: String, onQuery: (
 @Composable
 private fun ChipSkeleton(count: Int) = VsChipSkeleton(count, chipGap = ChipGap, rowSpacing = RowSpacing)
 
-/**
- * 一區的小膠囊：依寬度排列、每頁最多 [FILTER_ROWS_PER_PAGE] 列，左右滑換頁，超過一頁時下面有點點。
- * 分頁器的高度取最多列的那一頁，滑到列數較少的最後一頁時高度不會跳。搜尋字一變就回第一頁。
- *
- * 第一次出現時**一幀多畫一列**（高度一開始就是最終高度，版面不跳），畫完呼叫 [onRevealed]；
- * 之後換頁、搜尋都直接畫整頁。
- */
+/** 一區的小膠囊（[VsChipPager]，第一次出現時一幀多畫一列）。 */
 @Composable
 private fun ChipPager(
     shown: List<FilterOption>,
@@ -274,77 +258,17 @@ private fun ChipPager(
     onToggle: (FilterOption) -> Unit,
     onRevealed: () -> Unit,
 ) {
-    // 快取量過的名字：搜尋框每打一個字清單就變一次，同樣的名字不必重量
-    val measurer = rememberTextMeasurer(cacheSize = FilterLists.MAX_SHOWN * 2)
-    val textStyle = MaterialTheme.typography.bodySmall
-    val density = LocalDensity.current
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val maxWidth = constraints.maxWidth
-        // 量好的文字排版留著，畫小膠囊時直接用（不再排版第二次）
-        val layouts = remember(shown, textStyle, density) { shown.map { o -> measurer.measure(o.name, textStyle) } }
-        val pages = remember(layouts, maxWidth) {
-            val widths = layouts.map { TagChipMetrics.regularWidthPx(it.size.width, density.density) }
-            paginateChips(widths, maxWidth, with(density) { ChipGap.roundToPx() }, FILTER_ROWS_PER_PAGE)
-        }
-        var revealedRows by remember { mutableIntStateOf(1) }
-        LaunchedEffect(Unit) {
-            while (revealedRows < FILTER_ROWS_PER_PAGE) {
-                withFrameNanos { }
-                revealedRows++
-            }
-            onRevealed()
-        }
-        val pagerState = rememberPagerState { pages.size }
-        LaunchedEffect(query) { if (pagerState.currentPage != 0) pagerState.scrollToPage(0) }
-        val rowCount = pages.maxOf { it.size }
-        val pageHeight: Dp = AppTheme.spacing.tap * rowCount + RowSpacing * (rowCount - 1)
-        Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1)) {
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxWidth().height(pageHeight),
-                pageSpacing = AppTheme.spacing.s4,
-                verticalAlignment = Alignment.Top,
-            ) { page ->
-                Column(verticalArrangement = Arrangement.spacedBy(RowSpacing)) {
-                    for (row in pages[page].take(revealedRows)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(ChipGap)) {
-                            for (i in row) {
-                                val option = shown[i]
-                                VsTagChip(
-                                    name = option.name,
-                                    kind = if (isPlace) ChipKind.PLACE else ChipKind.ofTagKind(option.tagKind),
-                                    selected = draft.isSelected(option),
-                                    isToggle = true,
-                                    textLayout = layouts[i],
-                                    onClick = { onToggle(option) },
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            if (pages.size > 1) PageDots(pages.size, pagerState.currentPage)
-        }
-    }
+    VsChipPager(
+        names = remember(shown) { shown.map { it.name } },
+        kindOf = { i -> if (isPlace) ChipKind.PLACE else ChipKind.ofTagKind(shown[i].tagKind) },
+        onClick = { i -> onToggle(shown[i]) },
+        selected = { i -> draft.isSelected(shown[i]) },
+        isToggle = true,
+        resetKey = query,
+        progressive = true,
+        onRevealed = onRevealed,
+    )
 }
-
-/** 分頁點點：目前那頁主色、其餘框線色。TalkBack 唸「第 N 頁，共 M 頁」。 */
-@Composable
-private fun PageDots(count: Int, current: Int) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clearAndSetSemantics { contentDescription = "第 ${current + 1} 頁，共 $count 頁" },
-        horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2, Alignment.CenterHorizontally),
-    ) {
-        repeat(count) { i ->
-            val color = if (i == current) AppTheme.colors.accent else AppTheme.colors.borderStrong
-            Box(Modifier.size(DotSize).background(color, CircleShape))
-        }
-    }
-}
-
-private val DotSize = 6.dp
 
 /** 骨架的塊數：讀取中不知道會有幾個，放一排的量；滑動中依目前的候選數，有上限。 */
 private const val SKELETON_MIN = 6
