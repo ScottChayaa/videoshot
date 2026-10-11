@@ -3,6 +3,12 @@ package com.xenyaa.videoshot.ui.folders
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
@@ -60,8 +66,8 @@ class FoldersScreenTest {
         eventDate = "2026-03-01", place = null, description = null,
     )
 
-    private fun card(id: Long, name: String, count: Int = 0, preview: List<ShotRow> = emptyList()) =
-        FolderCard(id, name, count, lastActivityAt = 0, preview = preview)
+    private fun card(id: Long, name: String, count: Int = 0, preview: List<ShotRow> = emptyList(), archivedAt: Long? = null) =
+        FolderCard(id, name, count, lastActivityAt = 0, preview = preview, archivedAt = archivedAt)
 
     private var opened: FolderCard? = null
     private var created: String? = null
@@ -70,6 +76,8 @@ class FoldersScreenTest {
     private var sorted: FolderSort? = null
     private var retryCalls = 0
     private var lastQuery: String? = null
+    private var toggledArchive: FolderCard? = null
+    private var openArchiveCalls = 0
 
     /**
      * 用 `mutableStateOf`（不是純 `var`）——回呼在 composable 外的一般 lambda 裡跑，
@@ -98,6 +106,8 @@ class FoldersScreenTest {
                     onDismissEditor = { state = FoldersStore.closeEditor(state) },
                     onDismissDelete = { state = FoldersStore.closeDelete(state) },
                     onRetry = { retryCalls++ },
+                    onToggleArchive = { toggledArchive = it },
+                    onOpenArchive = { openArchiveCalls++ },
                 )
             }
         }
@@ -265,5 +275,90 @@ class FoldersScreenTest {
         compose.onNodeWithContentDescription("搜尋相簿名稱").assertDoesNotExist()
         compose.onNodeWithContentDescription("新增相簿").assertIsDisplayed()
         compose.onNodeWithText("2 個相簿").assertIsDisplayed()
+    }
+
+    @Test
+    fun 相簿畫面不列封存的相簿_數量也不算() {
+        show(FoldersState(cards = listOf(card(1, "旅行"), card(2, "舊的", archivedAt = 100))))
+        compose.onNodeWithText("旅行").assertIsDisplayed()
+        compose.onNodeWithText("舊的").assertDoesNotExist()
+        compose.onNodeWithText("1 個相簿").assertIsDisplayed()
+    }
+
+    @Test
+    fun 卡片選單有封存相簿() {
+        show(FoldersState(cards = listOf(card(1, "旅行"))))
+        compose.onNodeWithContentDescription("「旅行」的更多操作").performClick()
+        compose.onNodeWithText("封存相簿").performClick()
+        assertEquals(1L, toggledArchive?.id)
+    }
+
+    /** 拉過門檻（80dp）再放手才進入。Robolectric 預設 mdpi，1px＝1dp；下拉阻尼約一半，拉 600px 夠過門檻。 */
+    @Test
+    fun 下拉過門檻放手進入封存相簿() {
+        show(FoldersState(cards = listOf(card(1, "旅行"), card(3, "貓"))))
+        compose.onNodeWithTag("folderGrid").performTouchInput {
+            down(Offset(centerX, top + 20f))
+            repeat(20) { moveBy(Offset(0f, 30f)) }
+            up()
+        }
+        compose.waitForIdle()
+        assertEquals(1, openArchiveCalls)
+    }
+
+    @Test
+    fun 拉過門檻又滑回去放手不進入() {
+        show(FoldersState(cards = listOf(card(1, "旅行"), card(3, "貓"))))
+        compose.onNodeWithTag("folderGrid").performTouchInput {
+            down(Offset(centerX, top + 20f))
+            repeat(20) { moveBy(Offset(0f, 30f)) }
+            repeat(20) { moveBy(Offset(0f, -30f)) }
+            up()
+        }
+        compose.waitForIdle()
+        assertEquals(0, openArchiveCalls)
+    }
+
+    /** 全部相簿都封存時相簿畫面是空狀態，還是要拉得進封存相簿（不然就找不回來了）。 */
+    @Test
+    fun 空狀態也能下拉進入封存相簿() {
+        show(FoldersState(cards = listOf(card(2, "舊的", archivedAt = 100))))
+        compose.onNodeWithText("還沒有任何相簿").performTouchInput {
+            down(Offset(centerX, top))
+            repeat(20) { moveBy(Offset(0f, 30f)) }
+            up()
+        }
+        compose.waitForIdle()
+        assertEquals(1, openArchiveCalls)
+    }
+
+    @Test
+    fun 搜尋中下拉不會進入() {
+        show(FoldersState(cards = listOf(card(1, "旅行"), card(3, "貓")), searching = true))
+        compose.onNodeWithTag("folderGrid").performTouchInput {
+            down(Offset(centerX, top + 20f))
+            repeat(20) { moveBy(Offset(0f, 30f)) }
+            up()
+        }
+        compose.waitForIdle()
+        assertEquals(0, openArchiveCalls)
+    }
+
+    /** 手勢之外的入口：TalkBack 的自訂動作（官方範例也要求提供可及的替代入口）。 */
+    @Test
+    fun 有進入封存相簿的無障礙自訂動作() {
+        show(FoldersState(cards = listOf(card(1, "旅行"))))
+        val node = compose.onNode(SemanticsMatcher("有自訂動作「進入封存相簿」") { n ->
+            n.config.getOrNull(SemanticsActions.CustomActions).orEmpty().any { it.label == "進入封存相簿" }
+        })
+        node.fetchSemanticsNode().config[SemanticsActions.CustomActions]
+            .first { it.label == "進入封存相簿" }.action()
+        assertEquals(1, openArchiveCalls)
+    }
+
+    @Test
+    fun 下拉提示文字跟著門檻換() {
+        assertEquals("下拉進入封存相簿", archivePullLabel(ready = false))
+        assertEquals("放開進入封存相簿", archivePullLabel(ready = true))
     }
 }

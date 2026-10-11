@@ -2,25 +2,31 @@ package com.xenyaa.videoshot.ui.folders
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.pulltorefresh.pullToRefresh
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -74,6 +80,10 @@ fun FoldersScreen(
     onDismissDelete: () -> Unit,
     /** 讀取失敗時〔重試〕要做的事——接到 `FoldersViewModel::reload`。 */
     onRetry: () -> Unit,
+    /** 卡片 ⋯ 的【封存相簿】——接到 `FoldersViewModel::archive`。 */
+    onToggleArchive: (FolderCard) -> Unit,
+    /** 下拉過門檻放手（或 TalkBack 自訂動作）——進封存相簿畫面。 */
+    onOpenArchive: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var sortPicking by remember { mutableStateOf(false) }
@@ -97,74 +107,87 @@ fun FoldersScreen(
             }
         }
 
-        // 狀態列（原型 `.fd-status`）：內距 上 8／左右 12／下 0。排序鍵右側往外 8（margin-right: -8），
-        // 好讓文字右緣跟版面對齊；視覺高度不變，但觸控區撐到 44dp。
-        Row(
-            Modifier.fillMaxWidth().padding(start = AppTheme.spacing.s3, top = AppTheme.spacing.s2, end = AppTheme.spacing.s1),
-            verticalAlignment = Alignment.CenterVertically,
+        // 頂欄以下整段可以下拉：拉過門檻放手進封存相簿（規格第六節「進入封存相簿」）。
+        // 用 modifier 而不是 PullToRefreshBox：1.4.0 的 PullToRefreshBox 沒有 enabled，搜尋時要能關掉。
+        val pullState = rememberPullToRefreshState()
+        Box(
+            Modifier
+                .fillMaxSize()
+                .pullToRefresh(
+                    isRefreshing = false,
+                    state = pullState,
+                    enabled = !state.searching,
+                    onRefresh = onOpenArchive,
+                )
+                // 手勢之外的入口：TalkBack 使用者沒辦法「下拉」
+                .semantics {
+                    customActions = listOf(CustomAccessibilityAction("進入封存相簿") { onOpenArchive(); true })
+                },
         ) {
-            Text(
-                if (state.query.isBlank()) "${state.cards.size} 個相簿" else "符合 ${visible.size} 個",
-                style = MaterialTheme.typography.bodySmall,
-                color = AppTheme.colors.textDim,
-                modifier = Modifier.weight(1f),
-            )
-            val sortShape = RoundedCornerShape(AppTheme.radii.sm)
-            Row(
-                Modifier
-                    .focusRing(sortShape)
-                    .clip(sortShape)
-                    .clickable(role = Role.Button) { sortPicking = true }
-                    .defaultMinSize(minHeight = AppTheme.spacing.tap)
-                    .padding(horizontal = AppTheme.spacing.s2),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
-            ) {
-                Text(state.sort.label, style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.text)
-                Icon(VsIcons.ChevronDown, contentDescription = null, tint = AppTheme.colors.textDim, modifier = Modifier.size(14.dp))
-            }
-        }
+            Column(Modifier.fillMaxSize()) {
+                // 狀態列（原型 `.fd-status`）：內距 上 8／左右 12／下 0。排序鍵右側往外 8（margin-right: -8），
+                // 好讓文字右緣跟版面對齊；視覺高度不變，但觸控區撐到 44dp。
+                Row(
+                    Modifier.fillMaxWidth().padding(start = AppTheme.spacing.s3, top = AppTheme.spacing.s2, end = AppTheme.spacing.s1),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        if (state.query.isBlank()) "${FoldersStore.active(state).size} 個相簿" else "符合 ${visible.size} 個",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AppTheme.colors.textDim,
+                        modifier = Modifier.weight(1f),
+                    )
+                    val sortShape = RoundedCornerShape(AppTheme.radii.sm)
+                    Row(
+                        Modifier
+                            .focusRing(sortShape)
+                            .clip(sortShape)
+                            .clickable(role = Role.Button) { sortPicking = true }
+                            .defaultMinSize(minHeight = AppTheme.spacing.tap)
+                            .padding(horizontal = AppTheme.spacing.s2),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
+                    ) {
+                        Text(state.sort.label, style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.text)
+                        Icon(VsIcons.ChevronDown, contentDescription = null, tint = AppTheme.colors.textDim, modifier = Modifier.size(14.dp))
+                    }
+                }
 
-        // 讀取失敗不能無聲無息（N2 的回歸測試）——不接住的話，下面的空狀態判斷式會把
-        // 「讀取失敗」誤判成「還沒有任何分類」，主動說錯話。同 FolderScreen.kt 的 FolderErrorRow。
-        if (state.error != null) {
-            FolderErrorRow(message = state.error, onRetry = onRetry)
-        }
+                // 讀取失敗不能無聲無息（N2 的回歸測試）——不接住的話，下面的空狀態判斷式會把
+                // 「讀取失敗」誤判成「還沒有任何分類」，主動說錯話。同 FolderScreen.kt 的 FolderErrorRow。
+                if (state.error != null) {
+                    FolderErrorRow(message = state.error, onRetry = onRetry)
+                }
 
-        when (FoldersStore.emptyKind(state)) {
-            FoldersEmpty.NO_FOLDERS -> VsEmptyState(
-                message = "還沒有任何相簿",
-                modifier = Modifier.fillMaxSize().wrapContentHeight(Alignment.CenterVertically),
-                icon = VsIcons.Folder,
-                actionText = "新增相簿",
-                onAction = onStartCreate,
-            )
-            FoldersEmpty.NO_MATCH -> VsEmptyState(
-                message = "沒有符合的相簿",
-                modifier = Modifier.fillMaxSize().wrapContentHeight(Alignment.CenterVertically),
-                icon = VsIcons.Folder,
-                actionText = "清除篩選",
-                onAction = { onQuery("") },
-                actionVariant = ButtonVariant.Secondary,
-            )
-            null -> LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier.fillMaxSize(),
-                // 原型 `.fd-grid`：欄距 8、列距 12；狀態列後面上內距收成 8（`.fd-status + .fd-grid`）
-                contentPadding = PaddingValues(start = AppTheme.spacing.s3, top = AppTheme.spacing.s2, end = AppTheme.spacing.s3, bottom = AppTheme.spacing.s3),
-                horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
-                verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s3),
-            ) {
-                items(visible, key = { it.id }) { card ->
-                    FolderCardTile(
-                        card = card,
+                when (FoldersStore.emptyKind(state)) {
+                    FoldersEmpty.NO_FOLDERS -> PullableEmpty {
+                        VsEmptyState(
+                            message = "還沒有任何相簿",
+                            icon = VsIcons.Folder,
+                            actionText = "新增相簿",
+                            onAction = onStartCreate,
+                        )
+                    }
+                    FoldersEmpty.NO_MATCH -> PullableEmpty {
+                        VsEmptyState(
+                            message = "沒有符合的相簿",
+                            icon = VsIcons.Folder,
+                            actionText = "清除篩選",
+                            onAction = { onQuery("") },
+                            actionVariant = ButtonVariant.Secondary,
+                        )
+                    }
+                    null -> FolderCardGrid(
+                        cards = visible,
                         loader = loader,
-                        onOpen = { onOpen(card) },
-                        onRename = { onStartRename(card) },
-                        onDelete = { onAskDelete(card) },
+                        onOpen = onOpen,
+                        onRename = onStartRename,
+                        onToggleArchive = onToggleArchive,
+                        onDelete = onAskDelete,
                     )
                 }
             }
+            ArchivePullIndicator(pullState, Modifier.align(Alignment.TopCenter))
         }
     }
 
@@ -204,5 +227,27 @@ fun FoldersScreen(
 
     state.deleting?.let { card ->
         DeleteFolderDialog(card = card, onConfirm = { onDelete(card) }, onDismiss = onDismissDelete)
+    }
+}
+
+/**
+ * 空狀態外面包一層可捲動容器——不能捲的內容收不到巢狀捲動，下拉進封存相簿就拉不動。
+ * 全部相簿都封存時相簿畫面就是空狀態，拉不動等於封存的相簿找不回來。
+ * `verticalScroll` 裡拿不到有限高度，用 `BoxWithConstraints` 取高度當最小高度，空狀態才能置中。
+ */
+@Composable
+private fun PullableEmpty(content: @Composable () -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val minHeight = maxHeight
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .heightIn(min = minHeight)
+                .testTag("foldersEmpty"),
+            verticalArrangement = Arrangement.Center,
+        ) {
+            content()
+        }
     }
 }

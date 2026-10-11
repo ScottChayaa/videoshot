@@ -825,6 +825,8 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                             onDismissEditor = foldersVm::dismissEditor,
                             onDismissDelete = foldersVm::dismissDelete,
                             onRetry = foldersVm::reload,
+                            onToggleArchive = { card -> if (card.archivedAt == null) foldersVm.archive(card) else foldersVm.unarchive(card) },
+                            onOpenArchive = {},
                         )
                     }
                     Tab.ACCOUNT -> when (val dest = nav.current) {

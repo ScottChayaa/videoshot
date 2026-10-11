@@ -62,6 +62,8 @@ fun FolderCardTile(
     loader: ThumbLoader,
     onOpen: () -> Unit,
     onRename: () -> Unit,
+    /** 選單第二項：沒封存的是【封存相簿】，已封存的是【取消封存】。 */
+    onToggleArchive: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -140,6 +142,12 @@ fun FolderCardTile(
                         text = { Text("重新命名") },
                         leadingIcon = { Icon(VsIcons.Edit, contentDescription = null) },
                         onClick = { menuOpen = false; onRename() },
+                    )
+                    val archived = card.archivedAt != null
+                    DropdownMenuItem(
+                        text = { Text(if (archived) "取消封存" else "封存相簿") },
+                        leadingIcon = { Icon(if (archived) VsIcons.ArchiveRestore else VsIcons.Archive, contentDescription = null) },
+                        onClick = { menuOpen = false; onToggleArchive() },
                     )
                     DropdownMenuItem(
                         // 破壞性動作：這是這一頁唯一用 danger 色的地方（手冊 §零第二條）
