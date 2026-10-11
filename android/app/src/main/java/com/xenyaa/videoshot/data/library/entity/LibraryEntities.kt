@@ -141,6 +141,8 @@ data class FolderEntity(
     @ColumnInfo(name = "parent_id") val parentId: Long?,
     @ColumnInfo(name = "name") val name: String,
     @ColumnInfo(name = "created_at") val createdAt: Long,
+    /** 封存時間（epoch 秒，v3）；null＝沒封存。只有根層會設值（規格第六節「封存相簿」） */
+    @ColumnInfo(name = "archived_at") val archivedAt: Long? = null,
 )
 
 @Entity(

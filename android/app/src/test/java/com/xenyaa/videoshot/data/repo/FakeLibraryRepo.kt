@@ -65,6 +65,7 @@ open class FakeLibraryRepo : LibraryRepo {
     override suspend fun createFolder(parentId: Long?, name: String): Long = 0
     override suspend fun renameFolder(id: Long, name: String) = Unit
     override suspend fun deleteFolder(id: Long) = Unit
+    override suspend fun setFolderArchived(id: Long, archived: Boolean) = Unit
     override suspend fun folderNode(id: Long): FolderNode? = null
     override suspend fun folderTree(): List<FolderNode> = emptyList()
     override suspend fun folderCards(parentId: Long?): List<FolderCard> = emptyList()

@@ -5,6 +5,7 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.xenyaa.videoshot.data.library.LIBRARY_MIGRATIONS
+import com.xenyaa.videoshot.data.library.LIBRARY_SCHEMA_VERSION
 import com.xenyaa.videoshot.data.library.LibraryDatabase
 import com.xenyaa.videoshot.data.library.LibrarySchemaCallback
 import com.xenyaa.videoshot.data.repo.RoomLibraryRepo
@@ -13,6 +14,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -40,8 +42,13 @@ class MigrationFromV1Test {
 
     @After fun tearDown() { db.close() }
 
-    @Test fun 升到版本_2_完整性與外鍵都沒問題() = runTest {
-        assertEquals(2L, db.readSingleLong("PRAGMA user_version"))
+    @Test fun 舊相簿升上來都沒有封存() = runTest {
+        assertEquals(0L, db.readSingleLong("SELECT COUNT(*) FROM folder WHERE archived_at IS NOT NULL"))
+        assertTrue(db.readSingleLong("SELECT COUNT(*) FROM folder") > 0)
+    }
+
+    @Test fun 升到現行版本_完整性與外鍵都沒問題() = runTest {
+        assertEquals(LIBRARY_SCHEMA_VERSION.toLong(), db.readSingleLong("PRAGMA user_version"))
         assertEquals("ok", db.readSingleText("PRAGMA integrity_check"))
         assertEquals(emptyList<String>(), db.readAllText("SELECT \"table\" FROM pragma_foreign_key_check"))
     }

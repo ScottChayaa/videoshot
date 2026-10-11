@@ -131,6 +131,12 @@ interface LibraryRepo {
     /** 刪資料夾：子資料夾與所有關聯一併刪，**圖不動**（規格第六節）。 */
     suspend fun deleteFolder(id: Long)
 
+    /**
+     * 封存或取消封存（規格第六節「封存相簿」）。**只有根層相簿能封存**——
+     * 子相簿或找不到時丟 IllegalArgumentException。封存時間記錄當下時間（秒）。
+     */
+    suspend fun setFolderArchived(id: Long, archived: Boolean)
+
     /** 單一資料夾，附層數；不存在回 null。 */
     suspend fun folderNode(id: Long): FolderNode?
 

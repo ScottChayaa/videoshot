@@ -10,6 +10,7 @@ import com.xenyaa.videoshot.core.paging.SearchCursor
  * @param shotCount **含子孫層**的張數（規格第六節）。同一張圖同時在父與子只算一次
  * @param lastActivityAt 含子孫層最近一次有圖被加進來的時間（秒）；一張圖都沒有時退回建立時間
  * @param preview 預覽拼貼的圖，最多 4 張，最近加入在前。**不含 webp**，一律經 `thumbFor(shot)` 取圖
+ * @param archivedAt 封存時間（秒）；null＝沒封存。相簿畫面只列 null 的，封存相簿畫面只列有值的（`FoldersStore`）
  */
 data class FolderCard(
     val id: Long,
@@ -17,18 +18,21 @@ data class FolderCard(
     override val shotCount: Int,
     override val lastActivityAt: Long,
     val preview: List<ShotRow>,
+    val archivedAt: Long? = null,
 ) : SortableFolder
 
 /**
  * 樹上的一個資料夾。
  *
  * @param depth 根層是 1（規格的「深度上限 5 層」從 1 數起，跟 `createFolder` 的檢查同一個基準）
+ * @param archived 這個節點所在的根層相簿有沒有封存；【加入相簿】的清單不列封存的
  */
 data class FolderNode(
     val id: Long,
     val parentId: Long?,
     val name: String,
     val depth: Int,
+    val archived: Boolean = false,
 )
 
 /**

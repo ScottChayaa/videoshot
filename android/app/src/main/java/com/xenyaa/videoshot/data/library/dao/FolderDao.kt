@@ -68,6 +68,10 @@ interface FolderDao {
     @Query("SELECT parent_id FROM folder WHERE id = :id")
     suspend fun parentOf(id: Long): Long?
 
+    /** 封存／取消封存。只動根層；回傳改到的列數（子相簿或找不到時是 0）。 */
+    @Query("UPDATE folder SET archived_at = :archivedAt WHERE id = :id AND parent_id IS NULL")
+    suspend fun setArchivedAt(id: Long, archivedAt: Long?): Int
+
     @Query("UPDATE folder SET name = :name WHERE id = :id")
     suspend fun rename(id: Long, name: String)
 
@@ -81,26 +85,26 @@ interface FolderDao {
      */
     @Query(
         """
-        WITH RECURSIVE walk(id, parent_id, name, depth) AS (
-            SELECT id, parent_id, name, 1 FROM folder WHERE parent_id IS NULL
+        WITH RECURSIVE walk(id, parent_id, name, depth, archived) AS (
+            SELECT id, parent_id, name, 1, archived_at IS NOT NULL FROM folder WHERE parent_id IS NULL
             UNION ALL
-            SELECT f.id, f.parent_id, f.name, w.depth + 1
+            SELECT f.id, f.parent_id, f.name, w.depth + 1, w.archived
             FROM folder f JOIN walk w ON f.parent_id = w.id
         )
-        SELECT id, parent_id, name, depth FROM walk
+        SELECT id, parent_id, name, depth, archived FROM walk
         """
     )
     suspend fun tree(): List<FolderNodeProjection>
 
     @Query(
         """
-        WITH RECURSIVE walk(id, parent_id, name, depth) AS (
-            SELECT id, parent_id, name, 1 FROM folder WHERE parent_id IS NULL
+        WITH RECURSIVE walk(id, parent_id, name, depth, archived) AS (
+            SELECT id, parent_id, name, 1, archived_at IS NOT NULL FROM folder WHERE parent_id IS NULL
             UNION ALL
-            SELECT f.id, f.parent_id, f.name, w.depth + 1
+            SELECT f.id, f.parent_id, f.name, w.depth + 1, w.archived
             FROM folder f JOIN walk w ON f.parent_id = w.id
         )
-        SELECT id, parent_id, name, depth FROM walk WHERE id = :id
+        SELECT id, parent_id, name, depth, archived FROM walk WHERE id = :id
         """
     )
     suspend fun nodeById(id: Long): FolderNodeProjection?
@@ -123,7 +127,7 @@ interface FolderDao {
             FROM shot_folder sf JOIN tree t ON t.id = sf.folder_id
             GROUP BY t.card_id, sf.shot_id
         )
-        SELECT c.id AS id, c.name AS name, c.created_at AS created_at,
+        SELECT c.id AS id, c.name AS name, c.created_at AS created_at, c.archived_at AS archived_at,
                (SELECT COUNT(*) FROM links l WHERE l.card_id = c.id) AS shot_count,
                (SELECT MAX(l.added_at) FROM links l WHERE l.card_id = c.id) AS last_added_at
         FROM folder c WHERE c.parent_id IS :parentId
@@ -172,6 +176,7 @@ data class FolderCardProjection(
     @ColumnInfo(name = "id") val id: Long,
     @ColumnInfo(name = "name") val name: String,
     @ColumnInfo(name = "created_at") val createdAt: Long,
+    @ColumnInfo(name = "archived_at") val archivedAt: Long?,
     @ColumnInfo(name = "shot_count") val shotCount: Int,
     /** 一張圖都沒有時是 null；repo 會退回 `createdAt`。 */
     @ColumnInfo(name = "last_added_at") val lastAddedAt: Long?,
@@ -188,4 +193,5 @@ data class FolderNodeProjection(
     @ColumnInfo(name = "parent_id") val parentId: Long?,
     @ColumnInfo(name = "name") val name: String,
     @ColumnInfo(name = "depth") val depth: Int,
+    @ColumnInfo(name = "archived") val archived: Boolean,
 )

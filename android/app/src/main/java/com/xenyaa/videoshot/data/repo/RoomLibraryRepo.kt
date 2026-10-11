@@ -400,12 +400,19 @@ class RoomLibraryRepo(
         onChanged()
     }
 
+    override suspend fun setFolderArchived(id: Long, archived: Boolean): Unit = withContext(io) {
+        val at = if (archived) System.currentTimeMillis() / 1000 else null
+        val changed = db.folderDao().setArchivedAt(id, at)
+        require(changed == 1) { "只有最上層的相簿能封存" }
+        onChanged()
+    }
+
     override suspend fun folderNode(id: Long): FolderNode? = withContext(io) {
-        db.folderDao().nodeById(id)?.let { FolderNode(it.id, it.parentId, it.name, it.depth) }
+        db.folderDao().nodeById(id)?.let { FolderNode(it.id, it.parentId, it.name, it.depth, it.archived) }
     }
 
     override suspend fun folderTree(): List<FolderNode> = withContext(io) {
-        db.folderDao().tree().map { FolderNode(it.id, it.parentId, it.name, it.depth) }
+        db.folderDao().tree().map { FolderNode(it.id, it.parentId, it.name, it.depth, it.archived) }
     }
 
     override suspend fun folderCards(parentId: Long?): List<FolderCard> = withContext(io) {
@@ -419,6 +426,7 @@ class RoomLibraryRepo(
                 // 一張圖都沒有的資料夾用建立時間當「最近活動」，「最近加入」排序才排得出先後
                 lastActivityAt = card.lastAddedAt ?: card.createdAt,
                 preview = previews[card.id].orEmpty().map { it.shot.toRow() },
+                archivedAt = card.archivedAt,
             )
         }
     }

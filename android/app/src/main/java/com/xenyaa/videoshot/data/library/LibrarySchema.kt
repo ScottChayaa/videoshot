@@ -9,7 +9,7 @@ import androidx.sqlite.execSQL
  * library.db 的 schema 版本。**這是跨平台的資料契約**（規格第四節）——
  * 動到任何一張表的欄位就要 +1 並補上 migration，還原比這個版本新的備份必須拒絕。
  */
-const val LIBRARY_SCHEMA_VERSION = 2
+const val LIBRARY_SCHEMA_VERSION = 3
 
 /**
  * shot_fts 是 FTS5 的 external-content 虛擬表（內容仍在 shot，不重複存一份），
@@ -96,8 +96,22 @@ val MIGRATION_1_2: Migration = object : Migration(1, 2) {
 }
 
 /**
+ * v2 → v3（相簿封存）：`folder` 只加一欄 `archived_at`，預設 null＝沒封存。
+ * 欄位定義必須跟 Room 產生的一致（`schemas/.../3.json`：INTEGER、可為 null、沒有預設值），否則開檔驗證會失敗。
+ */
+val MIGRATION_2_3_SQL: List<String> = listOf(
+    "ALTER TABLE `folder` ADD COLUMN `archived_at` INTEGER",
+)
+
+val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+    override fun migrate(connection: SQLiteConnection) {
+        MIGRATION_2_3_SQL.forEach { connection.execSQL(it) }
+    }
+}
+
+/**
  * library.db 的遷移清單。接線由 MigrationTest 盯著版本與陣列對得上。
  *
  * 遷移裡若重建 `shot` 表，必須一併重建 `shot_fts`、它的三個觸發器與統計表的觸發器（`StatsSchema.kt`）。
  */
-val LIBRARY_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2)
+val LIBRARY_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
