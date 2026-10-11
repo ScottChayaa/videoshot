@@ -244,7 +244,7 @@ fun LightboxScreen(
         if (confirmingDelete) {
             AlertDialog(
                 onDismissRequest = { confirmingDelete = false },
-                title = { Text("刪除這張收藏？") },
+                title = { Text("刪除這張照片？") },
                 text = { Text("YouTube 原片不受影響") },
                 confirmButton = {
                     VsButton(

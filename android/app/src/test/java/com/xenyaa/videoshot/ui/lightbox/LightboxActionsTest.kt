@@ -113,7 +113,7 @@ class LightboxActionsTest {
         show()
         compose.onNodeWithContentDescription("更多").performClick()
         compose.onNodeWithText("刪除").performClick()
-        compose.onNodeWithText("刪除這張收藏？").assertIsDisplayed()
+        compose.onNodeWithText("刪除這張照片？").assertIsDisplayed()
         compose.onNodeWithText("YouTube 原片不受影響").assertIsDisplayed()
         assertEquals(emptyList<String>(), clicked)
         compose.onNodeWithText("刪除").performClick()

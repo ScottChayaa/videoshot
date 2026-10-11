@@ -79,7 +79,7 @@ fun ShotEditSheet(
                 .padding(bottom = AppTheme.spacing.s5),
             verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s3),
         ) {
-            Text("編輯圖資", style = MaterialTheme.typography.titleMedium, color = AppTheme.colors.text)
+            Text("詳細資料", style = MaterialTheme.typography.titleMedium, color = AppTheme.colors.text)
 
             Column(
                 Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
