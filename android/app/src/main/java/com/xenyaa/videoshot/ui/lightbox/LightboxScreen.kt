@@ -12,10 +12,10 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.ScrollState
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import com.xenyaa.videoshot.ui.common.ChipKind
-import com.xenyaa.videoshot.ui.common.ChipSize
-import com.xenyaa.videoshot.ui.common.VsTagChip
 import com.xenyaa.videoshot.ui.common.chineseDate
 import kotlinx.coroutines.CancellationException
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -165,7 +165,9 @@ fun LightboxScreen(
         Column(Modifier.fillMaxSize()) {
 
             Row(
-                Modifier.fillMaxWidth().statusBarsPadding().padding(AppTheme.spacing.s2),
+                // 下緣不留白：標籤列緊貼在頂列下方
+                Modifier.fillMaxWidth().statusBarsPadding()
+                    .padding(start = AppTheme.spacing.s2, end = AppTheme.spacing.s2, top = AppTheme.spacing.s2),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // 圖示色用 OnDarkColors：Lightbox 底色不隨主題變，前景也不能隨主題變
@@ -185,7 +187,7 @@ fun LightboxScreen(
                         .padding(start = AppTheme.spacing.s2)
                         .horizontalScroll(remember(shot.id) { ScrollState(0) }),
                 ) {
-                    shot.place?.let { VsTagChip(it, ChipKind.PLACE, size = ChipSize.Mini) }
+                    shot.place?.let { OnDarkChip(it, ChipKind.PLACE) }
                 }
                 Box {
                     IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(iconShape)) {
@@ -219,12 +221,13 @@ fun LightboxScreen(
                 horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                tags.forEach { VsTagChip(it.name, ChipKind.ofTagKind(it.kind), size = ChipSize.Mini) }
+                tags.forEach { OnDarkChip(it.name, ChipKind.ofTagKind(it.kind)) }
             }
 
             // 大圖跟一次性提示放同一個 Box：提示用 BottomCenter 貼著**這個 Box 的下緣**，
             // 也就是描述／動作列開始的地方，不是螢幕的物理下緣 —— 系統導覽列多高都不會蓋到它。
-            Box(Modifier.weight(1f).fillMaxWidth()) {
+            // 上緣留一段距離：直的照片撐滿高時才不會緊貼在標籤列下面
+            Box(Modifier.weight(1f).fillMaxWidth().padding(top = AppTheme.spacing.s4)) {
                 HorizontalPager(
                     state = pager,
                     modifier = Modifier
@@ -336,4 +339,24 @@ private fun DarkIconButton(icon: ImageVector, label: String, onClick: () -> Unit
 }
 
 /** 標籤列的最小高度：迷你小膠囊一列的高度，沒有標籤時也佔住這一列。 */
-private val TAG_ROW_MIN_HEIGHT = 32.dp
+private val TAG_ROW_MIN_HEIGHT = 28.dp
+
+/**
+ * Lightbox 專用的小膠囊：白色 12% 半透明底、無框、白字，跟底部的圖示鈕同一種材質（2026-10-12）。
+ * 共用的 [VsTagChip] 是給淺色畫面的白底樣式，放在近黑的底上會比照片還搶眼。
+ * 純顯示，不可點；種類圖示保留種類色但調亮，深底上才看得清楚。
+ */
+@Composable
+private fun OnDarkChip(name: String, kind: ChipKind) {
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(AppTheme.radii.sm))
+            .background(OnDarkColors.fill)
+            .padding(horizontal = AppTheme.spacing.s2, vertical = 3.dp),
+        horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(kind.icon, contentDescription = null, tint = lerp(kind.color, Color.White, 0.4f), modifier = Modifier.size(14.dp))
+        Text(name, style = MaterialTheme.typography.bodySmall, color = OnDarkColors.primary, maxLines = 1)
+    }
+}
