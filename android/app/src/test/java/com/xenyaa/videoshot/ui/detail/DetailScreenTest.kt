@@ -129,7 +129,7 @@ class DetailScreenTest {
                 player = DetailViewModel.PlayerAvailability.Ready(true),
             )
         )
-        compose.onNodeWithText("編輯這張的圖資").performClick()
+        compose.onNodeWithText("編輯詳細資料").performClick()
         assertEquals(1L, edited?.id)
     }
 

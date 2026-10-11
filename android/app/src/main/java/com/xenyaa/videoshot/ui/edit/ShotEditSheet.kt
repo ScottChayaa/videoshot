@@ -34,7 +34,7 @@ import com.xenyaa.videoshot.core.details.normalizeTags
 import com.xenyaa.videoshot.ui.theme.AppTheme
 
 /**
- * 就地編輯**一張**圖的圖資。Lightbox 的【編輯圖資】與階段 9 詳情頁的【編輯這張的圖資】共用
+ * 就地編輯**一張**圖的圖資。Lightbox ⋯ 選單的【詳細資料】與詳情頁的【編輯詳細資料】共用
  * （主計畫第 284 行）。
  *
  * 送出的是 [DetailsPatch]：**只帶動過的欄位**，沒動過的是 null。

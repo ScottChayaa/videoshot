@@ -192,7 +192,7 @@ fun DetailScreen(
                         color = AppTheme.colors.textDim,
                     )
                     VsButton(
-                        "編輯這張的圖資", { onEdit(focused) },
+                        "編輯詳細資料", { onEdit(focused) },
                         modifier = Modifier.fillMaxWidth(),
                         variant = ButtonVariant.Secondary,
                         icon = VsIcons.Edit,
