@@ -15,7 +15,7 @@ import com.xenyaa.videoshot.ui.theme.AppTheme
 fun DeleteFolderDialog(card: FolderCard, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("移除相簿「${card.name}」") },
+        title = { Text("刪除相簿「${card.name}」") },
         text = { Text("裡面的子相簿會一起移除，圖片不會被刪除。") },
         confirmButton = {
             TextButton(onClick = onConfirm) { Text("移除", color = AppTheme.colors.danger) }

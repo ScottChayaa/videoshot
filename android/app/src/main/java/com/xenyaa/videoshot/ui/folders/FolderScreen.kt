@@ -71,11 +71,11 @@ fun FolderScreen(
     onLoadMore: () -> Unit,
     /** 頂列〔⋯〕的〔重新命名〕——改的是**這一頁自己**。 */
     onStartRename: () -> Unit,
-    /** 頂列〔⋯〕的〔移除相簿〕——刪的是**這一頁自己**。 */
+    /** 頂列〔⋯〕的〔刪除相簿〕——刪的是**這一頁自己**。 */
     onAskDeleteSelf: () -> Unit,
     /** 子資料夾列〔⋯〕的〔重新命名〕——改的是**那張子卡片**，不是這一頁（裁決 2）。 */
     onRenameChild: (FolderCard) -> Unit,
-    /** 子資料夾列〔⋯〕的〔移除相簿〕——問的是**那張子卡片**，不是這一頁（裁決 2）。 */
+    /** 子資料夾列〔⋯〕的〔刪除相簿〕——問的是**那張子卡片**，不是這一頁（裁決 2）。 */
     onAskDeleteChild: (FolderCard) -> Unit,
     onEditorName: (String) -> Unit,
     onConfirmEditor: () -> Unit,
@@ -121,7 +121,7 @@ fun FolderScreen(
                         onClick = { menuOpen = false; onStartRename() },
                     )
                     DropdownMenuItem(
-                        text = { Text("移除相簿", color = AppTheme.colors.danger) },
+                        text = { Text("刪除相簿", color = AppTheme.colors.danger) },
                         leadingIcon = { Icon(VsIcons.Trash, contentDescription = null, tint = AppTheme.colors.danger) },
                         onClick = { menuOpen = false; onAskDeleteSelf() },
                     )
@@ -288,7 +288,7 @@ private fun ChildFolderRow(
                 )
                 DropdownMenuItem(
                     // 破壞性動作：唯一用 danger 色的地方（手冊 §零第二條）
-                    text = { Text("移除相簿", color = AppTheme.colors.danger) },
+                    text = { Text("刪除相簿", color = AppTheme.colors.danger) },
                     leadingIcon = { Icon(VsIcons.Trash, contentDescription = null, tint = AppTheme.colors.danger) },
                     onClick = { menuOpen = false; onDelete() },
                 )

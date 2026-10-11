@@ -146,7 +146,7 @@ class FoldersScreenTest {
     @Test
     fun 移除確認說得出會連子相簿一起移除且圖不動() {
         show(FoldersState(cards = listOf(card(1, "旅行")), deleting = card(1, "旅行")))
-        compose.onNodeWithText("移除相簿「旅行」").assertIsDisplayed()
+        compose.onNodeWithText("刪除相簿「旅行」").assertIsDisplayed()
         compose.onNodeWithText("裡面的子相簿會一起移除，圖片不會被刪除。").assertIsDisplayed()
     }
 

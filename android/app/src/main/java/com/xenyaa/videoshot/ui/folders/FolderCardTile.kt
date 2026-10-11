@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -33,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xenyaa.videoshot.ui.theme.OnDarkColors
@@ -41,13 +41,14 @@ import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
+import com.xenyaa.videoshot.ui.thumb.ThumbGridGap
 import com.xenyaa.videoshot.ui.thumb.ThumbImage
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
 
 /**
  * 分類清單頁的一張卡片（原型 `.fd-card`）。**資料夾頁上半用的是另一份卡片**（見 `FolderScreen.kt`）。
  *
- * `surface` 底、1dp `border`、圓角 12、輕陰影。圖片區維持 16:9 的 2×2 靜態拼貼
+ * `surface` 底、一個實體像素的 `border`（最細）、圓角 8、輕陰影。圖片區維持 16:9 的 2×2 靜態拼貼
  * （原型是 72px 高的輪播；手冊只要求「內容預覽拼貼（最多 4 張）」，手冊優先）。
  * 張數是圖片區右下角的膠囊，名稱列不再顯示張數。
  *
@@ -65,14 +66,14 @@ fun FolderCardTile(
     modifier: Modifier = Modifier,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(AppTheme.radii.md)
+    val shape = RoundedCornerShape(AppTheme.radii.sm)
 
     Column(
         modifier
             .shadow(1.dp, shape)
             .clip(shape)
             .background(AppTheme.colors.surface)
-            .border(1.dp, AppTheme.colors.border, shape)
+            .border(Dp.Hairline, AppTheme.colors.border, shape)
             .focusRing(shape)
             .combinedClickable(
                 onClickLabel = "開啟",
@@ -113,8 +114,9 @@ fun FolderCardTile(
                     .padding(horizontal = AppTheme.spacing.s2),
             )
         }
+        // 名稱列壓矮到 36dp；⋯ 的版面跟著縮成 36dp，觸控範圍由 Compose 自動擴到最小觸控尺寸
         Row(
-            Modifier.fillMaxWidth().defaultMinSize(minHeight = AppTheme.spacing.tap)
+            Modifier.fillMaxWidth()
                 .padding(start = AppTheme.spacing.s3, end = AppTheme.spacing.s1),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -124,12 +126,12 @@ fun FolderCardTile(
                 color = AppTheme.colors.text,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f).padding(vertical = AppTheme.spacing.s2),
+                modifier = Modifier.weight(1f).padding(vertical = AppTheme.spacing.s1),
             )
             Box {
                 IconButton(
                     onClick = { menuOpen = true },
-                    modifier = Modifier.size(AppTheme.spacing.tap).focusRing(CircleShape),
+                    modifier = Modifier.size(36.dp).focusRing(CircleShape),
                 ) {
                     Icon(VsIcons.More, contentDescription = "「${card.name}」的更多操作", tint = AppTheme.colors.textDim)
                 }
@@ -141,7 +143,7 @@ fun FolderCardTile(
                     )
                     DropdownMenuItem(
                         // 破壞性動作：這是這一頁唯一用 danger 色的地方（手冊 §零第二條）
-                        text = { Text("移除相簿", color = AppTheme.colors.danger) },
+                        text = { Text("刪除相簿", color = AppTheme.colors.danger) },
                         leadingIcon = { Icon(VsIcons.Trash, contentDescription = null, tint = AppTheme.colors.danger) },
                         onClick = { menuOpen = false; onDelete() },
                     )
@@ -159,7 +161,8 @@ fun FolderCardTile(
  */
 @Composable
 private fun PreviewCollage(shots: List<ShotRow>, loader: ThumbLoader, modifier: Modifier) {
-    val gap = AppTheme.spacing.s1
+    // 格線跟照片頁縮圖牆一樣（ThumbGridGap）
+    val gap = ThumbGridGap
 
     @Composable
     fun cell(shot: ShotRow, cellModifier: Modifier) {

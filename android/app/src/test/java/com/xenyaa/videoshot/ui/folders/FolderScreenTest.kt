@@ -117,13 +117,13 @@ class FolderScreenTest {
         compose.onNodeWithText("在圖片的全屏檢視裡用【加入相簿】把圖放進來").assertIsDisplayed()
     }
 
-    /** 相簿裡不能再建子相簿：〔⋯〕只有重新命名與移除相簿。 */
+    /** 相簿裡不能再建子相簿：〔⋯〕只有重新命名與刪除相簿。 */
     @Test
     fun 更多操作沒有新增子相簿() {
         show(FolderState(node = FolderNode(1, null, "旅行", 1)))
         compose.onNodeWithContentDescription("這個相簿的更多操作").performClick()
         compose.onNodeWithText("重新命名").assertIsDisplayed()
-        compose.onNodeWithText("移除相簿").assertIsDisplayed()
+        compose.onNodeWithText("刪除相簿").assertIsDisplayed()
         compose.onNodeWithText("新增子資料夾").assertDoesNotExist()
         compose.onNodeWithText("新增子相簿").assertDoesNotExist()
     }
@@ -163,7 +163,7 @@ class FolderScreenTest {
             )
         )
         compose.onNodeWithContentDescription("「宜蘭」的更多操作").performClick()
-        compose.onNodeWithText("移除相簿").performClick()
+        compose.onNodeWithText("刪除相簿").performClick()
         assertEquals(2L, deleteAskedChild?.id)
         assertEquals("宜蘭", deleteAskedChild?.name)
     }
