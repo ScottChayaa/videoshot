@@ -48,8 +48,8 @@ class SeedImporterTest {
         val r = SeedImporter(repo) { deletedVideos += it }.import(plan)
         assertEquals(listOf("old1"), deletedVideos)
         assertEquals(listOf(9L), repo.deletedFolders) // 只刪根層，子層跟著刪
-        assertEquals(13, r.shots)
-        assertEquals(11, repo.committed.size)
+        assertEquals(14, r.shots)
+        assertEquals(12, repo.committed.size)
     }
 
     @Test fun 舊標籤一併清掉() = runBlocking {

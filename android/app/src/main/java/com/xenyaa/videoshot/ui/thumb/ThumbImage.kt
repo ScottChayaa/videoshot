@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Icon
@@ -35,6 +36,9 @@ import com.xenyaa.videoshot.ui.theme.AppTheme
  * @param showTimeOnPlaceholder 預留圖要不要疊秒數文字。首頁縮圖牆預設 `true`——
  *        格子小，秒數是唯一能認出這是哪一張的線索。Lightbox 傳 `false`：
  *        它自己在大圖下方已經固定畫一條秒數列，兩份秒數疊在一起只是重複、會蓋在畫面上。
+ * @param fitImageAspect 框跟著圖本身的寬高比、整張圖完整顯示不裁切（Lightbox 用：直式影片的圖是直的）。
+ *        在可用空間裡等比放到最大——橫的撐滿寬、直的撐滿高。拿不到圖時預留框是 16:9。
+ *        預設 `false`：框的大小由呼叫端決定，圖裁切填滿（縮圖牆的正方形格子）。
  */
 @Composable
 fun ThumbImage(
@@ -43,6 +47,7 @@ fun ThumbImage(
     modifier: Modifier = Modifier,
     contentDescription: String? = null,
     showTimeOnPlaceholder: Boolean = true,
+    fitImageAspect: Boolean = false,
 ) {
     val bitmap by produceState<ImageBitmap?>(null, shot.id, loader) {
         value = loader.load(shot)
@@ -52,8 +57,14 @@ fun ThumbImage(
     } else {
         Modifier
     }
+    val sized = if (fitImageAspect) {
+        val image = bitmap
+        modifier.aspectRatio(if (image != null) image.width.toFloat() / image.height else 16f / 9f)
+    } else {
+        modifier
+    }
     Box(
-        modifier.background(AppTheme.colors.surface2).then(described),
+        sized.background(AppTheme.colors.surface2).then(described),
         contentAlignment = Alignment.Center,
     ) {
         val image = bitmap

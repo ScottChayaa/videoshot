@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -187,7 +186,8 @@ fun LightboxScreen(
                             // 下面那顆固定的秒數列已經是這張圖的權威顯示 —— 拿不到圖時
                             // 預留圖不用再疊一次同樣的秒數（會重複，畫面上真的疊字）
                             showTimeOnPlaceholder = false,
-                            modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+                            // 照圖本身的寬高比完整顯示：直式影片（Shorts）的圖是直的，裁成 16:9 會只剩中間一條
+                            fitImageAspect = true,
                         )
                     }
                 }

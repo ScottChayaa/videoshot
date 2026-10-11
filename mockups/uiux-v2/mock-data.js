@@ -5,7 +5,8 @@
 const CHANNELS = {
   meow: '喵遊記',
   yao: '十三要和拳頭',
-  okge: 'OK哥環球探海記'
+  okge: 'OK哥環球探海記',
+  emiru: 'Emiru'
 };
 
 // ── YouTube storyboard spec（真實抓取，2026-08-24）──
@@ -25,7 +26,9 @@ const SB_SPECS = {
   'Ea8ICLXTDaU': 'https://i.ytimg.com/sb/Ea8ICLXTDaU/storyboard3_L$L/$N.jpg?sqp=-oaymwENSDfyq4qpAwVwAcABBqLzl_8DBgj1zcbTBg==|48#27#100#10#10#0#default#rs$AOn4CLANyXQdRel7BByDxPNCnJBA-OQwUg|80#45#149#10#10#10000#M$M#rs$AOn4CLDHvxHPgPuyGxiRcvOGLjkkZxJxbg|160#90#149#5#5#10000#M$M#rs$AOn4CLAYUq36P4W4VdbjMiqRQ9z6JSu_MQ|320#180#149#3#3#10000#M$M#rs$AOn4CLBZDR9goiFwb7nbg91qeOSF-FkeUA',
   'dnsK8HWD8us': 'https://i.ytimg.com/sb/dnsK8HWD8us/storyboard3_L$L/$N.jpg?sqp=-oaymwENSDfyq4qpAwVwAcABBqLzl_8DBgiOrKbSBg==|48#27#100#10#10#0#default#rs$AOn4CLAb3a-yTRHdYLGq7ejTnEpAG2VQgA|80#45#134#10#10#10000#M$M#rs$AOn4CLC5ElrC7Krqkz4oBmgQbMUInIlu-Q|160#90#134#5#5#10000#M$M#rs$AOn4CLA8LdmGvxd9ZD_JiW7PJxR3iWQC6A|320#180#134#3#3#10000#M$M#rs$AOn4CLB168l4Yi8yoPj49qiynL4Nf8l4EQ',
   '7TIoqV_J8zg': 'https://i.ytimg.com/sb/7TIoqV_J8zg/storyboard3_L$L/$N.jpg?sqp=-oaymwENSDfyq4qpAwVwAcABBqLzl_8DBgj8zKLRBg==|48#27#100#10#10#0#default#rs$AOn4CLCjJy40cMQvra56zzLeEmzmAncG9Q|80#45#140#10#10#10000#M$M#rs$AOn4CLAEVFfy9KKXKSr0-J_M9Pwxzmyp5w|160#90#140#5#5#10000#M$M#rs$AOn4CLCnryj-vkCOXATS9BredYwkCYmk_Q|320#180#140#3#3#10000#M$M#rs$AOn4CLDaGRYf4-IB0y6Lx-olm_prmNVn-w',
-  'OVmxey333G0': 'https://i.ytimg.com/sb/OVmxey333G0/storyboard3_L$L/$N.jpg?sqp=-oaymwENSDfyq4qpAwVwAcABBqLzl_8DBgiS-bPQBg==|48#27#100#10#10#0#default#rs$AOn4CLDE-lVUYTG3xl7zkDBvWv10XBN6DQ|79#45#138#10#10#10000#M$M#rs$AOn4CLDNz5-sRPVrty0zzR7xrwMCY_mTFg|159#90#138#5#5#10000#M$M#rs$AOn4CLAmHKwBcAfuLIbX6grKnB9WW32jrA|319#180#138#3#3#10000#M$M#rs$AOn4CLC5jkzO7JSD-L6HVG4Wq-g6KcQcQw'
+  'OVmxey333G0': 'https://i.ytimg.com/sb/OVmxey333G0/storyboard3_L$L/$N.jpg?sqp=-oaymwENSDfyq4qpAwVwAcABBqLzl_8DBgiS-bPQBg==|48#27#100#10#10#0#default#rs$AOn4CLDE-lVUYTG3xl7zkDBvWv10XBN6DQ|79#45#138#10#10#10000#M$M#rs$AOn4CLDNz5-sRPVrty0zzR7xrwMCY_mTFg|159#90#138#5#5#10000#M$M#rs$AOn4CLAmHKwBcAfuLIbX6grKnB9WW32jrA|319#180#138#3#3#10000#M$M#rs$AOn4CLC5jkzO7JSD-L6HVG4Wq-g6KcQcQw',
+  // 直式影片（YouTube Shorts，2026-10-11 抓取）：storyboard 每格是直的（101×180）
+  'FHLYFlFHhQw': 'https://i.ytimg.com/sb/FHLYFlFHhQw/storyboard3_L$L/$N.jpg?sqp=-oaymwGhAUg48quKqQOYAYgBAZUBAAAEQpgBMqABPKgBBLIBQBANDBAVHyYtDg4PEhcrLCkPDhAVHyoyKQ8RFBgmPTgtERQeKjFLRzYVHCkuOUdNPyUuNz1HUlFFM0BCQ0xERkO6AUARERUjRENDQxETFi9DQ0NDFRYpQ0NDQ0MjL0NDQ0NDQ0RDQ0NDQ0JCQ0NDQ0NCQkJDQ0NDQkJCQkNDQ0JCQkJCovOX_wMGCJ7fiNQG|48#27#100#10#10#0#default#rs$AOn4CLAnzf4k1m2HGl9QVIrYfKbtsSVE7Q|25#45#52#10#10#1000#M$M#rs$AOn4CLBsGhJznh2z0Jbd2wkqo0ZM8eEhwQ|50#90#52#5#5#1000#M$M#rs$AOn4CLC-12q4PNDlgoe8dErxGZNUTHqL4w|101#180#52#3#3#1000#M$M#rs$AOn4CLBlcs7SK22GraPNn-RVk60zohxfHQ',
 };
 
 // 影片（部分影片含多個 clip，供詳細頁展示）
@@ -44,10 +47,12 @@ const VIDEOS = {
   // OK哥
   Ea8ICLXTDaU: { id: 'Ea8ICLXTDaU', channel: 'okge', title: '80後老登勇闖加勒比海無人島，夜裡的海底都是巨型犀牛蝦！', duration: 1470 },
   dnsK8HWD8us: { id: 'dnsK8HWD8us', channel: 'okge', title: '為了稀有的粉色螺珠，我在加勒比海與2米長大鯊魚搏鬥許久！', duration: 1330 },
-  '7TIoqV_J8zg': { id: '7TIoqV_J8zg', channel: 'okge', title: '探索美國第4集：佛羅里達找到史前巨齒鯊的大牙齒！', duration: 1388 }
+  '7TIoqV_J8zg': { id: '7TIoqV_J8zg', channel: 'okge', title: '探索美國第4集：佛羅里達找到史前巨齒鯊的大牙齒！', duration: 1388 },
+  // Emiru（YouTube Shorts，直式影片：測 Lightbox 顯示直的照片）
+  FHLYFlFHhQw: { id: 'FHLYFlFHhQw', channel: 'emiru', title: 'Emiru Tries To Do ONE Push-Up', duration: 51 }
 };
 
-// 13 個 clip，全部為 reviewed（已整理），會進首頁／檢索。
+// 14 個 clip（c14 是直式的 Shorts），全部為 reviewed（已整理），會進首頁／檢索。
 // 目前沒有其他 status；未整理／代辦清單這條流程尚未設計，勿臆造。
 const CLIPS = [
   // ── OK哥 Ea8ICLXTDaU：一支影片 3 個 clip（詳細頁主角）──
@@ -94,6 +99,11 @@ const CLIPS = [
   { id: 'c13', videoId: '8QwV1fcYtfs', start: 300, end: 348, eventDate: '2025-09-05', status: 'reviewed',
     summary: '橫穿秦嶺鰲太線，雲海壯闊', note: '走了4小時',
     tags: [{ name: '秦嶺', kind: 'place' }, { name: '登山', kind: 'topic' }, { name: '雲海', kind: 'other' }] },
+
+  // ── 直式影片（Shorts）：storyboard 每格是直的 ──
+  { id: 'c14', videoId: 'FHLYFlFHhQw', start: 20, end: 26, eventDate: '2026-08-16', status: 'reviewed',
+    summary: '挑戰做一下伏地挺身', note: '',
+    tags: [{ name: 'Emiru', kind: 'person' }, { name: '伏地挺身', kind: 'topic' }] },
 
 ];
 

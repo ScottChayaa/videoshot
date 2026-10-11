@@ -76,6 +76,13 @@
       "channelTitle": "十三要和拳頭",
       "durationSec": 460,
       "sbSpec": "https://i.ytimg.com/sb/8QwV1fcYtfs/storyboard3_L$L/$N.jpg?sqp=-oaymwENSDfyq4qpAwVwAcABBqLzl_8DBgikv5bRBg==|48#27#100#10#10#0#default#rs$AOn4CLASypTKoRxV-avLOJlDqwp3pu6xdw|80#45#93#10#10#5000#M$M#rs$AOn4CLA2kgCtYbywxWlZ2nHOS4ulnOgyvQ|160#90#93#5#5#5000#M$M#rs$AOn4CLDM09a_tdszEg0TSpv9K2oJYBspzg|320#180#93#3#3#5000#M$M#rs$AOn4CLClO4J9Q27ORPRTzgXrIu66X3S-fQ"
+    },
+    {
+      "id": "FHLYFlFHhQw",
+      "title": "Emiru Tries To Do ONE Push-Up",
+      "channelTitle": "Emiru",
+      "durationSec": 51,
+      "sbSpec": "https://i.ytimg.com/sb/FHLYFlFHhQw/storyboard3_L$L/$N.jpg?sqp=-oaymwGhAUg48quKqQOYAYgBAZUBAAAEQpgBMqABPKgBBLIBQBANDBAVHyYtDg4PEhcrLCkPDhAVHyoyKQ8RFBgmPTgtERQeKjFLRzYVHCkuOUdNPyUuNz1HUlFFM0BCQ0xERkO6AUARERUjRENDQxETFi9DQ0NDFRYpQ0NDQ0MjL0NDQ0NDQ0RDQ0NDQ0JCQ0NDQ0NCQkJDQ0NDQkJCQkNDQ0JCQkJCovOX_wMGCJ7fiNQG|48#27#100#10#10#0#default#rs$AOn4CLAnzf4k1m2HGl9QVIrYfKbtsSVE7Q|25#45#52#10#10#1000#M$M#rs$AOn4CLBsGhJznh2z0Jbd2wkqo0ZM8eEhwQ|50#90#52#5#5#1000#M$M#rs$AOn4CLC-12q4PNDlgoe8dErxGZNUTHqL4w|101#180#52#3#3#1000#M$M#rs$AOn4CLBlcs7SK22GraPNn-RVk60zohxfHQ"
     }
   ],
   "shots": [
@@ -286,6 +293,24 @@
         {
           "name": "雲海",
           "kind": "other"
+        }
+      ]
+    },
+    {
+      "key": "c14",
+      "videoId": "FHLYFlFHhQw",
+      "atSec": 20,
+      "eventDate": "2026-08-16",
+      "place": null,
+      "description": "挑戰做一下伏地挺身",
+      "tags": [
+        {
+          "name": "Emiru",
+          "kind": "person"
+        },
+        {
+          "name": "伏地挺身",
+          "kind": "topic"
         }
       ]
     }

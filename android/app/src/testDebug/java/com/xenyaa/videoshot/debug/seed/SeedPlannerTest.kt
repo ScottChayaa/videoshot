@@ -13,10 +13,10 @@ class SeedPlannerTest {
     private val file: SeedFile = Json.decodeFromString(File("src/debug/assets/seed/mock-seed.json").readText())
     private val plan = SeedPlanner.plan(file, nowSec = 1_000L)
 
-    // 原型的 13 個 clip 實際分布在 11 支影片（mock-data.js 的 VIDEOS 另有未使用的影片，不會匯入）。
+    // 原型的 14 個 clip 實際分布在 12 支影片（mock-data.js 的 VIDEOS 另有未使用的影片，不會匯入）。
     @Test fun 十三張分在十一支影片() {
-        assertEquals(11, plan.batches.size)
-        assertEquals(13, plan.batches.sumOf { it.picks.size })
+        assertEquals(12, plan.batches.size)
+        assertEquals(14, plan.batches.sumOf { it.picks.size })
     }
 
     // addedAt 的單位是秒（與 WizardViewModel 一致）；用真實的秒數值，傳成毫秒會變成 58720 年的日期
