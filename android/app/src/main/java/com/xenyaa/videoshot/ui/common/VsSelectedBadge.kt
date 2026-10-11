@@ -41,13 +41,17 @@ fun VsSelectedBadge(modifier: Modifier = Modifier, semanticLabel: String? = "已
     }
 }
 
-/** 多選模式下還沒選的格子：跟 [VsSelectedBadge] 同位置、同大小的空心白圈（純裝飾），讓人看得出「點了會選」。 */
+/**
+ * 多選模式下還沒選的格子：跟 [VsSelectedBadge] 同位置、同大小的空心白圈（純裝飾），讓人看得出「點了會選」。
+ * 白圈外面再描 1dp 半透明黑邊：淺色底（例如空相簿的卡片）上白圈才看得見。
+ */
 @Composable
 fun VsUnselectedBadge(modifier: Modifier = Modifier) {
     Box(
         modifier
             .padding(2.dp)
             .size(24.dp)
+            .border(1.dp, Color.Black.copy(alpha = 0.45f), CircleShape)
             .padding(1.dp)
             .clip(CircleShape)
             .background(Color.Black.copy(alpha = 0.2f))

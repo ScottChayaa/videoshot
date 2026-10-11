@@ -54,7 +54,8 @@ fun VsSelectionBar(actions: List<SelectionBarAction>, modifier: Modifier = Modif
 
 @Composable
 private fun SelectionBarCell(action: SelectionBarAction, modifier: Modifier) {
-    val color = if (action.enabled) AppTheme.colors.text else AppTheme.colors.textFaint
+    // 停用時用 30% 的文字色：textFaint 跟 text 太接近，看不出不能按
+    val color = if (action.enabled) AppTheme.colors.text else AppTheme.colors.text.copy(alpha = 0.3f)
     Column(
         modifier
             .focusRing()
