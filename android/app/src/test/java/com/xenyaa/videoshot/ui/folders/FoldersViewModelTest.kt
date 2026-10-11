@@ -19,6 +19,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Before
@@ -40,7 +41,8 @@ class FoldersViewModelTest {
         val archivedCalls = mutableListOf<Pair<Long, Boolean>>()
         var archiveThrows = false
 
-        override suspend fun folderCards(parentId: Long?) = cards
+        var cardsCalls = 0
+        override suspend fun folderCards(parentId: Long?): List<FolderCard> { cardsCalls++; return cards }
         override suspend fun createFolder(parentId: Long?, name: String): Long {
             createThrows?.let { throw IllegalArgumentException(it) }
             created += parentId to name
@@ -158,8 +160,10 @@ class FoldersViewModelTest {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { model.notices.collect { notices += it } }
         advanceUntilIdle()
 
+        val callsBefore = repo.cardsCalls
         model.archive(repo.cards.single())
         advanceUntilIdle()
+        assertTrue("archive後要重新載入清單", repo.cardsCalls > callsBefore)
 
         assertEquals(listOf(1L to true), repo.archivedCalls)
         assertEquals(listOf("已封存「旅行」"), notices)
@@ -173,8 +177,10 @@ class FoldersViewModelTest {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { model.notices.collect { notices += it } }
         advanceUntilIdle()
 
+        val callsBefore = repo.cardsCalls
         model.unarchive(repo.cards.single())
         advanceUntilIdle()
+        assertTrue("unarchive後要重新載入清單", repo.cardsCalls > callsBefore)
 
         assertEquals(listOf(1L to false), repo.archivedCalls)
         assertEquals(listOf("已取消封存「旅行」"), notices)

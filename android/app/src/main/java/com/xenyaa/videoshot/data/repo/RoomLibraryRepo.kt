@@ -367,7 +367,10 @@ class RoomLibraryRepo(
         require(name.length <= 50) { "相簿名稱上限 50 字，收到 ${name.length} 字" }
         val id = db.inWriteTransaction {
             // 同層不重名：SQLite 的唯一索引把多個 NULL 視為互異，根層擋不住，只能在這裡查
-            require(db.folderDao().countSameNameInLayer(parentId, name) == 0) { "同一層已經有「$name」了" }
+            require(db.folderDao().countSameNameInLayer(parentId, name) == 0) {
+                if (db.folderDao().countArchivedSameNameInLayer(parentId, name, -1) > 0) "封存相簿裡已經有「$name」了"
+                else "同一層已經有「$name」了"
+            }
             var depth = 1
             var cursor = parentId
             while (cursor != null) {
@@ -387,7 +390,8 @@ class RoomLibraryRepo(
         db.inWriteTransaction {
             val parentId = db.folderDao().parentOf(id)
             require(db.folderDao().countSameNameInLayerExcept(parentId, name, id) == 0) {
-                "同一層已經有「$name」了"
+                if (db.folderDao().countArchivedSameNameInLayer(parentId, name, id) > 0) "封存相簿裡已經有「$name」了"
+                else "同一層已經有「$name」了"
             }
             db.folderDao().rename(id, name)
         }

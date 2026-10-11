@@ -79,6 +79,10 @@ interface FolderDao {
     @Query("SELECT COUNT(*) FROM folder WHERE name = :name AND parent_id IS :parentId AND id != :exceptId")
     suspend fun countSameNameInLayerExcept(parentId: Long?, name: String, exceptId: Long): Int
 
+    /** 同層同名且已封存的相簿數（排除 [exceptId]；新建時傳 -1）——重名訊息要分辨撞到的是不是看不見的封存相簿。 */
+    @Query("SELECT COUNT(*) FROM folder WHERE name = :name AND parent_id IS :parentId AND id != :exceptId AND archived_at IS NOT NULL")
+    suspend fun countArchivedSameNameInLayer(parentId: Long?, name: String, exceptId: Long): Int
+
     /**
      * 整棵樹，每個節點帶著層數（根層＝1，與 `createFolder` 的深度檢查同一個基準）。
      * 一次撈完：樹是幾十個節點的事，逐層查會變成畫面每展開一層就打一次 DB。

@@ -58,6 +58,27 @@ class FolderArchiveTest {
     }
 
     @Test
+    fun 新建撞到封存相簿的名字_訊息指向封存相簿() = runTest {
+        val id = repo.createFolder(null, "旅行")
+        repo.setFolderArchived(id, true)
+        val e = assertThrows(IllegalArgumentException::class.java) {
+            kotlinx.coroutines.runBlocking { repo.createFolder(null, "旅行") }
+        }
+        assertEquals("封存相簿裡已經有「旅行」了", e.message)
+    }
+
+    @Test
+    fun 改名撞到封存相簿的名字_訊息指向封存相簿() = runTest {
+        val archived = repo.createFolder(null, "旅行")
+        val other = repo.createFolder(null, "貓")
+        repo.setFolderArchived(archived, true)
+        val e = assertThrows(IllegalArgumentException::class.java) {
+            kotlinx.coroutines.runBlocking { repo.renameFolder(other, "旅行") }
+        }
+        assertEquals("封存相簿裡已經有「旅行」了", e.message)
+    }
+
+    @Test
     fun 子相簿不能封存() = runTest {
         val parent = repo.createFolder(null, "旅行")
         val child = repo.createFolder(parent, "宜蘭")

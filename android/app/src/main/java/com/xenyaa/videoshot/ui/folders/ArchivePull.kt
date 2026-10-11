@@ -13,6 +13,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -33,15 +36,18 @@ fun archivePullLabel(ready: Boolean): String = if (ready) "放開進入封存相
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArchivePullIndicator(state: PullToRefreshState, modifier: Modifier = Modifier) {
-    val fraction = state.distanceFraction
-    if (fraction <= 0f) return
-    val ready = fraction >= 1f
+    // 每幀變動的 distanceFraction 只在 graphicsLayer（繪製階段）讀；組合階段只看跨門檻的布林，
+    // 拖動途中不重組（AGENTS.md 慣例：抽屜／頁面每幀的工作要壓低）
+    val visible by remember(state) { derivedStateOf { state.distanceFraction > 0f } }
+    val ready by remember(state) { derivedStateOf { state.distanceFraction >= 1f } }
+    if (!visible) return
     val tint = if (ready) AppTheme.colors.accent else AppTheme.colors.textDim
     Row(
         modifier
             .graphicsLayer {
                 val threshold = PullToRefreshDefaults.PositionalThreshold.toPx()
                 // 0：整顆藏在頂端外面；1：膠囊底緣剛好到門檻位置；超過門檻再往下多跟一點
+                val fraction = state.distanceFraction
                 translationY = fraction.coerceAtMost(1.5f) * threshold - size.height
                 alpha = fraction.coerceIn(0f, 1f)
             }

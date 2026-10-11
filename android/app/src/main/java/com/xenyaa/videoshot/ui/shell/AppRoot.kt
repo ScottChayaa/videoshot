@@ -314,8 +314,6 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
         checkedFolders = container.libraryRepo.foldersOf(shot.id)
     }
 
-    BackHandler { nav.pop()?.let { nav = it } ?: onExitApp() }
-
     // 取圖完成：回首頁、記下要捲到的月份、重新整理、跳 snackbar（手冊 §四第三步最後一條）。
     //
     // showSnackbar 要用 scope.launch 另開一個 coroutine，不能直接 await 在收集區塊裡 ——
@@ -361,6 +359,11 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             nav = popped
             if (popped.current == Dest.Root || popped.current == Dest.ArchivedFolders) foldersVm.reload()
         }
+    }
+
+    // 系統返回：在資料夾頁要走 backFromFolder()，落回相簿清單時才會重查（改名／封存後清單才不過期）
+    BackHandler {
+        if (nav.current is Dest.Folder) backFromFolder() else nav.pop()?.let { nav = it } ?: onExitApp()
     }
 
     // Lightbox 蓋掉整個外殼（連底部導覽一起），所以判斷放在 AppShell 外面（規格第六節）

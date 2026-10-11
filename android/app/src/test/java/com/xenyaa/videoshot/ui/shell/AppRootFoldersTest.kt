@@ -54,6 +54,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -96,12 +97,18 @@ class AppRootFoldersTest {
 
         override suspend fun homeFeed(after: ShotCursor?, limit: Int, upToMonth: String?) = Page(homeItems, null)
 
+        /** 根層清單被重查的次數——系統返回從相簿頁退回時要重查（改名／封存後清單才不過期）。 */
+        var rootCardsCalls = 0
+
         override suspend fun folderCards(parentId: Long?): List<FolderCard> = when (parentId) {
             // 「旅行」的張數含子孫（規格第六節）：自己 2 張 ＋「宜蘭」的張數
-            null -> listOf(
+            null -> {
+                rootCardsCalls++
+                listOf(
                 FolderCard(1, "旅行", folderItems.size + childItems.size, 0, emptyList()),
                 FolderCard(9, "舊相簿", 0, 0, emptyList(), archivedAt = 500),
-            )
+                )
+            }
             1L -> listOf(FolderCard(2, "宜蘭", childItems.size, 0, emptyList()))
             else -> emptyList()
         }
@@ -260,8 +267,11 @@ class AppRootFoldersTest {
         override suspend fun restore(backup: com.xenyaa.videoshot.backup.RemoteBackup) = error("這組測試不碰還原")
     }
 
+    private var backDispatcher: androidx.activity.OnBackPressedDispatcher? = null
+
     private fun show() {
         compose.setContent {
+            backDispatcher = androidx.activity.compose.LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
             VideoshotTheme {
                 AppRoot(deps, onExitApp = {})
             }
@@ -307,6 +317,21 @@ class AppRootFoldersTest {
         compose.onNodeWithText("舊相簿").performClick()
         compose.onNodeWithContentDescription("返回").performClick()
         compose.onNodeWithText("封存相簿").assertIsDisplayed()
+    }
+
+    @Test
+    fun 系統返回從相簿頁退回清單會重查清單() {
+        show()
+        compose.onNodeWithText("相簿").performClick()
+        compose.onNodeWithText("旅行").performClick()
+        compose.waitForIdle()
+        val before = repo.rootCardsCalls
+
+        compose.runOnIdle { backDispatcher!!.onBackPressed() }
+        compose.waitForIdle()
+
+        compose.onNodeWithText("1 個相簿").assertIsDisplayed()
+        assertTrue("系統返回也要重查", repo.rootCardsCalls > before)
     }
 
     private fun pullToArchive() {
