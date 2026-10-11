@@ -103,4 +103,24 @@ class AddToFolderSheetTest {
         val names = rows.map { it.config[SemanticsProperties.ContentDescription].first() }
         assertEquals(listOf("旅行", "宜蘭", "貓"), names)
     }
+
+    @Test
+    fun 封存的相簿與它的子相簿不列出來() {
+        assertEquals(
+            listOf("旅行", "宜蘭"),
+            flattenTree(listOf(
+                FolderNode(1, null, "旅行", 1),
+                FolderNode(2, 1, "宜蘭", 2),
+                FolderNode(4, null, "舊的", 1, archived = true),
+                FolderNode(5, 4, "舊的子相簿", 2, archived = true),
+            )).map { it.name },
+        )
+    }
+
+    @Test
+    fun 抽屜裡看不到封存的相簿() {
+        show(tree = tree + FolderNode(4, null, "舊的", 1, archived = true), checked = emptySet())
+        compose.onNodeWithContentDescription("旅行").assertIsDisplayed()
+        compose.onNodeWithContentDescription("舊的").assertDoesNotExist()
+    }
 }

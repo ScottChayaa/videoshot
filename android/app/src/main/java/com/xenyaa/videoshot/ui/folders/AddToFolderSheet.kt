@@ -33,9 +33,11 @@ import com.xenyaa.videoshot.ui.theme.focusRing
  * 同層排序不重寫比較邏輯 —— `:core` 的 `FolderSort.NAME_ASC` 要吃 `SortableFolder`，
  * `FolderNode` 沒有實作它（也不該為了排序多背 `shotCount`／`lastActivityAt`），
  * 所以直接用 `compareNaturally` 本體。
+ *
+ * 封存的相簿（連同它的子相簿，`archived` 跟著根層）不列出來（規格第六節：要加進去得先取消封存）。
  */
 fun flattenTree(nodes: List<FolderNode>): List<FolderNode> {
-    val byParent: Map<Long?, List<FolderNode>> = nodes.groupBy { it.parentId }
+    val byParent: Map<Long?, List<FolderNode>> = nodes.filterNot { it.archived }.groupBy { it.parentId }
     val result = mutableListOf<FolderNode>()
     fun visit(parentId: Long?) {
         val siblings = byParent[parentId].orEmpty().sortedWith { a, b -> compareNaturally(a.name, b.name) }
