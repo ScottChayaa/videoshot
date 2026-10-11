@@ -30,7 +30,7 @@ fun ArchivedFoldersScreen(
     onBack: () -> Unit,
     onOpen: (FolderCard) -> Unit,
     onRename: (Long, String) -> Unit,
-    /** 刪除確認框（一本或多本）按下【刪除】／【移除】 */
+    /** 刪除確認框（一本或多本）按下【刪除】 */
     onDeleteSelected: () -> Unit,
     onEditorName: (String) -> Unit,
     onDismissEditor: () -> Unit,

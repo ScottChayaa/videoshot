@@ -71,7 +71,7 @@ fun FoldersScreen(
     onOpen: (FolderCard) -> Unit,
     onCreate: (String) -> Unit,
     onRename: (Long, String) -> Unit,
-    /** 刪除確認框（一本或多本）按下【刪除】／【移除】——接到 `FoldersViewModel::deleteSelected`。 */
+    /** 刪除確認框（一本或多本）按下【刪除】——接到 `FoldersViewModel::deleteSelected`。 */
     onDeleteSelected: () -> Unit,
     onQuery: (String) -> Unit,
     /** 對話框裡打字 —— 接到 `FoldersStore.editName`，順便把上一次的錯誤訊息清掉 */
