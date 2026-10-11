@@ -14,6 +14,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.assertCountEquals
 import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.core.paging.FolderCursor
@@ -298,15 +299,50 @@ class AppRootFoldersTest {
         compose.onNodeWithText("1 個相簿").assertIsDisplayed()
     }
 
+    /** 長按一本 →【封存】→ 提示「已封存「旅行」」，離開多選、底部導覽回來。 */
     @Test
-    fun 封存後跳提示() {
+    fun 長按封存後跳提示_底部導覽回來() {
         show()
         compose.onNodeWithText("相簿").performClick()
-        compose.onNodeWithContentDescription("「旅行」的更多操作").performClick()
-        compose.onNodeWithText("封存相簿").performClick()
+        compose.onNodeWithText("旅行").performTouchInput { longClick() }
+        compose.onNodeWithText("已選 1 本").assertIsDisplayed()
+        compose.onNodeWithText("封存").performClick()
         compose.waitForIdle()
         assertEquals(listOf(1L to true), repo.archivedCalls)
         compose.onNodeWithText("已封存「旅行」").assertIsDisplayed()
+        compose.onNodeWithText("已選", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("取圖").assertIsDisplayed()
+    }
+
+    /** 多選時底部導覽藏起來，由相簿畫面自己的【重新命名】【封存】【刪除】取代；取消選取後回來。 */
+    @Test
+    fun 多選時藏起底部導覽() {
+        show()
+        compose.onNodeWithText("相簿").performClick()
+        compose.onNodeWithText("取圖").assertIsDisplayed()
+        compose.onNodeWithText("旅行").performTouchInput { longClick() }
+
+        compose.onNodeWithText("取圖").assertDoesNotExist()
+        compose.onNodeWithText("帳號").assertDoesNotExist()
+        compose.onNodeWithText("封存").assertIsDisplayed()
+
+        compose.onNodeWithContentDescription("取消選取").performClick()
+        compose.onNodeWithText("取圖").assertIsDisplayed()
+    }
+
+    @Test
+    fun 封存相簿畫面多選時也藏起底部導覽_取消封存後提示() {
+        show()
+        compose.onNodeWithText("相簿").performClick()
+        pullToArchive()
+        compose.onNodeWithText("舊相簿").performTouchInput { longClick() }
+        compose.onNodeWithText("取圖").assertDoesNotExist()
+
+        compose.onNodeWithText("取消封存").performClick()
+        compose.waitForIdle()
+        assertEquals(listOf(9L to false), repo.archivedCalls)
+        compose.onNodeWithText("已取消封存「舊相簿」").assertIsDisplayed()
+        compose.onNodeWithText("取圖").assertIsDisplayed()
     }
 
     @Test

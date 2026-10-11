@@ -24,7 +24,15 @@ data class FoldersState(
     val loading: Boolean = false,
     val error: String? = null,
     val editor: FolderEditor? = null,
+    /** 只選一本時按【刪除】：沿用單本的確認框（`DeleteFolderDialog`）。 */
     val deleting: FolderCard? = null,
+    /** 選兩本以上按【刪除】：多本的確認框（「刪除 N 本相簿？」）。 */
+    val deletingMany: List<FolderCard>? = null,
+    /**
+     * 長按多選中已選的相簿 id；空＝不在多選。相簿畫面與封存相簿畫面共用（同一個 VM），
+     * 兩邊的卡片集合互斥，所以進出封存相簿畫面時要先清掉（`AppRoot` 負責）。
+     */
+    val selection: Set<Long> = emptySet(),
 )
 
 /** 清單頁的純狀態轉換。沒有 suspend、沒有 Android 相依。 */
@@ -76,9 +84,48 @@ object FoldersStore {
 
     fun closeEditor(state: FoldersState): FoldersState = state.copy(editor = null)
 
-    fun askDelete(state: FoldersState, card: FolderCard): FoldersState = state.copy(deleting = card)
+    /** 只選一本走單本的確認框，多本走多本的確認框；沒選就不動。 */
+    fun askDeleteSelected(state: FoldersState): FoldersState {
+        val cards = selectedCards(state)
+        return when (cards.size) {
+            0 -> state
+            1 -> state.copy(deleting = cards.single(), deletingMany = null)
+            else -> state.copy(deleting = null, deletingMany = cards)
+        }
+    }
 
-    fun closeDelete(state: FoldersState): FoldersState = state.copy(deleting = null)
+    /** 確認框裡要刪的那幾本（以確認框打開時的清單為準）。 */
+    fun deleteTargets(state: FoldersState): List<FolderCard> =
+        state.deletingMany ?: listOfNotNull(state.deleting)
+
+    fun closeDelete(state: FoldersState): FoldersState = state.copy(deleting = null, deletingMany = null)
+
+    fun toggleSelect(state: FoldersState, id: Long): FoldersState =
+        state.copy(selection = if (id in state.selection) state.selection - id else state.selection + id)
+
+    fun clearSelection(state: FoldersState): FoldersState = state.copy(selection = emptySet())
+
+    /**
+     * 已選的卡片，依畫面上的順序：相簿畫面照 [visible]（目前排序），封存相簿畫面照 [archived]
+     * （兩邊集合互斥，接起來就是各自畫面的順序）。萬一有選到但不在任何一邊的（理論上不會），接在最後。
+     */
+    fun selectedCards(state: FoldersState): List<FolderCard> {
+        if (state.selection.isEmpty()) return emptyList()
+        val ordered = visible(state) + archived(state)
+        val orderedIds = ordered.mapTo(HashSet()) { it.id }
+        return (ordered + state.cards.filter { it.id !in orderedIds }).filter { it.id in state.selection }
+    }
+
+    /** 讀取完成：換上新的卡片，已經不在的相簿從選取拿掉（不然「已選 N 本」會算錯）。 */
+    fun loaded(state: FoldersState, cards: List<FolderCard>): FoldersState {
+        val ids = cards.mapTo(HashSet()) { it.id }
+        return state.copy(
+            cards = cards,
+            loading = false,
+            error = null,
+            selection = state.selection.filterTo(LinkedHashSet()) { it in ids },
+        )
+    }
 
     /** 收起搜尋列就把條件一起清掉 —— 收起來卻還在篩選是看不出來的狀態。 */
     fun setSearching(state: FoldersState, searching: Boolean): FoldersState =

@@ -11,21 +11,21 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
+import com.xenyaa.videoshot.ui.common.VsSelectedBadge
+import com.xenyaa.videoshot.ui.common.VsUnselectedBadge
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,25 +52,23 @@ import com.xenyaa.videoshot.ui.thumb.ThumbLoader
  * （原型是 72px 高的輪播；手冊只要求「內容預覽拼貼（最多 4 張）」，手冊優先）。
  * 張數是圖片區右下角的膠囊，名稱列不再顯示張數。
  *
- * `⋯` 是**看得見的**按鈕（手冊 §六第二條：長按仍然有效，但不是唯一入口）——
- * 只有長按的話，沒有人會發現改名跟刪除在哪裡。
+ * 改名、封存、刪除都在**長按多選**裡（同照片頁）：長按選取這一本，畫面底部換成動作列。
+ * [selected] 不是 null＝多選中：點一下切換選取，卡片當核取方塊；已選畫主色框＋左上打勾，沒選畫空心圈
+ * （外觀照 `ThumbTile`）。卡片上不再有 `⋯`。
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FolderCardTile(
     card: FolderCard,
     loader: ThumbLoader,
-    onOpen: () -> Unit,
-    onRename: () -> Unit,
-    /** 選單第二項：沒封存的是【封存相簿】，已封存的是【取消封存】。 */
-    onToggleArchive: () -> Unit,
-    onDelete: () -> Unit,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    selected: Boolean? = null,
     modifier: Modifier = Modifier,
 ) {
-    var menuOpen by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(AppTheme.radii.sm)
 
-    Column(
+    Box(
         modifier
             .shadow(1.dp, shape)
             .clip(shape)
@@ -78,85 +76,75 @@ fun FolderCardTile(
             .border(Dp.Hairline, AppTheme.colors.border, shape)
             .focusRing(shape)
             .combinedClickable(
-                onClickLabel = "開啟",
-                onLongClickLabel = "更多操作",
-                onLongClick = { menuOpen = true },
-                onClick = onOpen,
-            ),
+                role = if (selected != null) Role.Checkbox else Role.Button,
+                onClickLabel = when (selected) {
+                    null -> "開啟"
+                    true -> "取消選取"
+                    false -> "選取"
+                },
+                onLongClickLabel = "選取",
+                onLongClick = onLongClick,
+                onClick = onClick,
+            )
+            .then(if (selected != null) Modifier.semantics { toggleableState = ToggleableState(selected) } else Modifier),
     ) {
-        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(AppTheme.colors.surface2)) {
-            if (card.preview.isEmpty()) {
-                // 空資料夾：置中的資料夾圖示 24dp ＋「還沒有圖片」（手冊 §六第一條）
-                Column(
-                    Modifier.align(Alignment.Center),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
-                ) {
-                    Icon(VsIcons.Folder, contentDescription = null, tint = AppTheme.colors.textFaint, modifier = Modifier.size(24.dp))
-                    Text(
-                        "還沒有圖片",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppTheme.colors.textFaint,
-                    )
+        Column {
+            Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(AppTheme.colors.surface2)) {
+                if (card.preview.isEmpty()) {
+                    // 空資料夾：置中的資料夾圖示 24dp ＋「還沒有圖片」（手冊 §六第一條）
+                    Column(
+                        Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
+                    ) {
+                        Icon(VsIcons.Folder, contentDescription = null, tint = AppTheme.colors.textFaint, modifier = Modifier.size(24.dp))
+                        Text(
+                            "還沒有圖片",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = AppTheme.colors.textFaint,
+                        )
+                    }
+                } else {
+                    PreviewCollage(card.preview, loader, Modifier.fillMaxSize())
                 }
-            } else {
-                PreviewCollage(card.preview, loader, Modifier.fillMaxSize())
+                // 張數膠囊（原型 `.fd-n`）：scrim 底、白字 13、全圓角、左右內距 8、行高 20
+                Text(
+                    "${card.shotCount} 張",
+                    style = MaterialTheme.typography.bodySmall.copy(lineHeight = 20.sp),
+                    color = OnDarkColors.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(AppTheme.spacing.s2)
+                        .background(AppTheme.colors.scrim, CircleShape)
+                        .padding(horizontal = AppTheme.spacing.s2),
+                )
             }
-            // 張數膠囊（原型 `.fd-n`）：scrim 底、白字 13、全圓角、左右內距 8、行高 20
-            Text(
-                "${card.shotCount} 張",
-                style = MaterialTheme.typography.bodySmall.copy(lineHeight = 20.sp),
-                color = OnDarkColors.primary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(AppTheme.spacing.s2)
-                    .background(AppTheme.colors.scrim, CircleShape)
-                    .padding(horizontal = AppTheme.spacing.s2),
-            )
+            // 名稱列 36dp 高（原本靠 36dp 的 ⋯ 撐住，拿掉後用最小高度維持）
+            Row(
+                Modifier.fillMaxWidth()
+                    .heightIn(min = 36.dp)
+                    .padding(horizontal = AppTheme.spacing.s3),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    card.name,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                    color = AppTheme.colors.text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).padding(vertical = AppTheme.spacing.s1),
+                )
+            }
         }
-        // 名稱列壓矮到 36dp；⋯ 的版面跟著縮成 36dp，觸控範圍由 Compose 自動擴到最小觸控尺寸
-        Row(
-            Modifier.fillMaxWidth()
-                .padding(start = AppTheme.spacing.s3, end = AppTheme.spacing.s1),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                card.name,
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                color = AppTheme.colors.text,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f).padding(vertical = AppTheme.spacing.s1),
-            )
-            Box {
-                IconButton(
-                    onClick = { menuOpen = true },
-                    modifier = Modifier.size(36.dp).focusRing(CircleShape),
-                ) {
-                    Icon(VsIcons.More, contentDescription = "「${card.name}」的更多操作", tint = AppTheme.colors.textDim)
-                }
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(
-                        text = { Text("重新命名") },
-                        leadingIcon = { Icon(VsIcons.Edit, contentDescription = null) },
-                        onClick = { menuOpen = false; onRename() },
-                    )
-                    val archived = card.archivedAt != null
-                    DropdownMenuItem(
-                        text = { Text(if (archived) "取消封存" else "封存相簿") },
-                        leadingIcon = { Icon(if (archived) VsIcons.ArchiveRestore else VsIcons.Archive, contentDescription = null) },
-                        onClick = { menuOpen = false; onToggleArchive() },
-                    )
-                    DropdownMenuItem(
-                        // 破壞性動作：這是這一頁唯一用 danger 色的地方（手冊 §零第二條）
-                        text = { Text("刪除相簿", color = AppTheme.colors.danger) },
-                        leadingIcon = { Icon(VsIcons.Trash, contentDescription = null, tint = AppTheme.colors.danger) },
-                        onClick = { menuOpen = false; onDelete() },
-                    )
-                }
+        when (selected) {
+            true -> {
+                Box(Modifier.matchParentSize().border(3.dp, AppTheme.colors.accent, shape))
+                VsSelectedBadge(Modifier.align(Alignment.TopStart).padding(4.dp), semanticLabel = null)
             }
+            false -> VsUnselectedBadge(Modifier.align(Alignment.TopStart).padding(4.dp))
+            null -> Unit
         }
     }
 }

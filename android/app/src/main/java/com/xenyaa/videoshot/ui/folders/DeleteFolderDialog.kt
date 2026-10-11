@@ -23,3 +23,17 @@ fun DeleteFolderDialog(card: FolderCard, onConfirm: () -> Unit, onDismiss: () ->
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
     )
 }
+
+/** 長按多選、選兩本以上按【刪除】的確認。範圍說明同 [DeleteFolderDialog]。 */
+@Composable
+fun DeleteFoldersDialog(count: Int, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("刪除 $count 本相簿？") },
+        text = { Text("裡面的子相簿會一起刪除，圖片不會被刪除。") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text("刪除", color = AppTheme.colors.danger) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    )
+}

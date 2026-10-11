@@ -620,9 +620,15 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             )
         }
 
-        Dest.Root, is Dest.Folder, Dest.ArchivedFolders, is Dest.Detail, is Dest.AccountSetting -> AppShell(nav = nav, onSelectTab = { nav = nav.select(it) }, snackbarHostState = snackbarHostState, accountInitial = avatarInitialOf(accountState.linkedAccount?.displayName),
-            // 照片頁多選時藏起底部導覽，由照片頁自己的【刪除】【加入相簿】動作列取代
-            showBottomNav = !(nav.tab == Tab.HOME && nav.current == Dest.Root && homeSelection.isNotEmpty())) { tab ->
+        Dest.Root, is Dest.Folder, Dest.ArchivedFolders, is Dest.Detail, is Dest.AccountSetting -> AppShell(nav = nav,
+            onSelectTab = { foldersVm.clearSelection(); nav = nav.select(it) },
+            snackbarHostState = snackbarHostState, accountInitial = avatarInitialOf(accountState.linkedAccount?.displayName),
+            // 照片頁、相簿畫面、封存相簿畫面多選時藏起底部導覽，由各自畫面的動作列取代
+            showBottomNav = !(
+                (nav.tab == Tab.HOME && nav.current == Dest.Root && homeSelection.isNotEmpty()) ||
+                    (nav.tab == Tab.FOLDERS && (nav.current == Dest.Root || nav.current == Dest.ArchivedFolders) &&
+                        foldersState.selection.isNotEmpty())
+                )) { tab ->
             when (val current = nav.current) {
                 is Dest.Detail -> {
                     val vm = detailVm!!
@@ -818,40 +824,45 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                 phoneColumns = accountState.thumbColumns,
                             )
                         }
+                        // 兩個畫面共用 foldersVm 的選取：進出封存相簿、開相簿之前都先清掉
                         Dest.ArchivedFolders -> ArchivedFoldersScreen(
                             state = foldersState,
                             loader = container.thumbLoader,
-                            onBack = { nav.pop()?.let { nav = it } },
-                            onOpen = { card -> nav = nav.push(Dest.Folder(card.id)) },
-                            onUnarchive = foldersVm::unarchive,
+                            onBack = { foldersVm.clearSelection(); nav.pop()?.let { nav = it } },
+                            onOpen = { card -> foldersVm.clearSelection(); nav = nav.push(Dest.Folder(card.id)) },
                             onRename = foldersVm::rename,
-                            onDelete = foldersVm::delete,
+                            onDeleteSelected = foldersVm::deleteSelected,
                             onEditorName = foldersVm::editName,
-                            onStartRename = foldersVm::startRename,
-                            onAskDelete = foldersVm::askDelete,
                             onDismissEditor = foldersVm::dismissEditor,
                             onDismissDelete = foldersVm::dismissDelete,
                             onRetry = foldersVm::reload,
+                            onToggleSelect = foldersVm::toggleSelect,
+                            onClearSelection = foldersVm::clearSelection,
+                            onRenameSelected = foldersVm::startRenameSelected,
+                            onUnarchiveSelected = foldersVm::unarchiveSelected,
+                            onAskDeleteSelected = foldersVm::askDeleteSelected,
                         )
                         else -> FoldersScreen(
                             state = foldersState,
                             loader = container.thumbLoader,
-                            onOpen = { card -> nav = nav.push(Dest.Folder(card.id)) },
+                            onOpen = { card -> foldersVm.clearSelection(); nav = nav.push(Dest.Folder(card.id)) },
                             onCreate = foldersVm::create,
                             onRename = foldersVm::rename,
-                            onDelete = foldersVm::delete,
+                            onDeleteSelected = foldersVm::deleteSelected,
                             onQuery = foldersVm::setQuery,
                             onEditorName = foldersVm::editName,
                             onSearching = foldersVm::setSearching,
                             onSort = foldersVm::setSort,
                             onStartCreate = foldersVm::startCreate,
-                            onStartRename = foldersVm::startRename,
-                            onAskDelete = foldersVm::askDelete,
                             onDismissEditor = foldersVm::dismissEditor,
                             onDismissDelete = foldersVm::dismissDelete,
                             onRetry = foldersVm::reload,
-                            onToggleArchive = { card -> if (card.archivedAt == null) foldersVm.archive(card) else foldersVm.unarchive(card) },
-                            onOpenArchive = { nav = nav.push(Dest.ArchivedFolders) },
+                            onOpenArchive = { foldersVm.clearSelection(); nav = nav.push(Dest.ArchivedFolders) },
+                            onToggleSelect = foldersVm::toggleSelect,
+                            onClearSelection = foldersVm::clearSelection,
+                            onRenameSelected = foldersVm::startRenameSelected,
+                            onArchiveSelected = foldersVm::archiveSelected,
+                            onAskDeleteSelected = foldersVm::askDeleteSelected,
                         )
                     }
                     Tab.ACCOUNT -> when (val dest = nav.current) {

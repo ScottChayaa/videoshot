@@ -50,6 +50,9 @@ import com.xenyaa.videoshot.ui.common.VsRadioRow
 import com.xenyaa.videoshot.ui.common.VsTextField
 import com.xenyaa.videoshot.ui.common.VsSearchTopBar
 import com.xenyaa.videoshot.ui.common.VsTopBar
+import com.xenyaa.videoshot.ui.common.TopBarNav
+import com.xenyaa.videoshot.ui.common.SelectionBarAction
+import com.xenyaa.videoshot.ui.common.VsSelectionBar
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
@@ -68,31 +71,45 @@ fun FoldersScreen(
     onOpen: (FolderCard) -> Unit,
     onCreate: (String) -> Unit,
     onRename: (Long, String) -> Unit,
-    onDelete: (FolderCard) -> Unit,
+    /** 刪除確認框（一本或多本）按下【刪除】／【移除】——接到 `FoldersViewModel::deleteSelected`。 */
+    onDeleteSelected: () -> Unit,
     onQuery: (String) -> Unit,
     /** 對話框裡打字 —— 接到 `FoldersStore.editName`，順便把上一次的錯誤訊息清掉 */
     onEditorName: (String) -> Unit,
     onSearching: (Boolean) -> Unit,
     onSort: (FolderSort) -> Unit,
     onStartCreate: () -> Unit,
-    onStartRename: (FolderCard) -> Unit,
-    onAskDelete: (FolderCard) -> Unit,
     onDismissEditor: () -> Unit,
     onDismissDelete: () -> Unit,
     /** 讀取失敗時〔重試〕要做的事——接到 `FoldersViewModel::reload`。 */
     onRetry: () -> Unit,
-    /** 卡片 ⋯ 的【封存相簿】——接到 `FoldersViewModel::archive`。 */
-    onToggleArchive: (FolderCard) -> Unit,
     /** 下拉過門檻放手（或 TalkBack 自訂動作）——進封存相簿畫面。 */
     onOpenArchive: () -> Unit,
+    /** 長按（進入多選）與多選中點一下都走這裡：選了就取消、沒選就選 */
+    onToggleSelect: (Long) -> Unit,
+    /** 頂欄【✕】與系統返回鍵：離開多選 */
+    onClearSelection: () -> Unit,
+    /** 底部【重新命名】（只有選一本時能按） */
+    onRenameSelected: () -> Unit,
+    /** 底部【封存】 */
+    onArchiveSelected: () -> Unit,
+    /** 底部【刪除】：開確認框 */
+    onAskDeleteSelected: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var sortPicking by remember { mutableStateOf(false) }
     val visible = FoldersStore.visible(state)
+    val selecting = state.selection.isNotEmpty()
+    BackHandler(enabled = selecting) { onClearSelection() }
+    // 下拉進封存相簿只在一般狀態有：搜尋中、多選中都關掉（自訂動作也是）
+    val pullEnabled = !state.searching && !selecting
 
     Column(modifier.fillMaxSize()) {
 
-        if (state.searching) {
+        if (selecting) {
+            // 多選中頂欄換成「已選 N 本」＋左邊【✕】；搜尋框與按鈕收起來，但搜尋字留著（離開多選後回到搜尋）
+            VsTopBar("已選 ${state.selection.size} 本", nav = TopBarNav.Close(onClearSelection, "取消選取"), divider = false)
+        } else if (state.searching) {
             // 點〔搜尋〕整條頂欄換成搜尋框（同首頁篩選抽屜的搜尋框）；【取消】與系統返回鍵都清掉搜尋字並收回
             BackHandler { onSearching(false) }
             VsSearchTopBar(
@@ -113,11 +130,12 @@ fun FoldersScreen(
         val pullState = rememberPullToRefreshState()
         Box(
             Modifier
-                .fillMaxSize()
+                .weight(1f)
+                .fillMaxWidth()
                 .pullToRefresh(
                     isRefreshing = false,
                     state = pullState,
-                    enabled = !state.searching,
+                    enabled = pullEnabled,
                     onRefresh = onOpenArchive,
                 )
                 // 膠囊從內容區頂端底下滑出來，不畫到頂欄上（格線自己會裁切，其他內容不會超出這個框）
@@ -137,9 +155,9 @@ fun FoldersScreen(
                         modifier = Modifier
                             .weight(1f)
                             // 手勢之外的入口：TalkBack 使用者沒辦法「下拉」。掛在這個可聚焦的文字節點上
-                            // （外層容器不會被 TalkBack 聚焦，掛那裡等於沒有）；搜尋時跟手勢一樣關掉。
+                            // （外層容器不會被 TalkBack 聚焦，掛那裡等於沒有）；搜尋與多選時跟手勢一樣關掉。
                             .then(
-                                if (state.searching) Modifier
+                                if (!pullEnabled) Modifier
                                 else Modifier.semantics {
                                     customActions = listOf(CustomAccessibilityAction("進入封存相簿") { onOpenArchive(); true })
                                 },
@@ -188,15 +206,24 @@ fun FoldersScreen(
                     null -> FolderCardGrid(
                         cards = visible,
                         loader = loader,
+                        selection = state.selection,
                         onOpen = onOpen,
-                        onRename = onStartRename,
-                        onToggleArchive = onToggleArchive,
-                        onDelete = onAskDelete,
+                        onToggleSelect = { onToggleSelect(it.id) },
                     )
                 }
             }
             ArchivePullGlow(pullState)
             ArchivePullIndicator(pullState, Modifier.align(Alignment.TopCenter))
+        }
+
+        if (selecting) {
+            VsSelectionBar(
+                listOf(
+                    SelectionBarAction(VsIcons.Edit, "重新命名", onRenameSelected, enabled = state.selection.size == 1),
+                    SelectionBarAction(VsIcons.Archive, "封存", onArchiveSelected),
+                    SelectionBarAction(VsIcons.Trash, "刪除", onAskDeleteSelected),
+                ),
+            )
         }
     }
 
@@ -235,7 +262,11 @@ fun FoldersScreen(
     }
 
     state.deleting?.let { card ->
-        DeleteFolderDialog(card = card, onConfirm = { onDelete(card) }, onDismiss = onDismissDelete)
+        DeleteFolderDialog(card = card, onConfirm = onDeleteSelected, onDismiss = onDismissDelete)
+    }
+
+    state.deletingMany?.let { cards ->
+        DeleteFoldersDialog(count = cards.size, onConfirm = onDeleteSelected, onDismiss = onDismissDelete)
     }
 }
 

@@ -40,6 +40,9 @@ class FoldersViewModelTest {
         val deleted = mutableListOf<Long>()
         val archivedCalls = mutableListOf<Pair<Long, Boolean>>()
         var archiveThrows = false
+        /** 第幾本（從 0 算）開始失敗——模擬多本操作做到一半壞掉。 */
+        var archiveFailFrom: Int? = null
+        var deleteFailFrom: Int? = null
 
         var cardsCalls = 0
         override suspend fun folderCards(parentId: Long?): List<FolderCard> { cardsCalls++; return cards }
@@ -48,9 +51,13 @@ class FoldersViewModelTest {
             created += parentId to name
             return 9
         }
-        override suspend fun deleteFolder(id: Long) { deleted += id }
+        override suspend fun deleteFolder(id: Long) {
+            deleteFailFrom?.let { if (deleted.size >= it) error("模擬刪除失敗") }
+            deleted += id
+        }
         override suspend fun setFolderArchived(id: Long, archived: Boolean) {
             if (archiveThrows) error("模擬寫入失敗")
+            archiveFailFrom?.let { if (archivedCalls.size >= it) error("模擬寫入失敗") }
             archivedCalls += id to archived
         }
     }
@@ -122,23 +129,6 @@ class FoldersViewModelTest {
         assertEquals("同一層已經有「旅行」了", model.state.value.editor?.error)
     }
 
-    @Test
-    fun 刪除之後關掉確認框並重新載入() = runTest {
-        val repo = Repo()
-        val model = vm(repo)
-        advanceUntilIdle()
-        val card = model.state.value.cards.single()
-
-        model.askDelete(card)
-        repo.cards = emptyList()
-        model.delete(card)
-        advanceUntilIdle()
-
-        assertEquals(listOf(1L), repo.deleted)
-        assertNull(model.state.value.deleting)
-        assertEquals(emptyList<FolderCard>(), model.state.value.cards)
-    }
-
     /** repo 丟非預期的例外不能把 process 帶走，也不能讓 loading 卡在 true（階段 7 的教訓）。 */
     @Test
     fun 讀取失敗會攤成錯誤訊息() = runTest {
@@ -152,52 +142,230 @@ class FoldersViewModelTest {
         assertEquals(false, model.state.value.loading)
     }
 
-    @Test
-    fun 封存會寫進repo重查並發出提示() = runTest {
-        val repo = Repo()
-        val model = vm(repo)
+    private val three = listOf(
+        FolderCard(1, "旅行", 3, 100, emptyList()),
+        FolderCard(2, "貓", 1, 100, emptyList()),
+        FolderCard(3, "工作", 2, 100, emptyList()),
+    )
+
+    private fun collectNotices(model: FoldersViewModel, scope: kotlinx.coroutines.test.TestScope): MutableList<String> {
         val notices = mutableListOf<String>()
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { model.notices.collect { notices += it } }
-        advanceUntilIdle()
-
-        val callsBefore = repo.cardsCalls
-        model.archive(repo.cards.single())
-        advanceUntilIdle()
-        assertTrue("archive後要重新載入清單", repo.cardsCalls > callsBefore)
-
-        assertEquals(listOf(1L to true), repo.archivedCalls)
-        assertEquals(listOf("已封存「旅行」"), notices)
+        scope.backgroundScope.launch(UnconfinedTestDispatcher(scope.testScheduler)) { model.notices.collect { notices += it } }
+        return notices
     }
 
     @Test
-    fun 取消封存發出取消封存的提示() = runTest {
-        val repo = Repo()
-        val model = vm(repo)
-        val notices = mutableListOf<String>()
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { model.notices.collect { notices += it } }
+    fun 切換與清除選取() = runTest {
+        val model = vm(Repo().apply { cards = three })
         advanceUntilIdle()
 
-        val callsBefore = repo.cardsCalls
-        model.unarchive(repo.cards.single())
-        advanceUntilIdle()
-        assertTrue("unarchive後要重新載入清單", repo.cardsCalls > callsBefore)
-
-        assertEquals(listOf(1L to false), repo.archivedCalls)
-        assertEquals(listOf("已取消封存「旅行」"), notices)
+        model.toggleSelect(1)
+        model.toggleSelect(3)
+        assertEquals(setOf(1L, 3L), model.state.value.selection)
+        model.toggleSelect(1)
+        assertEquals(setOf(3L), model.state.value.selection)
+        model.clearSelection()
+        assertEquals(emptySet<Long>(), model.state.value.selection)
     }
 
     @Test
-    fun 封存失敗發出失敗提示_不把清單變成載入失敗() = runTest {
-        val repo = Repo().apply { archiveThrows = true }
+    fun 封存多本_逐本寫入_清空選取_重查_提示本數() = runTest {
+        val repo = Repo().apply { cards = three }
         val model = vm(repo)
-        val notices = mutableListOf<String>()
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { model.notices.collect { notices += it } }
+        val notices = collectNotices(model, this)
         advanceUntilIdle()
 
-        model.archive(repo.cards.single())
+        model.toggleSelect(1)
+        model.toggleSelect(2)
+        val callsBefore = repo.cardsCalls
+        model.archiveSelected()
         advanceUntilIdle()
 
+        assertEquals(listOf(1L to true, 2L to true), repo.archivedCalls)
+        assertEquals(emptySet<Long>(), model.state.value.selection)
+        assertTrue("封存後要重新載入清單", repo.cardsCalls > callsBefore)
+        assertEquals(listOf("已封存 2 本相簿"), notices)
+    }
+
+    @Test
+    fun 封存一本時提示說得出名稱() = runTest {
+        val repo = Repo().apply { cards = three }
+        val model = vm(repo)
+        val notices = collectNotices(model, this)
+        advanceUntilIdle()
+
+        model.toggleSelect(2)
+        model.archiveSelected()
+        advanceUntilIdle()
+
+        assertEquals(listOf(2L to true), repo.archivedCalls)
+        assertEquals(listOf("已封存「貓」"), notices)
+    }
+
+    @Test
+    fun 取消封存多本與一本的提示() = runTest {
+        val archived = three.map { it.copy(archivedAt = 100) }
+        val repo = Repo().apply { cards = archived }
+        val model = vm(repo)
+        val notices = collectNotices(model, this)
+        advanceUntilIdle()
+
+        model.toggleSelect(1)
+        model.toggleSelect(3)
+        val callsBefore = repo.cardsCalls
+        model.unarchiveSelected()
+        advanceUntilIdle()
+        // 依封存相簿畫面的順序（封存時間相同時 id 大的在前）
+        assertEquals(listOf(3L to false, 1L to false), repo.archivedCalls)
+        assertEquals(emptySet<Long>(), model.state.value.selection)
+        assertTrue("取消封存後要重新載入清單", repo.cardsCalls > callsBefore)
+
+        model.toggleSelect(2)
+        model.unarchiveSelected()
+        advanceUntilIdle()
+
+        assertEquals(listOf("已取消封存 2 本相簿", "已取消封存「貓」"), notices)
+    }
+
+    /** 做到一半失敗：已完成的留著，發失敗提示，選取照樣清空、清單照樣重查；不把清單變成「載入失敗」。 */
+    @Test
+    fun 封存中途失敗_保留已完成的並發失敗提示() = runTest {
+        val repo = Repo().apply { cards = three; archiveFailFrom = 1 }
+        val model = vm(repo)
+        val notices = collectNotices(model, this)
+        advanceUntilIdle()
+
+        model.toggleSelect(1)
+        model.toggleSelect(2)
+        model.toggleSelect(3)
+        val callsBefore = repo.cardsCalls
+        model.archiveSelected()
+        advanceUntilIdle()
+
+        assertEquals("第一本寫進去了、之後的沒有", 1, repo.archivedCalls.size)
         assertEquals(listOf("封存失敗，請再試一次"), notices)
+        assertEquals(emptySet<Long>(), model.state.value.selection)
+        assertTrue("失敗也要重查", repo.cardsCalls > callsBefore)
         assertNull(model.state.value.error)
+    }
+
+    @Test
+    fun 取消封存失敗的提示() = runTest {
+        val repo = Repo().apply { cards = three.map { it.copy(archivedAt = 100) }; archiveThrows = true }
+        val model = vm(repo)
+        val notices = collectNotices(model, this)
+        advanceUntilIdle()
+
+        model.toggleSelect(1)
+        model.unarchiveSelected()
+        advanceUntilIdle()
+
+        assertEquals(listOf("取消封存失敗，請再試一次"), notices)
+        assertEquals(emptySet<Long>(), model.state.value.selection)
+    }
+
+    /** 選多本按【刪除】：先開多本的確認框，確認後每本呼叫一次 repo.deleteFolder；刪除不發提示。 */
+    @Test
+    fun 刪除多本_先確認_確認後逐本刪除() = runTest {
+        val repo = Repo().apply { cards = three }
+        val model = vm(repo)
+        val notices = collectNotices(model, this)
+        advanceUntilIdle()
+
+        model.toggleSelect(3)
+        model.toggleSelect(1)
+        model.askDeleteSelected()
+        assertEquals(listOf(1L, 3L), model.state.value.deletingMany?.map { it.id }?.sorted())
+        assertNull("多本不走單本的確認框", model.state.value.deleting)
+        assertEquals("還沒確認不能刪", emptyList<Long>(), repo.deleted)
+
+        repo.cards = listOf(three[1])
+        model.deleteSelected()
+        advanceUntilIdle()
+
+        assertEquals(listOf(1L, 3L), repo.deleted.sorted())
+        assertNull(model.state.value.deletingMany)
+        assertEquals(emptySet<Long>(), model.state.value.selection)
+        assertEquals(listOf("貓"), model.state.value.cards.map { it.name })
+        assertEquals(emptyList<String>(), notices)
+    }
+
+    @Test
+    fun 只選一本時刪除沿用單本確認框() = runTest {
+        val repo = Repo().apply { cards = three }
+        val model = vm(repo)
+        advanceUntilIdle()
+
+        model.toggleSelect(2)
+        model.askDeleteSelected()
+        assertEquals(2L, model.state.value.deleting?.id)
+        assertNull(model.state.value.deletingMany)
+
+        model.deleteSelected()
+        advanceUntilIdle()
+        assertEquals(listOf(2L), repo.deleted)
+        assertNull(model.state.value.deleting)
+        assertEquals(emptySet<Long>(), model.state.value.selection)
+    }
+
+    @Test
+    fun 關掉刪除確認框不刪_選取保留() = runTest {
+        val repo = Repo().apply { cards = three }
+        val model = vm(repo)
+        advanceUntilIdle()
+
+        model.toggleSelect(1)
+        model.toggleSelect(2)
+        model.askDeleteSelected()
+        model.dismissDelete()
+
+        assertNull(model.state.value.deletingMany)
+        assertEquals(setOf(1L, 2L), model.state.value.selection)
+        assertEquals(emptyList<Long>(), repo.deleted)
+    }
+
+    @Test
+    fun 刪除中途失敗發失敗提示_已刪的保留() = runTest {
+        val repo = Repo().apply { cards = three; deleteFailFrom = 1 }
+        val model = vm(repo)
+        val notices = collectNotices(model, this)
+        advanceUntilIdle()
+
+        model.toggleSelect(1)
+        model.toggleSelect(2)
+        model.askDeleteSelected()
+        model.deleteSelected()
+        advanceUntilIdle()
+
+        assertEquals(listOf(1L), repo.deleted)
+        assertEquals(listOf("刪除失敗，請再試一次"), notices)
+        assertEquals(emptySet<Long>(), model.state.value.selection)
+        assertNull(model.state.value.deletingMany)
+        assertNull(model.state.value.error)
+    }
+
+    @Test
+    fun 只選一本時重新命名開編輯框並離開多選() = runTest {
+        val model = vm(Repo().apply { cards = three })
+        advanceUntilIdle()
+
+        model.toggleSelect(2)
+        model.startRenameSelected()
+
+        assertEquals(FolderEditor(2, "貓"), model.state.value.editor)
+        assertEquals(emptySet<Long>(), model.state.value.selection)
+    }
+
+    @Test
+    fun 選兩本時重新命名不動作() = runTest {
+        val model = vm(Repo().apply { cards = three })
+        advanceUntilIdle()
+
+        model.toggleSelect(1)
+        model.toggleSelect(2)
+        model.startRenameSelected()
+
+        assertNull(model.state.value.editor)
+        assertEquals(setOf(1L, 2L), model.state.value.selection)
     }
 }

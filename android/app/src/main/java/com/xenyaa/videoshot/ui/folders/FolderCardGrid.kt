@@ -13,17 +13,21 @@ import com.xenyaa.videoshot.data.repo.model.FolderCard
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
 
-/** 相簿畫面與封存相簿畫面共用的兩欄卡片格線（原型 `.fd-grid`：欄距 8、列距 12；狀態列後面上內距收成 8）。 */
+/**
+ * 相簿畫面與封存相簿畫面共用的兩欄卡片格線（原型 `.fd-grid`：欄距 8、列距 12；狀態列後面上內距收成 8）。
+ *
+ * [selection] 非空＝多選中：點一下切換選取；不在多選時點一下開相簿。長按一律切換選取（進入多選）。
+ */
 @Composable
 fun FolderCardGrid(
     cards: List<FolderCard>,
     loader: ThumbLoader,
+    selection: Set<Long>,
     onOpen: (FolderCard) -> Unit,
-    onRename: (FolderCard) -> Unit,
-    onToggleArchive: (FolderCard) -> Unit,
-    onDelete: (FolderCard) -> Unit,
+    onToggleSelect: (FolderCard) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val selecting = selection.isNotEmpty()
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
         modifier = modifier.fillMaxSize().testTag("folderGrid"),
@@ -38,10 +42,9 @@ fun FolderCardGrid(
             FolderCardTile(
                 card = card,
                 loader = loader,
-                onOpen = { onOpen(card) },
-                onRename = { onRename(card) },
-                onToggleArchive = { onToggleArchive(card) },
-                onDelete = { onDelete(card) },
+                onClick = { if (selecting) onToggleSelect(card) else onOpen(card) },
+                onLongClick = { onToggleSelect(card) },
+                selected = if (selecting) card.id in selection else null,
             )
         }
     }

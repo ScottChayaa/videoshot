@@ -9,6 +9,12 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
@@ -72,12 +78,15 @@ class FoldersScreenTest {
     private var opened: FolderCard? = null
     private var created: String? = null
     private var renamed: Pair<Long, String>? = null
-    private var deleted: FolderCard? = null
+    private var deleteSelectedCalls = 0
     private var sorted: FolderSort? = null
     private var retryCalls = 0
     private var lastQuery: String? = null
-    private var toggledArchive: FolderCard? = null
     private var openArchiveCalls = 0
+    private var renameSelectedCalls = 0
+    private var archiveSelectedCalls = 0
+    private var askDeleteSelectedCalls = 0
+    private var backDispatcher: androidx.activity.OnBackPressedDispatcher? = null
 
     /**
      * 用 `mutableStateOf`（不是純 `var`）——回呼在 composable 外的一般 lambda 裡跑，
@@ -88,6 +97,7 @@ class FoldersScreenTest {
     private fun show(initial: FoldersState) {
         state = initial
         compose.setContent {
+            backDispatcher = androidx.activity.compose.LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
             VideoshotTheme {
                 FoldersScreen(
                     state = state,
@@ -95,19 +105,25 @@ class FoldersScreenTest {
                     onOpen = { opened = it },
                     onCreate = { created = it },
                     onRename = { id, name -> renamed = id to name },
-                    onDelete = { deleted = it },
+                    onDeleteSelected = { deleteSelectedCalls++ },
                     onQuery = { lastQuery = it; state = state.copy(query = it) },
                     onEditorName = { state = FoldersStore.editName(state, it) },
                     onSearching = { state = FoldersStore.setSearching(state, it) },
                     onSort = { sorted = it },
                     onStartCreate = { state = FoldersStore.startCreate(state) },
-                    onStartRename = { state = FoldersStore.startRename(state, it) },
-                    onAskDelete = { state = FoldersStore.askDelete(state, it) },
                     onDismissEditor = { state = FoldersStore.closeEditor(state) },
                     onDismissDelete = { state = FoldersStore.closeDelete(state) },
                     onRetry = { retryCalls++ },
-                    onToggleArchive = { toggledArchive = it },
                     onOpenArchive = { openArchiveCalls++ },
+                    onToggleSelect = { state = FoldersStore.toggleSelect(state, it) },
+                    onClearSelection = { state = FoldersStore.clearSelection(state) },
+                    onRenameSelected = {
+                        renameSelectedCalls++
+                        val card = FoldersStore.selectedCards(state).single()
+                        state = FoldersStore.clearSelection(FoldersStore.startRename(state, card))
+                    },
+                    onArchiveSelected = { archiveSelectedCalls++ },
+                    onAskDeleteSelected = { askDeleteSelectedCalls++ },
                 )
             }
         }
@@ -141,12 +157,13 @@ class FoldersScreenTest {
         assertEquals(c, opened)
     }
 
-    /** 手冊 §六第二條：右下有看得見的 `⋯`，不是只有長按。 */
+    /** 長按選一本 →【重新命名】→ 改名對話框（取代原本卡片右下的 ⋯ 選單）。 */
     @Test
-    fun 卡片上的更多可以改名() {
+    fun 長按選一本可以改名() {
         show(FoldersState(cards = listOf(card(1, "旅行"))))
-        compose.onNodeWithContentDescription("「旅行」的更多操作").performClick()
+        compose.onNodeWithText("旅行").performTouchInput { longClick() }
         compose.onNodeWithText("重新命名").performClick()
+        assertEquals(1, renameSelectedCalls)
         // performTextReplacement 不靠游標位置，比 performTextInput 穩（控制端裁決第 2 點）
         compose.onNodeWithContentDescription("相簿名稱").performTextReplacement("旅行 2")
         compose.onNodeWithText("儲存").performClick()
@@ -285,14 +302,6 @@ class FoldersScreenTest {
         compose.onNodeWithText("1 個相簿").assertIsDisplayed()
     }
 
-    @Test
-    fun 卡片選單有封存相簿() {
-        show(FoldersState(cards = listOf(card(1, "旅行"))))
-        compose.onNodeWithContentDescription("「旅行」的更多操作").performClick()
-        compose.onNodeWithText("封存相簿").performClick()
-        assertEquals(1L, toggledArchive?.id)
-    }
-
     /** 拉過門檻（80dp）再放手才進入。Robolectric 預設 mdpi，1px＝1dp；下拉阻尼約一半，拉 600px 夠過門檻。 */
     @Test
     fun 下拉過門檻放手進入封存相簿() {
@@ -367,5 +376,143 @@ class FoldersScreenTest {
     fun 下拉提示文字跟著門檻換() {
         assertEquals("下拉進入封存相簿", archivePullLabel(ready = false))
         assertEquals("放開進入封存相簿", archivePullLabel(ready = true))
+    }
+
+    // ---- 長按多選 ----
+
+    private fun cards2() = FoldersState(cards = listOf(card(1, "旅行"), card(3, "貓")))
+
+    @Test
+    fun 卡片上沒有更多操作按鈕() {
+        show(cards2())
+        compose.onNodeWithContentDescription("「旅行」的更多操作").assertDoesNotExist()
+        compose.onNodeWithContentDescription("更多").assertDoesNotExist()
+    }
+
+    @Test
+    fun 長按進入多選_頂欄顯示已選本數_底部三格() {
+        show(cards2())
+        compose.onNodeWithText("旅行").performTouchInput { longClick() }
+
+        assertEquals(setOf(1L), state.selection)
+        compose.onNodeWithText("已選 1 本").assertIsDisplayed()
+        compose.onNodeWithText("重新命名").assertIsDisplayed().assertIsEnabled()
+        compose.onNodeWithText("封存").assertIsDisplayed()
+        compose.onNodeWithText("刪除").assertIsDisplayed()
+        // 原本的頂欄按鈕收起來
+        compose.onNodeWithContentDescription("搜尋相簿").assertDoesNotExist()
+        compose.onNodeWithContentDescription("新增相簿").assertDoesNotExist()
+        assertEquals(null, opened)
+    }
+
+    @Test
+    fun 多選中點卡片是切換選取不是開啟() {
+        show(cards2())
+        compose.onNodeWithText("旅行").performTouchInput { longClick() }
+        compose.onNodeWithText("貓").performClick()
+        assertEquals(setOf(1L, 3L), state.selection)
+        compose.onNodeWithText("已選 2 本").assertIsDisplayed()
+        assertEquals("多選中點卡片不該開相簿", null, opened)
+
+        compose.onNodeWithText("旅行").performClick()
+        compose.onNodeWithText("貓").performClick()
+        assertEquals(emptySet<Long>(), state.selection)
+        compose.onNodeWithText("已選", substring = true).assertDoesNotExist()
+        compose.onNodeWithContentDescription("搜尋相簿").assertIsDisplayed()
+    }
+
+    @Test
+    fun 多選中卡片是核取方塊_已選的打勾() {
+        show(cards2().copy(selection = setOf(3L)))
+        compose.onNode(hasText("貓") and SemanticsMatcher.expectValue(SemanticsProperties.ToggleableState, ToggleableState.On))
+            .assertIsDisplayed()
+        compose.onNode(hasText("旅行") and SemanticsMatcher.expectValue(SemanticsProperties.ToggleableState, ToggleableState.Off))
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun 選兩本時重新命名不能按() {
+        show(cards2().copy(selection = setOf(1L, 3L)))
+        compose.onNodeWithText("重新命名").assertIsNotEnabled()
+        compose.onNodeWithText("重新命名").performClick()
+        assertEquals(0, renameSelectedCalls)
+    }
+
+    @Test
+    fun 底部封存與刪除回報() {
+        show(cards2().copy(selection = setOf(1L, 3L)))
+        compose.onNodeWithText("封存").performClick()
+        compose.onNodeWithText("刪除").performClick()
+        assertEquals(1, archiveSelectedCalls)
+        assertEquals(1, askDeleteSelectedCalls)
+    }
+
+    @Test
+    fun 頂欄的取消選取離開多選() {
+        show(cards2().copy(selection = setOf(1L)))
+        compose.onNodeWithContentDescription("取消選取").performClick()
+        assertEquals(emptySet<Long>(), state.selection)
+        compose.onNodeWithText("2 個相簿").assertIsDisplayed()
+    }
+
+    @Test
+    fun 系統返回鍵離開多選() {
+        show(cards2().copy(selection = setOf(1L)))
+        compose.runOnIdle { backDispatcher!!.onBackPressed() }
+        compose.waitForIdle()
+        assertEquals(emptySet<Long>(), state.selection)
+        compose.onNodeWithContentDescription("搜尋相簿").assertIsDisplayed()
+    }
+
+    /** 搜尋中也能長按進多選：搜尋頂欄被「已選 N 本」取代，但搜尋字留著，離開多選後回到搜尋。 */
+    @Test
+    fun 搜尋中長按進多選_搜尋字保留() {
+        show(cards2().copy(searching = true, query = "旅"))
+        compose.onNodeWithText("旅行").performTouchInput { longClick() }
+        compose.onNodeWithText("已選 1 本").assertIsDisplayed()
+        compose.onNodeWithContentDescription("搜尋相簿名稱").assertDoesNotExist()
+        assertEquals("旅", state.query)
+
+        compose.onNodeWithContentDescription("取消選取").performClick()
+        compose.onNodeWithContentDescription("搜尋相簿名稱").assertIsDisplayed()
+    }
+
+    @Test
+    fun 多選中下拉不會進入封存相簿() {
+        show(cards2().copy(selection = setOf(1L)))
+        compose.onNodeWithTag("folderGrid").performTouchInput {
+            down(Offset(centerX, top + 20f))
+            repeat(20) { moveBy(Offset(0f, 30f)) }
+            up()
+        }
+        compose.waitForIdle()
+        assertEquals(0, openArchiveCalls)
+    }
+
+    @Test
+    fun 多選中沒有進入封存相簿的無障礙自訂動作() {
+        show(cards2().copy(selection = setOf(1L)))
+        compose.onAllNodes(SemanticsMatcher("有自訂動作「進入封存相簿」") { n ->
+            n.config.getOrNull(SemanticsActions.CustomActions).orEmpty().any { it.label == "進入封存相簿" }
+        }, useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun 多本刪除確認框的文字() {
+        val c1 = card(1, "旅行")
+        val c3 = card(3, "貓")
+        show(FoldersState(cards = listOf(c1, c3), selection = setOf(1L, 3L), deletingMany = listOf(c1, c3)))
+        compose.onNodeWithText("刪除 2 本相簿？").assertIsDisplayed()
+        compose.onNodeWithText("裡面的子相簿會一起刪除，圖片不會被刪除。").assertIsDisplayed()
+        // 確認框的【刪除】（底部動作列也有一個「刪除」，確認框在最後一個視窗）
+        compose.onAllNodesWithText("刪除").onLast().performClick()
+        assertEquals(1, deleteSelectedCalls)
+    }
+
+    @Test
+    fun 單本刪除確認框按下去回報刪除() {
+        show(FoldersState(cards = listOf(card(1, "旅行")), selection = setOf(1L), deleting = card(1, "旅行")))
+        compose.onNodeWithText("移除").performClick()
+        assertEquals(1, deleteSelectedCalls)
     }
 }

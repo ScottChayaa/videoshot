@@ -3,18 +3,7 @@ package com.xenyaa.videoshot.ui.home
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Icon
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.semantics.Role
-import com.xenyaa.videoshot.ui.theme.focusRing
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.HorizontalDivider
 import com.xenyaa.videoshot.ui.common.TopBarNav
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -66,6 +55,8 @@ import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsEmptyState
 import com.xenyaa.videoshot.ui.common.VsTagChip
 import com.xenyaa.videoshot.ui.common.VsTopBar
+import com.xenyaa.videoshot.ui.common.SelectionBarAction
+import com.xenyaa.videoshot.ui.common.VsSelectionBar
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
@@ -267,7 +258,12 @@ fun HomeScreen(
         }
 
         if (selecting) {
-            SelectionBar(onDelete = { confirmingDelete = true }, onAddToAlbum = onAddSelectedToAlbum)
+            VsSelectionBar(
+                listOf(
+                    SelectionBarAction(VsIcons.Trash, "刪除", { confirmingDelete = true }),
+                    SelectionBarAction(VsIcons.FolderPlus, "加入相簿", onAddSelectedToAlbum),
+                ),
+            )
         }
 
         if (confirmingDelete && selecting) {
@@ -312,37 +308,6 @@ fun HomeScreen(
                 onRetry = onRetryFilterOptions,
             )
         }
-    }
-}
-
-/**
- * 多選時取代底部導覽的動作列（外殼這時藏起底部導覽，所以這一列自己鋪到系統導覽列底下）：【刪除】【加入相簿】，
- * 圖示在上、文字在下，平分寬度。高度、分隔線、字級都跟底部導覽一樣，兩者互換時畫面不跳。
- * 刪除是破壞性動作，但按下去還有確認框，這裡不用 danger 色（跟 Lightbox 的 ⋯ 選單一樣）。
- */
-@Composable
-private fun SelectionBar(onDelete: () -> Unit, onAddToAlbum: () -> Unit) {
-    Column(Modifier.fillMaxWidth().background(AppTheme.colors.surface).navigationBarsPadding()) {
-        HorizontalDivider(thickness = (1f / LocalDensity.current.density).dp, color = AppTheme.colors.border)
-        Row(Modifier.fillMaxWidth().height(AppTheme.spacing.navHeight)) {
-            SelectionAction(VsIcons.Trash, "刪除", onDelete, Modifier.weight(1f).fillMaxHeight())
-            SelectionAction(VsIcons.FolderPlus, "加入相簿", onAddToAlbum, Modifier.weight(1f).fillMaxHeight())
-        }
-    }
-}
-
-@Composable
-private fun SelectionAction(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier) {
-    Column(
-        modifier
-            .focusRing()
-            .clickable(role = Role.Button, onClick = onClick)
-            .semantics(mergeDescendants = true) {},
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Icon(icon, contentDescription = null, tint = AppTheme.colors.text, modifier = Modifier.size(24.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium), color = AppTheme.colors.text)
     }
 }
 

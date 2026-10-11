@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -30,7 +31,7 @@ class FoldersViewModel(
 
     private val _notices = MutableSharedFlow<String>(extraBufferCapacity = 4)
 
-    /** 封存／取消封存的結果提示，`AppRoot` 收來顯示 snackbar（同一個 VM 服務兩個畫面）。 */
+    /** 封存／取消封存的結果與多本操作失敗的提示，`AppRoot` 收來顯示 snackbar（同一個 VM 服務兩個畫面）。 */
     val notices: SharedFlow<String> = _notices.asSharedFlow()
 
     init {
@@ -45,7 +46,7 @@ class FoldersViewModel(
         _state.value = _state.value.copy(loading = true)
         launchGuarded {
             val cards = repo.folderCards(null)
-            _state.value = _state.value.copy(cards = cards, loading = false, error = null)
+            _state.update { FoldersStore.loaded(it, cards) }
         }
     }
 
@@ -62,40 +63,80 @@ class FoldersViewModel(
     fun startRename(card: FolderCard) { _state.value = FoldersStore.startRename(_state.value, card) }
     fun editName(name: String) { _state.value = FoldersStore.editName(_state.value, name) }
     fun dismissEditor() { _state.value = FoldersStore.closeEditor(_state.value) }
-    fun askDelete(card: FolderCard) { _state.value = FoldersStore.askDelete(_state.value, card) }
-    fun dismissDelete() { _state.value = FoldersStore.closeDelete(_state.value) }
+    fun dismissDelete() { _state.update { FoldersStore.closeDelete(it) } }
+
+    // ---- 長按多選 ----
+
+    fun toggleSelect(id: Long) { _state.update { FoldersStore.toggleSelect(it, id) } }
+    fun clearSelection() { _state.update { FoldersStore.clearSelection(it) } }
+
+    /** 底部【重新命名】：只有剛好選一本時有作用——開那本的改名框，並離開多選。 */
+    fun startRenameSelected() {
+        _state.update { state ->
+            val card = FoldersStore.selectedCards(state).singleOrNull() ?: return@update state
+            FoldersStore.clearSelection(FoldersStore.startRename(state, card))
+        }
+    }
+
+    /** 底部【刪除】：先開確認框（一本沿用單本的，多本另一個），確認後才 [deleteSelected]。 */
+    fun askDeleteSelected() { _state.update { FoldersStore.askDeleteSelected(it) } }
 
     fun create(name: String) = withNameRules { repo.createFolder(null, name) }
 
     fun rename(id: Long, name: String) = withNameRules { repo.renameFolder(id, name) }
 
-    fun delete(card: FolderCard) {
-        launchGuarded {
-            repo.deleteFolder(card.id)
-            _state.value = FoldersStore.closeDelete(_state.value)
-            reload()
-        }
+    /**
+     * 刪掉確認框裡的那幾本（逐本 `repo.deleteFolder`）。跟原本的單本刪除一樣不發成功提示；
+     * 中途失敗時已刪的就是刪了，發失敗提示。無論成敗都關掉確認框、離開多選、重查。
+     */
+    fun deleteSelected() {
+        val targets = FoldersStore.deleteTargets(_state.value).ifEmpty { FoldersStore.selectedCards(_state.value) }
+        _state.update { FoldersStore.clearSelection(FoldersStore.closeDelete(it)) }
+        forEachThenReload(targets, failure = "刪除失敗，請再試一次", success = { null }) { repo.deleteFolder(it.id) }
     }
 
-    fun archive(card: FolderCard) = setArchived(card, archived = true)
+    fun archiveSelected() = setSelectedArchived(archived = true)
 
-    fun unarchive(card: FolderCard) = setArchived(card, archived = false)
+    fun unarchiveSelected() = setSelectedArchived(archived = false)
 
     /**
      * 寫完重查：卡片會從目前的畫面消失、出現在另一個畫面（兩邊都讀同一份 `cards`）。
      * 失敗只發提示，不寫進 `error`——那是「清單讀不到」的錯誤列，這裡清單本身沒問題。
      */
-    private fun setArchived(card: FolderCard, archived: Boolean) {
+    private fun setSelectedArchived(archived: Boolean) {
+        val targets = FoldersStore.selectedCards(_state.value)
+        if (targets.isEmpty()) return
+        _state.update { FoldersStore.clearSelection(it) }
+        val verb = if (archived) "已封存" else "已取消封存"
+        forEachThenReload(
+            targets,
+            failure = if (archived) "封存失敗，請再試一次" else "取消封存失敗，請再試一次",
+            success = { if (it.size == 1) "$verb「${it.single().name}」" else "$verb ${it.size} 本相簿" },
+        ) { repo.setFolderArchived(it.id, archived) }
+    }
+
+    /**
+     * 逐本做 [action]；中途失敗就停，已完成的保留，發 [failure]。成功時發 [success] 回傳的提示（null＝不發）。
+     * 無論成敗都重查——就算失敗，前面幾本也可能已經改了。
+     */
+    private fun forEachThenReload(
+        targets: List<FolderCard>,
+        failure: String,
+        success: (List<FolderCard>) -> String?,
+        action: suspend (FolderCard) -> Unit,
+    ) {
+        if (targets.isEmpty()) return
         viewModelScope.launch {
-            try {
-                repo.setFolderArchived(card.id, archived)
-                reload()
-                _notices.emit(if (archived) "已封存「${card.name}」" else "已取消封存「${card.name}」")
+            val notice = try {
+                targets.forEach { action(it) }
+                success(targets)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
-                _notices.emit(if (archived) "封存失敗，請再試一次" else "取消封存失敗，請再試一次")
+                failure
             }
+            reload()
+            notice?.let { _notices.emit(it) }
         }
     }
 
