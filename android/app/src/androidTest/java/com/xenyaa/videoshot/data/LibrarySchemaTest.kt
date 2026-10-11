@@ -35,8 +35,8 @@ class LibrarySchemaTest {
     }
 
     @Test
-    fun schema_版本是_2() {
-        assertEquals(2, LIBRARY_SCHEMA_VERSION)
+    fun schema_版本是_3() {
+        assertEquals(3, LIBRARY_SCHEMA_VERSION)
     }
 
     @Test

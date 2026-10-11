@@ -7,6 +7,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.xenyaa.videoshot.core.backup.BackupCodec
 import com.xenyaa.videoshot.data.cache.CacheDatabase
 import com.xenyaa.videoshot.data.library.LIBRARY_MIGRATIONS
+import com.xenyaa.videoshot.data.library.LIBRARY_SCHEMA_VERSION
 import com.xenyaa.videoshot.data.library.LibraryDatabase
 import com.xenyaa.videoshot.data.library.LibrarySchemaCallback
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
@@ -172,7 +173,7 @@ class RestoreManagerTest {
 
         assertTrue(result is RestoreResult.Success)
         val reopened = openLibraryDb()
-        assertEquals(2L, reopened.readSingleLong("PRAGMA user_version"))
+        assertEquals(LIBRARY_SCHEMA_VERSION.toLong(), reopened.readSingleLong("PRAGMA user_version"))
         assertEquals(6L, reopened.readSingleLong("SELECT COUNT(*) FROM shot"))
         assertEquals(6L, reopened.readSingleLong("SELECT cnt FROM shot_stat_total WHERE kind = 0 AND ref_id = 0"))
         reopened.close()
