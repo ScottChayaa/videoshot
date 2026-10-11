@@ -56,6 +56,7 @@ import com.xenyaa.videoshot.ui.common.TopBarNav
 import com.xenyaa.videoshot.ui.common.TopBarTitle
 import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsTagChip
+import com.xenyaa.videoshot.ui.common.chineseDate
 import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
@@ -63,8 +64,6 @@ import com.xenyaa.videoshot.ui.theme.focusRing
 import com.xenyaa.videoshot.ui.thumb.ThumbImage
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
 import com.xenyaa.videoshot.ui.thumb.labelOf
-import java.time.LocalDate
-import java.time.format.DateTimeParseException
 
 /**
  * 詳情頁（規格第六節）。保留底部導覽，由呼叫端疊在 `AppShell` 裡（比照資料夾頁）。
@@ -315,12 +314,4 @@ private fun DetailGridTile(
             }
         }
     }
-}
-
-/** 「2026-08-03」→「2026年8月3日」；解析不了就原樣顯示，不為了格式讓整頁失敗。 */
-private fun chineseDate(iso: String): String = try {
-    val d = LocalDate.parse(iso)
-    "${d.year}年${d.monthValue}月${d.dayOfMonth}日"
-} catch (_: DateTimeParseException) {
-    iso
 }

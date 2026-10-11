@@ -5,9 +5,19 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.ScrollState
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.text.style.TextOverflow
+import com.xenyaa.videoshot.data.library.dao.TagNameKind
+import com.xenyaa.videoshot.ui.common.ChipKind
+import com.xenyaa.videoshot.ui.common.ChipSize
+import com.xenyaa.videoshot.ui.common.VsTagChip
+import com.xenyaa.videoshot.ui.common.chineseDate
+import kotlinx.coroutines.CancellationException
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -34,7 +44,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.flow.drop
-import com.xenyaa.videoshot.core.time.formatClock
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import androidx.compose.foundation.shape.CircleShape
@@ -98,6 +107,10 @@ fun LightboxScreen(
     onIndexChange: (Int) -> Unit,
     actions: LightboxActions,
     modifier: Modifier = Modifier,
+    /** 一張圖的標籤（名稱與種類）。讀不到就回空清單，標籤列留白，不擋看圖。 */
+    tagsOf: suspend (ShotRow) -> List<TagNameKind> = { emptyList() },
+    /** 就地編輯存檔後遞增：標籤改了但 [ShotRow] 不含標籤、比不出差異，靠它重讀標籤列。 */
+    tagsRefreshKey: Int = 0,
 ) {
     if (items.isEmpty()) {
         // 刪到最後一張時會走到這裡（案例 17）
@@ -136,6 +149,17 @@ fun LightboxScreen(
     var menuOpen by remember { mutableStateOf(false) }
     var confirmingDelete by remember { mutableStateOf(false) }
     val iconShape = RoundedCornerShape(AppTheme.radii.sm)
+    val tags by produceState(emptyList<TagNameKind>(), shot.id, tagsRefreshKey) {
+        value = emptyList()
+        // 輔助資訊：讀不到就沒有標籤列，不擋看圖（跟詳情頁讀標籤同一個取捨）
+        value = try {
+            tagsOf(shot)
+        } catch (c: CancellationException) {
+            throw c
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
 
     Box(modifier.fillMaxSize().background(AppTheme.colors.lightboxBg)) {
         Column(Modifier.fillMaxSize()) {
@@ -146,9 +170,23 @@ fun LightboxScreen(
             ) {
                 // 圖示色用 OnDarkColors：Lightbox 底色不隨主題變，前景也不能隨主題變
                 IconButton(onClick = onClose, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(iconShape)) {
-                    Icon(VsIcons.Close, contentDescription = "關閉", tint = OnDarkColors.primary)
+                    Icon(VsIcons.Back, contentDescription = "返回", tint = OnDarkColors.primary)
                 }
-                Spacer(Modifier.weight(1f))
+                Text(
+                    chineseDate(shot.eventDate),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = OnDarkColors.primary,
+                    maxLines = 1,
+                )
+                // 地點小膠囊佔掉日期與「⋯」之間剩下的寬度；名稱太長就在這一格裡左右滑，不換行
+                Row(
+                    Modifier
+                        .weight(1f)
+                        .padding(start = AppTheme.spacing.s2)
+                        .horizontalScroll(remember(shot.id) { ScrollState(0) }),
+                ) {
+                    shot.place?.let { VsTagChip(it, ChipKind.PLACE, size = ChipSize.Mini) }
+                }
                 Box {
                     IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(AppTheme.spacing.tap).focusRing(iconShape)) {
                         Icon(VsIcons.More, contentDescription = "更多", tint = OnDarkColors.primary)
@@ -169,8 +207,23 @@ fun LightboxScreen(
                 }
             }
 
+            // 標籤列：只有一列，放不下就左右滑，不換行。沒有標籤也保留這一列的高度——
+            // 左右滑到有標籤／沒標籤的圖時，大圖才不會跟著上下跳
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = TAG_ROW_MIN_HEIGHT)
+                    // 換一張圖就從頭開始，不沿用上一張滑到的位置
+                    .horizontalScroll(remember(shot.id) { ScrollState(0) })
+                    .padding(horizontal = AppTheme.spacing.s4),
+                horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                tags.forEach { VsTagChip(it.name, ChipKind.ofTagKind(it.kind), size = ChipSize.Mini) }
+            }
+
             // 大圖跟一次性提示放同一個 Box：提示用 BottomCenter 貼著**這個 Box 的下緣**，
-            // 也就是秒數列／動作列開始的地方，不是螢幕的物理下緣 —— 系統導覽列多高都不會蓋到它。
+            // 也就是描述／動作列開始的地方，不是螢幕的物理下緣 —— 系統導覽列多高都不會蓋到它。
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 HorizontalPager(
                     state = pager,
@@ -183,8 +236,7 @@ fun LightboxScreen(
                             shot = items[page],
                             loader = loader,
                             contentDescription = items[page].description,
-                            // 下面那顆固定的秒數列已經是這張圖的權威顯示 —— 拿不到圖時
-                            // 預留圖不用再疊一次同樣的秒數（會重複，畫面上真的疊字）
+                            // Lightbox 不顯示影片秒數（頂列只有日期，2026-10-12 決定），預留圖也不疊
                             showTimeOnPlaceholder = false,
                             // 照圖本身的寬高比完整顯示：直式影片（Shorts）的圖是直的，裁成 16:9 會只剩中間一條
                             fitImageAspect = true,
@@ -210,15 +262,21 @@ fun LightboxScreen(
                 }
             }
 
-            // 秒數列跟動作列一起讓開導覽列（手冊 §三第四條的動作分層、規格第六節的秒數顯示）：
+            // 描述跟動作列一起讓開導覽列（手冊 §三第四條的動作分層）：
             // 這個 Column 不在畫面最下面就不會多吃一段有效內容高度，
             // navigationBarsPadding 的上緣本來就是 0，只會把下緣往上推
             Column(Modifier.navigationBarsPadding()) {
+                // 描述固定佔兩行（沒有描述也留著），橫的直的、有沒有描述，底部動作列都在同一個位置
                 Text(
-                    formatClock(shot.atSec),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = OnDarkColors.tertiary,
-                    modifier = Modifier.padding(horizontal = AppTheme.spacing.s4),
+                    shot.description.orEmpty(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = OnDarkColors.primary,
+                    minLines = 2,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = AppTheme.spacing.s4, end = AppTheme.spacing.s4, top = AppTheme.spacing.s3),
                 )
 
                 // 動作分層（手冊 §三第四條）：主要動作只有一顆，其餘瀏覽動作是圖示鈕，
@@ -276,3 +334,6 @@ private fun DarkIconButton(icon: ImageVector, label: String, onClick: () -> Unit
         Icon(icon, contentDescription = label, tint = OnDarkColors.primary, modifier = Modifier.size(20.dp))
     }
 }
+
+/** 標籤列的最小高度：迷你小膠囊一列的高度，沒有標籤時也佔住這一列。 */
+private val TAG_ROW_MIN_HEIGHT = 32.dp

@@ -43,7 +43,7 @@ class LightboxDeleteTest {
 
     private fun row(id: Long, sec: Double) = ShotRow(
         id = id, videoId = "v1", atSec = sec, source = "storyboard", frameIndex = id.toInt(), sbLevel = 3,
-        eventDate = "2026-03-01", place = null, description = null,
+        eventDate = "2026-03-01", place = null, description = "片段$id",
     )
 
     private var closed = 0
@@ -65,13 +65,13 @@ class LightboxDeleteTest {
                 )
             }
         }
-        compose.onNodeWithText("01:30").assertExists()
+        compose.onNodeWithText("片段2").assertExists()
         compose.onNodeWithContentDescription("更多").performClick()
         compose.onNodeWithText("刪除").performClick()
         compose.onNodeWithText("刪除").performClick()
         compose.waitForIdle()
-        // 原本第 2 張沒了，位置 1 現在是原本的第 3 張（02:30）
-        compose.onNodeWithText("02:30").assertExists()
+        // 原本第 2 張沒了，位置 1 現在是原本的第 3 張
+        compose.onNodeWithText("片段3").assertExists()
     }
 
     @Test

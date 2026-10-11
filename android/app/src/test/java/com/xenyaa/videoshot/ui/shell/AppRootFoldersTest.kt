@@ -396,7 +396,7 @@ class AppRootFoldersTest {
         compose.onNodeWithText("旅行").performClick()
         compose.onAllNodesWithContentDescription("片段縮圖 00:30")[0].performClick()
 
-        compose.onNodeWithContentDescription("關閉").performClick()
+        compose.onNodeWithContentDescription("返回").performClick()
         compose.onNodeWithContentDescription("返回").performClick()
 
         compose.onNodeWithText("1 個相簿").assertIsDisplayed()
@@ -453,7 +453,7 @@ class AppRootFoldersTest {
         compose.onNodeWithText("刪除").performClick()
         compose.onNodeWithText("刪除").performClick()
         compose.waitForIdle()
-        compose.onNodeWithContentDescription("關閉").performClick()
+        compose.onNodeWithContentDescription("返回").performClick()
 
         compose.onNodeWithText("相簿").performClick()
         compose.onNodeWithText("3 張").assertIsDisplayed()
@@ -480,7 +480,7 @@ class AppRootFoldersTest {
         compose.onNodeWithText("刪除").performClick()
         compose.onNodeWithText("刪除").performClick()
         compose.waitForIdle()
-        compose.onNodeWithContentDescription("關閉").performClick()
+        compose.onNodeWithContentDescription("返回").performClick()
 
         // 連按兩次返回：先回「旅行」（父頁），再回清單頁
         compose.onNodeWithContentDescription("返回").performClick()

@@ -288,11 +288,11 @@ class AppRootHomeFilterTest {
         compose.waitForIdle()
 
         compose.onNodeWithText("播放這一段").assertIsDisplayed()
-        compose.onNodeWithText("00:02").assertIsDisplayed()
+        compose.onNodeWithText("2026年3月2日").assertIsDisplayed()
         assertEquals("篩選中編輯一張不能重讀", searchCalls, repo.searchByFacetsCalls.size)
 
         // 回首頁：改過的描述已經在清單上，另一張還在
-        compose.onNodeWithContentDescription("關閉").performClick()
+        compose.onNodeWithContentDescription("返回").performClick()
         compose.onNodeWithContentDescription("泡湯").assertIsDisplayed()
         compose.onNodeWithContentDescription("片段縮圖 00:03", substring = true).assertIsDisplayed()
     }
@@ -311,9 +311,9 @@ class AppRootHomeFilterTest {
         compose.waitForIdle()
 
         compose.onNodeWithText("播放這一段").assertIsDisplayed()
-        compose.onNodeWithText("00:03").assertIsDisplayed()
+        compose.onNodeWithText("2026年3月3日").assertIsDisplayed()
 
-        compose.onNodeWithContentDescription("關閉").performClick()
+        compose.onNodeWithContentDescription("返回").performClick()
         compose.onNodeWithContentDescription("片段縮圖 00:03", substring = true).assertIsDisplayed()
         compose.onNodeWithContentDescription("片段縮圖 00:02", substring = true).assertDoesNotExist()
         compose.onNodeWithContentDescription("片段縮圖 00:01", substring = true).assertDoesNotExist()
@@ -332,9 +332,9 @@ class AppRootHomeFilterTest {
         compose.waitForIdle()
 
         compose.onNodeWithText("播放這一段").assertIsDisplayed()
-        compose.onNodeWithText("00:03").assertIsDisplayed()
+        compose.onNodeWithText("2026年3月3日").assertIsDisplayed()
 
-        compose.onNodeWithContentDescription("關閉").performClick()
+        compose.onNodeWithContentDescription("返回").performClick()
         compose.onNodeWithContentDescription("依地點與標籤篩選")
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "已套用 1 個篩選條件"))
         compose.onNodeWithContentDescription("片段縮圖 00:03", substring = true).assertIsDisplayed()

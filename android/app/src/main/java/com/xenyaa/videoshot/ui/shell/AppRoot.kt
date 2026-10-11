@@ -15,6 +15,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -285,6 +286,8 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
     // 【編輯圖資】掛在 Lightbox 外層，不是 LightboxActions 裡直接開 —— sheet 需要自己的
     // produceState（地點／標籤建議、既有圖資），Lightbox 本身不該知道這些
     var editing by remember { mutableStateOf<ShotRow?>(null) }
+    // 就地編輯存檔完成的次數：Lightbox 的標籤列靠它重讀（標籤不在 ShotRow 裡，比不出差異）
+    var shotEdits by remember { mutableIntStateOf(0) }
 
     // 【加入分類】同樣掛在外層。勾選要即時反映，所以把「這張圖在哪些資料夾」放進自己的狀態，
     // 寫完就更新——AddToFolderSheet 本身不碰 repo（見它的 KDoc）
@@ -404,6 +407,8 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                 onHintSeen = { scope.launch { container.settings.markLightboxHintSeen() } },
                 onClose = { nav.pop()?.let { nav = it } },
                 onLoadMore = loadMore,
+                tagsOf = { shot -> container.libraryRepo.tagsWithKindOfShot(shot.id) },
+                tagsRefreshKey = shotEdits,
                 // 把目前這一張寫回導覽堆疊：轉螢幕或被系統回收重建之後，回來還在同一張。
                 //
                 // 一定要先確認堆疊頂真的是 Dest.Lightbox 才能換掉它 —— pop() 對只有一層、
@@ -1003,6 +1008,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             scope = scope,
             snackbarHostState = snackbarHostState,
             onDismiss = { editing = null },
+            onSaved = { shotEdits++ },
         )
     }
 }
@@ -1135,6 +1141,7 @@ private fun EditingSheet(
     scope: CoroutineScope,
     snackbarHostState: SnackbarHostState,
     onDismiss: () -> Unit,
+    onSaved: () -> Unit,
 ) {
     // 這三個都是輔助性質的讀取（既有圖資、建議清單）——查不到的話 sheet 照樣能用，
     // 只是少了建議可以點。接住例外，不然任何一個 repo 呼叫失敗都會把整個畫面炸掉
@@ -1180,6 +1187,7 @@ private fun EditingSheet(
                     detailVm?.onShotChanged(updated)
                 }
                 folderVm?.reload()
+                onSaved()
                 snackbarHostState.showSnackbar("已儲存")
             }
         },

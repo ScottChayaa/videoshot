@@ -47,7 +47,7 @@ class LightboxScreenTest {
     private fun rows(n: Int) = (1..n).map {
         ShotRow(
             id = it.toLong(), videoId = "v1", atSec = it * 30.0, source = "storyboard",
-            frameIndex = it, sbLevel = 3, eventDate = "2026-03-01", place = null, description = null,
+            frameIndex = it, sbLevel = 3, eventDate = "2026-03-01", place = null, description = "片段$it",
         )
     }
 
@@ -93,10 +93,10 @@ class LightboxScreenTest {
         show(items = rows(3), startIndex = 0)
         compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeLeft() }
         compose.waitForIdle()
-        compose.onNodeWithText("01:00").assertIsDisplayed()
+        compose.onNodeWithText("片段2").assertIsDisplayed()
         compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeRight() }
         compose.waitForIdle()
-        compose.onNodeWithText("00:30").assertIsDisplayed()
+        compose.onNodeWithText("片段1").assertIsDisplayed()
     }
 
     @Test
@@ -143,9 +143,9 @@ class LightboxScreenTest {
     }
 
     @Test
-    fun 按關閉會回報() {
+    fun 按返回會回報() {
         show()
-        compose.onNodeWithContentDescription("關閉").performClick()
+        compose.onNodeWithContentDescription("返回").performClick()
         assertEquals(1, closed)
     }
 
@@ -167,9 +167,10 @@ class LightboxScreenTest {
     }
 
     @Test
-    fun 顯示這一張的影片秒數() {
+    fun 顯示這一張的描述_不顯示影片秒數() {
         show(items = rows(3), startIndex = 2)
-        compose.onNodeWithText("01:30").assertIsDisplayed()
+        compose.onNodeWithText("片段3").assertIsDisplayed()
+        compose.onNodeWithText("01:30").assertDoesNotExist()
     }
 
     /** Lightbox 的底固定是近黑，圖示色要固定是白色，不能跟著色系的 accentInk 走。 */

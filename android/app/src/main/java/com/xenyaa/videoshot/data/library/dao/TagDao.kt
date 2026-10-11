@@ -37,6 +37,16 @@ interface TagDao {
     )
     suspend fun namesOfShot(shotId: Long): List<String>
 
+    /** 一張圖的標籤名與種類（Lightbox 的標籤列要依種類上色）。 */
+    @Query(
+        """
+        SELECT t.name, t.kind FROM shot_tag st
+        JOIN tag t ON t.id = st.tag_id
+        WHERE st.shot_id = :shotId ORDER BY t.name
+        """
+    )
+    suspend fun namesAndKindsOfShot(shotId: Long): List<TagNameKind>
+
     /** 規則式解析的詞彙表：所有標籤的名稱與別名 JSON（規格第四節，別名檢索時視同 name）。 */
     @Query("SELECT name, aliases FROM tag")
     suspend fun allWithAliases(): List<TagAliasProjection>
@@ -87,3 +97,6 @@ data class TagUsageProjection(
     @ColumnInfo(name = "aliases") val aliases: String,
     @ColumnInfo(name = "shotCount") val shotCount: Int,
 )
+
+/** [TagDao.namesAndKindsOfShot] 的一列。 */
+data class TagNameKind(val name: String, val kind: String)

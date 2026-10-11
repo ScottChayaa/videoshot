@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.data.repo
 
+import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import com.xenyaa.videoshot.core.paging.FolderCursor
 import com.xenyaa.videoshot.core.paging.SearchCursor
 import com.xenyaa.videoshot.core.paging.ShotCursor
@@ -96,6 +97,13 @@ interface LibraryRepo {
 
     /** 一張圖的標籤名。就地編輯要把現值帶進抽屜。 */
     suspend fun tagsOfShot(shotId: Long): List<String>
+
+    /**
+     * 一張圖的標籤名與種類（`person`／`pet`／`topic`／`other`），依名稱排序。Lightbox 的標籤列用。
+     * 預設實作把種類一律當 `other`（測試用的假 repo 不必各自實作）；正式的 [RoomLibraryRepo] 一次查出種類。
+     */
+    suspend fun tagsWithKindOfShot(shotId: Long): List<TagNameKind> =
+        tagsOfShot(shotId).map { TagNameKind(it, "other") }
 
     /**
      * 取圖精靈完成入庫。整批在同一個交易裡：影片列 upsert、每張 shot、手動圖的 webp、

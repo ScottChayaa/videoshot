@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.data.repo
 
+import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import androidx.room.Transactor
 import androidx.room.useWriterConnection
 import com.xenyaa.videoshot.core.home.nextMonthStart
@@ -202,6 +203,10 @@ class RoomLibraryRepo(
 
     override suspend fun tagsOfShot(shotId: Long): List<String> = withContext(io) {
         db.tagDao().namesOfShot(shotId)
+    }
+
+    override suspend fun tagsWithKindOfShot(shotId: Long): List<TagNameKind> = withContext(io) {
+        db.tagDao().namesAndKindsOfShot(shotId)
     }
 
     override suspend fun monthCounts(): List<MonthCount> = withContext(io) {

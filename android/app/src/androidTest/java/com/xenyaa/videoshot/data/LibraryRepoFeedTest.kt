@@ -3,6 +3,7 @@ package com.xenyaa.videoshot.data
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.xenyaa.videoshot.data.library.LibraryDatabase
 import com.xenyaa.videoshot.data.library.entity.ShotEntity
+import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import com.xenyaa.videoshot.data.library.entity.ShotTagEntity
 import com.xenyaa.videoshot.data.library.entity.TagEntity
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
@@ -102,6 +103,21 @@ class LibraryRepoFeedTest {
         db.tagDao().link(ShotTagEntity(ids[0], b, "human"))
         assertEquals(listOf("阿明", "露營"), repo.tagsOfShot(ids[0]).sorted())
         assertEquals(emptyList<String>(), repo.tagsOfShot(9999L))
+    }
+
+    /** Lightbox 的標籤列：名稱帶種類，依名稱排序。 */
+    @Test
+    fun 讀得出一張圖的標籤名與種類() = runTest {
+        val ids = seed("v1", "2026-03-10", 1)
+        val a = db.tagDao().insert(TagEntity(0, "露營", "topic", "[]"))
+        val b = db.tagDao().insert(TagEntity(0, "阿明", "person", "[]"))
+        db.tagDao().link(ShotTagEntity(ids[0], a, "human"))
+        db.tagDao().link(ShotTagEntity(ids[0], b, "human"))
+        assertEquals(
+            listOf(TagNameKind("阿明", "person"), TagNameKind("露營", "topic")).sortedBy { it.name },
+            repo.tagsWithKindOfShot(ids[0]),
+        )
+        assertEquals(emptyList<TagNameKind>(), repo.tagsWithKindOfShot(9999L))
     }
 
     /** 就地編輯只有標籤「名稱」，repo 要在同一個交易內解析成 id，不存在就建。 */

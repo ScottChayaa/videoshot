@@ -76,7 +76,7 @@ class AppRootLightboxTest {
 
     private fun row(id: Long, atSec: Double) = ShotRow(
         id = id, videoId = "v1", atSec = atSec, source = "storyboard", frameIndex = id.toInt(), sbLevel = 3,
-        eventDate = "2026-03-05", place = null, description = null,
+        eventDate = "2026-03-${10 + id}", place = null, description = null,
     )
 
     /** `HomeViewModel` 自己的分頁／篩選邊界已經有 `HomeViewModelTest` 釘住，這裡只要撈得到資料。 */
@@ -209,7 +209,7 @@ class AppRootLightboxTest {
     fun 點第二張縮圖會停在第二張_底部導覽消失() {
         show()
         compose.onNodeWithContentDescription("片段縮圖 00:20").performClick()
-        compose.onNodeWithText("00:20").assertIsDisplayed()
+        compose.onNodeWithText("2026年3月12日").assertIsDisplayed()
         // assertDoesNotExist：不是被蓋住，是這一輪組合裡整個沒有這個節點（手冊 §六）
         for (label in listOf("照片", "取圖", "相簿", "帳號")) {
             compose.onNodeWithText(label).assertDoesNotExist()
@@ -222,7 +222,7 @@ class AppRootLightboxTest {
     fun 關閉_Lightbox_回到首頁分頁_縮圖牆還在() {
         show()
         compose.onNodeWithContentDescription("片段縮圖 00:10").performClick()
-        compose.onNodeWithContentDescription("關閉").performClick()
+        compose.onNodeWithContentDescription("返回").performClick()
         compose.onNode(hasText("照片") and isSelectable()).assertIsDisplayed()
         compose.onNodeWithContentDescription("片段縮圖 00:10").assertIsDisplayed()
         compose.onNodeWithContentDescription("片段縮圖 00:20").assertIsDisplayed()
@@ -244,9 +244,9 @@ class AppRootLightboxTest {
         compose.waitForIdle()
         compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeLeft() }
         compose.waitForIdle()
-        compose.onNodeWithText("00:30").assertIsDisplayed()
+        compose.onNodeWithText("2026年3月13日").assertIsDisplayed()
 
-        compose.onNodeWithContentDescription("關閉").performClick()
+        compose.onNodeWithContentDescription("返回").performClick()
 
         compose.onNode(hasText("照片") and isSelectable()).assertIsDisplayed()
         compose.onNodeWithContentDescription("收藏的大圖").assertDoesNotExist()
@@ -272,7 +272,7 @@ class AppRootLightboxTest {
 
         assertEquals("repo 要真的收到刪除", listOf(2L), fixture.repo.deleteCalls)
         // 刪到剩兩張，Lightbox 沒有關（不是刪到最後一張），回關閉鍵退回首頁再確認清單
-        compose.onNodeWithContentDescription("關閉").performClick()
+        compose.onNodeWithContentDescription("返回").performClick()
         compose.onNodeWithContentDescription("片段縮圖 00:20").assertDoesNotExist()
         compose.onNodeWithContentDescription("片段縮圖 00:10").assertIsDisplayed()
 
@@ -316,7 +316,7 @@ class AppRootLightboxTest {
         // 存檔後 EditingSheet 呼叫 homeVm.onShotChanged 把新值同步回首頁快取；
         // Lightbox 這時還開著，退回首頁要能立刻看到新描述 —— 不必等下一次整包 reload
         // （沒有同步的話，這裡還會是舊的「片段縮圖 00:10」）
-        compose.onNodeWithContentDescription("關閉").performClick()
+        compose.onNodeWithContentDescription("返回").performClick()
         compose.onNodeWithContentDescription("在龍洞浮潛").assertIsDisplayed()
         compose.onNodeWithContentDescription("片段縮圖 00:10").assertDoesNotExist()
     }

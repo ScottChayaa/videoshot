@@ -81,9 +81,9 @@ class LightboxFocusTest {
      */
     @OptIn(ExperimentalTestApi::class)
     @Test
-    fun 關閉鈕拿到焦點會畫出框() {
+    fun 返回鈕拿到焦點會畫出框() {
         show()
-        val close = compose.onNodeWithContentDescription("關閉")
+        val close = compose.onNodeWithContentDescription("返回")
         val before = compose.pixelsAround(close)
 
         compose.runOnIdle { inputMode.requestInputMode(InputMode.Keyboard) }
@@ -91,7 +91,7 @@ class LightboxFocusTest {
 
         close.assertIsFocused()
         val ring = ringPixels(before, compose.pixelsAround(close))
-        assertTrue("關閉鈕拿到焦點時要畫出焦點框（只找到 $ring 個框的像素）", ring > 50)
+        assertTrue("返回鈕拿到焦點時要畫出焦點框（只找到 $ring 個框的像素）", ring > 50)
     }
 
     @OptIn(ExperimentalTestApi::class)
