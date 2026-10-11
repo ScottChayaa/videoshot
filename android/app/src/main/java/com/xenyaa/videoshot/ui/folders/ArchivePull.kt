@@ -3,6 +3,8 @@ package com.xenyaa.videoshot.ui.folders
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -18,11 +20,26 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
+
+/** 光暈中心的不透明度（單純的透明黑）：越拉越深，過門檻後固定 20%。 */
+fun archiveGlowAlpha(fraction: Float): Float = 0.20f * fraction.coerceIn(0f, 1f)
+
+/** 內容縱向放大倍率：門檻前線性到 1.09，門檻後到 1.5 倍下拉距離再多 3%，最多 1.12。 */
+fun archiveStretchScale(fraction: Float): Float {
+    val f = fraction.coerceIn(0f, 1.5f)
+    return 1f + 0.09f * f.coerceAtMost(1f) + 0.06f * (f - 1f).coerceAtLeast(0f)
+}
 
 /** 下拉提示的文字：沒過門檻「下拉…」，過了門檻「放開…」（規格第六節「進入封存相簿」）。 */
 fun archivePullLabel(ready: Boolean): String = if (ready) "放開進入封存相簿" else "下拉進入封存相簿"
@@ -64,4 +81,45 @@ fun ArchivePullIndicator(state: PullToRefreshState, modifier: Modifier = Modifie
             color = if (ready) AppTheme.colors.accent else AppTheme.colors.text,
         )
     }
+}
+
+/**
+ * 下拉時頂端的半橢圓光暈（Android 早期 overscroll glow 的樣子）：高度跟著下拉距離變長，
+ * 過門檻後變亮。下拉距離只在繪製階段讀，拖動途中只重畫、不重組。
+ * 呼叫端要放在有裁切的容器裡（相簿畫面的下拉容器有 `clipToBounds`），上半個橢圓才會被切掉。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ArchivePullGlow(state: PullToRefreshState, modifier: Modifier = Modifier) {
+    Spacer(
+        modifier.fillMaxSize().drawBehind {
+            val fraction = state.distanceFraction
+            if (fraction <= 0f) return@drawBehind
+            val threshold = PullToRefreshDefaults.PositionalThreshold.toPx()
+            // 半徑：門檻時約 0.9 個門檻高，超過門檻再慢慢長，最多 1.35 倍
+            val radiusY = fraction.coerceAtMost(1.5f) * threshold * 0.9f
+            val radiusX = size.width * 0.75f
+            val peak = archiveGlowAlpha(fraction)
+            drawOval(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color.Black.copy(alpha = peak), Color.Black.copy(alpha = peak * 0.4f), Color.Transparent),
+                    center = Offset(size.width / 2f, 0f),
+                    radius = radiusX,
+                ),
+                topLeft = Offset(size.width / 2f - radiusX, -radiusY),
+                size = Size(radiusX * 2f, radiusY * 2f),
+            )
+        },
+    )
+}
+
+/**
+ * 下拉時內容被往下拉長（Android 12 起 overscroll stretch 的樣子）：以頂端為基準縱向放大，
+ * 門檻時拉長 9%，超過門檻再多一點，最多 12%；放手時跟著下拉距離一起彈回。
+ * 只在 graphicsLayer（繪製階段）讀下拉距離，拖動途中不重組。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+fun Modifier.archivePullStretch(state: PullToRefreshState): Modifier = graphicsLayer {
+    scaleY = archiveStretchScale(state.distanceFraction)
+    transformOrigin = TransformOrigin(0.5f, 0f)
 }

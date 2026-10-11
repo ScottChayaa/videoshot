@@ -123,7 +123,7 @@ fun FoldersScreen(
                 // 膠囊從內容區頂端底下滑出來，不畫到頂欄上（格線自己會裁切，其他內容不會超出這個框）
                 .clipToBounds(),
         ) {
-            Column(Modifier.fillMaxSize()) {
+            Column(Modifier.fillMaxSize().archivePullStretch(pullState)) {
                 // 狀態列（原型 `.fd-status`）：內距 上 8／左右 12／下 0。排序鍵右側往外 8（margin-right: -8），
                 // 好讓文字右緣跟版面對齊；視覺高度不變，但觸控區撐到 44dp。
                 Row(
@@ -195,6 +195,7 @@ fun FoldersScreen(
                     )
                 }
             }
+            ArchivePullGlow(pullState)
             ArchivePullIndicator(pullState, Modifier.align(Alignment.TopCenter))
         }
     }
