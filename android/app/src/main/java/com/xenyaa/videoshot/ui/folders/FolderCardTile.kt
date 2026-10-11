@@ -82,7 +82,7 @@ fun FolderCardTile(
                     true -> "取消選取"
                     false -> "選取"
                 },
-                onLongClickLabel = "選取",
+                onLongClickLabel = if (selected == true) "取消選取" else "選取",
                 onLongClick = onLongClick,
                 onClick = onClick,
             )

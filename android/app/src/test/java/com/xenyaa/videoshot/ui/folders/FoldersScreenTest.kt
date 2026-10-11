@@ -171,10 +171,10 @@ class FoldersScreenTest {
     }
 
     @Test
-    fun 移除確認說得出會連子相簿一起移除且圖不動() {
+    fun 刪除確認說得出會連子相簿一起刪除且圖不動() {
         show(FoldersState(cards = listOf(card(1, "旅行")), deleting = card(1, "旅行")))
         compose.onNodeWithText("刪除相簿「旅行」").assertIsDisplayed()
-        compose.onNodeWithText("裡面的子相簿會一起移除，圖片不會被刪除。").assertIsDisplayed()
+        compose.onNodeWithText("裡面的子相簿會一起刪除，圖片不會被刪除。").assertIsDisplayed()
     }
 
     /** 手冊 §六第三條：沒有任何資料夾時，空狀態帶一顆【新增資料夾】。 */
@@ -483,10 +483,35 @@ class FoldersScreenTest {
         compose.onNodeWithTag("folderGrid").performTouchInput {
             down(Offset(centerX, top + 20f))
             repeat(20) { moveBy(Offset(0f, 30f)) }
-            up()
         }
+        // 拉的過程中（還沒放手）也不出現下拉提示
+        compose.onNodeWithText("下拉進入封存相簿").assertDoesNotExist()
+        compose.onNodeWithText("放開進入封存相簿").assertDoesNotExist()
+        compose.onNodeWithTag("folderGrid").performTouchInput { up() }
         compose.waitForIdle()
         assertEquals(0, openArchiveCalls)
+    }
+
+    /** 對照組：不在多選時，同樣的拉法拉過門檻會出現「放開進入封存相簿」——確保上面那條驗得到東西。 */
+    @Test
+    fun 不在多選時拉過門檻會出現放開提示() {
+        show(cards2())
+        compose.onNodeWithTag("folderGrid").performTouchInput {
+            down(Offset(centerX, top + 20f))
+            repeat(20) { moveBy(Offset(0f, 30f)) }
+        }
+        compose.onNodeWithText("放開進入封存相簿", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("folderGrid").performTouchInput { up() }
+    }
+
+    /** 多選中長按的 TalkBack 說明跟著選取狀態換：已選的唸「取消選取」。 */
+    @Test
+    fun 多選中長按說明依選取狀態() {
+        show(cards2().copy(selection = setOf(1L)))
+        fun longLabel(name: String) = compose.onNode(hasText(name)).fetchSemanticsNode()
+            .config[SemanticsActions.OnLongClick].label
+        assertEquals("取消選取", longLabel("旅行"))
+        assertEquals("選取", longLabel("貓"))
     }
 
     @Test
@@ -512,7 +537,9 @@ class FoldersScreenTest {
     @Test
     fun 單本刪除確認框按下去回報刪除() {
         show(FoldersState(cards = listOf(card(1, "旅行")), selection = setOf(1L), deleting = card(1, "旅行")))
-        compose.onNodeWithText("移除").performClick()
+        compose.onNodeWithText("移除").assertDoesNotExist()
+        // 確認框的【刪除】（底部動作列也有一個「刪除」，確認框在最後一個視窗）
+        compose.onAllNodesWithText("刪除").onLast().performClick()
         assertEquals(1, deleteSelectedCalls)
     }
 }

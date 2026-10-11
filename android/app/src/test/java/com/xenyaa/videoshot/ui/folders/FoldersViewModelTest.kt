@@ -368,4 +368,64 @@ class FoldersViewModelTest {
         assertNull(model.state.value.editor)
         assertEquals(setOf(1L, 2L), model.state.value.selection)
     }
+
+    /** 沒經過確認框就不能刪：確認框沒開時呼叫 deleteSelected 什麼都不做。 */
+    @Test
+    fun 沒開確認框就呼叫刪除不會刪任何東西() = runTest {
+        val repo = Repo().apply { cards = three }
+        val model = vm(repo)
+        advanceUntilIdle()
+
+        model.toggleSelect(1)
+        model.toggleSelect(2)
+        model.deleteSelected()
+        advanceUntilIdle()
+
+        assertEquals(emptyList<Long>(), repo.deleted)
+        assertEquals(setOf(1L, 2L), model.state.value.selection)
+    }
+
+    /** 寫入期間（還沒重查完）忽略切換選取，不然會選到下一輪就消失的卡片；完成後解除。 */
+    @Test
+    fun 封存寫入期間忽略切換選取_完成後解除() = runTest {
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val repo = object : Repo() {
+            override suspend fun setFolderArchived(id: Long, archived: Boolean) {
+                gate.await()
+                super.setFolderArchived(id, archived)
+            }
+        }.apply { cards = three }
+        val model = vm(repo)
+        advanceUntilIdle()
+
+        model.toggleSelect(1)
+        model.archiveSelected()
+        advanceUntilIdle()
+        assertTrue("寫入中", model.state.value.busy)
+
+        model.toggleSelect(2)
+        assertEquals("寫入中切換選取無效", emptySet<Long>(), model.state.value.selection)
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(false, model.state.value.busy)
+        model.toggleSelect(2)
+        assertEquals(setOf(2L), model.state.value.selection)
+    }
+
+    @Test
+    fun 刪除失敗也會解除寫入中() = runTest {
+        val repo = Repo().apply { cards = three; deleteFailFrom = 0 }
+        val model = vm(repo)
+        advanceUntilIdle()
+
+        model.toggleSelect(1)
+        model.askDeleteSelected()
+        model.deleteSelected()
+        advanceUntilIdle()
+
+        assertEquals(false, model.state.value.busy)
+        model.toggleSelect(3)
+        assertEquals(setOf(3L), model.state.value.selection)
+    }
 }

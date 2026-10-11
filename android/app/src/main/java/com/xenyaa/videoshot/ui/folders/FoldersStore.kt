@@ -33,6 +33,8 @@ data class FoldersState(
      * 兩邊的卡片集合互斥，所以進出封存相簿畫面時要先清掉（`AppRoot` 負責）。
      */
     val selection: Set<Long> = emptySet(),
+    /** 多選的封存／取消封存／刪除寫入中（到重查完成為止）：這段期間忽略切換選取。 */
+    val busy: Boolean = false,
 )
 
 /** 清單頁的純狀態轉換。沒有 suspend、沒有 Android 相依。 */
@@ -100,8 +102,9 @@ object FoldersStore {
 
     fun closeDelete(state: FoldersState): FoldersState = state.copy(deleting = null, deletingMany = null)
 
+    /** 寫入中（[FoldersState.busy]）不動：那幾本馬上就會從畫面消失或改變。 */
     fun toggleSelect(state: FoldersState, id: Long): FoldersState =
-        state.copy(selection = if (id in state.selection) state.selection - id else state.selection + id)
+        if (state.busy) state else state.copy(selection = if (id in state.selection) state.selection - id else state.selection + id)
 
     fun clearSelection(state: FoldersState): FoldersState = state.copy(selection = emptySet())
 

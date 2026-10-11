@@ -42,9 +42,9 @@ class FoldersViewModel(
     }
 
     /** 建立／改名／刪除之後，以及從資料夾頁回來時都要叫 —— 張數與預覽可能都變了。 */
-    fun reload() {
+    fun reload(): Job {
         _state.value = _state.value.copy(loading = true)
-        launchGuarded {
+        return launchGuarded {
             val cards = repo.folderCards(null)
             _state.update { FoldersStore.loaded(it, cards) }
         }
@@ -60,7 +60,6 @@ class FoldersViewModel(
     }
 
     fun startCreate() { _state.value = FoldersStore.startCreate(_state.value) }
-    fun startRename(card: FolderCard) { _state.value = FoldersStore.startRename(_state.value, card) }
     fun editName(name: String) { _state.value = FoldersStore.editName(_state.value, name) }
     fun dismissEditor() { _state.value = FoldersStore.closeEditor(_state.value) }
     fun dismissDelete() { _state.update { FoldersStore.closeDelete(it) } }
@@ -90,7 +89,9 @@ class FoldersViewModel(
      * 中途失敗時已刪的就是刪了，發失敗提示。無論成敗都關掉確認框、離開多選、重查。
      */
     fun deleteSelected() {
-        val targets = FoldersStore.deleteTargets(_state.value).ifEmpty { FoldersStore.selectedCards(_state.value) }
+        // 只刪確認框裡的：沒開確認框（沒經過確認）就什麼都不做
+        val targets = FoldersStore.deleteTargets(_state.value)
+        if (targets.isEmpty()) return
         _state.update { FoldersStore.clearSelection(FoldersStore.closeDelete(it)) }
         forEachThenReload(targets, failure = "刪除失敗，請再試一次", success = { null }) { repo.deleteFolder(it.id) }
     }
@@ -117,7 +118,7 @@ class FoldersViewModel(
 
     /**
      * 逐本做 [action]；中途失敗就停，已完成的保留，發 [failure]。成功時發 [success] 回傳的提示（null＝不發）。
-     * 無論成敗都重查——就算失敗，前面幾本也可能已經改了。
+     * 無論成敗都重查——就算失敗，前面幾本也可能已經改了。從開始寫入到重查完成之間 `busy`，忽略切換選取。
      */
     private fun forEachThenReload(
         targets: List<FolderCard>,
@@ -126,6 +127,7 @@ class FoldersViewModel(
         action: suspend (FolderCard) -> Unit,
     ) {
         if (targets.isEmpty()) return
+        _state.update { it.copy(busy = true) }
         viewModelScope.launch {
             val notice = try {
                 targets.forEach { action(it) }
@@ -135,7 +137,10 @@ class FoldersViewModel(
             } catch (e: Throwable) {
                 failure
             }
-            reload()
+            // reload 只是發出讀取，等它讀完才解除寫入中——不然解除後到重查完成之間，
+            // 還是點得到馬上就會消失的卡片
+            reload().join()
+            _state.update { it.copy(busy = false) }
             notice?.let { _notices.emit(it) }
         }
     }
