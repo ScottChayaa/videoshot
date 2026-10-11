@@ -30,10 +30,23 @@ data class FoldersState(
 /** 清單頁的純狀態轉換。沒有 suspend、沒有 Android 相依。 */
 object FoldersStore {
 
-    /** 篩選 ＋ 排序都在這裡，畫面只負責畫。 */
+    /** 相簿畫面看得到的（沒封存的）。不排序、不篩選——「N 個相簿」用它的張數。 */
+    fun active(state: FoldersState): List<FolderCard> = state.cards.filter { it.archivedAt == null }
+
+    /** 封存相簿畫面的清單：封存時間新到舊（規格第六節），同時間時 id 大的在前，順序才穩定。 */
+    fun archived(state: FoldersState): List<FolderCard> =
+        state.cards.filter { it.archivedAt != null }
+            .sortedWith(compareByDescending<FolderCard> { it.archivedAt }.thenByDescending { it.id })
+
+    /** 封存相簿畫面的空狀態。理由同 [emptyKind]：讀取中與讀取失敗都不算「真的沒有」。 */
+    fun archivedEmpty(state: FoldersState): Boolean =
+        !state.loading && state.error == null && archived(state).isEmpty()
+
+    /** 篩選 ＋ 排序都在這裡（只看沒封存的），畫面只負責畫。 */
     fun visible(state: FoldersState): List<FolderCard> {
         val q = state.query.trim()
-        val filtered = if (q.isEmpty()) state.cards else state.cards.filter { it.name.contains(q, ignoreCase = true) }
+        val base = active(state)
+        val filtered = if (q.isEmpty()) base else base.filter { it.name.contains(q, ignoreCase = true) }
         return state.sort.sort(filtered)
     }
 
@@ -45,7 +58,7 @@ object FoldersStore {
     fun emptyKind(state: FoldersState): FoldersEmpty? = when {
         state.loading -> null
         state.error != null -> null
-        state.cards.isEmpty() -> FoldersEmpty.NO_FOLDERS
+        active(state).isEmpty() -> FoldersEmpty.NO_FOLDERS
         visible(state).isEmpty() -> FoldersEmpty.NO_MATCH
         else -> null
     }

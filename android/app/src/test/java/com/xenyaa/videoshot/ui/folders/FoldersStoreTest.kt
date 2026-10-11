@@ -3,6 +3,7 @@ package com.xenyaa.videoshot.ui.folders
 import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.data.repo.model.FolderCard
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -84,5 +85,52 @@ class FoldersStoreTest {
         val state = FoldersState(cards = cards, searching = true, query = "貓")
         assertEquals("", FoldersStore.setSearching(state, false).query)
         assertTrue(FoldersStore.visible(FoldersStore.setSearching(state, false)).size == 3)
+    }
+
+    private fun archivedCard(id: Long, name: String, at: Long) =
+        FolderCard(id, name, 0, lastActivityAt = 0, preview = emptyList(), archivedAt = at)
+
+    @Test
+    fun 相簿畫面只算沒封存的() {
+        val state = FoldersState(cards = listOf(
+            FolderCard(1, "旅行", 0, 0, emptyList()),
+            archivedCard(2, "舊的", 100),
+        ))
+        assertEquals(listOf("旅行"), FoldersStore.visible(state).map { it.name })
+        assertEquals(listOf("旅行"), FoldersStore.active(state).map { it.name })
+    }
+
+    @Test
+    fun 只有封存的相簿時相簿畫面是沒有相簿的空狀態() {
+        val state = FoldersState(cards = listOf(archivedCard(2, "舊的", 100)))
+        assertEquals(FoldersEmpty.NO_FOLDERS, FoldersStore.emptyKind(state))
+    }
+
+    @Test
+    fun 搜尋不會找到封存的相簿() {
+        val state = FoldersState(
+            cards = listOf(FolderCard(1, "旅行", 0, 0, emptyList()), archivedCard(2, "旅行舊照", 100)),
+            query = "旅行",
+        )
+        assertEquals(listOf("旅行"), FoldersStore.visible(state).map { it.name })
+    }
+
+    @Test
+    fun 封存的依封存時間新到舊() {
+        val state = FoldersState(cards = listOf(
+            archivedCard(1, "甲", 100),
+            archivedCard(2, "乙", 300),
+            archivedCard(3, "丙", 200),
+            FolderCard(4, "沒封存", 0, 0, emptyList()),
+        ))
+        assertEquals(listOf("乙", "丙", "甲"), FoldersStore.archived(state).map { it.name })
+    }
+
+    @Test
+    fun 封存相簿的空狀態只在讀完且沒錯誤時成立() {
+        assertTrue(FoldersStore.archivedEmpty(FoldersState()))
+        assertFalse(FoldersStore.archivedEmpty(FoldersState(loading = true)))
+        assertFalse(FoldersStore.archivedEmpty(FoldersState(error = "載入失敗，請再試一次")))
+        assertFalse(FoldersStore.archivedEmpty(FoldersState(cards = listOf(archivedCard(1, "甲", 1)))))
     }
 }

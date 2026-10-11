@@ -9,8 +9,11 @@ import com.xenyaa.videoshot.data.settings.ShellSettings
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
@@ -24,6 +27,11 @@ class FoldersViewModel(
 
     private val _state = MutableStateFlow(FoldersState())
     val state: StateFlow<FoldersState> = _state.asStateFlow()
+
+    private val _notices = MutableSharedFlow<String>(extraBufferCapacity = 4)
+
+    /** 封存／取消封存的結果提示，`AppRoot` 收來顯示 snackbar（同一個 VM 服務兩個畫面）。 */
+    val notices: SharedFlow<String> = _notices.asSharedFlow()
 
     init {
         viewModelScope.launch {
@@ -66,6 +74,28 @@ class FoldersViewModel(
             repo.deleteFolder(card.id)
             _state.value = FoldersStore.closeDelete(_state.value)
             reload()
+        }
+    }
+
+    fun archive(card: FolderCard) = setArchived(card, archived = true)
+
+    fun unarchive(card: FolderCard) = setArchived(card, archived = false)
+
+    /**
+     * 寫完重查：卡片會從目前的畫面消失、出現在另一個畫面（兩邊都讀同一份 `cards`）。
+     * 失敗只發提示，不寫進 `error`——那是「清單讀不到」的錯誤列，這裡清單本身沒問題。
+     */
+    private fun setArchived(card: FolderCard, archived: Boolean) {
+        viewModelScope.launch {
+            try {
+                repo.setFolderArchived(card.id, archived)
+                reload()
+                _notices.emit(if (archived) "已封存「${card.name}」" else "已取消封存「${card.name}」")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                _notices.emit(if (archived) "封存失敗，請再試一次" else "取消封存失敗，請再試一次")
+            }
         }
     }
 

@@ -10,7 +10,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -35,6 +37,8 @@ class FoldersViewModelTest {
         var createThrows: String? = null
         val created = mutableListOf<Pair<Long?, String>>()
         val deleted = mutableListOf<Long>()
+        val archivedCalls = mutableListOf<Pair<Long, Boolean>>()
+        var archiveThrows = false
 
         override suspend fun folderCards(parentId: Long?) = cards
         override suspend fun createFolder(parentId: Long?, name: String): Long {
@@ -43,6 +47,10 @@ class FoldersViewModelTest {
             return 9
         }
         override suspend fun deleteFolder(id: Long) { deleted += id }
+        override suspend fun setFolderArchived(id: Long, archived: Boolean) {
+            if (archiveThrows) error("模擬寫入失敗")
+            archivedCalls += id to archived
+        }
     }
 
     private class Settings(val sort: MutableStateFlow<FolderSort>) : ShellSettings {
@@ -140,5 +148,50 @@ class FoldersViewModelTest {
 
         assertEquals("載入失敗，請再試一次", model.state.value.error)
         assertEquals(false, model.state.value.loading)
+    }
+
+    @Test
+    fun 封存會寫進repo重查並發出提示() = runTest {
+        val repo = Repo()
+        val model = vm(repo)
+        val notices = mutableListOf<String>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { model.notices.collect { notices += it } }
+        advanceUntilIdle()
+
+        model.archive(repo.cards.single())
+        advanceUntilIdle()
+
+        assertEquals(listOf(1L to true), repo.archivedCalls)
+        assertEquals(listOf("已封存「旅行」"), notices)
+    }
+
+    @Test
+    fun 取消封存發出取消封存的提示() = runTest {
+        val repo = Repo()
+        val model = vm(repo)
+        val notices = mutableListOf<String>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { model.notices.collect { notices += it } }
+        advanceUntilIdle()
+
+        model.unarchive(repo.cards.single())
+        advanceUntilIdle()
+
+        assertEquals(listOf(1L to false), repo.archivedCalls)
+        assertEquals(listOf("已取消封存「旅行」"), notices)
+    }
+
+    @Test
+    fun 封存失敗發出失敗提示_不把清單變成載入失敗() = runTest {
+        val repo = Repo().apply { archiveThrows = true }
+        val model = vm(repo)
+        val notices = mutableListOf<String>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { model.notices.collect { notices += it } }
+        advanceUntilIdle()
+
+        model.archive(repo.cards.single())
+        advanceUntilIdle()
+
+        assertEquals(listOf("封存失敗，請再試一次"), notices)
+        assertNull(model.state.value.error)
     }
 }
