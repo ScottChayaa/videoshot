@@ -172,4 +172,16 @@ class NavStateTest {
         val decoded = NavCodec.decode(NavCodec.encode(nav))
         assertEquals(Dest.RestoreFlow, decoded.current)
     }
+
+    @Test
+    fun 封存相簿存得住也讀得回來() {
+        val nav = NavState().select(Tab.FOLDERS).push(Dest.ArchivedFolders).push(Dest.Folder(7))
+        assertEquals(nav, NavCodec.decode(NavCodec.encode(nav)))
+    }
+
+    @Test
+    fun 從封存相簿裡開的相簿也問得出來() {
+        val nav = NavState().select(Tab.FOLDERS).push(Dest.ArchivedFolders).push(Dest.Folder(7))
+        assertEquals(7L, nav.openFolderId())
+    }
 }

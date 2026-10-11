@@ -11,6 +11,9 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.assertCountEquals
 import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.core.paging.FolderCursor
@@ -95,7 +98,10 @@ class AppRootFoldersTest {
 
         override suspend fun folderCards(parentId: Long?): List<FolderCard> = when (parentId) {
             // 「旅行」的張數含子孫（規格第六節）：自己 2 張 ＋「宜蘭」的張數
-            null -> listOf(FolderCard(1, "旅行", folderItems.size + childItems.size, 0, emptyList()))
+            null -> listOf(
+                FolderCard(1, "旅行", folderItems.size + childItems.size, 0, emptyList()),
+                FolderCard(9, "舊相簿", 0, 0, emptyList(), archivedAt = 500),
+            )
             1L -> listOf(FolderCard(2, "宜蘭", childItems.size, 0, emptyList()))
             else -> emptyList()
         }
@@ -103,8 +109,12 @@ class AppRootFoldersTest {
         override suspend fun folderNode(id: Long): FolderNode? = when (id) {
             1L -> FolderNode(1, null, "旅行", 1)
             2L -> FolderNode(2, 1, "宜蘭", 2)
+            9L -> FolderNode(9, null, "舊相簿", 1, archived = true)
             else -> null
         }
+
+        val archivedCalls = mutableListOf<Pair<Long, Boolean>>()
+        override suspend fun setFolderArchived(id: Long, archived: Boolean) { archivedCalls += id to archived }
 
         /** 就地移除（`onShotDeleted`）跟整頁重查（`reload()`）的分野就在這裡——前者不重打這支。 */
         var folderShotsCalls = 0
@@ -256,6 +266,56 @@ class AppRootFoldersTest {
                 AppRoot(deps, onExitApp = {})
             }
         }
+    }
+
+    @Test
+    fun 相簿畫面看不到封存的相簿() {
+        show()
+        compose.onNodeWithText("相簿").performClick()
+        compose.onNodeWithText("1 個相簿").assertIsDisplayed()
+        compose.onNodeWithText("舊相簿").assertDoesNotExist()
+    }
+
+    @Test
+    fun 下拉進入封存相簿_返回回到相簿畫面() {
+        show()
+        compose.onNodeWithText("相簿").performClick()
+        pullToArchive()
+        compose.onNodeWithText("封存相簿").assertIsDisplayed()
+        compose.onNodeWithText("舊相簿").assertIsDisplayed()
+
+        compose.onNodeWithContentDescription("返回").performClick()
+        compose.onNodeWithText("1 個相簿").assertIsDisplayed()
+    }
+
+    @Test
+    fun 封存後跳提示() {
+        show()
+        compose.onNodeWithText("相簿").performClick()
+        compose.onNodeWithContentDescription("「旅行」的更多操作").performClick()
+        compose.onNodeWithText("封存相簿").performClick()
+        compose.waitForIdle()
+        assertEquals(listOf(1L to true), repo.archivedCalls)
+        compose.onNodeWithText("已封存「旅行」").assertIsDisplayed()
+    }
+
+    @Test
+    fun 從封存相簿開相簿再返回會回到封存相簿() {
+        show()
+        compose.onNodeWithText("相簿").performClick()
+        pullToArchive()
+        compose.onNodeWithText("舊相簿").performClick()
+        compose.onNodeWithContentDescription("返回").performClick()
+        compose.onNodeWithText("封存相簿").assertIsDisplayed()
+    }
+
+    private fun pullToArchive() {
+        compose.onNodeWithTag("folderGrid").performTouchInput {
+            down(Offset(centerX, top + 20f))
+            repeat(20) { moveBy(Offset(0f, 30f)) }
+            up()
+        }
+        compose.waitForIdle()
     }
 
     @Test

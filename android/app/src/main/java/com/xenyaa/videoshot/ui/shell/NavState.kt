@@ -42,6 +42,12 @@ sealed interface Dest {
     data class Folder(val folderId: Long) : Dest
 
     /**
+     * 相簿分頁的封存相簿畫面（規格第六節）：在相簿畫面下拉過門檻放手進來。**保留底部導覽**——
+     * 跟 [Folder] 一樣是分頁裡的一層，從這裡開的相簿再 push 一層 [Folder]。
+     */
+    data object ArchivedFolders : Dest
+
+    /**
      * 詳情頁（規格第六節）。**保留底部導覽**——跟 [Folder] 一起交給 `AppShell`。
      * @param focusShotId 進場時要跳去播的那一張（從 Lightbox【播放這一段】帶進來）
      */
@@ -146,6 +152,7 @@ object NavCodec {
                     is Dest.BatchEdit -> "B${dest.videoId}"
                     is Dest.AccountSetting -> "A${dest.section.id}"
                     is Dest.RestoreFlow -> "V"
+                    is Dest.ArchivedFolders -> "X"
                 }
             }
             "${tab.name}=$items"
@@ -166,6 +173,7 @@ object NavCodec {
                 when {
                     item == "R" -> Dest.Root
                     item == "V" -> Dest.RestoreFlow
+                    item == "X" -> Dest.ArchivedFolders
                     item.startsWith("L") -> Dest.Lightbox(item.drop(1).toIntOrNull() ?: return NavState())
                     item.startsWith("F") -> Dest.Folder(item.drop(1).toLongOrNull() ?: return NavState())
                     item.startsWith("D") -> {

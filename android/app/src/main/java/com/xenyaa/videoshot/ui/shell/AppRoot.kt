@@ -53,6 +53,7 @@ import com.xenyaa.videoshot.ui.folders.AddToFolderSheet
 import com.xenyaa.videoshot.ui.folders.FolderScreen
 import com.xenyaa.videoshot.ui.folders.FolderState
 import com.xenyaa.videoshot.ui.folders.FolderViewModel
+import com.xenyaa.videoshot.ui.folders.ArchivedFoldersScreen
 import com.xenyaa.videoshot.ui.folders.FoldersScreen
 import com.xenyaa.videoshot.ui.folders.FoldersViewModel
 import com.xenyaa.videoshot.ui.home.HomeScreen
@@ -346,13 +347,19 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
         accountVm.labelsChanged.collect { homeVm.clearFilter() }
     }
 
+    // 封存／取消封存的結果（同一個 foldersVm 服務相簿與封存相簿兩個畫面）。
+    // 另開 coroutine 顯示，理由同上面取圖完成那一段：showSnackbar 會等到 snackbar 關掉才返回
+    LaunchedEffect(foldersVm) {
+        foldersVm.notices.collect { message -> scope.launch { snackbarHostState.showSnackbar(message) } }
+    }
+
     // 資料夾頁的返回鍵，以及刪掉自己之後要做的事：退一層；如果因此落回分類清單頁
     // （分類分頁的堆疊只剩 Dest.Root），順便讓 foldersVm 重查——張數與預覽拼貼可能都變了，
     // FoldersViewModel 自己不會知道資料夾頁那邊發生過什麼
     fun backFromFolder() {
         nav.pop()?.let { popped ->
             nav = popped
-            if (popped.current == Dest.Root) foldersVm.reload()
+            if (popped.current == Dest.Root || popped.current == Dest.ArchivedFolders) foldersVm.reload()
         }
     }
 
@@ -610,7 +617,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             )
         }
 
-        Dest.Root, is Dest.Folder, is Dest.Detail, is Dest.AccountSetting -> AppShell(nav = nav, onSelectTab = { nav = nav.select(it) }, snackbarHostState = snackbarHostState, accountInitial = avatarInitialOf(accountState.linkedAccount?.displayName),
+        Dest.Root, is Dest.Folder, Dest.ArchivedFolders, is Dest.Detail, is Dest.AccountSetting -> AppShell(nav = nav, onSelectTab = { nav = nav.select(it) }, snackbarHostState = snackbarHostState, accountInitial = avatarInitialOf(accountState.linkedAccount?.displayName),
             // 照片頁多選時藏起底部導覽，由照片頁自己的【刪除】【加入相簿】動作列取代
             showBottomNav = !(nav.tab == Tab.HOME && nav.current == Dest.Root && homeSelection.isNotEmpty())) { tab ->
             when (val current = nav.current) {
@@ -808,6 +815,21 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                 phoneColumns = accountState.thumbColumns,
                             )
                         }
+                        Dest.ArchivedFolders -> ArchivedFoldersScreen(
+                            state = foldersState,
+                            loader = container.thumbLoader,
+                            onBack = { nav.pop()?.let { nav = it } },
+                            onOpen = { card -> nav = nav.push(Dest.Folder(card.id)) },
+                            onUnarchive = foldersVm::unarchive,
+                            onRename = foldersVm::rename,
+                            onDelete = foldersVm::delete,
+                            onEditorName = foldersVm::editName,
+                            onStartRename = foldersVm::startRename,
+                            onAskDelete = foldersVm::askDelete,
+                            onDismissEditor = foldersVm::dismissEditor,
+                            onDismissDelete = foldersVm::dismissDelete,
+                            onRetry = foldersVm::reload,
+                        )
                         else -> FoldersScreen(
                             state = foldersState,
                             loader = container.thumbLoader,
@@ -826,7 +848,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                             onDismissDelete = foldersVm::dismissDelete,
                             onRetry = foldersVm::reload,
                             onToggleArchive = { card -> if (card.archivedAt == null) foldersVm.archive(card) else foldersVm.unarchive(card) },
-                            onOpenArchive = {},
+                            onOpenArchive = { nav = nav.push(Dest.ArchivedFolders) },
                         )
                     }
                     Tab.ACCOUNT -> when (val dest = nav.current) {
