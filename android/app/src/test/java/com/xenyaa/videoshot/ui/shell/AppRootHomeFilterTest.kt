@@ -266,7 +266,7 @@ class AppRootHomeFilterTest {
     private fun openEditFromLightbox(thumb: String) {
         compose.onNodeWithContentDescription(thumb, substring = true).performClick()
         compose.onNodeWithContentDescription("更多").performClick()
-        compose.onNodeWithText("編輯圖資").performClick()
+        compose.onNodeWithText("詳細資料").performClick()
     }
 
     /**
@@ -327,7 +327,7 @@ class AppRootHomeFilterTest {
 
         compose.onNodeWithContentDescription("片段縮圖 00:02", substring = true).performClick()
         compose.onNodeWithContentDescription("更多").performClick()
-        compose.onNodeWithText("刪除這張收藏").performClick()
+        compose.onNodeWithText("刪除").performClick()
         compose.onNodeWithText("刪除").performClick()
         compose.waitForIdle()
 

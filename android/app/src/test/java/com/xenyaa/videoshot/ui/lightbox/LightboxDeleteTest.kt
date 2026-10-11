@@ -67,7 +67,7 @@ class LightboxDeleteTest {
         }
         compose.onNodeWithText("01:30").assertExists()
         compose.onNodeWithContentDescription("更多").performClick()
-        compose.onNodeWithText("刪除這張收藏").performClick()
+        compose.onNodeWithText("刪除").performClick()
         compose.onNodeWithText("刪除").performClick()
         compose.waitForIdle()
         // 原本第 2 張沒了，位置 1 現在是原本的第 3 張（02:30）
@@ -91,7 +91,7 @@ class LightboxDeleteTest {
             }
         }
         compose.onNodeWithContentDescription("更多").performClick()
-        compose.onNodeWithText("刪除這張收藏").performClick()
+        compose.onNodeWithText("刪除").performClick()
         compose.onNodeWithText("刪除").performClick()
         compose.waitForIdle()
         assertEquals(1, closed)

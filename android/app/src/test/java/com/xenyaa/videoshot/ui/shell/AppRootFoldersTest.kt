@@ -329,7 +329,7 @@ class AppRootFoldersTest {
 
         compose.onAllNodesWithContentDescription("片段縮圖 00:30")[0].performClick()
         compose.onNodeWithContentDescription("更多").performClick()
-        compose.onNodeWithText("刪除這張收藏").performClick()
+        compose.onNodeWithText("刪除").performClick()
         compose.onNodeWithText("刪除").performClick()
         compose.waitForIdle()
         compose.onNodeWithContentDescription("關閉").performClick()
@@ -356,7 +356,7 @@ class AppRootFoldersTest {
         compose.onNodeWithText("宜蘭").performClick() // 進「宜蘭」
         compose.onAllNodesWithContentDescription("片段縮圖 00:45")[0].performClick()
         compose.onNodeWithContentDescription("更多").performClick()
-        compose.onNodeWithText("刪除這張收藏").performClick()
+        compose.onNodeWithText("刪除").performClick()
         compose.onNodeWithText("刪除").performClick()
         compose.waitForIdle()
         compose.onNodeWithContentDescription("關閉").performClick()

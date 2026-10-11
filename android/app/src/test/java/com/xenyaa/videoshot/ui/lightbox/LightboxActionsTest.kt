@@ -92,18 +92,18 @@ class LightboxActionsTest {
     @Test
     fun 刪除與編輯收在更多選單裡() {
         show()
-        compose.onNodeWithText("刪除這張收藏").assertDoesNotExist()
-        compose.onNodeWithText("編輯圖資").assertDoesNotExist()
+        compose.onNodeWithText("刪除").assertDoesNotExist()
+        compose.onNodeWithText("詳細資料").assertDoesNotExist()
         compose.onNodeWithContentDescription("更多").performClick()
-        compose.onNodeWithText("編輯圖資").assertIsDisplayed()
-        compose.onNodeWithText("刪除這張收藏").assertIsDisplayed()
+        compose.onNodeWithText("詳細資料").assertIsDisplayed()
+        compose.onNodeWithText("刪除").assertIsDisplayed()
     }
 
     @Test
     fun 選單裡的編輯會回報() {
         show()
         compose.onNodeWithContentDescription("更多").performClick()
-        compose.onNodeWithText("編輯圖資").performClick()
+        compose.onNodeWithText("詳細資料").performClick()
         assertEquals(listOf("edit"), clicked)
     }
 
@@ -112,7 +112,7 @@ class LightboxActionsTest {
     fun 刪除會先問一次() {
         show()
         compose.onNodeWithContentDescription("更多").performClick()
-        compose.onNodeWithText("刪除這張收藏").performClick()
+        compose.onNodeWithText("刪除").performClick()
         compose.onNodeWithText("刪除這張收藏？").assertIsDisplayed()
         compose.onNodeWithText("YouTube 原片不受影響").assertIsDisplayed()
         assertEquals(emptyList<String>(), clicked)
@@ -124,7 +124,7 @@ class LightboxActionsTest {
     fun 確認框可以取消() {
         show()
         compose.onNodeWithContentDescription("更多").performClick()
-        compose.onNodeWithText("刪除這張收藏").performClick()
+        compose.onNodeWithText("刪除").performClick()
         compose.onNodeWithText("取消").performClick()
         assertEquals(emptyList<String>(), clicked)
     }

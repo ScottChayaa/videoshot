@@ -156,13 +156,13 @@ fun LightboxScreen(
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                         DropdownMenuItem(
-                            text = { Text("編輯圖資") },
+                            text = { Text("詳細資料") },
                             leadingIcon = { Icon(VsIcons.Edit, contentDescription = null) },
                             onClick = { menuOpen = false; actions.onEdit(shot) },
                         )
                         DropdownMenuItem(
                             // 破壞性動作：唯一用 danger 色的地方（手冊 §零第二條）
-                            text = { Text("刪除這張收藏", color = AppTheme.colors.danger) },
+                            text = { Text("刪除", color = AppTheme.colors.danger) },
                             leadingIcon = { Icon(VsIcons.Trash, contentDescription = null, tint = AppTheme.colors.danger) },
                             onClick = { menuOpen = false; confirmingDelete = true },
                         )

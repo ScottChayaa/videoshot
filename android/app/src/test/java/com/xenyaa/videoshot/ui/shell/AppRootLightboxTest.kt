@@ -266,7 +266,7 @@ class AppRootLightboxTest {
 
         compose.onNodeWithContentDescription("片段縮圖 00:20").performClick()
         compose.onNodeWithContentDescription("更多").performClick()
-        compose.onNodeWithText("刪除這張收藏").performClick()
+        compose.onNodeWithText("刪除").performClick()
         compose.onNodeWithText("刪除").performClick()
         compose.waitForIdle()
 
@@ -296,7 +296,7 @@ class AppRootLightboxTest {
 
         compose.onNodeWithContentDescription("片段縮圖 00:10").performClick()
         compose.onNodeWithContentDescription("更多").performClick()
-        compose.onNodeWithText("編輯圖資").performClick()
+        compose.onNodeWithText("詳細資料").performClick()
         // 改描述而不是地點：縮圖牆的 contentDescription 是「有描述用描述、沒有就用秒數」
         // （HomeScreen 的 labelOf），改這一欄才看得出首頁清單有沒有真的同步到新值。
         compose.onNodeWithContentDescription("描述").performTextReplacement("在龍洞浮潛")
