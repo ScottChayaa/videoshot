@@ -348,12 +348,19 @@ class FoldersScreenTest {
     @Test
     fun 有進入封存相簿的無障礙自訂動作() {
         show(FoldersState(cards = listOf(card(1, "旅行"))))
-        val node = compose.onNode(SemanticsMatcher("有自訂動作「進入封存相簿」") { n ->
-            n.config.getOrNull(SemanticsActions.CustomActions).orEmpty().any { it.label == "進入封存相簿" }
-        })
-        node.fetchSemanticsNode().config[SemanticsActions.CustomActions]
+        // 掛在可聚焦的狀態列文字上（容器節點 TalkBack 聚焦不到）
+        compose.onNodeWithText("1 個相簿").fetchSemanticsNode().config[SemanticsActions.CustomActions]
             .first { it.label == "進入封存相簿" }.action()
         assertEquals(1, openArchiveCalls)
+    }
+
+    /** 搜尋時跟下拉手勢一樣關掉：沒有任何節點帶這個自訂動作。 */
+    @Test
+    fun 搜尋中沒有進入封存相簿的無障礙自訂動作() {
+        show(FoldersState(cards = listOf(card(1, "旅行")), searching = true))
+        compose.onAllNodes(SemanticsMatcher("有自訂動作「進入封存相簿」") { n ->
+            n.config.getOrNull(SemanticsActions.CustomActions).orEmpty().any { it.label == "進入封存相簿" }
+        }, useUnmergedTree = true).assertCountEquals(0)
     }
 
     @Test

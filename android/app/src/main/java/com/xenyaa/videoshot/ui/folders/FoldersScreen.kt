@@ -24,6 +24,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -119,10 +120,8 @@ fun FoldersScreen(
                     enabled = !state.searching,
                     onRefresh = onOpenArchive,
                 )
-                // 手勢之外的入口：TalkBack 使用者沒辦法「下拉」
-                .semantics {
-                    customActions = listOf(CustomAccessibilityAction("進入封存相簿") { onOpenArchive(); true })
-                },
+                // 膠囊從內容區頂端底下滑出來，不畫到頂欄上（格線自己會裁切，其他內容不會超出這個框）
+                .clipToBounds(),
         ) {
             Column(Modifier.fillMaxSize()) {
                 // 狀態列（原型 `.fd-status`）：內距 上 8／左右 12／下 0。排序鍵右側往外 8（margin-right: -8），
@@ -135,7 +134,16 @@ fun FoldersScreen(
                         if (state.query.isBlank()) "${FoldersStore.active(state).size} 個相簿" else "符合 ${visible.size} 個",
                         style = MaterialTheme.typography.bodySmall,
                         color = AppTheme.colors.textDim,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            // 手勢之外的入口：TalkBack 使用者沒辦法「下拉」。掛在這個可聚焦的文字節點上
+                            // （外層容器不會被 TalkBack 聚焦，掛那裡等於沒有）；搜尋時跟手勢一樣關掉。
+                            .then(
+                                if (state.searching) Modifier
+                                else Modifier.semantics {
+                                    customActions = listOf(CustomAccessibilityAction("進入封存相簿") { onOpenArchive(); true })
+                                },
+                            ),
                     )
                     val sortShape = RoundedCornerShape(AppTheme.radii.sm)
                     Row(
