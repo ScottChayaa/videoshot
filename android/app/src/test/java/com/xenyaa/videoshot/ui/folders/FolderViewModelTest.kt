@@ -310,47 +310,4 @@ class FolderViewModelTest {
         assertEquals("載入失敗，請再試一次", model.state.value.error)
         assertEquals(false, model.state.value.loading)
     }
-
-    /** 麵包屑：從根到目前這層的名稱（不含「分類」，那是畫面加的前綴）。 */
-    @Test
-    fun 麵包屑從根到目前這層() = runTest {
-        val repo = Repo().apply {
-            node = FolderNode(3, 2, "夜潛", 3)
-            tree = listOf(
-                FolderNode(1, null, "旅行", 1),
-                FolderNode(2, 1, "宜蘭", 2),
-                FolderNode(3, 2, "夜潛", 3),
-                FolderNode(4, null, "無關", 1),
-            )
-        }
-        val model = vm(repo, folderId = 3)
-        advanceUntilIdle()
-
-        assertEquals(listOf("旅行", "宜蘭", "夜潛"), model.state.value.breadcrumb)
-    }
-
-    @Test
-    fun 根層的麵包屑只有自己() = runTest {
-        val repo = Repo().apply { tree = listOf(FolderNode(1, null, "旅行", 1)) }
-        val model = vm(repo)
-        advanceUntilIdle()
-
-        assertEquals(listOf("旅行"), model.state.value.breadcrumb)
-    }
-
-    /** 讀 folderTree 失敗不能拖垮整頁：麵包屑退回只有目前名稱，其他照常載入。 */
-    @Test
-    fun 讀樹失敗時麵包屑退回只有目前名稱且不影響其他載入() = runTest {
-        val repo = Repo().apply {
-            treeError = RuntimeException("壞了")
-            pages = mutableListOf(FolderPage(listOf(shot(10)), null))
-        }
-        val model = vm(repo)
-        advanceUntilIdle()
-
-        val state = model.state.value
-        assertEquals(listOf("旅行"), state.breadcrumb)
-        assertNull(state.error)
-        assertEquals(listOf(10L), state.items.map { it.id })
-    }
 }

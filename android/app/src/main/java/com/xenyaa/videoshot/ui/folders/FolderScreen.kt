@@ -111,7 +111,7 @@ fun FolderScreen(
 
     Column(modifier.fillMaxSize()) {
 
-        VsTopBar(state.node?.name.orEmpty(), nav = TopBarNav.Back(onBack)) {
+        VsTopBar(state.node?.name.orEmpty(), nav = TopBarNav.Back(onBack), divider = false) {
             Box {
                 TopBarIconButton(VsIcons.More, "這個相簿的更多操作", { menuOpen = true })
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
@@ -127,18 +127,6 @@ fun FolderScreen(
                     )
                 }
             }
-        }
-
-        // 麵包屑（原型 `.fd-breadcrumb`）：15 textDim，內距上 12 左右 16。還沒載到（空）就先不畫
-        if (state.breadcrumb.isNotEmpty()) {
-            Text(
-                "相簿 / " + state.breadcrumb.joinToString(" / "),
-                style = MaterialTheme.typography.bodyMedium,
-                color = AppTheme.colors.textDim,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = AppTheme.spacing.s4, end = AppTheme.spacing.s4, top = AppTheme.spacing.s3),
-            )
         }
 
         // 讀取失敗不能無聲無息（同 HomeScreen.kt 的 HomeErrorRow）——不接住的話，下面的空狀態

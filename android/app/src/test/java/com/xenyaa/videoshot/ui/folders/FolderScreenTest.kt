@@ -186,18 +186,6 @@ class FolderScreenTest {
     }
 
     @Test
-    fun 顯示麵包屑() {
-        show(FolderState(node = FolderNode(2, 1, "加勒比海之旅", 2), breadcrumb = listOf("加勒比海之旅")))
-        compose.onNodeWithText("相簿 / 加勒比海之旅").assertIsDisplayed()
-    }
-
-    @Test
-    fun 多層麵包屑用斜線串起來() {
-        show(FolderState(node = FolderNode(3, 2, "夜潛", 3), breadcrumb = listOf("旅行", "宜蘭", "夜潛")))
-        compose.onNodeWithText("相簿 / 旅行 / 宜蘭 / 夜潛").assertIsDisplayed()
-    }
-
-    @Test
     fun 子資料夾是清單列且有更多操作() {
         show(
             FolderState(

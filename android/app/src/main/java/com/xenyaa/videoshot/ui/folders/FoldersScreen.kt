@@ -117,9 +117,10 @@ fun FoldersScreen(
                 onQuery = onQuery,
                 placeholder = "搜尋相簿名稱",
                 onCancel = { onSearching(false) },
+                divider = false,
             )
         } else {
-            VsTopBar("相簿") {
+            VsTopBar("相簿", divider = false) {
                 TopBarIconButton(VsIcons.Search, "搜尋相簿", { onSearching(true) })
                 TopBarIconButton(VsIcons.FolderPlus, "新增相簿", onStartCreate, tint = AppTheme.colors.accent)
             }

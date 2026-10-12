@@ -55,7 +55,7 @@ fun ArchivedFoldersScreen(
         if (selecting) {
             VsTopBar("已選 ${state.selection.size} 本", nav = TopBarNav.Close(onClearSelection, "取消選取"), divider = false)
         } else {
-            VsTopBar("封存相簿", nav = TopBarNav.Back(onBack))
+            VsTopBar("封存相簿", nav = TopBarNav.Back(onBack), divider = false)
         }
 
         if (state.error != null) {

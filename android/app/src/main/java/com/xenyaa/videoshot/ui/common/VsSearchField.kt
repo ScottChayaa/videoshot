@@ -44,7 +44,7 @@ fun VsClearQueryButton(onClick: () -> Unit) {
  * 頂欄的搜尋模式：點了頂欄的〔搜尋〕圖示鈕之後，整條頂欄換成搜尋框＋【取消】。
  *
  * 搜尋框跟首頁篩選抽屜的一樣（Dense、左邊放大鏡、有字時右邊【✕】），一出現就聚焦（鍵盤跳出來）。
- * 高度與分隔線跟 [VsTopBar] 相同，切換時下面的內容不會上下跳。【取消】要清掉搜尋字並收回成原本的頂欄，
+ * 高度與分隔線（[divider]）跟 [VsTopBar] 相同，切換時下面的內容不會上下跳。【取消】要清掉搜尋字並收回成原本的頂欄，
  * 由呼叫端的 [onCancel] 決定（系統返回鍵也該接到同一件事）。
  */
 @Composable
@@ -54,6 +54,7 @@ fun VsSearchTopBar(
     placeholder: String,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
+    divider: Boolean = true,
 ) {
     val focusRequester = remember { FocusRequester() }
     Column(modifier.fillMaxWidth().background(AppTheme.colors.bg)) {
@@ -82,7 +83,7 @@ fun VsSearchTopBar(
             )
             VsButton("取消", onCancel, variant = ButtonVariant.Quiet)
         }
-        HorizontalDivider(thickness = 1.dp, color = AppTheme.colors.border)
+        if (divider) HorizontalDivider(thickness = 1.dp, color = AppTheme.colors.border)
     }
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 }
