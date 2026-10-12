@@ -51,6 +51,7 @@ import com.xenyaa.videoshot.core.tags.TagKind
 import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.ChipKind
+import com.xenyaa.videoshot.ui.common.UNSELECTED_FILL_ALPHA
 import com.xenyaa.videoshot.ui.common.VsBottomSheet
 import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsChipPager
@@ -315,7 +316,7 @@ private fun RemovableTag(name: String, kind: ChipKind, onRemove: () -> Unit) {
             Modifier
                 .focusRing(shape)
                 .clip(shape)
-                .background(AppTheme.colors.text.copy(alpha = 0.07f))
+                .background(AppTheme.colors.text.copy(alpha = UNSELECTED_FILL_ALPHA))
                 .padding(horizontal = AppTheme.spacing.s2, vertical = AppTheme.spacing.s1),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),

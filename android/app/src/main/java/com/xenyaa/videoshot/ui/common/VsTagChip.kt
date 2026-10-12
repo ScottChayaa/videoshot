@@ -49,7 +49,7 @@ import com.xenyaa.videoshot.ui.theme.FocusRingWidth
 enum class ChipSize { Regular, Mini }
 
 /** 沒選的小膠囊底色：文字色的不透明度。 */
-private const val UNSELECTED_FILL_ALPHA = 0.07f
+internal const val UNSELECTED_FILL_ALPHA = 0.04f
 
 /**
  * 一般尺寸小膠囊的寬度組成：左右內距＋圖示＋圖示與文字的間距＋文字。篩選抽屜分頁要在畫之前先算出
@@ -91,7 +91,7 @@ fun VsTagChip(
 ) {
     val regular = size == ChipSize.Regular
     val shape = RoundedCornerShape(AppTheme.radii.sm)
-    // 沒選的一律是「文字色 7% 半透明」的中性底、無框（2026-10-12）：跟 Lightbox 的白色 12% 半透明底同一條規則，
+    // 沒選的一律是「文字色 4% 半透明」的中性底、無框（2026-10-12）：跟 Lightbox 的白色 12% 半透明底同一條規則，
     // 疊在白色抽屜或淺灰首頁上都分得出邊界，色系換了也跟著文字色走。主色只留給「已選」，選與沒選一眼分得出來
     val bg = if (selected) AppTheme.colors.accent else AppTheme.colors.text.copy(alpha = UNSELECTED_FILL_ALPHA)
     val ink = if (selected) AppTheme.colors.accentInk else AppTheme.colors.text
