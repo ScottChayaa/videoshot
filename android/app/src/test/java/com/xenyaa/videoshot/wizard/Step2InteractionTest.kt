@@ -6,6 +6,8 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.longClick
 import com.xenyaa.videoshot.wizard.frames.FakeFrameSource
@@ -90,18 +92,25 @@ class Step2InteractionTest {
     }
 
     @Test
-    fun 點右上播放鈕等同長按() {
+    fun 點一下只勾選不播放() {
         show()
-        compose.onAllNodesWithContentDescription("跳到這一段")[2].performClick()
-        assertEquals(listOf(2), played)
-        assertEquals("▶ 不該順便勾選", emptyList<Int>(), toggled)
+        compose.onNodeWithContentDescription("第 3 格 00:20").performClick()
+        assertEquals(listOf(2), toggled)
+        assertEquals("點一下不該跳播", emptyList<Int>(), played)
     }
 
+    /** 長按是跳播的唯一手勢；TalkBack 從動作選單「跳到這一段」也到得了。 */
     @Test
-    fun 播放鈕是無障礙到得了的入口() {
+    fun 長按跳播有無障礙動作() {
         show()
-        // 每一格都要有，長按不是唯一入口（手冊 §四第二步）
-        assertEquals(3, compose.onAllNodesWithContentDescription("跳到這一段").fetchSemanticsNodes().size)
+        compose.onNodeWithContentDescription("第 3 格 00:20").assert(
+            androidx.compose.ui.test.SemanticsMatcher("長按標籤是「跳到這一段」") {
+                androidx.compose.ui.semantics.SemanticsActions.OnLongClick in it.config && it.config[androidx.compose.ui.semantics.SemanticsActions.OnLongClick].label == "跳到這一段"
+            },
+        )
+        compose.onNodeWithContentDescription("第 3 格 00:20")
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnLongClick)
+        assertEquals(listOf(2), played)
     }
 
     @Test

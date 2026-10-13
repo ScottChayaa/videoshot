@@ -16,6 +16,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -45,7 +46,7 @@ data class ManualCell(
  * @param ready 已經有圖可以畫的格號
  * @param kept 收斂後保留的格號（時間順序）
  * @param taken 先前已收藏過的格號 —— 灰＋鎖，點下去出提示而不是靜靜沒反應
- * @param playingFrame 播放器目前停在哪一格（藍框）
+ * @param playingFrame 播放器目前播到哪一格（主色外框，跟著播放進度走）
  */
 data class Step2State(
     val plan: FramePlan,
@@ -348,6 +349,19 @@ class Step2Store(
 
     fun markPlaying(frameIndex: Int?) {
         _state.value = _state.value.copy(playingFrame = frameIndex)
+    }
+
+    /**
+     * 播放器播到第 [sec] 秒：外框移到牆上「時間不晚於 [sec] 的最後一格」。
+     * 還沒播過（第 0 秒、也沒有任何一格被標過）時不標，免得一進來第一格就有框。
+     */
+    fun followPlayback(sec: Double) {
+        val current = _state.value
+        if (sec <= 0.0 && current.playingFrame == null) return
+        // 容差 0.05 秒：跳播到某一格的秒數後，播放器回報的時間可能略早一點點
+        val frame = current.visible.filter { current.atSecOf(it) <= sec + 0.05 }
+            .maxByOrNull { current.atSecOf(it) }
+        if (frame != current.playingFrame) _state.update { it.copy(playingFrame = frame) }
     }
 
     /**

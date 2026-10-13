@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -38,14 +37,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -58,6 +52,7 @@ import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsHintCard
 import com.xenyaa.videoshot.ui.common.PillStyle
 import com.xenyaa.videoshot.ui.common.VsToolbarPill
+import com.xenyaa.videoshot.ui.thumb.ThumbGridGap
 import com.xenyaa.videoshot.ui.common.VsSelectedBadge
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
@@ -108,21 +103,19 @@ fun Step2GridScreen(
         }
 
         LazyVerticalGrid(
-            columns = GridCells.Fixed(3),
+            // 跟照片頁的縮圖牆一樣：每列 4 張正方形、左右貼齊螢幕、格線 ThumbGridGap
+            columns = GridCells.Fixed(4),
             modifier = Modifier.weight(1f).fillMaxWidth(),
-            // 原型 .wz-grid：gap 4、padding 4
-            contentPadding = PaddingValues(AppTheme.spacing.s1),
-            horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
-            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
+            horizontalArrangement = Arrangement.spacedBy(ThumbGridGap),
+            verticalArrangement = Arrangement.spacedBy(ThumbGridGap),
         ) {
             // 工具列與一次性提示放在縮圖牆裡、佔滿整列：往下滑時跟著縮圖一起捲走，把畫面讓給縮圖
             item(key = "toolbar", span = { GridItemSpan(maxLineSpan) }) {
                 // FlowRow：工具列**換行不截斷**，文字不會被切掉（手冊 §四第二步）
                 // 順序照規格第五節的線框：全部選取│截圖│只看已選；大小與間距跟第三步的快速選取列一樣
                 FlowRow(
-                    // 縮圖牆本身有 4dp 內距，這裡補到左右 16、上下 8
                     modifier = Modifier.fillMaxWidth()
-                        .padding(horizontal = AppTheme.spacing.s3, vertical = AppTheme.spacing.s1),
+                        .padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s2),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                     itemVerticalAlignment = Alignment.CenterVertically,
@@ -282,7 +275,8 @@ private fun StatusBar(state: Step2State, onShowAll: (Boolean) -> Unit) {
 }
 
 /**
- * 一格。**整格都是點擊區**，點＝勾選、長按 0.5 秒＝跳播（規格第五節互動表）。
+ * 一格（正方形、直角，同照片頁）。**整格都是點擊區**，點＝勾選（只打勾，不畫框）、長按 0.5 秒＝跳播。
+ * 主色外框表示播放器目前播到這一格（跟著播放進度走），不是選取。
  *
  * 「點＝播放、小圓圈＝勾選」曾評估並否決：96px 寬的格子上小圓圈只有約 20px，
  * 選 30 張要精準點 30 次。挑圖是主要動作，它該拿到最順、不需要瞄準的手勢。
@@ -307,17 +301,16 @@ private fun FrameCell(
 ) {
     val clock = formatClock(atSec)
     val accent = AppTheme.colors.accent
-    val cellShape = RoundedCornerShape(AppTheme.radii.sm)
+    val cellShape = RectangleShape
     val scrimPill = RoundedCornerShape(AppTheme.radii.sm)
 
-    // 外層 Box **不掛點擊語意**，只負責圓角／背景／排版。
-    // ▶ 按鈕不能是「整格點擊區」那個語意節點的子孫 —— combinedClickable 會把子孫
+    // 外層 Box **不掛點擊語意**，只負責背景／排版。
+    // 微調鈕不能是「整格點擊區」那個語意節點的子孫 —— combinedClickable 會把子孫
     // 合併進自己（無障礙用途），子孫若也是可點擊節點，合併時它的 OnClick 會蓋掉
-    // 整格自己的 OnClick，點下去就變成播放而不是勾選。讓 ▶ 當外層 Box 的手足、
-    // 不落在「整格」的合併子樹裡，兩個語意節點才不會互相吃掉。
+    // 整格自己的 OnClick。讓微調鈕當外層 Box 的手足，兩個語意節點才不會互相吃掉。
     BoxWithConstraints(
         Modifier
-            .aspectRatio(16f / 9f)
+            .aspectRatio(1f)
             // 已收藏：整格半透明（原型 .wz-cell.locked），不再蓋黑色遮罩與鎖頭
             .alpha(if (taken) 0.5f else 1f)
             .clip(cellShape)
@@ -334,6 +327,8 @@ private fun FrameCell(
                         // 已收藏的格子點下去**明確提示**，不是靜靜沒反應（規格第五節）
                         if (taken) onTakenTap() else onToggle()
                     },
+                    // 長按是跳播的唯一手勢；有了這個標籤，TalkBack 的動作選單也找得到
+                    onLongClickLabel = "跳到這一段",
                     onLongClick = {
                         onHintDismiss()
                         haptics.tick()
@@ -345,23 +340,9 @@ private fun FrameCell(
         ) {
             FrameImage(bitmapFor, frameIndex, Modifier.fillMaxSize())
 
-            // 外框畫在格子內緣、疊在圖上。已選（實線）優先於播放中（虛線），
-            // 兩者用形狀區分而不是色相（原型 .wz-cell.sel／.now；手冊 §零：已選不能用紅色）
-            if (selected) {
+            // 主色外框＝播放器目前播到這一格（畫在格子內緣、疊在圖上）；選取只靠左上角打勾
+            if (playing) {
                 Box(Modifier.fillMaxSize().border(3.dp, accent, cellShape))
-            } else if (playing) {
-                Box(
-                    Modifier.fillMaxSize().drawBehind {
-                        val w = 3.dp.toPx()
-                        drawRoundRect(
-                            color = accent,
-                            topLeft = Offset(w / 2, w / 2),
-                            size = Size(size.width - w, size.height - w),
-                            cornerRadius = CornerRadius(AppTheme.radii.sm.toPx() - w / 2),
-                            style = Stroke(w, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()))),
-                        )
-                    },
-                )
             }
 
             if (selected) {
@@ -386,7 +367,7 @@ private fun FrameCell(
             Text(
                 // 手動格前面加「截圖」，取代原本的 📷 標記（這一格是使用者自己補的，不是 YouTube 的
                 // storyboard，規格第五節）；文字本身就是無障礙名稱（不另設 contentDescription，
-                // 否則輔助技術會唸兩次）。放右下角 —— 右上角是 ▶，左上角是徽章。
+                // 否則輔助技術會唸兩次）。放右下角 —— 左上角是徽章。
                 // 相簿來的手動格左下角還有 ±1 秒微調鈕，格子窄（< NUDGE_COMPACT_WIDTH）時兩者放不下，
                 // 這時只留時間 —— 有微調鈕就已經看得出這是自己補的圖。
                 if (manual && !(nudgable && compact)) "截圖 $clock" else clock,
@@ -404,10 +385,10 @@ private fun FrameCell(
         if (nudgable) {
             // ±1 秒微調：**只有相簿選來的圖有**。截圖的圖與秒數是同一瞬間取的，
             // 給了微調鈕等於承諾一件做不到的事（規格第五節、手冊第 93 行）。
-            // 跟 ▶ 一樣是外層 Box 的手足，不在整格點擊的合併子樹裡；而且**實際尺寸（24×22dp）
+            // 是外層 Box 的手足，不在整格點擊的合併子樹裡；而且**實際尺寸（24×22dp）
             // 不蓋到格子中心**：Compose 會把小於 48dp 的觸控目標往外擴，但「實際範圍內的命中」
             // 一律贏過「擴張範圍內的命中」，所以只要實際範圍避開中心，點中心就是整格的勾選。
-            // 格高最矮約 57dp（320dp 寬），鈕頂在 57−2−22＝33dp，中心在 28.5dp，留 4dp 餘裕。
+            // 格子是正方形，320dp 寬時約 80dp 高，鈕頂在 80−2−22＝56dp，中心在 40dp，留餘裕。
             Row(
                 Modifier.align(Alignment.BottomStart).padding(start = AppTheme.spacing.s1, bottom = 2.dp),
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -415,37 +396,6 @@ private fun FrameCell(
             ) {
                 NudgeButton("−", "往前 1 秒", scrimPill) { onNudge(-1.0) }
                 NudgeButton("＋", "往後 1 秒", scrimPill) { onNudge(1.0) }
-            }
-        }
-
-        // ▶ 與長按是同一件事。**長按不是唯一入口** —— 鍵盤與輔助技術到不了長按（規格第五節）
-        // .size(40.dp)：觸控區維持 40dp，視覺是裡面 30dp 的 scrim 方塊（原型 .peek，離邊 4dp）。
-        // 不圈住的話，點擊區會逼近格子中心，蓋過整格點擊。
-        // 40dp 錨在 TopEnd 時佔據 [格寬-40dp, 格寬] 的水平範圍。格寬實測約 99～101dp
-        // （Step2InteractionTest 量出來的，LazyVerticalGrid 三欄＋4dp 左右 padding＋
-        // 4dp 欄距），格子中心（約 50dp）不落在 [約 60dp, 約 100dp] 內，所以整格點擊仍然
-        // 命中內層 Box 的 combinedClickable，同時保住 40dp 的無障礙最小觸控區。
-        // （若換成 58dp 寬，範圍會是 [約 41dp, 約 100dp]，反而蓋住中心 ——
-        // 這正是原本沒設 .size() 時會撞到的情況。）
-        val playShape = RoundedCornerShape(AppTheme.radii.sm)
-        Box(
-            Modifier
-                .align(Alignment.TopEnd)
-                .size(40.dp)
-                .focusRing(playShape)
-                .semantics { contentDescription = "跳到這一段" }
-                .clickable(role = Role.Button) { onHintDismiss(); onPlay() },
-            contentAlignment = Alignment.TopEnd,
-        ) {
-            Box(
-                Modifier
-                    .padding(top = AppTheme.spacing.s1, end = AppTheme.spacing.s1)
-                    .size(30.dp)
-                    .clip(playShape)
-                    .background(AppTheme.colors.scrim),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(VsIcons.Play, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
             }
         }
     }

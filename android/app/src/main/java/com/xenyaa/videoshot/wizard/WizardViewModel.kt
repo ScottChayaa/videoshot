@@ -64,6 +64,10 @@ class WizardViewModel(
     private val _captureError = MutableStateFlow<CaptureError?>(null)
     val captureError: StateFlow<CaptureError?> = _captureError.asStateFlow()
 
+    /** 第二步播放器目前播到第幾秒（播放器下方的進度條用）。由畫面定時呼叫 [pollPlayback] 更新。 */
+    private val _playbackSec = MutableStateFlow(0.0)
+    val playbackSec: StateFlow<Double> = _playbackSec.asStateFlow()
+
     private var capture: Capture? = null
 
     private val _step = MutableStateFlow(WizardStep.URL)
@@ -342,6 +346,7 @@ class WizardViewModel(
     fun detachPlayer() {
         player = null
         capture = null
+        _playbackSec.value = 0.0
     }
 
     /** 跟著 [_step2] 換掉的收集器。舊的 store close 了，訂閱它的收集器也要跟著取消 —— 否則每次
@@ -390,6 +395,18 @@ class WizardViewModel(
     }
 
     fun dismissCaptureError() { _captureError.value = null }
+
+    /**
+     * 讀一次播放器目前的秒數：更新進度條，並讓縮圖牆的外框跟著播放位置走。
+     * **由畫面定時呼叫**（播放器還在畫面上才輪詢），ViewModel 自己不開無限迴圈。
+     */
+    suspend fun pollPlayback() {
+        val p = player ?: return
+        val sec = p.currentTime()
+        if (sec < 0) return
+        _playbackSec.value = sec
+        _step2.value?.followPlayback(sec)
+    }
 
     /**
      * 【截圖】：暫停 → 截圖＋讀秒（同一瞬間）→ 存檔 → 插進牆上 → 續播（規格第五節的流程圖）。

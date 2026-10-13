@@ -177,10 +177,19 @@ class Step2GridScreenTest {
         compose.onNodeWithText("00:20").assertIsDisplayed()
     }
 
+    /** 格子上不再有 ▶ 鈕：跳播只靠長按。 */
     @Test
-    fun 每一格右上角都有播放鈕() {
+    fun 格子上沒有播放鈕() {
         show(loaded(frameCount = 3))
-        assertEquals(3, compose.onAllNodesWithContentDescription("跳到這一段").fetchSemanticsNodes().size)
+        compose.onAllNodesWithContentDescription("跳到這一段").assertCountEquals(0)
+    }
+
+    /** 主色外框跟著播放位置走：只有正在播的那一格有外框，勾選的格子不畫框。 */
+    @Test
+    fun 外框只標正在播的那一格() {
+        val state = loaded(frameCount = 3, selected = setOf(0)).copy(playingFrame = 2)
+        show(state)
+        compose.onNodeWithContentDescription("第 3 格 00:20").assertIsDisplayed()
     }
 
     @Test

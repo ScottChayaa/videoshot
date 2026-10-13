@@ -6,12 +6,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -21,6 +24,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xenyaa.videoshot.player.PlayerSurface
 import com.xenyaa.videoshot.ui.common.ButtonVariant
@@ -101,6 +109,15 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                                     // WebView 被釋放了 ViewModel 就不能再握著它
                                     onPlayerReleased = { vm.detachPlayer() },
                                 )
+                                // 播放器還在畫面上才輪詢：每 0.25 秒讀一次目前秒數，更新進度條與縮圖牆的外框
+                                LaunchedEffect(meta.videoId) {
+                                    while (true) {
+                                        delay(PLAYBACK_POLL_MS)
+                                        vm.pollPlayback()
+                                    }
+                                }
+                                val playbackSec by vm.playbackSec.collectAsStateWithLifecycle()
+                                PlaybackProgress(playbackSec, meta.durationSec)
                             }
                             // remember 起來、以 store 當 key：FrameImage 拿它當 produceState 的 key，
                             // 每次重組都給新 lambda 的話每一格都會重新解圖
@@ -208,6 +225,27 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
             text = { Text("剛才的選擇都還留著，可以再試一次。") },
             confirmButton = { VsButton("知道了", { vm.dismissCommitFailed() }) },
         )
+    }
+}
+
+/** 播放進度輪詢間隔。夠順又不至於一直打擾 WebView。 */
+private const val PLAYBACK_POLL_MS = 250L
+
+/**
+ * 播放器下方的細進度條（2dp）：主色＝已播放、淡色＝未播放。只是顯示，不能拖。
+ * 影片長度不明（0）時整條維持淡色。
+ */
+@Composable
+private fun PlaybackProgress(sec: Double, durationSec: Int) {
+    val fraction = if (durationSec > 0) (sec / durationSec).toFloat().coerceIn(0f, 1f) else 0f
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(2.dp)
+            .background(AppTheme.colors.accentLine)
+            .semantics { progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f) },
+    ) {
+        Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().background(AppTheme.colors.accent))
     }
 }
 

@@ -303,6 +303,23 @@ class Step2StoreTest {
         assertEquals(null, s.state.value.playingFrame)
     }
 
+    @Test
+    fun 外框跟著播放進度走() = runTest(dispatcher) {
+        val s = store(FakeFrameSource.of(frameCount = 3, intervalSec = 10.0, perSheet = 3), scope = this)
+        advanceUntilIdle()
+        s.setShowAll(true) // 三格都在牆上，不受收斂影響
+
+        s.followPlayback(0.0)
+        assertEquals("還沒播過，不標", null, s.state.value.playingFrame)
+
+        s.followPlayback(12.5)
+        assertEquals(1, s.state.value.playingFrame)
+        s.followPlayback(19.97) // 跳播到 20 秒時播放器回報的時間可能略早一點點
+        assertEquals(2, s.state.value.playingFrame)
+        s.followPlayback(3.0) // 往回拖
+        assertEquals(0, s.state.value.playingFrame)
+    }
+
     // ---- 降級 ----
 
     @Test
