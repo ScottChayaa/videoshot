@@ -211,6 +211,21 @@ class WizardDraftTest {
         assertEquals(listOf(1), DraftCodec.decode(data.stored!!)!!.selected)
     }
 
+    /** 沒有離開確認框了：返回上一步時先存草稿，存的是離開的那一步與最新的勾選。 */
+    @Test
+    fun 返回上一步會存草稿() = runTest(dispatcher) {
+        val data = DraftData(null)
+        val vm = vmWith(data)
+        vm.openRecent("v1"); advanceUntilIdle()
+        vm.step2.value!!.toggle(1)
+        data.stored = null
+        assertTrue(vm.back())
+        advanceUntilIdle()
+        val saved = DraftCodec.decode(data.stored!!)!!
+        assertEquals(2, saved.step)
+        assertEquals(listOf(1), saved.selected)
+    }
+
     @Test
     fun 捨棄草稿會刪掉目錄() = runTest(dispatcher) {
         val data = DraftData(null)

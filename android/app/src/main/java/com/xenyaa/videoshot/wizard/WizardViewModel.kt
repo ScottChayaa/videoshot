@@ -95,12 +95,15 @@ class WizardViewModel(
     }
 
     /**
-     * 處理 Android 返回鍵。
+     * 處理返回（頂欄返回鍵與 Android 返回）。
+     * 離開第二、三步前先存一次草稿 —— 精靈沒有離開確認框，之後從第一步返回就直接走了，
+     * 這裡不存的話，上次存檔之後的勾選與圖資會丟掉。存的是**離開的那一步**，續做時回到這裡。
      * @return true 代表精靈自己消化掉了；false 代表在第一步，交給系統（離開精靈）
      */
     fun back(): Boolean {
         val current = _step.value
         if (current == WizardStep.URL) return false
+        if (_hasDraft.value) saveDraft()
         _step.value = WizardStep.entries.first { it.order == current.order - 1 }
         return true
     }
@@ -204,7 +207,7 @@ class WizardViewModel(
     /**
      * 把目前的狀態寫成草稿。
      *
-     * **只在三個時機呼叫**：步驟變了、套用過一輪圖資、使用者選【保留草稿並離開】。
+     * **只在這幾個時機呼叫**：步驟變了（含返回上一步）、套用過一輪圖資、[keepDraft]。
      * 不是每次勾選都存 —— 一次取圖會勾上百次，而勾選丟掉的代價（重點幾下）
      * 遠小於圖資丟掉的代價（重打一輪字）。
      */
@@ -212,10 +215,12 @@ class WizardViewModel(
         val video = _loaded.value ?: return
         val state2 = _step2.value?.state?.value ?: return
         val state3 = _step3.value?.state?.value
+        // 在協程外先取：back() 呼叫完馬上換步驟，協程裡再讀就變成上一步了
+        val stepOrder = _step.value.order
         viewModelScope.launch {
             val payload = DraftPayload(
                 videoId = video.videoId,
-                step = _step.value.order,
+                step = stepOrder,
                 level = state2.plan.level,
                 frameCount = state2.plan.frameCount,
                 // **存第二步的勾選，不是第三步的** —— 兩個 store 的 `selected` 意思不同：

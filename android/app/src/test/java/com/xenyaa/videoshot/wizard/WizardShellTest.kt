@@ -1,7 +1,6 @@
 package com.xenyaa.videoshot.wizard
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -63,84 +62,65 @@ class WizardShellTest {
     }
 
     @Test
-    fun 進度指示帶文字而且是三段() {
-        show()
-        compose.onNodeWithText("1. 貼網址").assertIsDisplayed()
-        compose.onNodeWithText("2. 挑畫面").assertIsDisplayed()
-        compose.onNodeWithText("3. 填資料").assertIsDisplayed()
-    }
-
-    @Test
     fun 一進來在第一步() {
         val vm = newVm()
         show(vm)
         assertEquals(WizardStep.URL, vm.step.value)
     }
 
+    /** 頂欄左上角是返回鍵（不是 ✕）。 */
     @Test
-    fun 已完成的步驟可以點回去() {
-        val vm = newVm()
-        vm.goTo(WizardStep.PICK)
-        show(vm)
-        compose.onNodeWithText("1. 貼網址").performClick()
-        assertEquals(WizardStep.URL, vm.step.value)
-    }
-
-    @Test
-    fun 還沒到的步驟點不動() {
-        val vm = newVm()
-        show(vm)
-        compose.onNodeWithText("3. 填資料").performClick()
-        assertEquals(WizardStep.URL, vm.step.value)
-    }
-
-    @Test
-    fun 第一步按叉直接離開不問草稿() {
+    fun 頂欄左上角是返回鍵() {
         show()
-        compose.onNodeWithContentDescription("關閉").performClick()
+        compose.onNodeWithContentDescription("返回").assertIsDisplayed()
+        compose.onNodeWithContentDescription("關閉").assertDoesNotExist()
+    }
+
+    @Test
+    fun 第一步按返回直接離開() {
+        show()
+        compose.onNodeWithContentDescription("返回").performClick()
         assertEquals(1, exits)
     }
 
     @Test
-    fun 第二步按叉會問要不要保留草稿() {
+    fun 第二步按返回回到第一步不離開() {
         val vm = newVm()
         vm.goTo(WizardStep.PICK)
         show(vm)
-        compose.onNodeWithContentDescription("關閉").performClick()
-        compose.onNodeWithText("保留草稿並離開").assertIsDisplayed()
-        compose.onNodeWithText("捨棄草稿").assertIsDisplayed()
+        compose.onNodeWithContentDescription("返回").performClick()
+        assertEquals(WizardStep.URL, vm.step.value)
         assertEquals("還沒離開", 0, exits)
+        // 沒有離開確認框了
+        compose.onNodeWithText("保留草稿並離開").assertDoesNotExist()
     }
 
     @Test
-    fun 選保留草稿會保留() {
+    fun 第三步按返回回到第二步() {
         val vm = newVm()
         vm.goTo(WizardStep.PICK)
+        vm.goTo(WizardStep.DETAILS)
         show(vm)
-        compose.onNodeWithContentDescription("關閉").performClick()
-        compose.onNodeWithText("保留草稿並離開").performClick()
-        assertEquals(true, vm.hasDraft.value)
+        compose.onNodeWithContentDescription("返回").performClick()
+        assertEquals(WizardStep.PICK, vm.step.value)
+        assertEquals(0, exits)
+    }
+
+    /** Android 返回走同一套：第二步回第一步，第一步才離開。 */
+    @Test
+    fun 系統返回跟頂欄返回鍵一樣() {
+        val vm = newVm()
+        vm.goTo(WizardStep.PICK)
+        var dispatcher: androidx.activity.OnBackPressedDispatcher? = null
+        compose.setContent {
+            dispatcher = androidx.activity.compose.LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
+            WizardScreen(vm = vm, haptics = FakeHaptics(), onExit = { exits++ })
+        }
+        compose.runOnIdle { dispatcher!!.onBackPressed() }
+        assertEquals(WizardStep.URL, vm.step.value)
+        assertEquals(0, exits)
+        compose.runOnIdle { dispatcher!!.onBackPressed() }
         assertEquals(1, exits)
-    }
-
-    @Test
-    fun 選捨棄草稿會捨棄() {
-        val vm = newVm()
-        vm.goTo(WizardStep.PICK)
-        show(vm)
-        compose.onNodeWithContentDescription("關閉").performClick()
-        compose.onNodeWithText("捨棄草稿").performClick()
-        assertEquals(false, vm.hasDraft.value)
-        assertEquals(1, exits)
-    }
-
-    @Test
-    fun 離開確認的文案說得出草稿還在不在() {
-        val vm = newVm()
-        vm.goTo(WizardStep.PICK)
-        show(vm)
-        compose.onNodeWithContentDescription("關閉").performClick()
-        compose.onNodeWithText("下次按【取圖】可以接著做", substring = true).assertIsDisplayed()
     }
 
     @Test
@@ -163,19 +143,11 @@ class WizardShellTest {
         compose.onNodeWithText("相簿").assertDoesNotExist()
     }
 
-    /** 原型 .wz-top：第一步的頂欄標題是「取圖」，左邊是【✕】。 */
+    /** 原型 .wz-top：第一步的頂欄標題是「取圖」。 */
     @Test
-    fun 第一步頂欄顯示取圖與關閉鈕() {
+    fun 第一步頂欄顯示取圖() {
         show()
         compose.onNodeWithText("取圖").assertIsDisplayed()
-        compose.onNodeWithContentDescription("關閉").assertIsDisplayed()
-    }
-
-    /** 手冊 §四：進度指示有文字；目前步驟標成已選。 */
-    @Test
-    fun 步驟條標出目前步驟() {
-        show()
-        compose.onNodeWithText("1. 貼網址", substring = true).assertIsSelected()
     }
 
     /** 影片標題還沒載入（第二步但 loaded 為空）時，頂欄退回「取圖」。 */

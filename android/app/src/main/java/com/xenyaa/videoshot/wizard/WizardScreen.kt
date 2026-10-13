@@ -27,12 +27,11 @@ import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.TopBarNav
 import com.xenyaa.videoshot.ui.common.TopBarTitle
 import com.xenyaa.videoshot.ui.common.VsButton
-import com.xenyaa.videoshot.ui.common.VsStepIndicator
 import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.ui.theme.AppTheme
 
 /**
- * 取圖精靈的外殼：三段進度、【✕】、返回鍵、離開確認。
+ * 取圖精靈的外殼：頂欄（左上角返回鍵）與 Android 返回。
  *
  * **沒有底部導覽**（規格第五節、手冊 §四）—— 導覽列常疊在縮圖牆上方，
  * 而精靈是一條有終點的流程，不該讓使用者中途跳去別的分頁。
@@ -40,7 +39,6 @@ import com.xenyaa.videoshot.ui.theme.AppTheme
 @Composable
 fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
     val step by vm.step.collectAsStateWithLifecycle()
-    val furthest by vm.furthest.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
     /**
      * 相簿選圖（規格第五節的退路）。用 Photo Picker —— 它不需要讀取儲存空間的權限，
@@ -51,11 +49,11 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
         if (uri != null) vm.addFromGalleryUri(context.contentResolver, uri)
     }
 
-    var askExit by remember { mutableStateOf(false) }
     var takenTapped by remember { mutableStateOf<Int?>(null) }
 
-    // 返回鍵先給精靈消化；在第一步才讓系統關掉整個流程
-    BackHandler { if (!vm.back()) onExit() }
+    // 頂欄返回鍵與 Android 返回同一套：第二、三步回上一步（選擇不會丟，草稿會存），第一步才離開取圖
+    val goBack = { if (!vm.back()) onExit() }
+    BackHandler(onBack = goBack)
 
     val loadedForTitle by vm.loaded.collectAsStateWithLifecycle()
     // 原型 .wz-top：第一步標題是「取圖」，之後換成影片標題（取不到時退回「取圖」）
@@ -66,15 +64,8 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
         VsTopBar(
             title = title,
             modifier = Modifier.statusBarsPadding(),
-            // 第一步還沒有任何投入，直接走；之後要問草稿怎麼辦
-            nav = TopBarNav.Close(onClick = { if (step == WizardStep.URL) onExit() else askExit = true }),
+            nav = TopBarNav.Back(onClick = goBack),
             titleStyle = TopBarTitle.Small,
-        )
-        VsStepIndicator(
-            steps = WizardStep.entries.map { it.label },
-            current = step.order - 1,
-            furthest = furthest.order - 1,
-            onStepClick = { vm.jumpTo(WizardStep.entries[it]) },
         )
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (step) {
@@ -174,14 +165,6 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
         }
     }
 
-    if (askExit) {
-        ExitDialog(
-            onKeep = { askExit = false; vm.keepDraft(); onExit() },
-            onDiscard = { askExit = false; vm.discardDraft(); onExit() },
-            onDismiss = { askExit = false },
-        )
-    }
-
     val draftPrompt by vm.draftPrompt.collectAsStateWithLifecycle()
     draftPrompt?.let { prompt ->
         val stepName = WizardStep.entries.firstOrNull { it.order == prompt.step }?.label ?: "挑畫面"
@@ -234,19 +217,4 @@ private fun LoadingText(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(text, style = MaterialTheme.typography.bodyMedium, color = AppTheme.colors.textDim)
     }
-}
-
-/**
- * 離開確認。**文案要說得出草稿還在不在**（手冊 §四）——
- * 「要離開嗎？」這種問法答完了使用者還是不知道剛才選的東西會怎樣。
- */
-@Composable
-private fun ExitDialog(onKeep: () -> Unit, onDiscard: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("要離開取圖嗎？") },
-        text = { Text("保留草稿的話，下次按【取圖】可以接著做。") },
-        confirmButton = { VsButton("保留草稿並離開", onKeep) },
-        dismissButton = { VsButton("捨棄草稿", onDiscard, variant = ButtonVariant.DangerQuiet) },
-    )
 }
