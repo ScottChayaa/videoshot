@@ -85,4 +85,36 @@ class PlayerTest {
         // 覆蓋層點掉就不見了，之後的每一次跳播都只剩 <video> 這條路
         assertTrue(PLAY_VIDEO_JS, PLAY_VIDEO_JS.contains(".play()"))
     }
+
+    // ---- 只留影片畫面（取圖第二步）----
+
+    @Test
+    fun 點畫面切換播放時_還沒開播要先點封面覆蓋層() {
+        // 跟 PLAY_VIDEO_JS 同一個理由：unstarted 的 <video> 會把 v.play() 吃掉
+        val overlayAt = TOGGLE_PLAY_JS.indexOf("CuedOverlayPlayButton")
+        val playAt = TOGGLE_PLAY_JS.indexOf(".play()")
+        assertTrue(TOGGLE_PLAY_JS, overlayAt in 0 until playAt)
+        assertTrue(TOGGLE_PLAY_JS, TOGGLE_PLAY_JS.contains(".pause()"))
+    }
+
+    @Test
+    fun 點畫面切換播放時_用媒體來源判斷有沒有開播() {
+        // 開播後覆蓋層按鈕仍留在 DOM 裡；拿它判斷的話第二次點永遠暫停不了（2026-10-12 實機）
+        val readyAt = TOGGLE_PLAY_JS.indexOf("readyState === 0")
+        val overlayAt = TOGGLE_PLAY_JS.indexOf("CuedOverlayPlayButton")
+        assertTrue(TOGGLE_PLAY_JS, readyAt in 0 until overlayAt)
+    }
+
+    @Test
+    fun 純影片樣式只放出影片與封面() {
+        assertTrue(BARE_PLAYER_JS, BARE_PLAYER_JS.contains("body *{visibility:hidden!important}"))
+        assertTrue(BARE_PLAYER_JS, BARE_PLAYER_JS.contains("video{visibility:visible!important"))
+        assertTrue(BARE_PLAYER_JS, BARE_PLAYER_JS.contains(".ytmVideoCoverThumbnail{visibility:visible!important}"))
+    }
+
+    @Test
+    fun 純影片樣式重複注入只留一份() {
+        // onPageCommitVisible 與 onPageFinished 都會注入
+        assertTrue(BARE_PLAYER_JS, BARE_PLAYER_JS.contains("getElementById('vs-bare')"))
+    }
 }

@@ -5,6 +5,8 @@ import android.view.ViewGroup
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
@@ -121,6 +123,58 @@ internal const val PAUSE_VIDEO_JS =
     "(function(){var v=document.querySelector('video'); if(v) v.pause(); return 'ok';})()"
 
 /**
+ * 點播放器畫面：播放中就暫停，停著就播。還沒開播（`<video>` 還沒有媒體來源）時跟
+ * [PLAY_VIDEO_JS] 一樣點封面覆蓋層（被 [BARE_PLAYER_JS] 藏起來了，但 `click()` 照樣有效）。
+ *
+ * **不能用「覆蓋層還在不在」判斷有沒有開播**：2026-10-12 實機查到開播之後覆蓋層的按鈕
+ * 仍在 DOM 裡（`display:block`、72×72），那樣寫的話第二次點畫面又去點覆蓋層、永遠停不下來。
+ */
+internal val TOGGLE_PLAY_JS =
+    """
+    (function(){
+      var v = document.querySelector('video');
+      if (!v || v.readyState === 0) {
+        var overlay = document.querySelector(
+          '.ytmCuedOverlayPlayButton, [class*="CuedOverlayPlayButton"], .ytp-large-play-button');
+        if (overlay) { overlay.click(); return 'overlay'; }
+        if (v) { v.play(); return 'play'; }
+        return 'none';
+      }
+      if (v.paused) { v.play(); return 'play'; }
+      v.pause(); return 'pause';
+    })()
+    """.trimIndent()
+
+/**
+ * 把 YouTube 自己的介面全部藏掉，只留影片畫面（取圖第二步，2026-10-12 scott 要求：
+ * 跳播只靠下方的候選格子，點畫面只管播放／暫停）。
+ *
+ * 用 `visibility` 而不是 `display:none`：子元素可以把 `visibility` 改回來，所以
+ * 「全部藏起來、只放 `<video>` 出來」一條規則就涵蓋標題、頻道頭像、分享、
+ * 「觀看平台：YouTube」、暫停時的推薦影片，YouTube 改類名也不怕。
+ * embed 開播前 `<video>` 沒有畫面，所以封面縮圖（`.ytmVideoCoverThumbnail`）也放出來。
+ * `<video>` 固定鋪滿視窗是給 `m.youtube.com`（不能嵌入的影片）用的：那個頁面的影片在頂列下面，
+ * 不鋪滿的話會偏一截；embed 本來就鋪滿，套上去沒有差別（2026-10-12 兩種頁面都在實機上試過）。
+ * 有 id，重複注入只會留一份。
+ */
+internal val BARE_PLAYER_JS =
+    """
+    (function(){
+      if (document.getElementById('vs-bare')) return 'exists';
+      var s = document.createElement('style');
+      s.id = 'vs-bare';
+      s.textContent =
+        'html,body{background:#000!important;overflow:hidden!important}' +
+        'body *{visibility:hidden!important}' +
+        '.ytmVideoCoverThumbnail{visibility:visible!important}' +
+        'video{visibility:visible!important;position:fixed!important;top:0!important;left:0!important;' +
+        'width:100vw!important;height:100vh!important;object-fit:contain!important;z-index:2147483647!important}';
+      (document.head || document.documentElement).appendChild(s);
+      return 'ok';
+    })()
+    """.trimIndent()
+
+/**
  * 播放器 WebView 的初始設定。
  *
  * **`layoutParams` 一定要自己給 `MATCH_PARENT`。** `AndroidView` 預設塞給子 View 的是
@@ -153,16 +207,19 @@ internal fun WebView.applyPlayerViewSettings() {
  * 預覽播到一半離開第二步（返回鍵、【✕】）之後，那個已經脫離畫面的 WebView 會繼續播 YouTube 的聲音，
  * 而且每重進一次第二步就多一個。切到背景不會離開組合，所以另外掛生命週期觀察者處理。
  *
+ * @param bare 只留影片畫面：藏掉 YouTube 的所有按鈕與文字（[BARE_PLAYER_JS]），WebView 不收觸控，
+ *        點畫面只會播放／暫停（[TOGGLE_PLAY_JS]）。取圖第二步用；詳情頁維持 YouTube 原本的介面
  * @param onPlayerReleased WebView 沒了要講一聲 —— 呼叫端（`WizardViewModel`）握著的 [Player]
  *        指向的就是這個 WebView，不放掉的話轉螢幕之後還會對一個已經 destroy 的 WebView 下指令
  */
-@SuppressLint("SetJavaScriptEnabled")
+@SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
 @Composable
 fun PlayerSurface(
     videoId: String,
     playableInEmbed: Boolean,
     onPlayerReady: (Player) -> Unit,
     modifier: Modifier = Modifier,
+    bare: Boolean = false,
     onPlayerReleased: () -> Unit = {},
 ) {
     val url = remember(videoId, playableInEmbed) { playerUrl(videoId, playableInEmbed) }
@@ -185,32 +242,51 @@ fun PlayerSurface(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    AndroidView(
-        modifier = modifier,
-        factory = { context ->
-            WebView(context).apply {
-                applyPlayerViewSettings()
-                webChromeClient = WebChromeClient()
-                val player = WebViewPlayer(this)
-                webViewClient = object : WebViewClient() {
-                    override fun onPageFinished(view: WebView?, loadedUrl: String?) {
-                        player.markReady()
-                        onPlayerReady(player)
+    Box(modifier) {
+        AndroidView(
+            modifier = Modifier.matchParentSize(),
+            factory = { context ->
+                WebView(context).apply {
+                    applyPlayerViewSettings()
+                    webChromeClient = WebChromeClient()
+                    val player = WebViewPlayer(this)
+                    webViewClient = object : WebViewClient() {
+                        // 頁面一畫出來就藏，不等 onPageFinished，減少 YouTube 按鈕閃一下
+                        override fun onPageCommitVisible(view: WebView?, loadedUrl: String?) {
+                            if (bare) view?.evaluateJavascript(BARE_PLAYER_JS, null)
+                        }
+
+                        override fun onPageFinished(view: WebView?, loadedUrl: String?) {
+                            if (bare) view?.evaluateJavascript(BARE_PLAYER_JS, null)
+                            player.markReady()
+                            onPlayerReady(player)
+                        }
                     }
+                    // 藏起來的按鈕仍然點得到，所以觸控整個不給 WebView，改由蓋在上面的那一層處理
+                    if (bare) setOnTouchListener { _, _ -> true }
+                    holder[0] = this
+                    // embed 需要 referer，否則部分影片會拒絕播放
+                    loadUrl(url, mapOf("Referer" to "https://${context.packageName}"))
                 }
-                holder[0] = this
-                // embed 需要 referer，否則部分影片會拒絕播放
-                loadUrl(url, mapOf("Referer" to "https://${context.packageName}"))
-            }
-        },
-        onRelease = { webView ->
-            holder[0] = null
-            onPlayerReleased()
-            // 先卸掉頁面再 destroy：about:blank 會把 <video> 一起帶走，聲音當場停
-            webView.stopLoading()
-            webView.loadUrl("about:blank")
-            webView.onPause()
-            webView.destroy()
-        },
-    )
+            },
+            onRelease = { webView ->
+                holder[0] = null
+                onPlayerReleased()
+                // 先卸掉頁面再 destroy：about:blank 會把 <video> 一起帶走，聲音當場停
+                webView.stopLoading()
+                webView.loadUrl("about:blank")
+                webView.onPause()
+                webView.destroy()
+            },
+        )
+        if (bare) {
+            Box(
+                Modifier.matchParentSize().clickable(
+                    interactionSource = null,
+                    indication = null,
+                    onClickLabel = "播放或暫停",
+                ) { holder[0]?.evaluateJavascript(TOGGLE_PLAY_JS, null) },
+            )
+        }
+    }
 }
