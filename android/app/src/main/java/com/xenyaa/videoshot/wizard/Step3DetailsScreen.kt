@@ -132,12 +132,6 @@ fun Step3DetailsScreen(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 itemVerticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    "選取",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AppTheme.colors.textDim,
-                    modifier = Modifier.padding(end = 4.dp),
-                )
                 VsToolbarPill("全選", onSelectAll, style = PillStyle.Quiet)
                 VsToolbarPill("全不選", onSelectNone, style = PillStyle.Quiet)
                 VsToolbarPill("反選", onInvert, style = PillStyle.Quiet)

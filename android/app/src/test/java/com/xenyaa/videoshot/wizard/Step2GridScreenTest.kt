@@ -10,6 +10,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import com.xenyaa.videoshot.core.time.formatClock
 import com.xenyaa.videoshot.wizard.frames.FakeFrameSource
 import com.xenyaa.videoshot.wizard.frames.FramePlan
@@ -82,10 +83,20 @@ class Step2GridScreenTest {
         hintSeen = true,
     )
 
+    /** 工具列在縮圖牆裡：往下滑到底時跟著捲走，狀態列留著。 */
+    @Test
+    fun 工具列跟著縮圖一起捲走() {
+        show(loaded(frameCount = 60))
+        compose.onNodeWithText("全部選取").assertIsDisplayed()
+        compose.onNode(androidx.compose.ui.test.hasScrollAction()).performScrollToIndex(60)
+        compose.onNodeWithText("全部選取").assertDoesNotExist()
+        compose.onNodeWithText("60 張候選").assertIsDisplayed()
+    }
+
     @Test
     fun 狀態列顯示收斂結果() {
         show(loaded(frameCount = 4, kept = listOf(0, 1), hiddenCount = 2))
-        compose.onNodeWithText("已收斂成 2 張候選，隱藏了 2 張相似畫面").assertIsDisplayed()
+        compose.onNodeWithText("全部 2 張照片，隱藏 2 張相似畫面").assertIsDisplayed()
     }
 
     @Test

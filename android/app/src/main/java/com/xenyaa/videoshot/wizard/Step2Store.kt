@@ -116,7 +116,7 @@ data class Step2State(
             loadFailed && ready.isEmpty() -> "縮圖載入失敗，可以截圖補上"
             loadFailed -> "只載入了 ${ready.size} 張縮圖就失敗了，其餘可以截圖補上"
             showAll -> "顯示全部 ${plan.frameCount} 張"
-            hiddenCount > 0 -> "已收斂成 $candidateCount 張候選，隱藏了 $hiddenCount 張相似畫面"
+            hiddenCount > 0 -> "全部 $candidateCount 張照片，隱藏 $hiddenCount 張相似畫面"
             else -> "$candidateCount 張候選"
         }
 }

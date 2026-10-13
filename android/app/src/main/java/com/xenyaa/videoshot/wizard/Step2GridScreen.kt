@@ -19,10 +19,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -54,6 +56,7 @@ import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.VsActionDock
 import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsHintCard
+import com.xenyaa.videoshot.ui.common.PillStyle
 import com.xenyaa.videoshot.ui.common.VsToolbarPill
 import com.xenyaa.videoshot.ui.common.VsSelectedBadge
 import com.xenyaa.videoshot.ui.icons.VsIcons
@@ -100,40 +103,8 @@ fun Step2GridScreen(
 
         StatusBar(state, onShowAll)
 
-        // FlowRow：工具列**換行不截斷**，文字不會被切掉（手冊 §四第二步）
-        // 順序照規格第五節的線框：全部選取│截圖│只看已選
-        FlowRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(AppTheme.colors.surface)
-                .padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
-            horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
-            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
-        ) {
-            VsToolbarPill("全部選取", onSelectAll, icon = VsIcons.Check)
-            VsToolbarPill("截圖", onTakeShot, icon = VsIcons.ImagePlus)
-            // 切換型：文字固定「只看已選」，開關狀態用主色底＋語意 selected 表達
-            // （原本是文字在「只看已選／看全部」間切換——行為相同，呈現改成原型的 .on）
-            VsToolbarPill(
-                "只看已選",
-                { onOnlySelected(!state.onlySelected) },
-                icon = VsIcons.Eye,
-                selected = state.onlySelected,
-                isToggle = true,
-            )
-        }
-        HorizontalDivider(thickness = 1.dp, color = AppTheme.colors.border)
-
         captureError?.let {
             CaptureErrorBar(it, onPickFromGallery, onDismissCaptureError)
-        }
-
-        if (!state.hintSeen) {
-            VsHintCard(
-                "點一下就收藏；每格右上角的 ▶ 可以跳到那一段看看。",
-                Modifier.semantics { contentDescription = "一次性提示" },
-                onDismiss = onDismissHint,
-            )
         }
 
         LazyVerticalGrid(
@@ -144,6 +115,40 @@ fun Step2GridScreen(
             horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
             verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
         ) {
+            // 工具列與一次性提示放在縮圖牆裡、佔滿整列：往下滑時跟著縮圖一起捲走，把畫面讓給縮圖
+            item(key = "toolbar", span = { GridItemSpan(maxLineSpan) }) {
+                // FlowRow：工具列**換行不截斷**，文字不會被切掉（手冊 §四第二步）
+                // 順序照規格第五節的線框：全部選取│截圖│只看已選；大小與間距跟第三步的快速選取列一樣
+                FlowRow(
+                    // 縮圖牆本身有 4dp 內距，這裡補到左右 16、上下 8
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(horizontal = AppTheme.spacing.s3, vertical = AppTheme.spacing.s1),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    itemVerticalAlignment = Alignment.CenterVertically,
+                ) {
+                    VsToolbarPill("全部選取", onSelectAll, icon = VsIcons.Check, style = PillStyle.Quiet)
+                    VsToolbarPill("截圖", onTakeShot, icon = VsIcons.ImagePlus, style = PillStyle.Quiet)
+                    // 切換型：文字固定「只看已選」，開關狀態用主色底＋語意 selected 表達
+                    VsToolbarPill(
+                        "只看已選",
+                        { onOnlySelected(!state.onlySelected) },
+                        icon = VsIcons.Eye,
+                        selected = state.onlySelected,
+                        isToggle = true,
+                        style = PillStyle.Quiet,
+                    )
+                }
+            }
+            if (!state.hintSeen) {
+                item(key = "hint", span = { GridItemSpan(maxLineSpan) }) {
+                    VsHintCard(
+                        "點一下就收藏；每格右上角的 ▶ 可以跳到那一段看看。",
+                        Modifier.semantics { contentDescription = "一次性提示" },
+                        onDismiss = onDismissHint,
+                    )
+                }
+            }
             items(state.visible, key = { it }) { frameIndex ->
                 FrameCell(
                     frameIndex = frameIndex,
@@ -263,7 +268,8 @@ private fun StatusBar(state: Step2State, onShowAll: (Boolean) -> Unit) {
                 }
             }
         }
-        HorizontalDivider(thickness = 1.dp, color = AppTheme.colors.accentLine)
+        // 一個實體像素（最細）；Dp.Hairline 會讓分隔線的版面高度是 0，改成明確換算
+        HorizontalDivider(thickness = (1f / LocalDensity.current.density).dp, color = AppTheme.colors.accentLine)
         if (state.plan.lowQuality) {
             Text(
                 "這支影片只有較低畫質的縮圖",

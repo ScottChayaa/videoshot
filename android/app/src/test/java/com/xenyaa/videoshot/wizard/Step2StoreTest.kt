@@ -119,7 +119,7 @@ class Step2StoreTest {
             kept = (0 until 50).toList(),
             hiddenCount = 98,
         )
-        assertEquals("已收斂成 50 張候選，隱藏了 98 張相似畫面", state.statusText)
+        assertEquals("全部 50 張照片，隱藏 98 張相似畫面", state.statusText)
     }
 
     @Test
@@ -566,7 +566,7 @@ class Step2StoreTest {
         val s = store(source, scope = this)
         advanceUntilIdle()
         s.addManual(atSec = 15.0, file = File("/tmp/a.webp"))
-        assertEquals("已收斂成 2 張候選，隱藏了 3 張相似畫面", s.state.value.statusText)
+        assertEquals("全部 2 張照片，隱藏 3 張相似畫面", s.state.value.statusText)
         s.close()
     }
 

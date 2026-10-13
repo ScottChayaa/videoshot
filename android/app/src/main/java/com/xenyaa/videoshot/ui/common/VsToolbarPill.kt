@@ -27,7 +27,11 @@ import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
 
-/** [Outline]＝原型 `.wz-tools button`；[Quiet]＝`.wz-tools.pick button`（灰底小鈕，不搶主按鈕的視線）。 */
+/**
+ * 兩種都是四邊圓角、標籤小膠囊的中性底（文字色 4%）、無邊框；差在大小。
+ * [Outline]＝44dp 高的大鈕（名稱沿用，目前只有元件總覽頁用）；
+ * [Quiet]＝視覺 30dp 高的小鈕，取圖第二步工具列與第三步快速選取列共用，不搶主按鈕的視線。
+ */
 enum class PillStyle { Outline, Quiet }
 
 /**
@@ -47,15 +51,13 @@ fun VsToolbarPill(
     style: PillStyle = PillStyle.Outline,
 ) {
     val outline = style == PillStyle.Outline
-    val shape = if (outline) RoundedCornerShape(AppTheme.radii.full) else RoundedCornerShape(AppTheme.radii.sm)
+    val shape = RoundedCornerShape(if (outline) AppTheme.radii.md else AppTheme.radii.sm)
     val bg = when {
         selected -> AppTheme.colors.accent
-        outline -> AppTheme.colors.surface
-        else -> AppTheme.colors.surface2
+        else -> AppTheme.colors.text.copy(alpha = UNSELECTED_FILL_ALPHA)
     }
     val line = when {
         selected -> AppTheme.colors.accent
-        outline -> AppTheme.colors.border
         else -> Color.Transparent
     }
     val ink = if (selected) AppTheme.colors.accentInk else AppTheme.colors.text
