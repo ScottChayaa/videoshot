@@ -135,6 +135,13 @@ class PlayerTest {
     }
 
     @Test
+    fun 目前秒數不是有限數時是未知狀態() {
+        // ProgressBarRangeInfo 遇到 NaN 會直接 require 失敗
+        assertEquals(PlaybackStatus.Unknown, parseStatus("\"NaN,600,0,1,1920,1080\""))
+        assertEquals(PlaybackStatus.Unknown, parseStatus("\"Infinity,600,0,1,1920,1080\""))
+    }
+
+    @Test
     fun 總長是_NaN_時當成零() {
         assertEquals(0.0, parseStatus("\"0,NaN,1,0,0,0\"").durationSec, 0.0)
     }

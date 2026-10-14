@@ -217,7 +217,7 @@ internal fun parseStatus(raw: String): PlaybackStatus {
     val parts = raw.trim().removeSurrounding("\"").split(',')
     if (parts.size != 6) return PlaybackStatus.Unknown
     val nums = parts.map { it.toDoubleOrNull() }
-    val current = nums[0] ?: return PlaybackStatus.Unknown
+    val current = nums[0]?.takeIf { it.isFinite() } ?: return PlaybackStatus.Unknown
     val duration = nums[1]?.takeIf { !it.isNaN() && !it.isInfinite() } ?: 0.0
     return PlaybackStatus(
         currentSec = current,
@@ -343,6 +343,9 @@ fun PlayerSurface(
                     }
                     // 藏起來的按鈕仍然點得到，所以觸控整個不給 WebView，改由蓋在上面的控制層處理
                     setOnTouchListener { _, _ -> true }
+                    // 實體鍵盤的 Tab 不能停在看不到焦點框的 WebView 上，焦點只給上面的控制層
+                    isFocusable = false
+                    isFocusableInTouchMode = false
                     holder[0] = this
                     // embed 需要 referer，否則部分影片會拒絕播放
                     loadUrl(url, mapOf("Referer" to "https://${context.packageName}"))
