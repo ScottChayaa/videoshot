@@ -19,7 +19,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.HorizontalDivider
@@ -92,6 +94,8 @@ fun Step2GridScreen(
     onDismissCaptureError: () -> Unit = {},
     /** 微調某一格的秒數。**只有相簿來的格子會呼叫它**（規格第五節）。 */
     onNudgeManual: (Int, Double) -> Unit = { _, _ -> },
+    /** 捲動狀態由外面持有：全螢幕時整個畫面離開組合，狀態要留在外面才不會跳回頂端。 */
+    gridState: LazyGridState = rememberLazyGridState(),
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxSize()) {
@@ -103,6 +107,7 @@ fun Step2GridScreen(
         }
 
         LazyVerticalGrid(
+            state = gridState,
             // 跟照片頁的縮圖牆一樣：每列 4 張正方形、左右貼齊螢幕、格線 ThumbGridGap
             columns = GridCells.Fixed(4),
             modifier = Modifier.weight(1f).fillMaxWidth(),

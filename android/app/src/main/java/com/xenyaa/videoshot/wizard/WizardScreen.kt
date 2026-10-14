@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -126,6 +127,9 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                                     }
                                 }
                             }
+                            // 捲動狀態放在 if 外面：全螢幕時縮圖牆離開組合，退出後要回到原來捲到的位置；
+                            // 以 store 當 key，換影片就重來
+                            val gridState = remember(current) { LazyGridState() }
                             if (!fullscreen) {
                                 // remember 起來、以 store 當 key：FrameImage 拿它當 produceState 的 key，
                                 // 每次重組都給新 lambda 的話每一格都會重新解圖
@@ -150,6 +154,7 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                                     ) },
                                     onDismissCaptureError = { vm.dismissCaptureError() },
                                     onNudgeManual = { cell, delta -> vm.nudgeManual(cell, delta) },
+                                    gridState = gridState,
                                     modifier = Modifier.weight(1f),
                                 )
                             }
