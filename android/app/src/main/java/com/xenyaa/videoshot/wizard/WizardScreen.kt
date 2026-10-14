@@ -4,11 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -24,13 +21,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.ProgressBarRangeInfo
-import androidx.compose.ui.semantics.progressBarRangeInfo
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.xenyaa.videoshot.core.player.nearestFrameIndex
+import com.xenyaa.videoshot.player.LocalPlayerFullscreen
 import com.xenyaa.videoshot.player.PlayerSurface
+import com.xenyaa.videoshot.player.playerFrame
 import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.TopBarNav
 import com.xenyaa.videoshot.ui.common.TopBarTitle
@@ -64,17 +60,21 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
     BackHandler(onBack = goBack)
 
     val loadedForTitle by vm.loaded.collectAsStateWithLifecycle()
+    // 播放器全螢幕時藏頂欄與縮圖牆（規格第六節「播放器」）
+    val fullscreen = LocalPlayerFullscreen.current.active
     // 原型 .wz-top：第一步標題是「取圖」，之後換成影片標題（取不到時退回「取圖」）
     val title = if (step == WizardStep.URL) "取圖" else loadedForTitle?.page?.meta?.title ?: "取圖"
 
     // 不用 Scaffold：這裡沒有底部導覽，內容區的底部 inset 交給各步自己的 VsActionDock
     Column(Modifier.fillMaxSize().background(AppTheme.colors.bg)) {
-        VsTopBar(
-            title = title,
-            modifier = Modifier.statusBarsPadding(),
-            nav = TopBarNav.Back(onClick = goBack),
-            titleStyle = TopBarTitle.Small,
-        )
+        if (!fullscreen) {
+            VsTopBar(
+                title = title,
+                modifier = Modifier.statusBarsPadding(),
+                nav = TopBarNav.Back(onClick = goBack),
+                titleStyle = TopBarTitle.Small,
+            )
+        }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (step) {
                 WizardStep.URL -> {
@@ -97,53 +97,62 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                         val state by current.state.collectAsStateWithLifecycle()
                         val captureError by vm.captureError.collectAsStateWithLifecycle()
                         Column(Modifier.fillMaxSize()) {
-                            // 播放器**釘在頂部**（規格第五節第二步的線框）
+                            // 播放器**釘在頂部**（規格第五節第二步的線框）；全螢幕時原地撐滿（第六節「播放器」）。
+                            // PlayerSurface 在組合裡的位置不能動，全螢幕只換 Modifier、兄弟節點用 if 包起來
                             loaded?.page?.meta?.let { meta ->
+                                // 預覽圖：最接近那個秒數的縮圖牆格子，不多下載（第六節「預覽縮圖的來源」）
+                                val preview: suspend (Double) -> androidx.compose.ui.graphics.ImageBitmap? =
+                                    remember(current) {
+                                        { sec ->
+                                            nearestFrameIndex(current.state.value.plan.atSec, sec)
+                                                ?.let { current.source.bitmapOf(it) }
+                                        }
+                                    }
                                 PlayerSurface(
                                     videoId = meta.videoId,
                                     playableInEmbed = meta.playableInEmbed,
                                     durationSec = meta.durationSec,
-                                    preview = { null },
+                                    preview = preview,
                                     onPlayerReady = { vm.attachPlayer(it) },
-                                    modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+                                    modifier = Modifier.playerFrame(fullscreen),
                                     // WebView 被釋放了 ViewModel 就不能再握著它
                                     onPlayerReleased = { vm.detachPlayer() },
                                 )
-                                // 播放器還在畫面上才輪詢：每 0.25 秒讀一次目前秒數，更新進度條與縮圖牆的外框
+                                // 播放器還在畫面上才輪詢：每 0.25 秒讀一次目前秒數，更新縮圖牆的外框
                                 LaunchedEffect(meta.videoId) {
                                     while (true) {
                                         delay(PLAYBACK_POLL_MS)
                                         vm.pollPlayback()
                                     }
                                 }
-                                val playbackSec by vm.playbackSec.collectAsStateWithLifecycle()
-                                PlaybackProgress(playbackSec, meta.durationSec)
                             }
-                            // remember 起來、以 store 當 key：FrameImage 拿它當 produceState 的 key，
-                            // 每次重組都給新 lambda 的話每一格都會重新解圖
-                            val bitmapFor: suspend (Int) -> androidx.compose.ui.graphics.ImageBitmap? =
-                                remember(current) { { cell -> current.bitmapOfCell(cell) } }
-                            Step2GridScreen(
-                                state = state,
-                                bitmapFor = bitmapFor,
-                                haptics = haptics,
-                                onToggle = { current.toggle(it) },
-                                onTakenTap = { takenTapped = it },
-                                onPlayFrame = { vm.playFrame(it) },
-                                onSelectAll = { current.selectAll() },
-                                onTakeShot = { vm.takeShot() },
-                                onShowAll = { current.setShowAll(it) },
-                                onOnlySelected = { current.setOnlySelected(it) },
-                                onDismissHint = { vm.dismissHint() },
-                                onNext = { vm.goTo(WizardStep.DETAILS) },
-                                captureError = captureError,
-                                onPickFromGallery = { pickImage.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                                ) },
-                                onDismissCaptureError = { vm.dismissCaptureError() },
-                                onNudgeManual = { cell, delta -> vm.nudgeManual(cell, delta) },
-                                modifier = Modifier.weight(1f),
-                            )
+                            if (!fullscreen) {
+                                // remember 起來、以 store 當 key：FrameImage 拿它當 produceState 的 key，
+                                // 每次重組都給新 lambda 的話每一格都會重新解圖
+                                val bitmapFor: suspend (Int) -> androidx.compose.ui.graphics.ImageBitmap? =
+                                    remember(current) { { cell -> current.bitmapOfCell(cell) } }
+                                Step2GridScreen(
+                                    state = state,
+                                    bitmapFor = bitmapFor,
+                                    haptics = haptics,
+                                    onToggle = { current.toggle(it) },
+                                    onTakenTap = { takenTapped = it },
+                                    onPlayFrame = { vm.playFrame(it) },
+                                    onSelectAll = { current.selectAll() },
+                                    onTakeShot = { vm.takeShot() },
+                                    onShowAll = { current.setShowAll(it) },
+                                    onOnlySelected = { current.setOnlySelected(it) },
+                                    onDismissHint = { vm.dismissHint() },
+                                    onNext = { vm.goTo(WizardStep.DETAILS) },
+                                    captureError = captureError,
+                                    onPickFromGallery = { pickImage.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                                    ) },
+                                    onDismissCaptureError = { vm.dismissCaptureError() },
+                                    onNudgeManual = { cell, delta -> vm.nudgeManual(cell, delta) },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
                         }
                     }
                 }
@@ -199,7 +208,7 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
         AlertDialog(
             onDismissRequest = { takenTapped = null },
             title = { Text("這一格已經收藏過了") },
-            text = { Text("長按或按 ▶ 仍然可以跳到那一段看看。") },
+            text = { Text("長按仍然可以跳到那一段看看。") },
             confirmButton = { VsButton("知道了", { takenTapped = null }) },
         )
     }
@@ -230,24 +239,6 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
 
 /** 播放進度輪詢間隔。夠順又不至於一直打擾 WebView。 */
 private const val PLAYBACK_POLL_MS = 250L
-
-/**
- * 播放器下方的細進度條（2dp）：主色＝已播放、淡色＝未播放。只是顯示，不能拖。
- * 影片長度不明（0）時整條維持淡色。
- */
-@Composable
-private fun PlaybackProgress(sec: Double, durationSec: Int) {
-    val fraction = if (durationSec > 0) (sec / durationSec).toFloat().coerceIn(0f, 1f) else 0f
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height(2.dp)
-            .background(AppTheme.colors.accentLine)
-            .semantics { progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f) },
-    ) {
-        Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().background(AppTheme.colors.accent))
-    }
-}
 
 /** 步驟內容還沒備妥時的置中提示（原型沒有對應畫面，沿用 15 textDim）。 */
 @Composable
