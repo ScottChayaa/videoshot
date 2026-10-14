@@ -99,7 +99,7 @@ fun Step1UrlScreen(
 
             if (recent.isNotEmpty()) {
                 Text(
-                    text = "最近取過的影片",
+                    text = "歷史紀錄",
                     style = MaterialTheme.typography.titleSmall,
                     color = AppTheme.colors.textDim,
                     modifier = Modifier.padding(top = AppTheme.spacing.s5, bottom = AppTheme.spacing.s2),
@@ -147,7 +147,7 @@ private fun RecentCard(video: RecentVideo, onClick: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                "${formatDate(video.addedAt)} · 取了 ${video.shotCount} 張",
+                "${formatDate(video.addedAt)} · 取圖 ${video.shotCount} 張",
                 style = MaterialTheme.typography.bodySmall,
                 color = AppTheme.colors.textDim,
             )

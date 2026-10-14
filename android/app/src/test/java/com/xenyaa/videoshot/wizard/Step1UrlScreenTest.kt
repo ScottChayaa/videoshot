@@ -58,7 +58,7 @@ class Step1UrlScreenTest {
     @Test
     fun 沒有歷史時不顯示清單標題() {
         show(recent = emptyList())
-        compose.onNodeWithText("最近取過的影片").assertDoesNotExist()
+        compose.onNodeWithText("歷史紀錄").assertDoesNotExist()
     }
 
     @Test
@@ -83,11 +83,11 @@ class Step1UrlScreenTest {
         compose.onNodeWithText("下一步").assertIsNotEnabled()
     }
 
-    /** 原型 .wz-hist：副標是「日期 · 取了 N 張」。 */
+    /** 原型 .wz-hist：副標是「日期 · 取圖 N 張」。 */
     @Test
     fun 取圖紀錄副標寫取了幾張() {
         show(recent = listOf(RecentVideo("v3", "京都", 1_790_000_000L, 3)))
-        compose.onNodeWithText("取了 3 張", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("取圖 3 張", substring = true).assertIsDisplayed()
     }
 
     /** 鍵盤的「前往」等同按【下一步】。 */
