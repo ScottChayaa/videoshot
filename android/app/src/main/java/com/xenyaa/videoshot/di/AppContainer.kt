@@ -451,9 +451,6 @@ class AppContainer(context: Context) : AppRootDeps {
      * 只有 `WebViewPlayer` 截得到圖 —— 它握著那個 WebView 的 JS 執行入口。
      * 其他實作（例如測試用的 `FakePlayer`）回 null，畫面上按【截圖】會得到「播放器還沒準備好」。
      */
-    override fun previewFramesFor(videoId: String, page: WatchPage): (suspend (Double) -> ImageBitmap?)? =
-        previewFramesOf(videoId, page, appContext.cacheDir, youtube)?.let { it::at }
-
     override fun captureFor(player: Player): Capture? = when (player) {
         is WebViewPlayer -> WebViewCapture(
             eval = { player.evaluate(it) },
@@ -461,6 +458,10 @@ class AppContainer(context: Context) : AppRootDeps {
         )
         else -> null
     }
+
+    /** 詳情頁播放器拖曳預覽的圖來源；沒有 storyboard 回 null。快取放 `cacheDir/preview/`。 */
+    override fun previewFramesFor(videoId: String, page: WatchPage): (suspend (Double) -> ImageBitmap?)? =
+        previewFramesOf(videoId, page, appContext.cacheDir, youtube)?.let { it::at }
 
     /**
      * 第二步的縮圖來源。解不出 storyboard 時給一個空的來源 ——

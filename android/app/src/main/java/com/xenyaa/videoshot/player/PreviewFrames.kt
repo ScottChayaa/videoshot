@@ -14,6 +14,7 @@ import com.xenyaa.videoshot.youtube.Youtube
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -49,7 +50,7 @@ class PreviewFrames(
         val pos = Storyboard.frameAt(level, sec)
         lock.withLock {
             val sheet = decoded?.takeIf { it.first == pos.sheetIndex }?.second
-                ?: loadSheet(pos.sheetIndex)?.also { decoded = pos.sheetIndex to it }
+                ?: loadSheet(pos.sheetIndex)
                 ?: return@withLock null
             withContext(compute) {
                 if (pos.x + pos.width <= sheet.width && pos.y + pos.height <= sheet.height) {
@@ -67,13 +68,26 @@ class PreviewFrames(
         null
     }
 
-    private suspend fun loadSheet(sheetIndex: Int): Bitmap? {
+    /**
+     * 載入一張 sheet（讀檔、下載、寫檔、解圖、記進 [decoded]）。整段包在 [NonCancellable] 裡：
+     * 阻塞的 HTTP 下載不理會協程取消，拖曳時每換一個秒數就取消上一個 [at]，若下載完才被丟掉，
+     * 檔案沒寫、下一個 [at] 又重抓同一張，預覽永遠出不來。讓下載照樣跑完存進磁碟，下一次就直接讀。
+     * [at] 外層的取消照常往上丟。
+     */
+    private suspend fun loadSheet(sheetIndex: Int): Bitmap? = withContext(NonCancellable) {
         val file = File(dir, "M$sheetIndex.jpg")
-        val bytes = withContext(io) { file.takeIf { it.exists() }?.readBytes() }
-            ?: download(sheetIndex)?.also { b -> withContext(io) { dir.mkdirs(); file.writeBytes(b) } }
-            ?: return null
-        return withContext(compute) { BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }
+        // 磁碟上的檔案讀壞了（被截斷之類）就當沒有：刪掉、改走下載
+        val fromDisk = withContext(io) { file.takeIf { it.exists() }?.readBytes() }
+            ?.let { decode(it) ?: null.also { withContext(io) { file.delete() } } }
+        val bitmap = fromDisk ?: download(sheetIndex)?.let { bytes ->
+            withContext(io) { dir.mkdirs(); file.writeBytes(bytes) }
+            decode(bytes)
+        }
+        bitmap?.also { decoded = sheetIndex to it }
     }
+
+    private suspend fun decode(bytes: ByteArray): Bitmap? =
+        withContext(compute) { BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }
 
     /** 403 時重抓一次 watch page 刷新 spec（同第二步）；整個物件只重抓一次。 */
     private suspend fun download(sheetIndex: Int): ByteArray? {

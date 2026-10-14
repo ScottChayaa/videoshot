@@ -6,7 +6,10 @@ import com.xenyaa.videoshot.core.storyboard.StoryboardSpec
 import com.xenyaa.videoshot.core.youtube.WatchPage
 import com.xenyaa.videoshot.youtube.SheetForbidden
 import com.xenyaa.videoshot.youtube.Youtube
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -36,7 +39,7 @@ class PreviewFramesTest {
         return ByteArrayOutputStream().also { bmp.compress(Bitmap.CompressFormat.JPEG, 80, it) }.toByteArray()
     }
 
-    private class FakeYoutube(val onSheet: (String) -> ByteArray) : Youtube {
+    private class FakeYoutube(val onSheet: suspend (String) -> ByteArray) : Youtube {
         val requested = mutableListOf<String>()
         override suspend fun watchPage(videoId: String): WatchPage = error("不該呼叫")
         override suspend fun sheet(url: String): ByteArray { requested += url; return onSheet(url) }
@@ -81,5 +84,32 @@ class PreviewFramesTest {
     @Test
     fun 網路錯誤回_null_不丟例外() = runTest {
         assertNull(frames(FakeYoutube { throw java.io.IOException("斷線") }).at(0.0))
+    }
+
+    @Test
+    fun 等待者被取消時下載照樣完成_下一次直接用() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val yt = FakeYoutube { gate.await(); jpeg() }
+        val f = frames(yt)
+        val first = launch { f.at(12.0) }
+        runCurrent()                        // 第一個 at() 已經卡在下載
+        assertEquals(1, yt.requested.size)
+        first.cancel()                      // 拖曳換了秒數，上一個被取消
+        gate.complete(Unit)                 // 阻塞的下載不理會取消，照樣跑完
+        first.join()
+        val img = f.at(12.0)                // 同一張 sheet
+        assertEquals(1, yt.requested.size)  // 沒有重新下載
+        assertNotNull(img)
+    }
+
+    @Test
+    fun 磁碟上的_sheet_壞掉就刪掉重新下載() = runTest {
+        java.io.File(tmp.root, "M0.jpg").writeBytes(byteArrayOf(1, 2, 3))
+        val yt = FakeYoutube { jpeg() }
+        val img = frames(yt).at(0.0)
+        assertNotNull(img)
+        assertEquals(1, yt.requested.size)
+        // 新下載的是好檔，之後能直接讀
+        assertNotNull(frames(FakeYoutube { error("不該再下載") }).at(0.0))
     }
 }
