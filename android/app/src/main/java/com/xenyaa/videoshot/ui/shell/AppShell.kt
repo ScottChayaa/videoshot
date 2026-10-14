@@ -1,6 +1,7 @@
 package com.xenyaa.videoshot.ui.shell
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -14,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import com.xenyaa.videoshot.ui.common.VsBottomNav
 import com.xenyaa.videoshot.ui.theme.AppTheme
 
@@ -37,6 +39,11 @@ fun AppShell(
      * 藏起來時內容不墊系統導覽列的高度，由頁面自己的動作列 `navigationBarsPadding()` 鋪到螢幕底。
      */
     showBottomNav: Boolean = true,
+    /**
+     * true＝詳情頁播放器全螢幕（沉浸模式）：內容區不墊任何系統 inset、底色全黑。
+     * 只改 Scaffold 的參數值，不改內容區的組合結構——否則裡面的 WebView 會被重建、影片從頭載入。
+     */
+    fullscreen: Boolean = false,
     content: @Composable (Tab) -> Unit,
 ) {
     if (nav.tab == Tab.CAPTURE) {
@@ -50,10 +57,12 @@ fun AppShell(
     }
     Scaffold(
         modifier = modifier,
-        containerColor = AppTheme.colors.bg,
+        containerColor = if (fullscreen) Color.Black else AppTheme.colors.bg,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = { if (showBottomNav) VsBottomNav(current = nav.tab, onSelect = onSelectTab, accountInitial = accountInitial) },
-        contentWindowInsets = if (showBottomNav) {
+        contentWindowInsets = if (fullscreen) {
+            WindowInsets(0)
+        } else if (showBottomNav) {
             ScaffoldDefaults.contentWindowInsets
         } else {
             ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)

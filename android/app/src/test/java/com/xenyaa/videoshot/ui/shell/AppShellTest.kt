@@ -4,6 +4,9 @@ import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
@@ -132,5 +135,48 @@ class AppShellTest {
         assertEquals(inset, navBottomPx)
         val after = compose.onNodeWithTag("dock").fetchSemanticsNode().size.height
         assertEquals("導覽列 inset 已由外殼的 padding 處理，動作列不能再墊一次", before, after)
+    }
+
+    /**
+     * 詳情頁全螢幕（沉浸模式）時，瀏海、狀態列、導覽列 inset 都要不留空：
+     * Android 15 以上沉浸模式下瀏海 inset 不歸零，外殼不能再為它墊 padding 或露出底色。
+     */
+    @Test
+    fun 全螢幕時內容區貼齊螢幕四邊() {
+        var fullscreen by androidx.compose.runtime.mutableStateOf(false)
+        compose.setContent {
+            VideoshotTheme {
+                AppShell(nav = NavState(), onSelectTab = {}, showBottomNav = !fullscreen, fullscreen = fullscreen) {
+                    androidx.compose.foundation.layout.Box(
+                        Modifier.fillMaxSize().testTag("content"),
+                    )
+                }
+            }
+        }
+        compose.runOnUiThread {
+            ViewCompat.dispatchApplyWindowInsets(
+                compose.activity.window.decorView,
+                WindowInsetsCompat.Builder()
+                    .setInsets(WindowInsetsCompat.Type.statusBars(), Insets.of(0, 60, 0, 0))
+                    .setInsets(WindowInsetsCompat.Type.displayCutout(), Insets.of(40, 90, 40, 0))
+                    .setInsets(WindowInsetsCompat.Type.navigationBars(), Insets.of(0, 0, 0, 120))
+                    .build(),
+            )
+        }
+        compose.waitForIdle()
+        val normal = compose.onNodeWithTag("content").fetchSemanticsNode().boundsInRoot
+        // 守門：沒進全螢幕時瀏海 inset 真的有墊，下面的零才有意義
+        assert(normal.top > 0f) { "top=${normal.top}" }
+
+        fullscreen = true
+        compose.waitForIdle()
+        val full = compose.onNodeWithTag("content").fetchSemanticsNode().boundsInRoot
+        assertEquals(0f, full.top, 0f)
+        assertEquals(0f, full.left, 0f)
+        val root = compose.onNodeWithTag("content").fetchSemanticsNode().layoutInfo.coordinates.let {
+            var c = it; while (c.parentLayoutCoordinates != null) c = c.parentLayoutCoordinates!!; c.size
+        }
+        assertEquals(root.width.toFloat(), full.right, 0f)
+        assertEquals(root.height.toFloat(), full.bottom, 0f)
     }
 }

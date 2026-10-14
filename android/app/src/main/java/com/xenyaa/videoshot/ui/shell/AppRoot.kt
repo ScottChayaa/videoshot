@@ -634,6 +634,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             onSelectTab = { foldersVm.clearSelection(); nav = nav.select(it) },
             snackbarHostState = snackbarHostState, accountInitial = avatarInitialOf(accountState.linkedAccount?.displayName),
             // 照片頁、相簿畫面、封存相簿畫面多選時藏起底部導覽，由各自畫面的動作列取代
+            fullscreen = fullscreen.active,
             showBottomNav = !fullscreen.active && !(
                 (nav.tab == Tab.HOME && nav.current == Dest.Root && homeSelection.isNotEmpty()) ||
                     (nav.tab == Tab.FOLDERS && (nav.current == Dest.Root || nav.current == Dest.ArchivedFolders) &&
