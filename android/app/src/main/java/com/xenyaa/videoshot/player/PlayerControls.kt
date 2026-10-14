@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -36,9 +37,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
@@ -59,6 +67,7 @@ import com.xenyaa.videoshot.core.time.formatClock
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.OnDarkColors
+import com.xenyaa.videoshot.ui.theme.focusRing
 import kotlinx.coroutines.delay
 
 /** 播放中控制層沒人碰多久自己收起（規格第六節「播放器」）。 */
@@ -70,7 +79,7 @@ private val CENTER_BUTTON_RADIUS = 32.dp
 /** 點兩下時中央閃一下的圖示停多久。 */
 private const val FLASH_MS = 600L
 
-/** TalkBack 一次前後跳幾秒。 */
+/** TalkBack 與實體鍵盤（←／→）一次前後跳幾秒。 */
 private const val A11Y_STEP_SEC = 10.0
 
 internal const val PLAYER_GESTURE_TAG = "player-gestures"
@@ -102,6 +111,8 @@ fun PlayerControls(
     var touches by remember { mutableIntStateOf(0) }
     var dragSec by remember { mutableStateOf<Double?>(null) }
     var flash by remember { mutableStateOf<Boolean?>(null) }   // true＝播放圖示、false＝暫停圖示
+    // 控制層裡任何元件（手勢區、全螢幕鈕）有焦點＝實體鍵盤使用者正在操作，不自動收起
+    var focused by remember { mutableStateOf(false) }
 
     val latestStatus by rememberUpdatedState(status)
     val latestDuration by rememberUpdatedState(duration)
@@ -109,10 +120,11 @@ fun PlayerControls(
     // pointerInput(Unit) 不會重建，回呼要用最新的版本
     val latestOnTogglePlay by rememberUpdatedState(onTogglePlay)
     val latestOnSeek by rememberUpdatedState(onSeek)
+    val latestOnToggleFullscreen by rememberUpdatedState(onToggleFullscreen)
 
     // 播放中、沒在拖、3 秒沒人碰 → 收起；暫停中一直留著
-    LaunchedEffect(visible, status.paused, touches, dragSec == null) {
-        if (visible && !status.paused && dragSec == null) {
+    LaunchedEffect(visible, status.paused, touches, dragSec == null, focused) {
+        if (visible && !status.paused && dragSec == null && !focused) {
             delay(CONTROLS_AUTO_HIDE_MS)
             visible = false
         }
@@ -121,14 +133,43 @@ fun PlayerControls(
         if (flash != null) { delay(FLASH_MS); flash = null }
     }
 
+    // 點兩下與鍵盤 Enter／空白鍵共用：切換播放，中央閃一下圖示
+    fun toggleWithFlash() {
+        flash = latestStatus.paused   // 原本暫停 → 要播 → 閃播放圖示
+        latestOnTogglePlay()
+    }
+
     val position = dragSec ?: status.currentSec
     val fraction = if (duration > 0) (position / duration).toFloat().coerceIn(0f, 1f) else 0f
 
-    BoxWithConstraints(modifier) {
+    BoxWithConstraints(modifier.onFocusChanged { focused = it.hasFocus }) {
         Box(
             Modifier
                 .fillMaxSize()
                 .testTag(PLAYER_GESTURE_TAG)
+                .focusRing(RectangleShape)
+                // 實體鍵盤：Enter／空白鍵＝播放暫停、←／→＝前後 10 秒、F＝全螢幕（驗收手冊 §零）
+                .onKeyEvent { event ->
+                    if (!latestEnabled || event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                    val handled = when (event.key) {
+                        Key.Enter, Key.NumPadEnter, Key.Spacebar -> { toggleWithFlash(); true }
+                        Key.F -> { latestOnToggleFullscreen(); true }
+                        Key.DirectionRight, Key.DirectionLeft -> {
+                            val total = latestDuration
+                            if (total > 0) {
+                                val step = if (event.key == Key.DirectionRight) A11Y_STEP_SEC else -A11Y_STEP_SEC
+                                latestOnSeek((latestStatus.currentSec + step).coerceIn(0.0, total))
+                            }
+                            true
+                        }
+                        else -> false
+                    }
+                    // 任何按鍵（包含 Tab 剛到這裡）都叫出控制層並重新計時
+                    visible = true
+                    touches++
+                    handled
+                }
+                .focusable()
                 .semantics {
                     contentDescription = "影片"
                     onClick(label = if (visible) "隱藏控制項" else "顯示控制項") {
@@ -149,8 +190,7 @@ fun PlayerControls(
                         },
                         onDoubleTap = {
                             if (latestEnabled) {
-                                flash = latestStatus.paused   // 原本暫停 → 要播 → 閃播放圖示
-                                latestOnTogglePlay()
+                                toggleWithFlash()
                                 touches++
                             }
                         },
@@ -277,7 +317,12 @@ private fun ProgressBar(
             .height(if (thick) 16.dp else 2.dp)
             .semantics {
                 contentDescription = "播放進度"
-                progressBarRangeInfo = ProgressBarRangeInfo(position.toFloat(), 0f..duration.toFloat().coerceAtLeast(0f))
+                val maxF = duration.toFloat().coerceAtLeast(0f)
+                // steps 讓 TalkBack 的音量鍵／滑動一次跳 10 秒，而不是 1%
+                progressBarRangeInfo = ProgressBarRangeInfo(
+                    position.toFloat().coerceIn(0f, maxF), 0f..maxF,
+                    steps = if (duration > 0) maxOf(0, (duration / A11Y_STEP_SEC).toInt() - 1) else 0,
+                )
                 if (duration > 0) {
                     setProgress { target -> onSeek(target.toDouble().coerceIn(0.0, duration)); true }
                     customActions = listOf(

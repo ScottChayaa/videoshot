@@ -3,7 +3,12 @@ package com.xenyaa.videoshot.player
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -29,6 +34,7 @@ import org.robolectric.annotation.GraphicsMode
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35])
+@OptIn(androidx.compose.ui.test.ExperimentalTestApi::class)
 class PlayerControlsTest {
 
     @get:Rule val compose = createComposeRule()
@@ -197,5 +203,104 @@ class PlayerControlsTest {
         compose.onNodeWithTag(PLAYER_GESTURE_TAG).performTouchInput { swipeRight() }
         compose.mainClock.advanceTimeBy(400)
         assertEquals(emptyList<Double>(), seeks)
+    }
+
+    // ---- 實體鍵盤（驗收手冊 §零） ----
+
+    private fun focusGesture() {
+        compose.onNodeWithTag(PLAYER_GESTURE_TAG).requestFocus()
+        compose.waitForIdle()
+    }
+
+    private fun press(key: Key) {
+        compose.onNodeWithTag(PLAYER_GESTURE_TAG).performKeyInput { pressKey(key) }
+    }
+
+    @Test
+    fun 手勢區拿得到焦點() {
+        show()
+        focusGesture()
+        compose.onNodeWithTag(PLAYER_GESTURE_TAG).assertIsFocused()
+    }
+
+    @Test
+    fun 鍵盤_Enter_切換播放() {
+        show()
+        focusGesture()
+        press(Key.Enter)
+        assertEquals(1, toggles)
+    }
+
+    @Test
+    fun 鍵盤_數字鍵盤_Enter_與空白鍵也切換播放() {
+        show()
+        focusGesture()
+        press(Key.NumPadEnter)
+        press(Key.Spacebar)
+        assertEquals(2, toggles)
+    }
+
+    @Test
+    fun 鍵盤切換播放時叫出控制層() {
+        show()
+        focusGesture()
+        press(Key.Enter)
+        compose.mainClock.advanceTimeBy(400)
+        compose.onNodeWithContentDescription("全螢幕").assertIsDisplayed()
+    }
+
+    @Test
+    fun 鍵盤_右左方向鍵前後十秒() {
+        show()   // 目前 60 秒、總長 600 秒
+        focusGesture()
+        press(Key.DirectionRight)
+        press(Key.DirectionLeft)
+        assertEquals(listOf(70.0, 50.0), seeks)
+    }
+
+    @Test
+    fun 鍵盤跳播夾在零到總長之間() {
+        show(status = PlaybackStatus(3.0, 600.0, paused = false, started = true, 1920, 1080))
+        focusGesture()
+        press(Key.DirectionLeft)
+        assertEquals(listOf(0.0), seeks)
+    }
+
+    @Test
+    fun 鍵盤_F_切換全螢幕() {
+        show()
+        focusGesture()
+        press(Key.F)
+        assertEquals(1, fullscreenClicks)
+    }
+
+    @Test
+    fun 有焦點時控制層不自己收起() {
+        show()
+        focusGesture()
+        press(Key.DirectionRight)   // 叫出控制層
+        compose.mainClock.advanceTimeBy(CONTROLS_AUTO_HIDE_MS * 2)
+        compose.onNodeWithContentDescription("暫停").assertIsDisplayed()
+    }
+
+    @Test
+    fun 還沒準備好時鍵盤不作用() {
+        show(enabled = false)
+        focusGesture()
+        press(Key.Enter)
+        press(Key.DirectionRight)
+        press(Key.F)
+        assertEquals(0, toggles)
+        assertEquals(0, fullscreenClicks)
+        assertEquals(emptyList<Double>(), seeks)
+    }
+
+    @Test
+    fun 進度條語意帶步數且目前值夾在範圍內() {
+        show(status = PlaybackStatus(900.0, 600.0, paused = false, started = true, 1920, 1080))
+        val info = compose.onNodeWithContentDescription("播放進度").fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsProperties.ProgressBarRangeInfo]
+        assertEquals(600f, info.current, 0f)
+        assertEquals(59, info.steps)
     }
 }
