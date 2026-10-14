@@ -11,6 +11,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.unit.dp
@@ -113,7 +115,25 @@ class PlayerControlsTest {
     fun 中央按鈕切換播放() {
         show()
         tapCenter(); compose.mainClock.advanceTimeBy(400)
-        compose.onNodeWithContentDescription("暫停").performClick()
+        // 中央按鈕不攔觸控，單擊由手勢框判斷位置；要等過點兩下的判定時間
+        tapCenter(); compose.mainClock.advanceTimeBy(400)
+        assertEquals(1, toggles)
+    }
+
+    @Test
+    fun 控制層開著時在中央點兩下只切換一次() {
+        show()
+        tapCenter(); compose.mainClock.advanceTimeBy(400)
+        compose.onNodeWithTag(PLAYER_GESTURE_TAG).performTouchInput { doubleClick(center) }
+        compose.mainClock.advanceTimeBy(400)
+        assertEquals(1, toggles)
+    }
+
+    @Test
+    fun 讀屏用的中央按鈕語意動作切換播放() {
+        show()
+        tapCenter(); compose.mainClock.advanceTimeBy(400)
+        compose.onNodeWithContentDescription("暫停").performSemanticsAction(SemanticsActions.OnClick)
         assertEquals(1, toggles)
     }
 

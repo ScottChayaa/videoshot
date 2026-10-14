@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
@@ -43,10 +44,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.unit.Dp
@@ -60,6 +63,9 @@ import kotlinx.coroutines.delay
 
 /** 播放中控制層沒人碰多久自己收起（規格第六節「播放器」）。 */
 const val CONTROLS_AUTO_HIDE_MS = 3_000L
+
+/** 中央播放／暫停按鈕的觸控半徑（64dp 見方的圓）。 */
+private val CENTER_BUTTON_RADIUS = 32.dp
 
 /** 點兩下時中央閃一下的圖示停多久。 */
 private const val FLASH_MS = 600L
@@ -100,6 +106,9 @@ fun PlayerControls(
     val latestStatus by rememberUpdatedState(status)
     val latestDuration by rememberUpdatedState(duration)
     val latestEnabled by rememberUpdatedState(enabled)
+    // pointerInput(Unit) 不會重建，回呼要用最新的版本
+    val latestOnTogglePlay by rememberUpdatedState(onTogglePlay)
+    val latestOnSeek by rememberUpdatedState(onSeek)
 
     // 播放中、沒在拖、3 秒沒人碰 → 收起；暫停中一直留著
     LaunchedEffect(visible, status.paused, touches, dragSec == null) {
@@ -116,7 +125,6 @@ fun PlayerControls(
     val fraction = if (duration > 0) (position / duration).toFloat().coerceIn(0f, 1f) else 0f
 
     BoxWithConstraints(modifier) {
-        val widthPx = constraints.maxWidth.toFloat()
         Box(
             Modifier
                 .fillMaxSize()
@@ -130,11 +138,19 @@ fun PlayerControls(
                 }
                 .pointerInput(Unit) {
                     detectTapGestures(
-                        onTap = { if (latestEnabled) { visible = !visible; touches++ } },
+                        onTap = { offset ->
+                            if (latestEnabled) {
+                                // 中央按鈕不攔觸控（否則點兩下會被它吃成兩次單擊）：控制層開著、點在它的範圍內就由這裡切換播放
+                                val centerHit = visible &&
+                                    (offset - Offset(size.width / 2f, size.height / 2f)).getDistance() <= CENTER_BUTTON_RADIUS.toPx()
+                                if (centerHit) latestOnTogglePlay() else visible = !visible
+                                touches++
+                            }
+                        },
                         onDoubleTap = {
                             if (latestEnabled) {
                                 flash = latestStatus.paused   // 原本暫停 → 要播 → 閃播放圖示
-                                onTogglePlay()
+                                latestOnTogglePlay()
                                 touches++
                             }
                         },
@@ -156,11 +172,11 @@ fun PlayerControls(
                             if (dragSec != null) {
                                 change.consume()
                                 dx += amount
-                                dragSec = scrubTargetSec(startSec, dx, widthPx, latestDuration)
+                                dragSec = scrubTargetSec(startSec, dx, size.width.toFloat(), latestDuration)
                             }
                         },
                         onDragEnd = {
-                            dragSec?.let(onSeek)
+                            dragSec?.let(latestOnSeek)
                             dragSec = null
                             touches++
                         },
@@ -173,13 +189,21 @@ fun PlayerControls(
         AnimatedVisibility(visible && enabled, enter = fadeIn(), exit = fadeOut()) {
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f))) {
                 if (dragSec == null) {
-                    IconButton(
-                        onClick = { onTogglePlay(); touches++ },
-                        modifier = Modifier.align(Alignment.Center).size(64.dp),
+                    // 只畫圖示、不攔觸控；點擊由手勢框的 onTap 依位置判斷，TalkBack 走這裡的語意動作
+                    Box(
+                        Modifier
+                            .align(Alignment.Center)
+                            .size(CENTER_BUTTON_RADIUS * 2)
+                            .semantics(mergeDescendants = true) {
+                                role = Role.Button
+                                contentDescription = if (status.paused) "播放" else "暫停"
+                                onClick { onTogglePlay(); touches++; true }
+                            },
+                        contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             if (status.paused) VsIcons.Play else VsIcons.Pause,
-                            contentDescription = if (status.paused) "播放" else "暫停",
+                            contentDescription = null,
                             tint = OnDarkColors.primary,
                             modifier = Modifier.size(40.dp),
                         )
