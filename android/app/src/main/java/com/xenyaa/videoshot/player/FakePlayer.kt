@@ -24,6 +24,15 @@ class FakePlayer(initialTime: Double = 0.0) : Player {
     var pauses: Int = 0
         private set
 
+    /** 點兩下切換過幾次。 */
+    var toggles: Int = 0
+        private set
+
+    /** 測試指定影片寬高，驗全螢幕的橫直判斷。 */
+    var videoSize: Pair<Int, Int> = 1920 to 1080
+
+    var duration: Double = 0.0
+
     private var time: Double = initialTime
 
     override suspend fun play() { playing = true }
@@ -39,4 +48,18 @@ class FakePlayer(initialTime: Double = 0.0) : Player {
     }
 
     override suspend fun currentTime(): Double = time
+
+    override suspend fun togglePlay() {
+        toggles++
+        playing = !playing
+    }
+
+    override suspend fun status(): PlaybackStatus = PlaybackStatus(
+        currentSec = time,
+        durationSec = duration,
+        paused = !playing,
+        started = true,
+        videoWidth = videoSize.first,
+        videoHeight = videoSize.second,
+    )
 }

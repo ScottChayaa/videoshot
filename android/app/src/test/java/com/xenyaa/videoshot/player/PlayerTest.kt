@@ -117,4 +117,44 @@ class PlayerTest {
         // onPageCommitVisible 與 onPageFinished 都會注入
         assertTrue(BARE_PLAYER_JS, BARE_PLAYER_JS.contains("getElementById('vs-bare')"))
     }
+
+    // ---- 播放狀態（控制層用）----
+
+    @Test
+    fun 狀態字串解得出來() {
+        // evaluateJavascript 回傳的是 JSON 字串「再包一層引號」
+        val raw = "\"12.5,600,0,1,1920,1080\""
+        assertEquals(PlaybackStatus(12.5, 600.0, paused = false, started = true, 1920, 1080), parseStatus(raw))
+    }
+
+    @Test
+    fun 沒有影片元素時是未知狀態() {
+        assertEquals(PlaybackStatus.Unknown, parseStatus("\"none\""))
+        assertEquals(PlaybackStatus.Unknown, parseStatus("null"))
+        assertEquals(PlaybackStatus.Unknown, parseStatus(""))
+    }
+
+    @Test
+    fun 總長是_NaN_時當成零() {
+        assertEquals(0.0, parseStatus("\"0,NaN,1,0,0,0\"").durationSec, 0.0)
+    }
+
+    @Test
+    fun 狀態_JS_回傳六個欄位() {
+        listOf("currentTime", "duration", "paused", "readyState", "videoWidth", "videoHeight").forEach {
+            assertTrue(it, STATUS_JS.contains(it))
+        }
+    }
+
+    @Test
+    fun 假播放器的切換播放與狀態() = runTest {
+        val p = FakePlayer(initialTime = 3.0)
+        p.duration = 120.0
+        p.videoSize = 1080 to 1920
+        p.togglePlay()
+        assertEquals(1, p.toggles)
+        assertEquals(PlaybackStatus(3.0, 120.0, paused = false, started = true, 1080, 1920), p.status())
+        p.togglePlay()
+        assertEquals(true, p.status().paused)
+    }
 }

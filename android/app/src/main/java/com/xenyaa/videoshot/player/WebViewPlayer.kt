@@ -66,6 +66,12 @@ class WebViewPlayer(private val webView: WebView) : Player {
         return raw.trim().removeSurrounding("\"").toDoubleOrNull() ?: -1.0
     }
 
+    override suspend fun togglePlay() {
+        eval(TOGGLE_PLAY_JS)
+    }
+
+    override suspend fun status(): PlaybackStatus = parseStatus(eval(STATUS_JS))
+
     /**
      * 給 `capture` 用的執行入口。
      *
@@ -173,6 +179,36 @@ internal val BARE_PLAYER_JS =
       return 'ok';
     })()
     """.trimIndent()
+
+/**
+ * 一次讀完控制層要的六個值，逗號隔開（不用 JSON.stringify：回來還要再剝一層引號跟跳脫，逗號字串最好解）。
+ * 順序：currentTime, duration, paused, readyState>0, videoWidth, videoHeight。
+ */
+internal val STATUS_JS =
+    """
+    (function(){
+      var v = document.querySelector('video');
+      if (!v) return 'none';
+      return [v.currentTime, v.duration, v.paused ? 1 : 0, v.readyState > 0 ? 1 : 0, v.videoWidth, v.videoHeight].join(',');
+    })()
+    """.trimIndent()
+
+/** [STATUS_JS] 的回傳值。格式不對一律當未知，不丟例外——控制層讀不到只是不顯示，不該當機。 */
+internal fun parseStatus(raw: String): PlaybackStatus {
+    val parts = raw.trim().removeSurrounding("\"").split(',')
+    if (parts.size != 6) return PlaybackStatus.Unknown
+    val nums = parts.map { it.toDoubleOrNull() }
+    val current = nums[0] ?: return PlaybackStatus.Unknown
+    val duration = nums[1]?.takeIf { !it.isNaN() && !it.isInfinite() } ?: 0.0
+    return PlaybackStatus(
+        currentSec = current,
+        durationSec = duration,
+        paused = nums[2] != 0.0,
+        started = nums[3] == 1.0,
+        videoWidth = nums[4]?.toInt() ?: 0,
+        videoHeight = nums[5]?.toInt() ?: 0,
+    )
+}
 
 /**
  * 播放器 WebView 的初始設定。
