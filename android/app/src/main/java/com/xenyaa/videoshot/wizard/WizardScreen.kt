@@ -102,10 +102,10 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                                 PlayerSurface(
                                     videoId = meta.videoId,
                                     playableInEmbed = meta.playableInEmbed,
+                                    durationSec = meta.durationSec,
+                                    preview = { null },
                                     onPlayerReady = { vm.attachPlayer(it) },
                                     modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
-                                    // 只留影片畫面：跳播靠下方格子，點畫面播放／暫停
-                                    bare = true,
                                     // WebView 被釋放了 ViewModel 就不能再握著它
                                     onPlayerReleased = { vm.detachPlayer() },
                                 )

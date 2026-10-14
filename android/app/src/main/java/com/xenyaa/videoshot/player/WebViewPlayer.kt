@@ -5,18 +5,37 @@ import android.view.ViewGroup
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.compose.foundation.clickable
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.xenyaa.videoshot.core.player.isLandscapeVideo
+import com.xenyaa.videoshot.core.player.playerMaxHeightDp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
@@ -243,8 +262,10 @@ internal fun WebView.applyPlayerViewSettings() {
  * 預覽播到一半離開第二步（返回鍵、【✕】）之後，那個已經脫離畫面的 WebView 會繼續播 YouTube 的聲音，
  * 而且每重進一次第二步就多一個。切到背景不會離開組合，所以另外掛生命週期觀察者處理。
  *
- * @param bare 只留影片畫面：藏掉 YouTube 的所有按鈕與文字（[BARE_PLAYER_JS]），WebView 不收觸控，
- *        點畫面只會播放／暫停（[TOGGLE_PLAY_JS]）。取圖第二步用；詳情頁維持 YouTube 原本的介面
+ * YouTube 介面一律藏掉（[BARE_PLAYER_JS]），WebView 不收觸控，觸控由 [PlayerControls] 處理
+ * （點一下叫出控制層、點兩下播放／暫停、水平拖曳跳播）。
+ * @param durationSec 影片總長，WebView 讀不到時控制層拿它當進度條的總長
+ * @param preview 拖曳跳播時要顯示的預覽圖（依目標秒數）；沒有就不顯示泡泡
  * @param onPlayerReleased WebView 沒了要講一聲 —— 呼叫端（`WizardViewModel`）握著的 [Player]
  *        指向的就是這個 WebView，不放掉的話轉螢幕之後還會對一個已經 destroy 的 WebView 下指令
  */
@@ -253,9 +274,10 @@ internal fun WebView.applyPlayerViewSettings() {
 fun PlayerSurface(
     videoId: String,
     playableInEmbed: Boolean,
+    durationSec: Int,
+    preview: suspend (Double) -> ImageBitmap?,
     onPlayerReady: (Player) -> Unit,
     modifier: Modifier = Modifier,
-    bare: Boolean = false,
     onPlayerReleased: () -> Unit = {},
 ) {
     val url = remember(videoId, playableInEmbed) { playerUrl(videoId, playableInEmbed) }
@@ -263,6 +285,26 @@ fun PlayerSurface(
     // 生命週期觀察者要摸得到 WebView，而 WebView 是 factory 造的 —— 用一格陣列接住它。
     // 不用 mutableStateOf：這不是畫面狀態，寫進去只會多一次重組
     val holder = remember { arrayOfNulls<WebView>(1) }
+
+    val fullscreen = LocalPlayerFullscreen.current
+    // onPageFinished 之後才有；控制層靠它讀狀態與下指令
+    var player by remember { mutableStateOf<WebViewPlayer?>(null) }
+    var status by remember { mutableStateOf(PlaybackStatus.Unknown) }
+    val scope = rememberCoroutineScope()
+
+    // 播放器在畫面上才輪詢（同第二步既有的 0.25 秒）
+    LaunchedEffect(player) {
+        val p = player ?: return@LaunchedEffect
+        while (true) {
+            status = p.status()
+            delay(STATUS_POLL_MS)
+        }
+    }
+
+    // 全螢幕時系統返回只負責離開全螢幕。這個 BackHandler 比畫面自己的晚註冊，所以優先
+    BackHandler(enabled = fullscreen.active) { fullscreen.exit() }
+    // 播放器離開畫面（返回、換頁、被系統收掉）一律回直立，不讓別的畫面卡在橫向
+    DisposableEffect(Unit) { onDispose { fullscreen.exit() } }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -285,21 +327,22 @@ fun PlayerSurface(
                 WebView(context).apply {
                     applyPlayerViewSettings()
                     webChromeClient = WebChromeClient()
-                    val player = WebViewPlayer(this)
+                    val webPlayer = WebViewPlayer(this)
                     webViewClient = object : WebViewClient() {
                         // 頁面一畫出來就藏，不等 onPageFinished，減少 YouTube 按鈕閃一下
                         override fun onPageCommitVisible(view: WebView?, loadedUrl: String?) {
-                            if (bare) view?.evaluateJavascript(BARE_PLAYER_JS, null)
+                            view?.evaluateJavascript(BARE_PLAYER_JS, null)
                         }
 
                         override fun onPageFinished(view: WebView?, loadedUrl: String?) {
-                            if (bare) view?.evaluateJavascript(BARE_PLAYER_JS, null)
-                            player.markReady()
-                            onPlayerReady(player)
+                            view?.evaluateJavascript(BARE_PLAYER_JS, null)
+                            webPlayer.markReady()
+                            player = webPlayer
+                            onPlayerReady(webPlayer)
                         }
                     }
-                    // 藏起來的按鈕仍然點得到，所以觸控整個不給 WebView，改由蓋在上面的那一層處理
-                    if (bare) setOnTouchListener { _, _ -> true }
+                    // 藏起來的按鈕仍然點得到，所以觸控整個不給 WebView，改由蓋在上面的控制層處理
+                    setOnTouchListener { _, _ -> true }
                     holder[0] = this
                     // embed 需要 referer，否則部分影片會拒絕播放
                     loadUrl(url, mapOf("Referer" to "https://${context.packageName}"))
@@ -307,6 +350,7 @@ fun PlayerSurface(
             },
             onRelease = { webView ->
                 holder[0] = null
+                player = null
                 onPlayerReleased()
                 // 先卸掉頁面再 destroy：about:blank 會把 <video> 一起帶走，聲音當場停
                 webView.stopLoading()
@@ -315,14 +359,44 @@ fun PlayerSurface(
                 webView.destroy()
             },
         )
-        if (bare) {
-            Box(
-                Modifier.matchParentSize().clickable(
-                    interactionSource = null,
-                    indication = null,
-                    onClickLabel = "播放或暫停",
-                ) { holder[0]?.evaluateJavascript(TOGGLE_PLAY_JS, null) },
-            )
-        }
+        PlayerControls(
+            status = status,
+            fallbackDurationSec = durationSec.toDouble(),
+            enabled = player != null,
+            fullscreen = fullscreen.active,
+            preview = preview,
+            onTogglePlay = { scope.launch { player?.togglePlay() } },
+            onSeek = { sec -> scope.launch { player?.seekTo(sec) } },
+            onToggleFullscreen = {
+                if (fullscreen.active) fullscreen.exit()
+                else fullscreen.enter(isLandscapeVideo(status.videoWidth, status.videoHeight))
+            },
+            modifier = Modifier.matchParentSize(),
+        )
+    }
+}
+
+/** 控制層讀播放狀態的間隔，同第二步縮圖牆外框的輪詢。 */
+private const val STATUS_POLL_MS = 250L
+
+/**
+ * 播放器的外框（規格第六節）：非全螢幕時寬滿、16:9，大螢幕橫向（Android 16 以上鎖不住直立）時
+ * 高度最多 40%，影片在框裡置中、兩側黑邊；全螢幕時撐滿。
+ * **呼叫端只能換這個 Modifier，不能把播放器搬到別的位置**——搬了 WebView 就會重建。
+ */
+@Composable
+fun Modifier.playerFrame(fullscreen: Boolean): Modifier {
+    if (fullscreen) return this.fillMaxSize().background(Color.Black)
+    val config = LocalConfiguration.current
+    val maxH = playerMaxHeightDp(config.screenWidthDp.toFloat(), config.screenHeightDp.toFloat())
+    val base = this.fillMaxWidth().background(Color.Black)
+    if (maxH == null) return base.aspectRatio(16f / 9f)
+    // 不用 aspectRatio(matchHeightConstraintsFirst)：高度被夾住之後它會連寬度一起縮（實測 800×400dp 的視窗
+    // 框只剩 284dp 寬）。這裡自己量：寬滿、高 ＝ min(寬 × 9/16, 上限)
+    return base.layout { measurable, constraints ->
+        val w = constraints.maxWidth
+        val h = minOf((w * 9f / 16f).toInt(), maxH.dp.roundToPx())
+        val placeable = measurable.measure(Constraints.fixed(w, h))
+        layout(w, h) { placeable.place(0, 0) }
     }
 }

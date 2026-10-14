@@ -133,6 +133,8 @@ fun DetailScreen(
                 is DetailViewModel.PlayerAvailability.Ready -> PlayerSurface(
                     videoId = state.videoId,
                     playableInEmbed = player.playableInEmbed,
+                    durationSec = 0,
+                    preview = { null },
                     onPlayerReady = onPlayerReady,
                     onPlayerReleased = onPlayerReleased,
                     modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
