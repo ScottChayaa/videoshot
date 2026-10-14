@@ -17,6 +17,8 @@
         <!--
             鎖直立（規格第六節）：只有橫的影片全螢幕時由 FullscreenSystemEffect 改成橫向。
             configChanges：進出全螢幕轉向時不重建 Activity——重建會銷毀播放器的 WebView，影片從頭重載。
+            keyboard／navigation：接上或拔掉實體鍵盤也是設定變更，不列的話 Activity 會重建，
+            WebView 重載、全螢幕狀態丟失。
             Android 16 以上的大螢幕系統會忽略 screenOrientation，一律跟著裝置轉。
         -->
         <activity
@@ -25,7 +27,7 @@
             android:label="@string/app_name"
             android:theme="@style/Theme.Videoshot"
             android:screenOrientation="portrait"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

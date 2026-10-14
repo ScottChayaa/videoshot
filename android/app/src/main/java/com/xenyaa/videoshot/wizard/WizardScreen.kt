@@ -19,6 +19,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -127,9 +128,9 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                                     }
                                 }
                             }
-                            // 捲動狀態放在 if 外面：全螢幕時縮圖牆離開組合，退出後要回到原來捲到的位置；
+                            // 捲動狀態放在 if 外面：全螢幕時縮圖牆離開組合，退出後要回到原來捲到的位置（rememberSaveable：Activity 重建也撐得過）；
                             // 以 store 當 key，換影片就重來
-                            val gridState = remember(current) { LazyGridState() }
+                            val gridState = rememberSaveable(current, saver = LazyGridState.Saver) { LazyGridState() }
                             if (!fullscreen) {
                                 // remember 起來、以 store 當 key：FrameImage 拿它當 produceState 的 key，
                                 // 每次重組都給新 lambda 的話每一格都會重新解圖
