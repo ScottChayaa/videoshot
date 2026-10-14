@@ -6,14 +6,21 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.xenyaa.videoshot.player.FullscreenSystemEffect
+import com.xenyaa.videoshot.player.LocalPlayerFullscreen
+import com.xenyaa.videoshot.player.PlayerFullscreenState
 import com.xenyaa.videoshot.ui.shell.AppRoot
 import com.xenyaa.videoshot.ui.shell.FrameStallGuard
 import com.xenyaa.videoshot.ui.theme.Palettes
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
 
 class MainActivity : ComponentActivity() {
+    /** 播放器全螢幕的唯一一份狀態（規格第六節）。放在 Activity 上，轉向時不重建，所以不會丟。 */
+    private val playerFullscreen = PlayerFullscreenState()
+
     /** 測試會換掉它——見 `MainActivityFrameStallTest`。 */
     internal var frameStallGuard = FrameStallGuard()
 
@@ -37,7 +44,10 @@ class MainActivity : ComponentActivity() {
             val themeId by app.container.settings.themeId.collectAsStateWithLifecycle(initialValue = null)
 
             VideoshotTheme(spec = Palettes.byId(themeId)) {
-                AppRoot(container = app.container, onExitApp = { finish() })
+                CompositionLocalProvider(LocalPlayerFullscreen provides playerFullscreen) {
+                    FullscreenSystemEffect(playerFullscreen)
+                    AppRoot(container = app.container, onExitApp = { finish() })
+                }
             }
         }
     }
