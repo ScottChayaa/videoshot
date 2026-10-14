@@ -33,6 +33,7 @@ import com.xenyaa.videoshot.data.repo.RoomLibraryRepo
 import com.xenyaa.videoshot.data.settings.AppSettings
 import com.xenyaa.videoshot.core.home.monthOf
 import com.xenyaa.videoshot.core.storyboard.Storyboard
+import com.xenyaa.videoshot.core.youtube.WatchPage
 import com.xenyaa.videoshot.core.draft.DraftCodec
 import com.xenyaa.videoshot.data.cache.entity.DraftEntity
 import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
@@ -59,6 +60,7 @@ import okhttp3.OkHttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import android.graphics.BitmapFactory
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import com.xenyaa.videoshot.capture.Capture
 import com.xenyaa.videoshot.capture.ManualImageStore
@@ -66,6 +68,7 @@ import com.xenyaa.videoshot.capture.WebViewCapture
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.player.Player
 import com.xenyaa.videoshot.player.WebViewPlayer
+import com.xenyaa.videoshot.player.previewFramesOf
 import com.xenyaa.videoshot.query.OkHttpGeminiClient
 import com.xenyaa.videoshot.query.QueryResolver
 import com.xenyaa.videoshot.ui.account.AccountDeps
@@ -448,6 +451,9 @@ class AppContainer(context: Context) : AppRootDeps {
      * 只有 `WebViewPlayer` 截得到圖 —— 它握著那個 WebView 的 JS 執行入口。
      * 其他實作（例如測試用的 `FakePlayer`）回 null，畫面上按【截圖】會得到「播放器還沒準備好」。
      */
+    override fun previewFramesFor(videoId: String, page: WatchPage): (suspend (Double) -> ImageBitmap?)? =
+        previewFramesOf(videoId, page, appContext.cacheDir, youtube)?.let { it::at }
+
     override fun captureFor(player: Player): Capture? = when (player) {
         is WebViewPlayer -> WebViewCapture(
             eval = { player.evaluate(it) },

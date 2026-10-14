@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.detail
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -7,6 +8,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.xenyaa.videoshot.data.repo.model.ShotRow
+import com.xenyaa.videoshot.player.LocalPlayerFullscreen
+import com.xenyaa.videoshot.player.PlayerFullscreenState
 import com.xenyaa.videoshot.thumbs.ThumbKey
 import com.xenyaa.videoshot.thumbs.ThumbSource
 import com.xenyaa.videoshot.thumbs.Thumbs
@@ -51,22 +54,24 @@ class DetailScreenTest {
     private var deleteTapped = false
     private var backTapped = false
 
-    private fun show(state: DetailViewModel.State) {
+    private fun show(state: DetailViewModel.State, fullscreen: PlayerFullscreenState = PlayerFullscreenState()) {
         compose.setContent {
             VideoshotTheme {
-                DetailScreen(
-                    state = state,
-                    loader = loader,
-                    onBack = { backTapped = true },
-                    onPlayerReady = {},
-                    onPlayerReleased = {},
-                    onRetryPlayer = {},
-                    onFocus = { focused = it },
-                    onEdit = { edited = it },
-                    onContinueCapture = { continueTapped = true },
-                    onBatchEdit = { batchEditTapped = true },
-                    onDeleteVideo = { deleteTapped = true },
-                )
+                CompositionLocalProvider(LocalPlayerFullscreen provides fullscreen) {
+                    DetailScreen(
+                        state = state,
+                        loader = loader,
+                        onBack = { backTapped = true },
+                        onPlayerReady = {},
+                        onPlayerReleased = {},
+                        onRetryPlayer = {},
+                        onFocus = { focused = it },
+                        onEdit = { edited = it },
+                        onContinueCapture = { continueTapped = true },
+                        onBatchEdit = { batchEditTapped = true },
+                        onDeleteVideo = { deleteTapped = true },
+                    )
+                }
             }
         }
     }
@@ -83,6 +88,33 @@ class DetailScreenTest {
         )
         compose.onNodeWithText("旅行影片").assertIsDisplayed()
         compose.onNodeWithText("這支影片的收藏 (2)").assertIsDisplayed()
+    }
+
+    @Test
+    fun 全螢幕時只剩播放器() {
+        val fs = PlayerFullscreenState().apply { enter(landscape = true) }
+        show(
+            DetailViewModel.State(
+                loading = false, title = "旅行影片", shots = listOf(shot(1, 10.0, desc = "海邊")), focusedShotId = 1L,
+                player = DetailViewModel.PlayerAvailability.Ready(true),
+            ),
+            fullscreen = fs,
+        )
+        compose.onNodeWithText("海邊").assertDoesNotExist()
+        compose.onNodeWithText("這支影片的收藏 (1)").assertDoesNotExist()
+        compose.onNodeWithContentDescription("這支影片的更多操作").assertDoesNotExist()
+    }
+
+    @Test
+    fun 不是全螢幕時圖資卡與頂欄都在() {
+        show(
+            DetailViewModel.State(
+                loading = false, title = "旅行影片", shots = listOf(shot(1, 10.0, desc = "海邊")), focusedShotId = 1L,
+                player = DetailViewModel.PlayerAvailability.Ready(true),
+            ),
+        )
+        compose.onNodeWithText("海邊").assertIsDisplayed()
+        compose.onNodeWithContentDescription("這支影片的更多操作").assertIsDisplayed()
     }
 
     @Test

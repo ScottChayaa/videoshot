@@ -6,6 +6,7 @@ import com.xenyaa.videoshot.core.youtube.WatchPage
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.ShotRow
+import androidx.compose.ui.graphics.ImageBitmap
 import com.xenyaa.videoshot.player.FakePlayer
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +20,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -107,6 +109,34 @@ class DetailViewModelTest {
         advanceUntilIdle()
         val avail = vm.state.value.player as DetailViewModel.PlayerAvailability.Ready
         assertFalse(avail.playableInEmbed)
+    }
+
+    @Test
+    fun 播放器就緒時帶出影片總長與預覽來源() = runTest(dispatcher) {
+        val repo = Repo().apply { shots = listOf(shot(1, 10.0)) }
+        val preview: suspend (Double) -> ImageBitmap? = { null }
+        val vm = DetailViewModel(
+            "v1", initialFocusShotId = 1L, library = repo,
+            watchPage = { okPage() }, previewFor = { preview },
+        )
+        advanceUntilIdle()
+        val ready = vm.state.value.player as DetailViewModel.PlayerAvailability.Ready
+        assertEquals(600, ready.durationSec)
+        assertSame(preview, ready.preview)
+    }
+
+    @Test
+    fun 影片抓不到時不建預覽來源() = runTest(dispatcher) {
+        var called = false
+        val repo = Repo().apply { shots = listOf(shot(1, 10.0)) }
+        val vm = DetailViewModel(
+            "v1", initialFocusShotId = 1L, library = repo,
+            watchPage = { WatchPage(FetchResult.VIDEO_UNAVAILABLE, null, null) },
+            previewFor = { called = true; null },
+        )
+        advanceUntilIdle()
+        assertTrue(vm.state.value.player is DetailViewModel.PlayerAvailability.Unavailable)
+        assertFalse(called)
     }
 
     @Test
@@ -239,7 +269,7 @@ class DetailViewModelTest {
         assertFalse(s.loading)
         assertEquals("旅行影片", s.title)
         assertEquals(2, s.shots.size)
-        assertEquals(DetailViewModel.PlayerAvailability.Ready(playableInEmbed = true), s.player)
+        assertEquals(DetailViewModel.PlayerAvailability.Ready(playableInEmbed = true, durationSec = 600), s.player)
     }
 
     @Test

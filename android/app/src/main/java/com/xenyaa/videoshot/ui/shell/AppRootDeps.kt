@@ -1,9 +1,11 @@
 package com.xenyaa.videoshot.ui.shell
 
+import androidx.compose.ui.graphics.ImageBitmap
 import com.xenyaa.videoshot.backup.RemoteBackup
 import com.xenyaa.videoshot.backup.RestoreResult
 import com.xenyaa.videoshot.capture.Capture
 import com.xenyaa.videoshot.capture.ManualImageStore
+import com.xenyaa.videoshot.core.youtube.WatchPage
 import com.xenyaa.videoshot.data.FacetUsage
 import com.xenyaa.videoshot.data.ShotDeleter
 import com.xenyaa.videoshot.data.repo.LibraryRepo
@@ -67,4 +69,10 @@ interface AppRootDeps {
 
     /** 播放器接上之後建對應的截圖器。見 `AppContainer.captureFor` 的 KDoc。 */
     fun captureFor(player: Player): Capture?
+
+    /**
+     * 詳情頁播放器拖曳預覽的圖來源（規格第六節）；沒有 storyboard 回 null。
+     * 預設回 null：只有 `AppContainer` 握著 `Youtube` 與快取目錄，各測試的假實作不必管這件事。
+     */
+    fun previewFramesFor(videoId: String, page: WatchPage): (suspend (Double) -> ImageBitmap?)? = null
 }

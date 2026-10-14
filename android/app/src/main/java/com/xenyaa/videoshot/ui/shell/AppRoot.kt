@@ -66,6 +66,7 @@ import com.xenyaa.videoshot.ui.lightbox.LightboxScreen
 import com.xenyaa.videoshot.ui.lightbox.shareTextOf
 import com.xenyaa.videoshot.ui.onboarding.FirstRunChooserScreen
 import com.xenyaa.videoshot.ui.common.avatarInitialOf
+import com.xenyaa.videoshot.player.LocalPlayerFullscreen
 import com.xenyaa.videoshot.ui.detail.BatchEditScreen
 import com.xenyaa.videoshot.ui.detail.BatchEditState
 import com.xenyaa.videoshot.ui.detail.BatchEditViewModel
@@ -92,6 +93,8 @@ private val NavSaver = Saver<NavState, String>(
  */
 @Composable
 fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
+    // 播放器全螢幕時底部導覽也要藏起來（規格第六節「全螢幕與畫面方向」）
+    val fullscreen = LocalPlayerFullscreen.current
     // 全新安裝的第一個畫面（規格第十節「還原」入口）。用 null 當「還在讀 DataStore」的訊號——
     // 猜一個預設值再等真正的值回來會有畫面閃一下的風險，不如先留白一瞬間。
     val restoreDecisionMade by container.settings.restoreDecisionMade
@@ -237,6 +240,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                         initialFocusShotId = (nav.current as? Dest.Detail)?.focusShotId ?: 0L,
                         library = container.libraryRepo,
                         watchPage = container.wizardData::watchPage,
+                        previewFor = { page -> container.previewFramesFor(vid, page) },
                     ) as T
             },
             key = "detail-$vid",
@@ -630,7 +634,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             onSelectTab = { foldersVm.clearSelection(); nav = nav.select(it) },
             snackbarHostState = snackbarHostState, accountInitial = avatarInitialOf(accountState.linkedAccount?.displayName),
             // 照片頁、相簿畫面、封存相簿畫面多選時藏起底部導覽，由各自畫面的動作列取代
-            showBottomNav = !(
+            showBottomNav = !fullscreen.active && !(
                 (nav.tab == Tab.HOME && nav.current == Dest.Root && homeSelection.isNotEmpty()) ||
                     (nav.tab == Tab.FOLDERS && (nav.current == Dest.Root || nav.current == Dest.ArchivedFolders) &&
                         foldersState.selection.isNotEmpty())

@@ -46,8 +46,10 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.core.time.formatClock
 import com.xenyaa.videoshot.data.repo.model.ShotRow
+import com.xenyaa.videoshot.player.LocalPlayerFullscreen
 import com.xenyaa.videoshot.player.Player
 import com.xenyaa.videoshot.player.PlayerSurface
+import com.xenyaa.videoshot.player.playerFrame
 import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.ChipKind
 import com.xenyaa.videoshot.ui.common.ChipSize
@@ -86,31 +88,35 @@ fun DetailScreen(
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var confirmingDelete by remember { mutableStateOf(false) }
+    // 全螢幕時只剩播放器：其他區塊藏起來，但播放器那一行在組合裡的位置不動（動了 WebView 會重建）
+    val fullscreen = LocalPlayerFullscreen.current.active
 
     Column(modifier.fillMaxSize()) {
 
         // 沒有 statusBarsPadding()——這支畫面掛在 AppShell 的 Scaffold 裡（比照 FolderScreen），
         // Scaffold 已經把系統列 inset 當 padding 傳進來了（見 AppRoot.kt 呼叫端），這裡再加
         // 一次會把狀態列的高度墊兩遍，標題上方多出一截真機才看得出來的空白（最終審查 Finding 4）
-        VsTopBar(state.title, nav = TopBarNav.Back(onBack), titleStyle = TopBarTitle.Small) {
-            Box {
-                TopBarIconButton(VsIcons.More, "這支影片的更多操作", { menuOpen = true })
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(
-                        text = { Text("繼續取這支的圖") },
-                        leadingIcon = { Icon(VsIcons.Plus, contentDescription = null) },
-                        onClick = { menuOpen = false; onContinueCapture() },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("批次編輯圖資") },
-                        leadingIcon = { Icon(VsIcons.Edit, contentDescription = null) },
-                        onClick = { menuOpen = false; onBatchEdit() },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("刪除整支收藏", color = AppTheme.colors.danger) },
-                        leadingIcon = { Icon(VsIcons.Trash, contentDescription = null, tint = AppTheme.colors.danger) },
-                        onClick = { menuOpen = false; confirmingDelete = true },
-                    )
+        if (!fullscreen) {
+            VsTopBar(state.title, nav = TopBarNav.Back(onBack), titleStyle = TopBarTitle.Small) {
+                Box {
+                    TopBarIconButton(VsIcons.More, "這支影片的更多操作", { menuOpen = true })
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text("繼續取這支的圖") },
+                            leadingIcon = { Icon(VsIcons.Plus, contentDescription = null) },
+                            onClick = { menuOpen = false; onContinueCapture() },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("批次編輯圖資") },
+                            leadingIcon = { Icon(VsIcons.Edit, contentDescription = null) },
+                            onClick = { menuOpen = false; onBatchEdit() },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("刪除整支收藏", color = AppTheme.colors.danger) },
+                            leadingIcon = { Icon(VsIcons.Trash, contentDescription = null, tint = AppTheme.colors.danger) },
+                            onClick = { menuOpen = false; confirmingDelete = true },
+                        )
+                    }
                 }
             }
         }
@@ -118,7 +124,7 @@ fun DetailScreen(
         if (state.loading) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("正在載入…") }
         } else {
-            if (state.error != null) {
+            if (state.error != null && !fullscreen) {
                 Text(
                     state.error,
                     // 讀取失敗不是破壞性動作，不用紅色（紅色只留給刪除）
@@ -133,14 +139,14 @@ fun DetailScreen(
                 is DetailViewModel.PlayerAvailability.Ready -> PlayerSurface(
                     videoId = state.videoId,
                     playableInEmbed = player.playableInEmbed,
-                    durationSec = 0,
-                    preview = { null },
+                    durationSec = player.durationSec,
+                    preview = player.preview ?: { null },
                     onPlayerReady = onPlayerReady,
                     onPlayerReleased = onPlayerReleased,
-                    modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+                    modifier = Modifier.playerFrame(fullscreen),
                 )
                 is DetailViewModel.PlayerAvailability.Unavailable -> Column(
-                    Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(AppTheme.colors.surface2),
+                    Modifier.playerFrame(fullscreen = false).background(AppTheme.colors.surface2),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
@@ -153,82 +159,84 @@ fun DetailScreen(
                     if (player.retryable) VsButton("重試", onRetryPlayer, variant = ButtonVariant.Secondary)
                 }
                 DetailViewModel.PlayerAvailability.Loading ->
-                    Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(AppTheme.colors.surface2))
+                    Box(Modifier.playerFrame(fullscreen = false).background(AppTheme.colors.surface2))
             }
 
-            // 目前這一張的圖資（手冊 §七第一條；原型 `.clip-meta`）
-            state.focused?.let { focused ->
-                val shape = RoundedCornerShape(AppTheme.radii.md)
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(start = AppTheme.spacing.s4, end = AppTheme.spacing.s4, top = AppTheme.spacing.s3, bottom = AppTheme.spacing.s4)
-                        .clip(shape)
-                        .background(AppTheme.colors.surface)
-                        .border(1.dp, AppTheme.colors.border, shape)
-                        .padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
-                    verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
-                ) {
-                    val hasDesc = !focused.description.isNullOrBlank()
-                    Text(
-                        if (hasDesc) focused.description!! else "還沒有描述",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = if (hasDesc) AppTheme.colors.text else AppTheme.colors.textFaint,
-                    )
-                    // 純顯示的小膠囊：沒有 onClick，也就不會有點擊語意（原本的 AssistChip(onClick = {}) 假裝可點）
-                    if (focused.place != null || state.focusedTags.isNotEmpty()) {
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
-                            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
-                        ) {
-                            focused.place?.let { VsTagChip(it, ChipKind.PLACE, size = ChipSize.Mini) }
-                            state.focusedTags.forEach { tag ->
-                                VsTagChip(tag, ChipKind.ofTagKind(state.focusedTagKinds[tag] ?: "other"), size = ChipSize.Mini)
+            if (!fullscreen) {
+                // 目前這一張的圖資（手冊 §七第一條；原型 `.clip-meta`）
+                state.focused?.let { focused ->
+                    val shape = RoundedCornerShape(AppTheme.radii.md)
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(start = AppTheme.spacing.s4, end = AppTheme.spacing.s4, top = AppTheme.spacing.s3, bottom = AppTheme.spacing.s4)
+                            .clip(shape)
+                            .background(AppTheme.colors.surface)
+                            .border(1.dp, AppTheme.colors.border, shape)
+                            .padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
+                        verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
+                    ) {
+                        val hasDesc = !focused.description.isNullOrBlank()
+                        Text(
+                            if (hasDesc) focused.description!! else "還沒有描述",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = if (hasDesc) AppTheme.colors.text else AppTheme.colors.textFaint,
+                        )
+                        // 純顯示的小膠囊：沒有 onClick，也就不會有點擊語意（原本的 AssistChip(onClick = {}) 假裝可點）
+                        if (focused.place != null || state.focusedTags.isNotEmpty()) {
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
+                                verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
+                            ) {
+                                focused.place?.let { VsTagChip(it, ChipKind.PLACE, size = ChipSize.Mini) }
+                                state.focusedTags.forEach { tag ->
+                                    VsTagChip(tag, ChipKind.ofTagKind(state.focusedTagKinds[tag] ?: "other"), size = ChipSize.Mini)
+                                }
                             }
                         }
+                        Text(
+                            "${chineseDate(focused.eventDate)} · 影片 ${formatClock(focused.atSec)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = AppTheme.colors.textDim,
+                        )
+                        VsButton(
+                            "編輯詳細資料", { onEdit(focused) },
+                            modifier = Modifier.fillMaxWidth(),
+                            variant = ButtonVariant.Secondary,
+                            icon = VsIcons.Edit,
+                        )
                     }
-                    Text(
-                        "${chineseDate(focused.eventDate)} · 影片 ${formatClock(focused.atSec)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppTheme.colors.textDim,
-                    )
-                    VsButton(
-                        "編輯詳細資料", { onEdit(focused) },
-                        modifier = Modifier.fillMaxWidth(),
-                        variant = ButtonVariant.Secondary,
-                        icon = VsIcons.Edit,
-                    )
                 }
-            }
 
-            // 區塊標題（原型 `.section h3`）：「(N)」同一行、小一階、淡一階，單一 Text 讓朗讀也是一句
-            Text(
-                buildAnnotatedString {
-                    append("這支影片的收藏")
-                    withStyle(SpanStyle(fontSize = MaterialTheme.typography.bodyMedium.fontSize, fontWeight = FontWeight.Normal, color = AppTheme.colors.textDim)) {
-                        append(" (${state.shots.size})")
+                // 區塊標題（原型 `.section h3`）：「(N)」同一行、小一階、淡一階，單一 Text 讓朗讀也是一句
+                Text(
+                    buildAnnotatedString {
+                        append("這支影片的收藏")
+                        withStyle(SpanStyle(fontSize = MaterialTheme.typography.bodyMedium.fontSize, fontWeight = FontWeight.Normal, color = AppTheme.colors.textDim)) {
+                            append(" (${state.shots.size})")
+                        }
+                    },
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = AppTheme.colors.text,
+                    modifier = Modifier.padding(start = AppTheme.spacing.s4, end = AppTheme.spacing.s4, top = AppTheme.spacing.s2, bottom = AppTheme.spacing.s3),
+                )
+
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    contentPadding = PaddingValues(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s1),
+                    horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
+                    verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
+                ) {
+                    items(state.shots, key = { it.id }) { shot ->
+                        DetailGridTile(
+                            shot = shot,
+                            loader = loader,
+                            focused = shot.id == state.focusedShotId,
+                            onFocus = { onFocus(shot) },
+                            onEdit = { onEdit(shot) },
+                        )
                     }
-                },
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = AppTheme.colors.text,
-                modifier = Modifier.padding(start = AppTheme.spacing.s4, end = AppTheme.spacing.s4, top = AppTheme.spacing.s2, bottom = AppTheme.spacing.s3),
-            )
-
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                contentPadding = PaddingValues(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s1),
-                horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
-                verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
-            ) {
-                items(state.shots, key = { it.id }) { shot ->
-                    DetailGridTile(
-                        shot = shot,
-                        loader = loader,
-                        focused = shot.id == state.focusedShotId,
-                        onFocus = { onFocus(shot) },
-                        onEdit = { onEdit(shot) },
-                    )
                 }
             }
         }

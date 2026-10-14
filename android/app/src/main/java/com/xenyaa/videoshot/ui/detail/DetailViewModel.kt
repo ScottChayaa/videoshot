@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.detail
 
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xenyaa.videoshot.core.youtube.FetchResult
@@ -29,6 +30,8 @@ class DetailViewModel(
     initialFocusShotId: Long,
     private val library: LibraryRepo,
     private val watchPage: suspend (String) -> WatchPage,
+    /** 拖曳預覽的來源（規格第六節）；沒有 storyboard 回 null。測試預設不給 */
+    private val previewFor: (WatchPage) -> (suspend (Double) -> ImageBitmap?)? = { null },
 ) : ViewModel() {
 
     data class State(
@@ -51,7 +54,12 @@ class DetailViewModel(
 
     sealed interface PlayerAvailability {
         data object Loading : PlayerAvailability
-        data class Ready(val playableInEmbed: Boolean) : PlayerAvailability
+        data class Ready(
+            val playableInEmbed: Boolean,
+            /** watch page 的總長；`<video>.duration` 還沒有值時控制層用它 */
+            val durationSec: Int = 0,
+            val preview: (suspend (Double) -> ImageBitmap?)? = null,
+        ) : PlayerAvailability
         data class Unavailable(val message: String, val retryable: Boolean) : PlayerAvailability
     }
 
@@ -104,7 +112,10 @@ class DetailViewModel(
             // 先等網路、再以「當下」的狀態更新——不能寫成 `_state.value = _state.value.copy(player = …watchPage…)`：
             // Kotlin 會先取那時的舊快照（loading 還是 true）才去等網路，回來後整份寫回，
             // 把圖資讀取早就寫好的 loading = false／shots／title 全蓋掉（2026-10-01 實機「永遠正在載入」）
-            val availability = availabilityOf(watchPage(videoId))
+            val page = watchPage(videoId)
+            val availability = availabilityOf(page).let {
+                if (it is PlayerAvailability.Ready) it.copy(preview = previewFor(page)) else it
+            }
             _state.update { it.copy(player = availability) }
         }
     }
@@ -174,7 +185,7 @@ class DetailViewModel(
  * 沒有 meta 時依失敗種類給不同文案——`FETCH_FAILED` 是網路問題,值得給【重試】。
  */
 internal fun availabilityOf(page: WatchPage): DetailViewModel.PlayerAvailability {
-    page.meta?.let { return DetailViewModel.PlayerAvailability.Ready(it.playableInEmbed) }
+    page.meta?.let { return DetailViewModel.PlayerAvailability.Ready(it.playableInEmbed, durationSec = it.durationSec) }
     return when (page.result) {
         FetchResult.FETCH_FAILED, FetchResult.RATE_LIMITED ->
             DetailViewModel.PlayerAvailability.Unavailable("沒有網路，無法播放。", retryable = true)
