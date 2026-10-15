@@ -12,7 +12,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeUp
 import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.core.paging.ShotCursor
 import com.xenyaa.videoshot.core.query.QueryVocabulary
@@ -240,9 +240,9 @@ class AppRootLightboxTest {
     fun 滑動多次之後按一次關閉就退出_不是疊了好幾層() {
         show()
         compose.onNodeWithContentDescription("片段縮圖 00:10").performClick()
-        compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeLeft() }
+        compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeUp() }
         compose.waitForIdle()
-        compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeLeft() }
+        compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeUp() }
         compose.waitForIdle()
         compose.onNodeWithText("2026年3月13日").assertIsDisplayed()
 

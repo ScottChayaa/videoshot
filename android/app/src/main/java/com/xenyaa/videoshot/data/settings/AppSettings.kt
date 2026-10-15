@@ -235,7 +235,8 @@ class AppSettings(context: Context) : ShellSettings {
         val LAST_BACKUP_AT = longPreferencesKey("last_backup_at")
         val FILTER_STRENGTH = stringPreferencesKey("filter_strength")
         val GRID_HINT_SEEN = booleanPreferencesKey("grid_hint_seen")
-        val LIGHTBOX_HINT_SEEN = booleanPreferencesKey("lightbox_hint_seen")
+        // 2026-10-15 改成上下滑換張時換了鍵名：看過舊「左右滑動」提示的人也要再看一次新的
+        val LIGHTBOX_HINT_SEEN = booleanPreferencesKey("lightbox_vertical_hint_seen")
         val FOLDER_SORT = stringPreferencesKey("folder_sort")
         val THUMB_COLUMNS = intPreferencesKey("thumb_columns")
         val THEME_ID = stringPreferencesKey("theme_id")

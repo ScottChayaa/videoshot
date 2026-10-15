@@ -11,7 +11,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeUp
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.player.ClipSource
 import com.xenyaa.videoshot.player.FakeClipPlayer
@@ -115,10 +115,10 @@ class LightboxClipTest {
     }
 
     @Test
-    fun 左右滑之後換下一張的秒數() {
+    fun 上下滑之後換下一張的秒數() {
         show()
         awaitPlaying()
-        compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeLeft() }
+        compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeUp() }
         compose.waitForIdle()
         compose.waitUntil(3_000) { "loop:60.0-63.0" in player.calls }
         assertTrue("pause" in player.calls)

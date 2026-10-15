@@ -22,7 +22,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
@@ -116,7 +116,7 @@ class LightboxClipDeps(
  * **背景不透明**（手冊 §三第一條）——「半透明 0.97」在真機上仍然透得出底層的月份標題，
  * 那會讓人以為自己還在清單上。
  *
- * 左右滑動的範圍是**進來時的清單**（規格第六節）：首頁目前已載入的那一份。
+ * 上下滑動的範圍是**進來時的清單**（規格第六節）：首頁目前已載入的那一份。
  * 看圖時不顯示第幾張（規格第六節，2026-10-07 決定）；滑到尾端就去載下一頁。
  *
  * 大圖是 320×180 放大置中，全屏會偏軟，這是儲存尺寸的天生限制（規格附錄 A-6）。
@@ -275,7 +275,7 @@ fun LightboxScreen(
             }
 
             // 標籤列：只有一列，放不下就左右滑，不換行。沒有標籤也保留這一列的高度——
-            // 左右滑到有標籤／沒標籤的圖時，大圖才不會跟著上下跳
+            // 滑到有標籤／沒標籤的圖時，大圖才不會跟著上下跳
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -293,7 +293,7 @@ fun LightboxScreen(
             // 也就是描述／動作列開始的地方，不是螢幕的物理下緣 —— 系統導覽列多高都不會蓋到它。
             // 上緣留一段距離：直的照片撐滿高時才不會緊貼在標籤列下面
             Box(Modifier.weight(1f).fillMaxWidth().padding(top = AppTheme.spacing.s4)) {
-                // 片段層在 pager 下面：pager 疊在上面照常接左右滑；影片要出來時把目前這頁的縮圖淡掉露出它。
+                // 片段層在 pager 下面：pager 疊在上面照常接上下滑；影片要出來時把目前這頁的縮圖淡掉露出它。
                 // 一個 Lightbox 只有這一個 WebView（每頁各一個的話 2～3 個同時在載 YouTube）
                 if (clip != null && controller != null) {
                     val videoAlpha by animateFloatAsState(
@@ -304,7 +304,8 @@ fun LightboxScreen(
                     )
                     clip.surface(videoAlpha, { controller.attach(it) }, Modifier.matchParentSize())
                 }
-                HorizontalPager(
+                // 上下滑換張（2026-10-15 由左右滑改成上下滑）：往上滑＝下一張
+                VerticalPager(
                     state = pager,
                     modifier = Modifier
                         .fillMaxSize()
@@ -353,7 +354,7 @@ fun LightboxScreen(
 
                 if (!hintDone) {
                     Text(
-                        "左右滑動看上一張／下一張",
+                        "上下滑動看上一張／下一張",
                         style = MaterialTheme.typography.labelSmall,
                         color = OnDarkColors.primary,
                         modifier = Modifier

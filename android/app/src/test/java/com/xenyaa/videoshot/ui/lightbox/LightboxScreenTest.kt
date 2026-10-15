@@ -6,8 +6,8 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.swipeLeft
-import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.test.swipeDown
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import com.xenyaa.videoshot.ui.testing.pixelsAround
@@ -89,12 +89,12 @@ class LightboxScreenTest {
     }
 
     @Test
-    fun 左右滑動換張() {
+    fun 上下滑動換張() {
         show(items = rows(3), startIndex = 0)
-        compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeLeft() }
+        compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeUp() }
         compose.waitForIdle()
         compose.onNodeWithText("片段2").assertIsDisplayed()
-        compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeRight() }
+        compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeDown() }
         compose.waitForIdle()
         compose.onNodeWithText("片段1").assertIsDisplayed()
     }
@@ -102,7 +102,7 @@ class LightboxScreenTest {
     @Test
     fun 換張會回報目前位置() {
         show(items = rows(3), startIndex = 0)
-        compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeLeft() }
+        compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeUp() }
         compose.waitForIdle()
         assertEquals(1, lastIndex)
     }
@@ -112,7 +112,7 @@ class LightboxScreenTest {
     fun 第一次開啟會出現滑動提示() {
         var seen = 0
         show(hintSeen = false, onHintSeen = { seen++ })
-        compose.onNodeWithText("左右滑動看上一張／下一張").assertIsDisplayed()
+        compose.onNodeWithText("上下滑動看上一張／下一張").assertIsDisplayed()
         // **還沒消失也還沒記下來** —— 一開啟就記成看過的話，提示會在使用者讀到之前就沒了
         assertEquals(0, seen)
     }
@@ -121,9 +121,9 @@ class LightboxScreenTest {
     fun 滑一次之後提示消失並記成看過() {
         var seen = 0
         show(hintSeen = false, onHintSeen = { seen++ })
-        compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeLeft() }
+        compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeUp() }
         compose.waitForIdle()
-        compose.onNodeWithText("左右滑動看上一張／下一張").assertDoesNotExist()
+        compose.onNodeWithText("上下滑動看上一張／下一張").assertDoesNotExist()
         assertEquals(1, seen)
     }
 
@@ -131,15 +131,15 @@ class LightboxScreenTest {
     fun 點提示本身也可以關掉它() {
         var seen = 0
         show(hintSeen = false, onHintSeen = { seen++ })
-        compose.onNodeWithText("左右滑動看上一張／下一張").performClick()
-        compose.onNodeWithText("左右滑動看上一張／下一張").assertDoesNotExist()
+        compose.onNodeWithText("上下滑動看上一張／下一張").performClick()
+        compose.onNodeWithText("上下滑動看上一張／下一張").assertDoesNotExist()
         assertEquals(1, seen)
     }
 
     @Test
     fun 看過之後不再出現() {
         show(hintSeen = true)
-        compose.onNodeWithText("左右滑動看上一張／下一張").assertDoesNotExist()
+        compose.onNodeWithText("上下滑動看上一張／下一張").assertDoesNotExist()
     }
 
     @Test
@@ -153,7 +153,7 @@ class LightboxScreenTest {
     @Test
     fun 滑到尾端會要求載入下一頁() {
         show(items = rows(3), hasMore = true, startIndex = 1)
-        compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeLeft() }
+        compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeUp() }
         compose.waitForIdle()
         assert(loadMores >= 1)
     }
@@ -161,7 +161,7 @@ class LightboxScreenTest {
     @Test
     fun 沒有下一頁時滑到尾端不會要求載入() {
         show(items = rows(3), hasMore = false, startIndex = 1)
-        compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeLeft() }
+        compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeUp() }
         compose.waitForIdle()
         assertEquals(0, loadMores)
     }
