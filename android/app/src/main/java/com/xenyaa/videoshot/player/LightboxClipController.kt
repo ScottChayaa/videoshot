@@ -3,6 +3,7 @@ package com.xenyaa.videoshot.player
 import com.xenyaa.videoshot.core.player.CLIP_DELAY_MS
 import com.xenyaa.videoshot.core.player.ClipRange
 import com.xenyaa.videoshot.core.player.clipRange
+import com.xenyaa.videoshot.core.player.isLandscapeVideo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -32,7 +33,7 @@ private const val PREPARE_RELOAD_MS = 15_000L
 
 /**
  * Lightbox 自動播放片段的流程（規格第六節「自動播放片段」）。不碰 Compose，畫面只讀 [showing]／[userPaused]、
- * 把事件（停在某一張、開始拖、點一下、被蓋住）丟進來。
+ * 把事件（停在某一張、開始拖、點兩下、切換聲音、被蓋住）丟進來。
  *
  * 一次只有一個工作（[job]）：停在某一張就開一個，開始拖或換一張就取消。工作裡「倒數」與「預載」同時跑，
  * 兩個都完成才開始循環，等秒數真的在前進才把 [showing] 設成那張——畫面在那之前一直是縮圖。
@@ -53,8 +54,11 @@ class LightboxClipController(
     private var loadedVideoId: String? = null
     private var job: Job? = null
 
-    /** 已經下過 startLoop：之後被蓋住、點一下才需要對播放器下暫停／繼續。 */
+    /** 已經下過 startLoop：之後被蓋住、點兩下、切換聲音才需要對播放器下指令。 */
     private var loopStarted = false
+
+    /** 使用者關掉【聲音】（設定值，換張不清掉）。 */
+    private var muted = false
 
     private val _showing = MutableStateFlow<Long?>(null)
 
@@ -88,11 +92,26 @@ class LightboxClipController(
         scope.launch { p.pause() }
     }
 
-    /** 點一下影片：暫停／繼續。還是縮圖時沒反應。 */
-    fun onTap() {
+    /** 點兩下影片：暫停／繼續。還是縮圖時沒反應。 */
+    fun togglePause() {
         if (_showing.value == null) return
         _userPaused.value = !_userPaused.value
         applyPlayback()
+    }
+
+    /** 【聲音】：之後開始的循環照這個值；正在循環就馬上套用。預載期間本來就靜音，不用下指令。 */
+    fun setMuted(value: Boolean) {
+        if (muted == value) return
+        muted = value
+        if (!loopStarted) return
+        val p = player.value ?: return
+        scope.launch { p.setMuted(value) }
+    }
+
+    /** 目前這支影片是不是橫的（全螢幕決定方向用）；讀不到寬高當成橫的。 */
+    suspend fun videoLandscape(): Boolean {
+        val s = player.value?.status() ?: return true
+        return isLandscapeVideo(s.videoWidth, s.videoHeight)
     }
 
     /** ⋯ 選單、確認框、抽屜、切到背景。 */
@@ -123,7 +142,7 @@ class LightboxClipController(
         covered.first { !it }
         val p = player.value ?: return@coroutineScope
         loopStarted = true
-        p.startLoop(range.startSec, range.endSec)
+        p.startLoop(range.startSec, range.endSec, muted)
         while (true) {
             val s = p.status()
             if (!s.paused && s.currentSec > range.startSec + ADVANCE_EPS_SEC) break

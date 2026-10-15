@@ -12,6 +12,14 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.doubleClick
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.runtime.CompositionLocalProvider
+import com.xenyaa.videoshot.player.LocalPlayerFullscreen
+import com.xenyaa.videoshot.player.PlayerFullscreenState
+import com.xenyaa.videoshot.player.CONTROLS_AUTO_HIDE_MS
+import org.junit.Assert.assertFalse
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.player.ClipSource
 import com.xenyaa.videoshot.player.FakeClipPlayer
@@ -58,6 +66,9 @@ class LightboxClipTest {
     private val player = FakeClipPlayer()
     private var covered by mutableStateOf(false)
     private var items by mutableStateOf(rows(3))
+    private var muted by mutableStateOf(false)
+    private val fullscreen = PlayerFullscreenState()
+    private var closed = 0
 
     private val playing = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "片段播放中")
     private val pausedByUser = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "片段已暫停")
@@ -70,12 +81,15 @@ class LightboxClipTest {
             surface = { _, onPlayer, _ -> LaunchedEffect(Unit) { onPlayer(player) } },
         )
         compose.setContent {
-            VideoshotTheme {
-                LightboxScreen(
-                    items = items, hasMore = false, startIndex = 0, loader = loader,
-                    hintSeen = true, onHintSeen = {}, onClose = {}, onLoadMore = {}, onIndexChange = {},
-                    actions = LightboxActions(), clip = deps, covered = covered,
-                )
+            CompositionLocalProvider(LocalPlayerFullscreen provides fullscreen) {
+                VideoshotTheme {
+                    LightboxScreen(
+                        items = items, hasMore = false, startIndex = 0, loader = loader,
+                        hintSeen = true, onHintSeen = {}, onClose = { closed++ }, onLoadMore = {}, onIndexChange = {},
+                        actions = LightboxActions(), clip = deps, covered = covered,
+                        muted = muted, onMutedChange = { muted = it },
+                    )
+                }
             }
         }
         compose.waitForIdle()
@@ -101,17 +115,174 @@ class LightboxClipTest {
         assertTrue("loop:30.0-33.0" in player.calls)
     }
 
-    @Test
-    fun 點一下暫停_再點一下繼續() {
+    /** 片段開始播之後改成手動推時鐘：按鈕 3 秒自己收起，自動推進的話一 waitForIdle 就收掉了。 */
+    private fun playingWithManualClock() {
         show()
         awaitPlaying()
-        compose.onNode(playing).performClick()
-        compose.waitForIdle()
-        compose.waitUntil(3_000) { compose.onAllNodes(pausedByUser).fetchSemanticsNodes().isNotEmpty() }
+        compose.mainClock.autoAdvance = false
+    }
+
+    /** 等過點兩下的判定時間（同 PlayerControlsTest）。 */
+    private fun settleTap() = compose.mainClock.advanceTimeBy(400)
+
+    @Test
+    fun 點兩下暫停_再點兩下繼續() {
+        playingWithManualClock()
+        compose.onNode(playing).performTouchInput { doubleClick() }
+        settleTap()
+        compose.onNode(pausedByUser).assertExists()
         assertEquals("pause", player.calls.last())
-        compose.onNode(pausedByUser).performClick()
+        compose.onNode(pausedByUser).performTouchInput { doubleClick() }
+        settleTap()
+        assertEquals("resume", player.calls.last())
+    }
+
+    @Test
+    fun 點一下叫出聲音與全螢幕按鈕_不暫停() {
+        playingWithManualClock()
+        compose.onNodeWithContentDescription("全螢幕").assertDoesNotExist()
+        compose.onNode(playing).performTouchInput { click() }
+        settleTap()
+        compose.onNodeWithContentDescription("全螢幕").assertExists()
+        compose.onNodeWithContentDescription("關掉聲音").assertExists()
+        compose.onNode(playing).assertExists()
+        assertFalse("pause" in player.calls)
+    }
+
+    @Test
+    fun 按鈕三秒沒動作自己收起() {
+        playingWithManualClock()
+        compose.onNode(playing).performTouchInput { click() }
+        settleTap()
+        compose.mainClock.advanceTimeBy(CONTROLS_AUTO_HIDE_MS + 500)
+        compose.onNodeWithContentDescription("全螢幕").assertDoesNotExist()
+    }
+
+    @Test
+    fun 按鈕開著時再點一下就收起() {
+        playingWithManualClock()
+        compose.onNode(playing).performTouchInput { click() }
+        settleTap()
+        compose.onNode(playing).performTouchInput { click() }
+        settleTap()
+        compose.mainClock.advanceTimeBy(500)   // 淡出動畫
+        compose.onNodeWithContentDescription("全螢幕").assertDoesNotExist()
+    }
+
+    @Test
+    fun 聲音鈕切換靜音_播放中馬上生效() {
+        playingWithManualClock()
+        compose.onNode(playing).performTouchInput { click() }
+        settleTap()
+        compose.onNodeWithContentDescription("關掉聲音").performClick()
+        compose.mainClock.advanceTimeBy(100)
+        assertTrue(muted)
+        assertEquals("mute:true", player.calls.last())
+        compose.onNodeWithContentDescription("打開聲音").performClick()
+        compose.mainClock.advanceTimeBy(100)
+        assertFalse(muted)
+        assertEquals("mute:false", player.calls.last())
+    }
+
+    @Test
+    fun 關掉聲音時新的片段也是靜音() {
+        muted = true
+        show()
+        awaitPlaying()
+        assertTrue("loop:30.0-33.0:muted" in player.calls)
+    }
+
+    @Test
+    fun 全螢幕藏起其他區塊_橫的影片轉橫向() {
+        playingWithManualClock()
+        compose.onNode(playing).performTouchInput { click() }
+        settleTap()
+        compose.onNodeWithContentDescription("全螢幕").performClick()
+        compose.mainClock.advanceTimeBy(100)
+        assertTrue(fullscreen.active)
+        assertTrue(fullscreen.landscape)
+        compose.onNodeWithContentDescription("更多").assertDoesNotExist()
+        compose.onNodeWithText("播放這一段").assertDoesNotExist()
+        // 片段沒有被打斷
+        compose.onNode(playing).assertExists()
+    }
+
+    @Test
+    fun 直的影片全螢幕維持直向() {
+        player.videoWidth = 1080
+        player.videoHeight = 1920
+        playingWithManualClock()
+        compose.onNode(playing).performTouchInput { click() }
+        settleTap()
+        compose.onNodeWithContentDescription("全螢幕").performClick()
+        compose.mainClock.advanceTimeBy(100)
+        assertTrue(fullscreen.active)
+        assertFalse(fullscreen.landscape)
+    }
+
+    @Test
+    fun 全螢幕按返回鍵只離開全螢幕() {
+        playingWithManualClock()
+        compose.onNode(playing).performTouchInput { click() }
+        settleTap()
+        compose.onNodeWithContentDescription("全螢幕").performClick()
+        compose.mainClock.advanceTimeBy(100)
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.mainClock.advanceTimeBy(100)
+        assertFalse(fullscreen.active)
+        assertEquals(0, closed)
+        compose.onNodeWithContentDescription("更多").assertExists()
+    }
+
+    @Test
+    fun 全螢幕再按一次按鈕離開() {
+        playingWithManualClock()
+        compose.onNode(playing).performTouchInput { click() }
+        settleTap()
+        compose.onNodeWithContentDescription("全螢幕").performClick()
+        compose.mainClock.advanceTimeBy(100)
+        compose.onNodeWithContentDescription("離開全螢幕").performClick()
+        compose.mainClock.advanceTimeBy(100)
+        assertFalse(fullscreen.active)
+    }
+
+    @Test
+    fun 全螢幕中上下滑換張() {
+        playingWithManualClock()
+        compose.onNode(playing).performTouchInput { click() }
+        settleTap()
+        compose.onNodeWithContentDescription("全螢幕").performClick()
+        compose.mainClock.autoAdvance = true
+        compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeUp() }
         compose.waitForIdle()
-        compose.waitUntil(3_000) { player.calls.last() == "resume" }
+        compose.waitUntil(3_000) { "loop:60.0-63.0" in player.calls }
+        assertTrue(fullscreen.active)
+    }
+
+    @Test
+    fun 關掉Lightbox時離開全螢幕() {
+        var open by mutableStateOf(true)
+        val deps = LightboxClipDeps(
+            source = { ClipSource(playableInEmbed = true, durationSec = 600) },
+            delayMs = 0,
+            surface = { _, onPlayer, _ -> LaunchedEffect(Unit) { onPlayer(player) } },
+        )
+        compose.setContent {
+            CompositionLocalProvider(LocalPlayerFullscreen provides fullscreen) {
+                VideoshotTheme {
+                    if (open) LightboxScreen(
+                        items = items, hasMore = false, startIndex = 0, loader = loader,
+                        hintSeen = true, onHintSeen = {}, onClose = {}, onLoadMore = {}, onIndexChange = {},
+                        actions = LightboxActions(), clip = deps,
+                    )
+                }
+            }
+        }
+        awaitPlaying()
+        compose.runOnUiThread { fullscreen.enter(landscape = true) }
+        compose.waitForIdle()
+        act { open = false }
+        assertFalse(fullscreen.active)
     }
 
     @Test

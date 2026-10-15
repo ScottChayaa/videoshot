@@ -6,8 +6,17 @@ data class ClipSource(val playableInEmbed: Boolean, val durationSec: Int)
 /** 要播哪一張：用 [shotId] 分辨「同一張」，[videoId] 決定要不要換頁面。 */
 data class ClipTarget(val shotId: Long, val videoId: String, val atSec: Double)
 
-/** 片段播放要讀的三個值。讀不到（頁面還沒好、沒有 `<video>`）時是 [Unknown]。 */
-data class ClipStatus(val currentSec: Double, val readyState: Int, val paused: Boolean) {
+/**
+ * 片段播放要讀的值。讀不到（頁面還沒好、沒有 `<video>`）時是 [Unknown]。
+ * [videoWidth]／[videoHeight] 給全螢幕決定要不要轉橫向；還沒開播時是 0。
+ */
+data class ClipStatus(
+    val currentSec: Double,
+    val readyState: Int,
+    val paused: Boolean,
+    val videoWidth: Int = 0,
+    val videoHeight: Int = 0,
+) {
     companion object {
         val Unknown = ClipStatus(0.0, 0, paused = true)
     }
@@ -15,7 +24,7 @@ data class ClipStatus(val currentSec: Double, val readyState: Int, val paused: B
 
 /**
  * Lightbox 自動播放片段的播放器（規格第六節「自動播放片段」）。比取圖第二步與詳情頁的 [Player] 簡單：
- * 沒有控制層、不讀寬高，但要能「靜音預載」與「在頁面裡循環」。
+ * 沒有進度條與拖曳跳播，但要能「靜音預載」與「在頁面裡循環」。
  *
  * 呼叫順序：[load]（換影片才需要）→ [cue] → 輪詢 [status] 到緩衝好 → [hold] → [startLoop]。
  */
@@ -29,8 +38,11 @@ interface ClipPlayer {
     /** 緩衝好了：暫停並跳回 [startSec]，仍然靜音。 */
     suspend fun hold(startSec: Double)
 
-    /** 取消靜音，從 [startSec] 開始在 [startSec, endSec) 之間循環。 */
-    suspend fun startLoop(startSec: Double, endSec: Double)
+    /** 從 [startSec] 開始在 [startSec, endSec) 之間循環。[muted] false 才取消預載時的靜音。 */
+    suspend fun startLoop(startSec: Double, endSec: Double, muted: Boolean)
+
+    /** 使用者切換【聲音】（循環中才會呼叫）。 */
+    suspend fun setMuted(muted: Boolean)
 
     suspend fun pause()
 

@@ -68,6 +68,8 @@ class FoldersViewModelTest {
         override suspend fun markGridHintSeen() = Unit
         override val lightboxHintSeen: Flow<Boolean> = flowOf(true)
         override suspend fun markLightboxHintSeen() = Unit
+        override val clipMuted = kotlinx.coroutines.flow.flowOf(false)
+        override suspend fun setClipMuted(value: Boolean) = Unit
         override val folderSort: Flow<FolderSort> = sort
         override suspend fun setFolderSort(value: FolderSort) { sort.value = value }
         override val restoreDecisionMade: Flow<Boolean> = flowOf(true)

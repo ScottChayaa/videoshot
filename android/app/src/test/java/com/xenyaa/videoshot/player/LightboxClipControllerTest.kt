@@ -185,31 +185,69 @@ class LightboxClipControllerTest {
     }
 
     @Test
-    fun 點一下暫停_再點一下繼續() = runTest(StandardTestDispatcher()) {
+    fun 切換暫停_再切換繼續() = runTest(StandardTestDispatcher()) {
         val p = FakeClipPlayer()
         val ctl = controller(p)
         ctl.onSettled(a)
         advanceTimeBy(2_500)
-        ctl.onTap()
+        ctl.togglePause()
         runCurrent()
         assertTrue(ctl.userPaused.value)
         assertEquals("pause", p.calls.last())
-        ctl.onTap()
+        ctl.togglePause()
         runCurrent()
         assertFalse(ctl.userPaused.value)
         assertEquals("resume", p.calls.last())
     }
 
     @Test
-    fun 還是縮圖時點一下沒反應() = runTest(StandardTestDispatcher()) {
+    fun 還是縮圖時切換暫停沒反應() = runTest(StandardTestDispatcher()) {
         val p = FakeClipPlayer()
         val ctl = controller(p)
         ctl.onSettled(a)
         advanceTimeBy(1_000)
-        ctl.onTap()
+        ctl.togglePause()
         runCurrent()
         assertFalse(ctl.userPaused.value)
         assertFalse("pause" in p.calls)
+    }
+
+    @Test
+    fun 關掉聲音時循環也是靜音() = runTest(StandardTestDispatcher()) {
+        val p = FakeClipPlayer()
+        val ctl = controller(p)
+        ctl.setMuted(true)
+        ctl.onSettled(a)
+        advanceTimeBy(2_500)
+        runCurrent()
+        assertEquals(1L, ctl.showing.value)
+        assertEquals(listOf("loop:30.0-33.0:muted"), p.calls.filter { it.startsWith("loop") })
+        // 預載期間本來就靜音，開始循環前切換不另外下指令
+        assertFalse(p.calls.any { it.startsWith("mute") })
+    }
+
+    @Test
+    fun 播放中切換聲音馬上生效() = runTest(StandardTestDispatcher()) {
+        val p = FakeClipPlayer()
+        val ctl = controller(p)
+        ctl.onSettled(a)
+        advanceTimeBy(2_500)
+        ctl.setMuted(true)
+        runCurrent()
+        assertEquals("mute:true", p.calls.last())
+        ctl.setMuted(false)
+        runCurrent()
+        assertEquals("mute:false", p.calls.last())
+    }
+
+    @Test
+    fun 讀得出影片是橫的還是直的() = runTest(StandardTestDispatcher()) {
+        val p = FakeClipPlayer()
+        val ctl = controller(p)
+        assertTrue(ctl.videoLandscape())
+        p.videoWidth = 1080
+        p.videoHeight = 1920
+        assertFalse(ctl.videoLandscape())
     }
 
     @Test
@@ -248,7 +286,7 @@ class LightboxClipControllerTest {
         val ctl = controller(p)
         ctl.onSettled(a)
         advanceTimeBy(2_500)
-        ctl.onTap()
+        ctl.togglePause()
         ctl.setCovered(true)
         ctl.setCovered(false)
         runCurrent()
@@ -262,7 +300,7 @@ class LightboxClipControllerTest {
         val ctl = controller(p)
         ctl.onSettled(a)
         advanceTimeBy(2_500)
-        ctl.onTap()
+        ctl.togglePause()
         ctl.onDragStart()
         ctl.onSettled(b)
         advanceTimeBy(2_500)
@@ -296,7 +334,7 @@ class LightboxClipControllerTest {
         val before = p.calls.size
         ctl.attach(null)
         p.becomeReady()
-        ctl.onTap()
+        ctl.togglePause()
         ctl.setCovered(true)
         ctl.onDragStart()
         advanceUntilIdle()

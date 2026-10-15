@@ -18,6 +18,11 @@ import androidx.compose.ui.unit.dp
  *
  * 顏色留黑色由 `Icon(tint = …)` 的 ColorFilter 蓋掉 —— 這是 Material3 圖示的標準做法。
  */
+/** Lucide `volume-2`／`volume-x` 共用的喇叭本體。 */
+private const val SPEAKER_PATH =
+    "M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416" +
+        "a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"
+
 private fun strokeIcon(name: String, vararg pathData: String): ImageVector =
     ImageVector.Builder(
         name = name,
@@ -114,6 +119,14 @@ object VsIcons {
     val Minimize: ImageVector by lazy {
         strokeIcon("minimize", "M8 3v3a2 2 0 0 1-2 2H3", "M21 8h-3a2 2 0 0 1-2-2V3", "M3 16h3a2 2 0 0 1 2 2v3", "M16 21v-3a2 2 0 0 1 2-2h3")
     }
+
+    /** 有聲音（Lucide `volume-2`）。 */
+    val Volume: ImageVector by lazy {
+        strokeIcon("volume", SPEAKER_PATH, "M16 9a5 5 0 0 1 0 6", "M19.364 18.364a9 9 0 0 0 0-12.728")
+    }
+
+    /** 靜音（Lucide `volume-x`）。 */
+    val VolumeOff: ImageVector by lazy { strokeIcon("volume-off", SPEAKER_PATH, "M22 9l-6 6", "M16 9l6 6") }
 
     /** 三點連線（Lucide `share-2`，Android 慣用的分享圖示；原型是 iOS 式的方框加箭頭）。三個 r=3 的圓改寫成 path。 */
     val Share: ImageVector by lazy {

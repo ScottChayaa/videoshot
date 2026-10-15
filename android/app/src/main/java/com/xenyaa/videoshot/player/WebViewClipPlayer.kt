@@ -51,7 +51,10 @@ class WebViewClipPlayer(private val webView: WebView) : ClipPlayer {
 
     override suspend fun cue(startSec: Double) { eval(clipCueJs(startSec)) }
     override suspend fun hold(startSec: Double) { eval(clipHoldJs(startSec)) }
-    override suspend fun startLoop(startSec: Double, endSec: Double) { eval(clipLoopJs(startSec, endSec)) }
+    override suspend fun startLoop(startSec: Double, endSec: Double, muted: Boolean) {
+        eval(clipLoopJs(startSec, endSec, muted))
+    }
+    override suspend fun setMuted(muted: Boolean) { eval(clipMuteJs(muted)) }
     override suspend fun pause() { eval(PAUSE_VIDEO_JS) }
     override suspend fun resume() { eval(CLIP_RESUME_JS) }
     override suspend fun status(): ClipStatus = parseClipStatus(eval(CLIP_STATUS_JS))
@@ -107,8 +110,10 @@ internal fun clipHoldJs(startSec: Double): String =
 /**
  * 開始循環：在頁面裡每 50 毫秒檢查一次，到終點、跑到起點以前、或播到片尾停住（`ended`）就跳回起點。
  * 不靠 Kotlin 輪詢——那樣一來一回 0.25 秒，循環點會晃。`__vsLoop` 只留一個。
+ *
+ * [muted]（使用者關掉【聲音】）時強制靜音（`__vsMute`）維持開著：YouTube 自己把 `muted` 改回 false 也會被蓋回去。
  */
-internal fun clipLoopJs(startSec: Double, endSec: Double): String =
+internal fun clipLoopJs(startSec: Double, endSec: Double, muted: Boolean): String =
     """
     (function(){
       var v = document.querySelector('video');
@@ -124,19 +129,24 @@ internal fun clipLoopJs(startSec: Double, endSec: Double): String =
         }
       }, 50);
       v.currentTime = $startSec;
-      window.__vsMute = false;
-      v.muted = false;
+      window.__vsMute = $muted;
+      v.muted = $muted;
       v.play();
       return 'ok';
     })()
     """.trimIndent()
 
+/** 切換【聲音】：強制靜音跟著改，理由同 [clipLoopJs]。 */
+internal fun clipMuteJs(muted: Boolean): String =
+    "(function(){window.__vsMute = $muted; var v=document.querySelector('video'); if(v) v.muted = $muted; return 'ok';})()"
+
 internal const val CLIP_RESUME_JS =
     "(function(){var v=document.querySelector('video'); if(v) v.play(); return 'ok';})()"
 
-/** currentTime, readyState, paused，逗號隔開（同 `STATUS_JS` 的理由）。 */
+/** currentTime, readyState, paused, videoWidth, videoHeight，逗號隔開（同 `STATUS_JS` 的理由）。 */
 internal const val CLIP_STATUS_JS =
-    "(function(){var v=document.querySelector('video'); if(!v) return 'none'; return [v.currentTime, v.readyState, v.paused ? 1 : 0].join(',');})()"
+    "(function(){var v=document.querySelector('video'); if(!v) return 'none'; " +
+        "return [v.currentTime, v.readyState, v.paused ? 1 : 0, v.videoWidth, v.videoHeight].join(',');})()"
 
 /**
  * 頁面背景透明，影片外的留白才會露出 Lightbox 的底色。`BARE_PLAYER_JS` 把 html／body 設成 #000!important，
@@ -156,14 +166,18 @@ internal val CLIP_TRANSPARENT_JS =
 
 internal fun parseClipStatus(raw: String): ClipStatus {
     val parts = raw.trim().removeSurrounding("\"").split(',')
-    if (parts.size != 3) return ClipStatus.Unknown
+    if (parts.size != 5) return ClipStatus.Unknown
     val current = parts[0].toDoubleOrNull()?.takeIf { it.isFinite() } ?: return ClipStatus.Unknown
     val ready = parts[1].toDoubleOrNull()?.toInt() ?: return ClipStatus.Unknown
-    return ClipStatus(current, ready, paused = parts[2].trim() != "0")
+    return ClipStatus(
+        current, ready, paused = parts[2].trim() != "0",
+        videoWidth = parts[3].toDoubleOrNull()?.toInt() ?: 0,
+        videoHeight = parts[4].toDoubleOrNull()?.toInt() ?: 0,
+    )
 }
 
 /**
- * Lightbox 的片段播放器（一個 Lightbox 只有一個）。WebView 不收觸控、不收焦點——左右滑與點一下都由
+ * Lightbox 的片段播放器（一個 Lightbox 只有一個）。WebView 不收觸控、不收焦點——上下滑與點擊都由
  * 疊在上面的 pager 處理（規格第六節「自動播放片段」→「實作要點」）。
  *
  * @param alpha 0＝藏起來（預載中），1＝露出來；直接設在 View 上，淡入淡出由呼叫端算

@@ -77,6 +77,18 @@ import com.xenyaa.videoshot.player.ClipPlayerSurface
 import com.xenyaa.videoshot.player.ClipSource
 import com.xenyaa.videoshot.player.ClipTarget
 import com.xenyaa.videoshot.player.LightboxClipController
+import com.xenyaa.videoshot.player.CONTROLS_AUTO_HIDE_MS
+import com.xenyaa.videoshot.player.LocalPlayerFullscreen
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * 分享的內容(規格第六節動作表):`https://youtu.be/{videoId}?t={at_sec}`。
@@ -148,6 +160,9 @@ fun LightboxScreen(
     clip: LightboxClipDeps? = null,
     /** 呼叫端的東西蓋在 Lightbox 上（【加入相簿】、【詳細資料】抽屜）：片段暫停。 */
     covered: Boolean = false,
+    /** 【聲音】關掉了沒（設定值，呼叫端存）。 */
+    muted: Boolean = false,
+    onMutedChange: (Boolean) -> Unit = {},
 ) {
     if (items.isEmpty()) {
         // 刪到最後一張時會走到這裡（案例 17）
@@ -166,7 +181,22 @@ fun LightboxScreen(
         remember(deps) { LightboxClipController(clipScope, deps.source, deps.delayMs) }
     }
     val currentItems by rememberUpdatedState(items)
+
+    // 片段的按鈕（點一下叫出、3 秒沒動作收起，同播放器控制層）與點兩下閃一下的圖示
+    var controlsVisible by remember { mutableStateOf(false) }
+    var touches by remember { mutableIntStateOf(0) }   // 每次有操作就 +1，自動收起重新計時
+    var flash by remember { mutableStateOf<Boolean?>(null) }
+
+    // 全螢幕（規格第六節「自動播放片段」）：跟詳情頁同一份狀態，方向與系統列由 MainActivity 套用。
+    // 返回鍵只離開全螢幕；Lightbox 關掉時一定離開
+    val fullscreenState = LocalPlayerFullscreen.current
+    val fullscreen = fullscreenState.active
+    BackHandler(enabled = fullscreen) { fullscreenState.exit() }
+    DisposableEffect(fullscreenState) { onDispose { fullscreenState.exit() } }
+
     if (controller != null) {
+        // 比開始倒數早套用：第一段循環就照設定值
+        LaunchedEffect(controller, muted) { controller.setMuted(muted) }
         // 手指一開始拖就停、換回縮圖；停下來（含滑回同一張、目前這張被刪掉換成別張）就重新倒數。
         // 拖的時候送 null，所以「A → 拖 → A」也會再送一次 A，滑回同一張會重新倒數
         LaunchedEffect(pager, controller) {
@@ -174,7 +204,12 @@ fun LightboxScreen(
                 if (pager.isScrollInProgress) null
                 else currentItems.getOrNull(pager.currentPage)?.let { ClipTarget(it.id, it.videoId, it.atSec) }
             }.collect { target ->
-                if (target == null) controller.onDragStart() else controller.onSettled(target)
+                if (target == null) {
+                    controller.onDragStart()
+                    controlsVisible = false
+                } else {
+                    controller.onSettled(target)
+                }
             }
         }
     }
@@ -212,6 +247,19 @@ fun LightboxScreen(
     // controller 是不是 null 由 clip 參數決定，同一個 Lightbox 裡不會變
     val showingId: Long? = controller?.showing?.collectAsState()?.value
     val userPaused: Boolean = controller?.userPaused?.collectAsState()?.value ?: false
+    // 影片出來了才有按鈕；全螢幕中縮圖也叫得出來——影片載不出來時才有辦法按鈕離開
+    val controlsEnabled = controller != null && (showingId != null || fullscreen)
+    LaunchedEffect(controlsEnabled) { if (!controlsEnabled) controlsVisible = false }
+    // 播放中 3 秒沒動作收起；使用者暫停中一直留著（同播放器控制層）
+    LaunchedEffect(controlsVisible, touches, userPaused) {
+        if (controlsVisible && !userPaused) {
+            delay(CONTROLS_AUTO_HIDE_MS)
+            controlsVisible = false
+        }
+    }
+    LaunchedEffect(flash) {
+        if (flash != null) { delay(CLIP_FLASH_MS); flash = null }
+    }
     val iconShape = RoundedCornerShape(AppTheme.radii.sm)
     val tags by produceState(emptyList<TagNameKind>(), shot.id, tagsRefreshKey) {
         value = emptyList()
@@ -225,10 +273,10 @@ fun LightboxScreen(
         }
     }
 
-    Box(modifier.fillMaxSize().background(AppTheme.colors.lightboxBg)) {
+    Box(modifier.fillMaxSize().background(if (fullscreen) Color.Black else AppTheme.colors.lightboxBg)) {
         Column(Modifier.fillMaxSize()) {
-
-            Row(
+            // 全螢幕只剩大圖區：其他區塊藏起來，但大圖區在組合裡的位置不動（動了 WebView 會重建）
+            if (!fullscreen) Row(
                 // 下緣不留白：標籤列緊貼在頂列下方
                 Modifier.fillMaxWidth().statusBarsPadding()
                     .padding(start = AppTheme.spacing.s2, end = AppTheme.spacing.s2, top = AppTheme.spacing.s2),
@@ -276,7 +324,7 @@ fun LightboxScreen(
 
             // 標籤列：只有一列，放不下就左右滑，不換行。沒有標籤也保留這一列的高度——
             // 滑到有標籤／沒標籤的圖時，大圖才不會跟著上下跳
-            Row(
+            if (!fullscreen) Row(
                 Modifier
                     .fillMaxWidth()
                     .heightIn(min = TAG_ROW_MIN_HEIGHT)
@@ -292,7 +340,7 @@ fun LightboxScreen(
             // 大圖跟一次性提示放同一個 Box：提示用 BottomCenter 貼著**這個 Box 的下緣**，
             // 也就是描述／動作列開始的地方，不是螢幕的物理下緣 —— 系統導覽列多高都不會蓋到它。
             // 上緣留一段距離：直的照片撐滿高時才不會緊貼在標籤列下面
-            Box(Modifier.weight(1f).fillMaxWidth().padding(top = AppTheme.spacing.s4)) {
+            Box(Modifier.weight(1f).fillMaxWidth().padding(top = if (fullscreen) 0.dp else AppTheme.spacing.s4)) {
                 // 片段層在 pager 下面：pager 疊在上面照常接上下滑；影片要出來時把目前這頁的縮圖淡掉露出它。
                 // 一個 Lightbox 只有這一個 WebView（每頁各一個的話 2～3 個同時在載 YouTube）
                 if (clip != null && controller != null) {
@@ -318,19 +366,42 @@ fun LightboxScreen(
                         animationSpec = tween(if (showingThis) CLIP_FADE_MS else 0),
                         label = "clipThumbAlpha",
                     )
-                    // 用 pointerInput 不用 clickable：每一頁都變成可聚焦會打亂實體鍵盤的焦點順序
+                    // 用 pointerInput 不用 clickable：每一頁都變成可聚焦會打亂實體鍵盤的焦點順序。
+                    // 點一下＝叫出／收起按鈕，點兩下＝暫停／繼續（同播放器控制層）
+                    val tappable = controller != null && (showingThis || (fullscreen && page == pager.currentPage))
                     Box(
                         Modifier
                             .fillMaxSize()
                             .then(
-                                if (showingThis && controller != null) {
+                                if (tappable && controller != null) {
                                     Modifier
-                                        .pointerInput(controller) { detectTapGestures(onTap = { controller.onTap() }) }
+                                        .pointerInput(controller, pageShot.id) {
+                                            detectTapGestures(
+                                                onTap = { controlsVisible = !controlsVisible; touches++ },
+                                                onDoubleTap = {
+                                                    // 手勢偵測不會隨重組換新：直接讀控制器的現值
+                                                    if (controller.showing.value == pageShot.id) {
+                                                        flash = controller.userPaused.value   // 原本暫停 → 要播 → 閃播放圖示
+                                                        controller.togglePause()
+                                                        touches++
+                                                    }
+                                                },
+                                            )
+                                        }
                                         .semantics {
-                                            stateDescription = if (userPaused) "片段已暫停" else "片段播放中"
-                                            onClick(label = if (userPaused) "繼續播放片段" else "暫停片段") {
-                                                controller.onTap()
+                                            if (showingThis) stateDescription = if (userPaused) "片段已暫停" else "片段播放中"
+                                            onClick(label = if (controlsVisible) "隱藏按鈕" else "顯示按鈕") {
+                                                controlsVisible = !controlsVisible
+                                                touches++
                                                 true
+                                            }
+                                            if (showingThis) {
+                                                customActions = listOf(
+                                                    CustomAccessibilityAction(if (userPaused) "繼續播放片段" else "暫停片段") {
+                                                        controller.togglePause()
+                                                        true
+                                                    },
+                                                )
                                             }
                                         }
                                 } else {
@@ -352,7 +423,28 @@ fun LightboxScreen(
                     }
                 }
 
-                if (!hintDone) {
+                ClipButtons(
+                    visible = controlsVisible && controlsEnabled,
+                    muted = muted,
+                    fullscreen = fullscreen,
+                    onToggleMute = { onMutedChange(!muted); touches++ },
+                    onToggleFullscreen = {
+                        if (fullscreen) {
+                            fullscreenState.exit()
+                        } else if (controller != null) {
+                            // 方向照按下去當時這支影片決定，之後換張不再轉（規格第六節）
+                            clipScope.launch { fullscreenState.enter(controller.videoLandscape()) }
+                        }
+                        touches++
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .then(if (fullscreen) Modifier.windowInsetsPadding(WindowInsets.safeDrawing) else Modifier)
+                        .padding(AppTheme.spacing.s3),
+                )
+                flash?.let { ClipFlash(playing = it, modifier = Modifier.align(Alignment.Center)) }
+
+                if (!hintDone && !fullscreen) {
                     Text(
                         "上下滑動看上一張／下一張",
                         style = MaterialTheme.typography.labelSmall,
@@ -373,7 +465,7 @@ fun LightboxScreen(
             // 描述跟動作列一起讓開導覽列（手冊 §三第四條的動作分層）：
             // 這個 Column 不在畫面最下面就不會多吃一段有效內容高度，
             // navigationBarsPadding 的上緣本來就是 0，只會把下緣往上推
-            Column(Modifier.navigationBarsPadding()) {
+            if (!fullscreen) Column(Modifier.navigationBarsPadding()) {
                 // 描述固定佔兩行（沒有描述也留著），橫的直的、有沒有描述，底部動作列都在同一個位置
                 Text(
                     shot.description.orEmpty(),
@@ -445,6 +537,9 @@ private fun DarkIconButton(icon: ImageVector, label: String, onClick: () -> Unit
 
 /** 標籤列的最小高度：迷你小膠囊一列的高度，沒有標籤時也佔住這一列。 */
 private val TAG_ROW_MIN_HEIGHT = 28.dp
+
+/** 點兩下時中央閃一下的圖示停多久（同播放器控制層）。 */
+private const val CLIP_FLASH_MS = 600L
 
 /** 縮圖換成影片的淡入時間（規格第六節「自動播放片段」：約 0.2 秒）。 */
 private const val CLIP_FADE_MS = 200

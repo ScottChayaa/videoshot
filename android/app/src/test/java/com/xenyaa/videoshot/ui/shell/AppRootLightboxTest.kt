@@ -156,6 +156,8 @@ class AppRootLightboxTest {
         override suspend fun markGridHintSeen() = Unit
         override val lightboxHintSeen = flowOf(true) // 提示已看過：測試不用先滑一次把提示蓋掉
         override suspend fun markLightboxHintSeen() = Unit
+        override val clipMuted = kotlinx.coroutines.flow.flowOf(false)
+        override suspend fun setClipMuted(value: Boolean) = Unit
         override val folderSort = flowOf(FolderSort.NAME_ASC)
         override suspend fun setFolderSort(value: FolderSort) = Unit
         override val restoreDecisionMade = flowOf(true)

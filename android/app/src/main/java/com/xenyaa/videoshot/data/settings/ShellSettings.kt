@@ -21,6 +21,10 @@ interface ShellSettings {
     val lightboxHintSeen: Flow<Boolean>
     suspend fun markLightboxHintSeen()
 
+    /** Lightbox 片段的【聲音】關掉了沒；換張、關掉 Lightbox、重開 app 都記得（規格第六節「自動播放片段」）。 */
+    val clipMuted: Flow<Boolean>
+    suspend fun setClipMuted(value: Boolean)
+
     /** 分類清單頁的排序偏好（手冊 §六：排序要記得住）。 */
     val folderSort: Flow<FolderSort>
     suspend fun setFolderSort(value: FolderSort)
