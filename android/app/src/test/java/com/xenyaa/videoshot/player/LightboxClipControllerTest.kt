@@ -31,18 +31,18 @@ class LightboxClipControllerTest {
     }
 
     @Test
-    fun 兩秒前不播() = runTest(StandardTestDispatcher()) {
+    fun 一秒前不播() = runTest(StandardTestDispatcher()) {
         val p = FakeClipPlayer()
         val ctl = controller(p)
         ctl.onSettled(a)
-        advanceTimeBy(1_999)
+        advanceTimeBy(999)
         runCurrent()
         assertNull(ctl.showing.value)
         assertFalse(p.calls.any { it.startsWith("loop") })
     }
 
     @Test
-    fun 兩秒到而且準備好就從截圖秒數循環三秒() = runTest(StandardTestDispatcher()) {
+    fun 一秒到而且準備好就從截圖秒數循環三秒() = runTest(StandardTestDispatcher()) {
         val p = FakeClipPlayer()
         val ctl = controller(p)
         ctl.onSettled(a)

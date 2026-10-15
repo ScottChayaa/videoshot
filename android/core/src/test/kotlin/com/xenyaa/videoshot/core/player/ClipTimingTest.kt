@@ -30,7 +30,7 @@ class ClipTimingTest {
         assertEquals(ClipRange(0.0, 3.0), clipRange(-1.0, 600.0))
 
     @Test fun 常數照規格() {
-        assertEquals(2000L, CLIP_DELAY_MS)
+        assertEquals(1000L, CLIP_DELAY_MS)
         assertEquals(3.0, CLIP_LENGTH_SEC, 0.0)
         assertTrue(CLIP_MIN_LENGTH_SEC < CLIP_LENGTH_SEC)
     }

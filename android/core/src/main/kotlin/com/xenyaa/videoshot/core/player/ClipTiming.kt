@@ -4,7 +4,7 @@ package com.xenyaa.videoshot.core.player
  * Lightbox 自動播放片段的手感（規格第六節「自動播放片段」）：停在一張圖多久才開始播。
  * 要調手感只改這裡。
  */
-const val CLIP_DELAY_MS: Long = 2000L
+const val CLIP_DELAY_MS: Long = 1000L
 
 /** 循環一段多長（秒）。 */
 const val CLIP_LENGTH_SEC: Double = 3.0
