@@ -62,10 +62,12 @@ import com.xenyaa.videoshot.ui.home.HomeScreen
 import com.xenyaa.videoshot.ui.home.HomeViewModel
 import com.xenyaa.videoshot.ui.home.toFilterOption
 import com.xenyaa.videoshot.ui.lightbox.LightboxActions
+import com.xenyaa.videoshot.ui.lightbox.LightboxClipDeps
 import com.xenyaa.videoshot.ui.lightbox.LightboxScreen
 import com.xenyaa.videoshot.ui.lightbox.shareTextOf
 import com.xenyaa.videoshot.ui.onboarding.FirstRunChooserScreen
 import com.xenyaa.videoshot.ui.common.avatarInitialOf
+import com.xenyaa.videoshot.player.ClipSource
 import com.xenyaa.videoshot.player.LocalPlayerFullscreen
 import com.xenyaa.videoshot.ui.detail.BatchEditScreen
 import com.xenyaa.videoshot.ui.detail.BatchEditState
@@ -403,6 +405,14 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                 inFolder -> folderVm!!::loadMore
                 else -> homeVm::loadMore
             }
+            // 自動播放片段的來源（規格第六節「自動播放片段」）：只要 embed 可不可用與總長，
+            // 抓 YouTube 仍然只走 youtube 模組。remember 住：同一個 Lightbox 裡控制器靠它快取
+            val lightboxClip = remember {
+                LightboxClipDeps(source = { videoId ->
+                    container.wizardData.watchPage(videoId).meta
+                        ?.let { ClipSource(playableInEmbed = it.playableInEmbed, durationSec = it.durationSec) }
+                })
+            }
             LightboxScreen(
                 items = items,
                 hasMore = hasMore,
@@ -414,6 +424,9 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                 onLoadMore = loadMore,
                 tagsOf = { shot -> container.libraryRepo.tagsWithKindOfShot(shot.id) },
                 tagsRefreshKey = shotEdits,
+                clip = lightboxClip,
+                // 【加入相簿】與【詳細資料】抽屜是 AppRoot 畫的，蓋在 Lightbox 上時片段要停
+                covered = addingTo != null || editing != null,
                 // 把目前這一張寫回導覽堆疊：轉螢幕或被系統回收重建之後，回來還在同一張。
                 //
                 // 一定要先確認堆疊頂真的是 Dest.Lightbox 才能換掉它 —— pop() 對只有一層、
