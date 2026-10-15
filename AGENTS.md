@@ -486,7 +486,8 @@ Lightbox【加入相簿】清單沒有封存的那本、6 本全部封存後空�
 行動網路照樣播。時間常數 `CLIP_DELAY_MS`／`CLIP_LENGTH_SEC` 在 `:core` 的 `core/player/ClipTiming.kt`。
 **做法**：整個 Lightbox 只有一個 WebView（`ClipPlayerSurface`），放在 `HorizontalPager` 底下，影片要出來時把目前這頁的縮圖淡成透明；流程在不碰 Compose 的 `LightboxClipController`（JVM 上用 `FakeClipPlayer`＋虛擬時間測）；
 循環在頁面裡用注入的 JS 每 50 毫秒檢查；watch page 結果在這次 Lightbox 裡記住（同一支影片連續兩張不重載頁面），失敗不記。
-三套測試：JVM **1354 個**（`:core:test` 194 ＋ `:app:testDebugUnitTest` 1160，2026-10-15）全綠，用乾淨 `git worktree` 全新編譯（含 `:app:assembleRelease`、`:app:assembleDebugAndroidTest`）；沒動資料庫，androidTest 只編譯、沒重跑。
+三套測試：JVM **1358 個**（`:core:test` 194 ＋ `:app:testDebugUnitTest` 1164，2026-10-15，最終審查修正後）全綠；修正前（1354 個）用乾淨 `git worktree` 全新編譯（含 `:app:assembleRelease`、`:app:assembleDebugAndroidTest`），數字一致；沒動資料庫，androidTest 只編譯、沒重跑。
+**全分支最終審查（opus）修正兩個 Important**：(1) 不經拖曳換成別張（刪掉播放中的那張）時舊片段沒停，下一張是別支影片又抓不到時會在縮圖後面一直出聲——換張前先停掉；(2) 預載卡在 `readyState = 0`（封面還沒出現就點、或上一支影片晚到的 `onPageFinished` 讓新的載入提早回來）時永遠不重試，頁面載入失敗還會被記住——改成 1.5 秒沒開始緩衝就重點封面、15 秒沒準備好就重載頁面繼續等、只認這次影片的 `onPageFinished`。修正後實機重驗換影片、0 漏聲、0 崩潰。擱置三個 Minor：快速來回滑會重抓 watch page；`deps` 換實例時新控制器拿不到播放器（目前不會發生）；縮圖與影片交叉淡化時中間約 0.1 秒略暗。
 **實機驗收（2107113SG，scott 的圖庫只看不改；用 WebView 的 DevTools 協定直接讀 `<video>` 的狀態）**：停 2 秒後換成影片、循環點穩定（1140.00 → 1142.9x → 跳回 1140.00）、有聲音（`dumpsys audio` 看到 app 的媒體播放器 started）；
 倒數期間靜音停在起點、2 秒到才開聲音；點一下暫停／繼續；⋯ 選單、【加入相簿】、【詳細資料】打開時暫停、關掉繼續；Home 鍵後播放器 stopped、回來繼續；【播放這一段】進詳情頁後只剩一個 WebView、一個音訊；
 Shorts（Emiru）直著撐滿高、兩側是 Lightbox 底色；同一支影片連續兩張沒有重載頁面；logcat 沒有崩潰。
