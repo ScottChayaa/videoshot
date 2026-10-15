@@ -8,6 +8,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -79,6 +81,21 @@ class WebViewClipPlayerTest {
 
     @Test fun 頁面背景透明() =
         assertTrue(CLIP_TRANSPARENT_JS.contains("background:transparent"))
+
+    @Test
+    fun 舊網址的載入完成不算這次的() = kotlinx.coroutines.test.runTest {
+        // 上一支影片的 onPageFinished 晚到，不能讓這次的 load 提早回來（最終審查 I-2(a)）
+        val p = WebViewClipPlayer(android.webkit.WebView(androidx.test.core.app.ApplicationProvider.getApplicationContext()))
+        val job = launch { p.load("v2", playableInEmbed = true) }
+        runCurrent()
+        p.onPageFinished("https://www.youtube.com/embed/v1?playsinline=1")
+        p.onPageFinished("about:blank")
+        runCurrent()
+        assertTrue(job.isActive)
+        p.onPageFinished("https://www.youtube.com/embed/v2?playsinline=1")
+        runCurrent()
+        assertTrue(job.isCompleted)
+    }
 
     @Test
     fun Surface建好會給播放器_離開畫面會收回() {

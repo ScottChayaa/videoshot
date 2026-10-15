@@ -27,12 +27,22 @@ class WebViewClipPlayer(private val webView: WebView) : ClipPlayer {
 
     private var pageLoaded = CompletableDeferred<Unit>()
 
-    /** `onPageFinished` 呼叫。 */
-    internal fun onPageFinished() { pageLoaded.complete(Unit) }
+    /** 這次 [load] 等的是哪支影片的頁面。 */
+    private var loadingVideoId: String? = null
+
+    /**
+     * `onPageFinished` 呼叫。只認這次要載的那支影片：上一支的回呼晚到（快速換頁時 v1 還沒載完就換 v2）、
+     * 或 `about:blank`，都不能讓這次的 [load] 提早回來——否則 `cue` 會打在舊頁面上，新頁面的封面沒人點。
+     */
+    internal fun onPageFinished(url: String?) {
+        val id = loadingVideoId ?: return
+        if (url != null && url.contains(id)) pageLoaded.complete(Unit)
+    }
 
     override suspend fun load(videoId: String, playableInEmbed: Boolean) {
         val done = CompletableDeferred<Unit>()
         pageLoaded = done
+        loadingVideoId = videoId
         val url = playerUrl(videoId, playableInEmbed)
         // embed 需要 referer，否則部分影片會拒絕播放（同 PlayerSurface）
         webView.post { webView.loadUrl(url, mapOf("Referer" to "https://${webView.context.packageName}")) }
@@ -201,7 +211,7 @@ fun ClipPlayerSurface(
                     override fun onPageFinished(view: WebView?, url: String?) {
                         view?.evaluateJavascript(BARE_PLAYER_JS, null)
                         view?.evaluateJavascript(CLIP_TRANSPARENT_JS, null)
-                        clip.onPageFinished()
+                        clip.onPageFinished(url)
                     }
                 }
                 // 觸控整個不給 WebView：藏起來的 YouTube 按鈕仍然點得到

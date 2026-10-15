@@ -305,6 +305,52 @@ class LightboxClipControllerTest {
     }
 
     @Test
+    fun 不經拖曳換成別張時先停掉正在播的() = runTest(StandardTestDispatcher()) {
+        // 刪掉播放中的那張、下一張是別支影片且抓不到：舊片段不能在縮圖後面繼續出聲（最終審查 I-1）
+        val p = FakeClipPlayer()
+        val ctl = controller(p)
+        ctl.onSettled(a)
+        advanceTimeBy(2_500)
+        runCurrent()
+        assertEquals(1L, ctl.showing.value)
+        sourceResult = { null }
+        ctl.onSettled(c)
+        advanceTimeBy(5_000)
+        runCurrent()
+        assertNull(ctl.showing.value)
+        assertEquals("pause", p.calls.last())
+    }
+
+    @Test
+    fun 一直沒開始緩衝就重點一次封面() = runTest(StandardTestDispatcher()) {
+        // 頁面剛載完封面還沒出現、或舊頁面的回呼讓 cue 打在錯的頁面上：readyState 一直是 0（最終審查 I-2）
+        val p = FakeClipPlayer().apply { readyAfterCue = false }
+        val ctl = controller(p)
+        ctl.onSettled(a)
+        advanceTimeBy(1_000)
+        runCurrent()
+        assertEquals(1, p.calls.count { it == "cue:30.0" })
+        advanceTimeBy(1_000)
+        runCurrent()
+        assertTrue(p.calls.count { it == "cue:30.0" } >= 2)
+    }
+
+    @Test
+    fun 太久沒準備好就重載頁面_繼續等() = runTest(StandardTestDispatcher()) {
+        // 頁面載入失敗（錯誤頁）不能被記住：15 秒都沒準備好就重載，好了照樣播
+        val p = FakeClipPlayer().apply { readyAfterCue = false }
+        val ctl = controller(p)
+        ctl.onSettled(a)
+        advanceTimeBy(16_000)
+        runCurrent()
+        assertEquals(2, p.calls.count { it == "load:v1" })
+        p.readyAfterCue = true
+        advanceTimeBy(2_000)
+        runCurrent()
+        assertEquals(1L, ctl.showing.value)
+    }
+
+    @Test
     fun 片尾的截圖用往前推的範圍() = runTest(StandardTestDispatcher()) {
         sourceResult = { ClipSource(true, durationSec = 600) }
         val p = FakeClipPlayer()
