@@ -46,6 +46,21 @@ class WebViewClipPlayerTest {
         assertTrue(!js.contains(".ytp-play-button"))
     }
 
+    @Test fun 預載期間YouTube取消靜音會被立刻蓋回去() {
+        // 2026-10-15 實機：剛載好的頁面點封面開播後，YouTube 會套用自己的音量狀態把 muted 改回 false，
+        // 快速滑過的中間那幾張會出聲。用 capture 階段的事件（媒體事件不冒泡，但 capture 收得到）當場蓋回去
+        val js = clipCueJs(30.0)
+        assertTrue(js.contains("window.__vsMute = true"))
+        assertTrue(js.contains("addEventListener(n, window.__vsMuteHook, true)"))
+        assertTrue(js.contains("'volumechange'"))
+        assertTrue(js.contains("'playing'"))
+    }
+
+    @Test fun 開始循環前先解除強制靜音() {
+        val js = clipLoopJs(30.0, 33.0)
+        assertTrue(js.indexOf("window.__vsMute = false") in 0 until js.indexOf("v.muted = false"))
+    }
+
     @Test fun 停住會暫停並跳回起點() {
         val js = clipHoldJs(30.0)
         assertTrue(js.contains("v.pause()"))

@@ -59,10 +59,25 @@ private const val COVER_SELECTOR =
  * 預載：停掉上一段的循環、靜音、跳到起點、開始播讓它緩衝。
  * 還沒開播（`readyState=0`）時 `v.play()` 沒有用，要點封面（規格第二節第 5 點）；
  * 那時設定的 `currentTime` 會成為起播位置。
+ *
+ * **只設一次 `muted` 不夠**（2026-10-15 實機）：剛載好的頁面點封面開播後，YouTube 會套用自己的音量狀態
+ * 把 `muted` 改回 false，快速滑過的中間那幾張會出聲約 0.7 秒。所以預載期間（`__vsMute`）掛 capture 階段的
+ * 事件——媒體事件不冒泡，但 document 的 capture 收得到，`<video>` 還沒出現或被換掉都接得住——
+ * 一被取消靜音就當場蓋回去。`volume = 0` 不採用：YouTube 同樣會套用自己的音量。
  */
 internal fun clipCueJs(startSec: Double): String =
     """
     (function(){
+      window.__vsMute = true;
+      if (!window.__vsMuteHook) {
+        window.__vsMuteHook = function(e){
+          var t = e.target;
+          if (window.__vsMute && t && t.tagName === 'VIDEO' && !t.muted) t.muted = true;
+        };
+        ['volumechange', 'play', 'playing', 'loadeddata'].forEach(function(n){
+          document.addEventListener(n, window.__vsMuteHook, true);
+        });
+      }
       if (window.__vsLoop) { clearInterval(window.__vsLoop); window.__vsLoop = null; }
       var v = document.querySelector('video');
       if (v) { v.muted = true; v.currentTime = $startSec; }
@@ -99,6 +114,7 @@ internal fun clipLoopJs(startSec: Double, endSec: Double): String =
         }
       }, 50);
       v.currentTime = $startSec;
+      window.__vsMute = false;
       v.muted = false;
       v.play();
       return 'ok';
