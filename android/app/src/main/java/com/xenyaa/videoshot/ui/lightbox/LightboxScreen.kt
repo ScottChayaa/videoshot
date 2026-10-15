@@ -58,6 +58,25 @@ import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
 import com.xenyaa.videoshot.ui.thumb.ThumbImage
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.stateDescription
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
+import com.xenyaa.videoshot.core.player.CLIP_DELAY_MS
+import com.xenyaa.videoshot.player.ClipPlayer
+import com.xenyaa.videoshot.player.ClipPlayerSurface
+import com.xenyaa.videoshot.player.ClipSource
+import com.xenyaa.videoshot.player.ClipTarget
+import com.xenyaa.videoshot.player.LightboxClipController
 
 /**
  * 分享的內容(規格第六節動作表):`https://youtu.be/{videoId}?t={at_sec}`。
@@ -75,6 +94,20 @@ data class LightboxActions(
     val onShare: (ShotRow) -> Unit = {},
     val onEdit: (ShotRow) -> Unit = {},
     val onDelete: (ShotRow) -> Unit = {},
+)
+
+/**
+ * Lightbox 自動播放片段要的東西（規格第六節「自動播放片段」）。不給（null）就不自動播。
+ *
+ * @param source 抓 watch page 換成 [ClipSource]，拿不到回 null（`AppRoot` 經由 `youtube` 模組接）
+ * @param delayMs 停多久才播；只有測試會改
+ * @param surface 放影片的那一層；正式版是 WebView，測試換成直接給 `FakeClipPlayer`
+ */
+class LightboxClipDeps(
+    val source: suspend (videoId: String) -> ClipSource?,
+    val delayMs: Long = CLIP_DELAY_MS,
+    val surface: @Composable (alpha: Float, onPlayer: (ClipPlayer?) -> Unit, modifier: Modifier) -> Unit =
+        { alpha, onPlayer, modifier -> ClipPlayerSurface(alpha, onPlayer, modifier) },
 )
 
 /**
@@ -111,6 +144,10 @@ fun LightboxScreen(
     tagsOf: suspend (ShotRow) -> List<TagNameKind> = { emptyList() },
     /** 就地編輯存檔後遞增：標籤改了但 [ShotRow] 不含標籤、比不出差異，靠它重讀標籤列。 */
     tagsRefreshKey: Int = 0,
+    /** 自動播放片段；null＝不播。 */
+    clip: LightboxClipDeps? = null,
+    /** 呼叫端的東西蓋在 Lightbox 上（【加入相簿】、【詳細資料】抽屜）：片段暫停。 */
+    covered: Boolean = false,
 ) {
     if (items.isEmpty()) {
         // 刪到最後一張時會走到這裡（案例 17）
@@ -122,6 +159,25 @@ fun LightboxScreen(
         initialPage = startIndex.coerceIn(0, items.lastIndex),
         pageCount = { items.size },
     )
+
+    // ── 自動播放片段（規格第六節「自動播放片段」）──
+    val clipScope = rememberCoroutineScope()
+    val controller = clip?.let { deps ->
+        remember(deps) { LightboxClipController(clipScope, deps.source, deps.delayMs) }
+    }
+    val currentItems by rememberUpdatedState(items)
+    if (controller != null) {
+        // 手指一開始拖就停、換回縮圖；停下來（含滑回同一張、目前這張被刪掉換成別張）就重新倒數。
+        // 拖的時候送 null，所以「A → 拖 → A」也會再送一次 A，滑回同一張會重新倒數
+        LaunchedEffect(pager, controller) {
+            snapshotFlow {
+                if (pager.isScrollInProgress) null
+                else currentItems.getOrNull(pager.currentPage)?.let { ClipTarget(it.id, it.videoId, it.atSec) }
+            }.collect { target ->
+                if (target == null) controller.onDragStart() else controller.onSettled(target)
+            }
+        }
+    }
 
     LaunchedEffect(pager, items.size) {
         snapshotFlow { pager.currentPage }.collect { page ->
@@ -148,6 +204,14 @@ fun LightboxScreen(
     val shot = items[pager.currentPage.coerceAtMost(items.lastIndex)]
     var menuOpen by remember { mutableStateOf(false) }
     var confirmingDelete by remember { mutableStateOf(false) }
+    if (controller != null) {
+        val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+        val coveredNow = covered || menuOpen || confirmingDelete || !lifecycleState.isAtLeast(Lifecycle.State.RESUMED)
+        LaunchedEffect(controller, coveredNow) { controller.setCovered(coveredNow) }
+    }
+    // controller 是不是 null 由 clip 參數決定，同一個 Lightbox 裡不會變
+    val showingId: Long? = controller?.showing?.collectAsState()?.value
+    val userPaused: Boolean = controller?.userPaused?.collectAsState()?.value ?: false
     val iconShape = RoundedCornerShape(AppTheme.radii.sm)
     val tags by produceState(emptyList<TagNameKind>(), shot.id, tagsRefreshKey) {
         value = emptyList()
@@ -229,21 +293,60 @@ fun LightboxScreen(
             // 也就是描述／動作列開始的地方，不是螢幕的物理下緣 —— 系統導覽列多高都不會蓋到它。
             // 上緣留一段距離：直的照片撐滿高時才不會緊貼在標籤列下面
             Box(Modifier.weight(1f).fillMaxWidth().padding(top = AppTheme.spacing.s4)) {
+                // 片段層在 pager 下面：pager 疊在上面照常接左右滑；影片要出來時把目前這頁的縮圖淡掉露出它。
+                // 一個 Lightbox 只有這一個 WebView（每頁各一個的話 2～3 個同時在載 YouTube）
+                if (clip != null && controller != null) {
+                    val videoAlpha by animateFloatAsState(
+                        if (showingId != null) 1f else 0f,
+                        // 換回縮圖要立刻，淡入才慢慢來
+                        animationSpec = tween(if (showingId != null) CLIP_FADE_MS else 0),
+                        label = "clipVideoAlpha",
+                    )
+                    clip.surface(videoAlpha, { controller.attach(it) }, Modifier.matchParentSize())
+                }
                 HorizontalPager(
                     state = pager,
                     modifier = Modifier
                         .fillMaxSize()
                         .semantics { contentDescription = "收藏的大圖" },
                 ) { page ->
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    val pageShot = items[page]
+                    val showingThis = showingId == pageShot.id
+                    val thumbAlpha by animateFloatAsState(
+                        if (showingThis) 0f else 1f,
+                        animationSpec = tween(if (showingThis) CLIP_FADE_MS else 0),
+                        label = "clipThumbAlpha",
+                    )
+                    // 用 pointerInput 不用 clickable：每一頁都變成可聚焦會打亂實體鍵盤的焦點順序
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .then(
+                                if (showingThis && controller != null) {
+                                    Modifier
+                                        .pointerInput(controller) { detectTapGestures(onTap = { controller.onTap() }) }
+                                        .semantics {
+                                            stateDescription = if (userPaused) "片段已暫停" else "片段播放中"
+                                            onClick(label = if (userPaused) "繼續播放片段" else "暫停片段") {
+                                                controller.onTap()
+                                                true
+                                            }
+                                        }
+                                } else {
+                                    Modifier
+                                },
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
                         ThumbImage(
-                            shot = items[page],
+                            shot = pageShot,
                             loader = loader,
-                            contentDescription = items[page].description,
+                            contentDescription = pageShot.description,
                             // Lightbox 不顯示影片秒數（頂列只有日期，2026-10-12 決定），預留圖也不疊
                             showTimeOnPlaceholder = false,
                             // 照圖本身的寬高比完整顯示：直式影片（Shorts）的圖是直的，裁成 16:9 會只剩中間一條
                             fitImageAspect = true,
+                            modifier = Modifier.alpha(thumbAlpha),
                         )
                     }
                 }
@@ -341,6 +444,9 @@ private fun DarkIconButton(icon: ImageVector, label: String, onClick: () -> Unit
 
 /** 標籤列的最小高度：迷你小膠囊一列的高度，沒有標籤時也佔住這一列。 */
 private val TAG_ROW_MIN_HEIGHT = 28.dp
+
+/** 縮圖換成影片的淡入時間（規格第六節「自動播放片段」：約 0.2 秒）。 */
+private const val CLIP_FADE_MS = 200
 
 /**
  * Lightbox 專用的小膠囊：白色 12% 半透明底、無框、白字，跟底部的圖示鈕同一種材質（2026-10-12）。
