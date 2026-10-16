@@ -167,9 +167,15 @@ fun Step2GridScreen(
             }
         }
 
-        // 底部**只有一列**，底下不再疊導覽列（手冊 §四第二步）
-        VsActionDock(status = { Text("${state.candidateCount} 張候選 · 已選 ${state.selectedCount}") }) {
-            VsButton("下一步（${state.selectedCount} 張）", onNext, enabled = state.selectedCount > 0)
+        // 底部**只有一列**、只有【下一步】，底下不再疊導覽列（手冊 §四第二步）；
+        // 張數在頂部狀態列、已選數在按鈕上，不另外寫（2026-10-17 拿掉「N 張候選 · 已選 k」）
+        VsActionDock {
+            VsButton(
+                "下一步（${state.selectedCount} 張）",
+                onNext,
+                modifier = Modifier.weight(1f),
+                enabled = state.selectedCount > 0,
+            )
         }
     }
 }

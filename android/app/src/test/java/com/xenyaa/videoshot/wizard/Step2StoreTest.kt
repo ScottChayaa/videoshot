@@ -119,7 +119,7 @@ class Step2StoreTest {
             kept = (0 until 50).toList(),
             hiddenCount = 98,
         )
-        assertEquals("全部 50 張照片，隱藏 98 張相似畫面", state.statusText)
+        assertEquals("50 張照片，隱藏 98 張相似畫面", state.statusText)
     }
 
     @Test
@@ -131,7 +131,7 @@ class Step2StoreTest {
             kept = listOf(0, 1, 2),
             hiddenCount = 0,
         )
-        assertEquals("3 張候選", state.statusText)
+        assertEquals("3 張照片", state.statusText)
     }
 
     @Test
@@ -346,7 +346,7 @@ class Step2StoreTest {
         assertEquals("降級的格子一律保留", listOf(0, 1, 2, 3), s.state.value.kept)
         assertEquals("牆上照樣有東西可看（規格第五節）", listOf(0, 1, 2, 3), s.state.value.visible)
         assertEquals(0, s.state.value.hiddenCount)
-        assertEquals("4 張候選", s.state.value.statusText)
+        assertEquals("4 張照片", s.state.value.statusText)
     }
 
     @Test
@@ -583,7 +583,24 @@ class Step2StoreTest {
         val s = store(source, scope = this)
         advanceUntilIdle()
         s.addManual(atSec = 15.0, file = File("/tmp/a.webp"))
-        assertEquals("全部 2 張照片，隱藏 3 張相似畫面", s.state.value.statusText)
+        assertEquals("2 張照片，隱藏 3 張相似畫面", s.state.value.statusText)
+        s.close()
+    }
+
+    /** 【顯示全部】之後講牆上真的有幾格：storyboard 全部的格子＋手動截圖。 */
+    @Test
+    fun 顯示全部的張數也含手動格() = runTest(dispatcher) {
+        val source = FakeFrameSource(
+            plan = FramePlan("v", 3, List(4) { it * 10.0 }, lowQuality = false),
+            perSheet = 4,
+            hashes = listOf(0L, 0L, 0L, 0L),
+        )
+        val s = store(source, scope = this)
+        advanceUntilIdle()
+        s.addManual(atSec = 15.0, file = File("/tmp/a.webp"))
+        s.setShowAll(true)
+        assertEquals("全部 5 張", s.state.value.statusText)
+        assertEquals(5, s.state.value.visible.size)
         s.close()
     }
 

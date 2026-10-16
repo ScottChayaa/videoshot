@@ -109,16 +109,20 @@ data class Step2State(
             return shown.sortedBy { atSecOf(it) }
         }
 
-    /** 頂部狀態列的文案。手冊 §四要求它講得出「收斂成幾張、藏了幾張」。 */
+    /**
+     * 頂部狀態列的文案。手冊 §四要求它講得出「收斂成幾張、藏了幾張」。
+     * 「全部」只用在【顯示全部】之後（2026-10-17：原本收斂後寫「全部 46 張照片」，46 其實是沒被藏起來的張數）；
+     * 那時的張數是牆上真的有幾格：storyboard 全部的格子＋手動截圖。
+     */
     val statusText: String
         get() = when {
             plan.frameCount == 0 -> "無法取得逐段縮圖，可以截圖補上"
             converging -> "正在過濾相似畫面…"
             loadFailed && ready.isEmpty() -> "縮圖載入失敗，可以截圖補上"
             loadFailed -> "只載入了 ${ready.size} 張縮圖就失敗了，其餘可以截圖補上"
-            showAll -> "顯示全部 ${plan.frameCount} 張"
-            hiddenCount > 0 -> "全部 $candidateCount 張照片，隱藏 $hiddenCount 張相似畫面"
-            else -> "$candidateCount 張候選"
+            showAll -> "全部 ${plan.frameCount + manual.size} 張"
+            hiddenCount > 0 -> "$candidateCount 張照片，隱藏 $hiddenCount 張相似畫面"
+            else -> "$candidateCount 張照片"
         }
 }
 

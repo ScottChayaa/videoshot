@@ -90,13 +90,13 @@ class Step2GridScreenTest {
         compose.onNodeWithText("全部選取").assertIsDisplayed()
         compose.onNode(androidx.compose.ui.test.hasScrollAction()).performScrollToIndex(60)
         compose.onNodeWithText("全部選取").assertDoesNotExist()
-        compose.onNodeWithText("60 張候選").assertIsDisplayed()
+        compose.onNodeWithText("60 張照片").assertIsDisplayed()
     }
 
     @Test
     fun 狀態列顯示收斂結果() {
         show(loaded(frameCount = 4, kept = listOf(0, 1), hiddenCount = 2))
-        compose.onNodeWithText("全部 2 張照片，隱藏 2 張相似畫面").assertIsDisplayed()
+        compose.onNodeWithText("2 張照片，隱藏 2 張相似畫面").assertIsDisplayed()
     }
 
     @Test
@@ -109,6 +109,7 @@ class Step2GridScreenTest {
     fun 顯示全部之後按鈕變成重新過濾() {
         show(loaded(frameCount = 4, kept = listOf(0, 1), hiddenCount = 2, showAll = true))
         compose.onNodeWithText("重新過濾").assertIsDisplayed()
+        compose.onNodeWithText("全部 4 張").assertIsDisplayed()
     }
 
     @Test
@@ -152,9 +153,11 @@ class Step2GridScreenTest {
     }
 
     @Test
-    fun 底部一列顯示候選數與已選數() {
+    fun 底部一列只有下一步_不再顯示候選數與已選數() {
         show(loaded(frameCount = 4, kept = listOf(0, 1, 2), selected = setOf(0, 2)))
-        compose.onNodeWithText("3 張候選 · 已選 2").assertIsDisplayed()
+        compose.onNodeWithText("下一步（2 張）").assertIsDisplayed()
+        compose.onNodeWithText("· 已選", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("張候選", substring = true).assertDoesNotExist()
     }
 
     @Test
