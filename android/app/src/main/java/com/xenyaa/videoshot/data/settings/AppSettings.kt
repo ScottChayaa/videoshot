@@ -83,6 +83,12 @@ class AppSettings(context: Context) : ShellSettings {
         store.edit { it[CLIP_MUTED] = value }
     }
 
+    override val playerMuted: Flow<Boolean> = store.data.map { it[PLAYER_MUTED] ?: false }
+
+    override suspend fun setPlayerMuted(value: Boolean) {
+        store.edit { it[PLAYER_MUTED] = value }
+    }
+
     /**
      * 分類清單頁的排序。存 id 字串而不是 ordinal —— 理由同 [filterStrength]：
      * enum 之後若調整順序，ordinal 會讓舊值指到別的排序。
@@ -244,6 +250,7 @@ class AppSettings(context: Context) : ShellSettings {
         // 2026-10-15 改成上下滑換張時換了鍵名：看過舊「左右滑動」提示的人也要再看一次新的
         val LIGHTBOX_HINT_SEEN = booleanPreferencesKey("lightbox_vertical_hint_seen")
         val CLIP_MUTED = booleanPreferencesKey("clip_muted")
+        val PLAYER_MUTED = booleanPreferencesKey("player_muted")
         val FOLDER_SORT = stringPreferencesKey("folder_sort")
         val THUMB_COLUMNS = intPreferencesKey("thumb_columns")
         val THEME_ID = stringPreferencesKey("theme_id")

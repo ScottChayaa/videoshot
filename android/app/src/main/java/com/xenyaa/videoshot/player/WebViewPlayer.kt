@@ -91,6 +91,11 @@ class WebViewPlayer(private val webView: WebView) : Player {
 
     override suspend fun status(): PlaybackStatus = parseStatus(eval(STATUS_JS))
 
+    /** 【聲音】（取圖第二步與詳情頁，規格第六節「播放器」）。頁面載好時與切換時各下一次。 */
+    suspend fun setMuted(muted: Boolean) {
+        eval(playerMuteJs(muted))
+    }
+
     /**
      * 給 `capture` 用的執行入口。
      *
@@ -200,6 +205,31 @@ internal val BARE_PLAYER_JS =
     """.trimIndent()
 
 /**
+ * 切換【聲音】。**只設一次 `muted` 不夠**：點封面開播後 YouTube 會套用自己的音量狀態把它改回 false
+ * （2026-10-15 在 Lightbox 片段實測過，見 `WebViewClipPlayer.kt` 的 `clipCueJs`）。所以靜音期間在 document 的
+ * capture 階段掛媒體事件（媒體事件不冒泡，capture 收得到；`<video>` 晚出現或被換掉也接得住），一被取消靜音就蓋回去。
+ * 旗標名跟片段的 `__vsMute` 分開，兩種頁面不會互相影響。
+ */
+internal fun playerMuteJs(muted: Boolean): String =
+    """
+    (function(){
+      window.__vsPlayerMute = $muted;
+      if (!window.__vsPlayerMuteHook) {
+        window.__vsPlayerMuteHook = function(e){
+          var t = e.target;
+          if (window.__vsPlayerMute && t && t.tagName === 'VIDEO' && !t.muted) t.muted = true;
+        };
+        ['volumechange', 'play', 'playing', 'loadeddata'].forEach(function(n){
+          document.addEventListener(n, window.__vsPlayerMuteHook, true);
+        });
+      }
+      var v = document.querySelector('video');
+      if (v) v.muted = $muted;
+      return 'ok';
+    })()
+    """.trimIndent()
+
+/**
  * 一次讀完控制層要的六個值，逗號隔開（不用 JSON.stringify：回來還要再剝一層引號跟跳脫，逗號字串最好解）。
  * 順序：currentTime, duration, paused, readyState>0, videoWidth, videoHeight。
  */
@@ -287,6 +317,7 @@ fun PlayerSurface(
     val holder = remember { arrayOfNulls<WebView>(1) }
 
     val fullscreen = LocalPlayerFullscreen.current
+    val sound = LocalPlayerSound.current
     // onPageFinished 之後才有；控制層靠它讀狀態與下指令
     var player by remember { mutableStateOf<WebViewPlayer?>(null) }
     var status by remember { mutableStateOf(PlaybackStatus.Unknown) }
@@ -300,6 +331,9 @@ fun PlayerSurface(
             delay(STATUS_POLL_MS)
         }
     }
+
+    // 頁面載好時套一次設定值，之後每次切換再套
+    LaunchedEffect(player, sound.muted) { player?.setMuted(sound.muted) }
 
     // 全螢幕時系統返回只負責離開全螢幕。這個 BackHandler 比畫面自己的晚註冊，所以優先
     BackHandler(enabled = fullscreen.active) { fullscreen.exit() }
@@ -375,6 +409,8 @@ fun PlayerSurface(
                 else fullscreen.enter(isLandscapeVideo(status.videoWidth, status.videoHeight))
             },
             modifier = Modifier.matchParentSize(),
+            muted = sound.muted,
+            onToggleMute = { sound.setMuted(!sound.muted) },
         )
     }
 }

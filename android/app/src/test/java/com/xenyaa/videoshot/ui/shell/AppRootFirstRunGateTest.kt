@@ -118,6 +118,8 @@ class AppRootFirstRunGateTest {
         override suspend fun markLightboxHintSeen() = Unit
         override val clipMuted = kotlinx.coroutines.flow.flowOf(false)
         override suspend fun setClipMuted(value: Boolean) = Unit
+        override val playerMuted = kotlinx.coroutines.flow.flowOf(false)
+        override suspend fun setPlayerMuted(value: Boolean) = Unit
         override val folderSort = flowOf(FolderSort.NAME_ASC)
         override suspend fun setFolderSort(value: FolderSort) = Unit
 

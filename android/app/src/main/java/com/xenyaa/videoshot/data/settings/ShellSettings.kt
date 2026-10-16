@@ -25,6 +25,10 @@ interface ShellSettings {
     val clipMuted: Flow<Boolean>
     suspend fun setClipMuted(value: Boolean)
 
+    /** 取圖第二步與詳情頁播放器的【聲音】關掉了沒；跟 [clipMuted] 分開記（規格第六節「播放器」）。 */
+    val playerMuted: Flow<Boolean>
+    suspend fun setPlayerMuted(value: Boolean)
+
     /** 分類清單頁的排序偏好（手冊 §六：排序要記得住）。 */
     val folderSort: Flow<FolderSort>
     suspend fun setFolderSort(value: FolderSort)

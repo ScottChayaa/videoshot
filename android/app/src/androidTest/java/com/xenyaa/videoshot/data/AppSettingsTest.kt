@@ -102,6 +102,16 @@ class AppSettingsTest {
     }
 
     @Test
+    fun 播放器的聲音預設開著_關掉存得住_跟片段分開() = runTest {
+        assertFalse(settings.playerMuted.first())
+        settings.setPlayerMuted(true)
+        assertTrue(settings.playerMuted.first())
+        assertFalse(settings.clipMuted.first())
+        settings.setPlayerMuted(false)
+        assertFalse(settings.playerMuted.first())
+    }
+
+    @Test
     fun 資料夾排序存得住() = runTest {
         assertEquals("預設是名稱升冪", FolderSort.NAME_ASC, settings.folderSort.first())
 

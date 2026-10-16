@@ -8,14 +8,19 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import com.xenyaa.videoshot.player.FullscreenSystemEffect
 import com.xenyaa.videoshot.player.LocalPlayerFullscreen
+import com.xenyaa.videoshot.player.LocalPlayerSound
 import com.xenyaa.videoshot.player.PlayerFullscreenState
+import com.xenyaa.videoshot.player.PlayerSound
 import com.xenyaa.videoshot.ui.shell.AppRoot
 import com.xenyaa.videoshot.ui.shell.FrameStallGuard
 import com.xenyaa.videoshot.ui.theme.Palettes
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     /** 播放器全螢幕的唯一一份狀態（規格第六節）。放在 Activity 上，轉向時不重建，所以不會丟。 */
@@ -42,9 +47,17 @@ class MainActivity : ComponentActivity() {
             // 色系存在 DataStore，這裡是唯一的套用點；沒有深色模式，不看系統的淺色／深色設定。
             // 讀不到（第一幀、或使用者沒選過）就是預設色系，不阻塞畫面。
             val themeId by app.container.settings.themeId.collectAsStateWithLifecycle(initialValue = null)
+            // 取圖第二步與詳情頁播放器的【聲音】：跟全螢幕一樣整個 app 一份，播放器自己取用
+            val playerMuted by app.container.settings.playerMuted.collectAsStateWithLifecycle(initialValue = false)
+            val playerSound = remember(playerMuted) {
+                PlayerSound(playerMuted) { value -> lifecycleScope.launch { app.container.settings.setPlayerMuted(value) } }
+            }
 
             VideoshotTheme(spec = Palettes.byId(themeId)) {
-                CompositionLocalProvider(LocalPlayerFullscreen provides playerFullscreen) {
+                CompositionLocalProvider(
+                    LocalPlayerFullscreen provides playerFullscreen,
+                    LocalPlayerSound provides playerSound,
+                ) {
                     FullscreenSystemEffect(playerFullscreen)
                     AppRoot(container = app.container, onExitApp = { finish() })
                 }

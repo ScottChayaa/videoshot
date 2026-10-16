@@ -87,6 +87,9 @@ internal const val PLAYER_CENTER_TAG = "player-center"
  * @param fallbackDurationSec `<video>.duration` 還沒有值（沒開播）時用 watch page 的總長
  * @param enabled 播放器還沒載好時 false：手勢都不作用、控制層不出現
  * @param preview 第 N 秒的預覽圖；拿不到回 null，預覽泡泡只顯示時間
+ * @param showTimeline false：沒有左下時間、進度條、拖曳跳播與左右鍵（Lightbox 片段只有 3 秒，用不到）
+ * @param muted 有給才在全螢幕鈕左邊顯示【聲音】鈕；true＝目前靜音
+ * @param playable false：還沒有影片可播（Lightbox 全螢幕中還是縮圖）——控制層叫得出來，但沒有中央鈕、點兩下不切換
  */
 @Composable
 fun PlayerControls(
@@ -99,6 +102,10 @@ fun PlayerControls(
     onSeek: (Double) -> Unit,
     onToggleFullscreen: () -> Unit,
     modifier: Modifier = Modifier,
+    showTimeline: Boolean = true,
+    muted: Boolean? = null,
+    onToggleMute: () -> Unit = {},
+    playable: Boolean = true,
 ) {
     val duration = status.durationSec.takeIf { it > 0 } ?: fallbackDurationSec
     var visible by remember { mutableStateOf(false) }
@@ -113,6 +120,7 @@ fun PlayerControls(
     val latestStatus by rememberUpdatedState(status)
     val latestDuration by rememberUpdatedState(duration)
     val latestEnabled by rememberUpdatedState(enabled)
+    val latestPlayable by rememberUpdatedState(playable)
     // pointerInput(Unit) 不會重建，回呼要用最新的版本
     val latestOnTogglePlay by rememberUpdatedState(onTogglePlay)
     val latestOnSeek by rememberUpdatedState(onSeek)
@@ -131,6 +139,7 @@ fun PlayerControls(
 
     // 點兩下與鍵盤 Enter／空白鍵共用：切換播放，中央閃一下圖示（跟控制層的中央按鈕是同一個）
     fun toggleWithFlash() {
+        if (!latestPlayable) return
         flash = !latestStatus.paused   // 播放中 → 暫停 → 閃播放圖示（按下去會做什麼）
         latestOnTogglePlay()
     }
@@ -150,7 +159,7 @@ fun PlayerControls(
                     val handled = when (event.key) {
                         Key.Enter, Key.NumPadEnter, Key.Spacebar -> { toggleWithFlash(); true }
                         Key.F -> { latestOnToggleFullscreen(); true }
-                        Key.DirectionRight, Key.DirectionLeft -> {
+                        Key.DirectionRight, Key.DirectionLeft -> if (!showTimeline) false else {
                             val total = latestDuration
                             if (total > 0) {
                                 val step = if (event.key == Key.DirectionRight) A11Y_STEP_SEC else -A11Y_STEP_SEC
@@ -178,7 +187,7 @@ fun PlayerControls(
                         onTap = { offset ->
                             if (latestEnabled) {
                                 // 中央按鈕不攔觸控（否則點兩下會被它吃成兩次單擊）：控制層開著、點在它的範圍內就由這裡切換播放
-                                val centerHit = visible &&
+                                val centerHit = visible && latestPlayable &&
                                     (offset - Offset(size.width / 2f, size.height / 2f)).getDistance() <= (PLAY_PAUSE_BADGE_SIZE / 2).toPx()
                                 if (centerHit) latestOnTogglePlay() else visible = !visible
                                 touches++
@@ -192,55 +201,66 @@ fun PlayerControls(
                         },
                     )
                 }
-                .pointerInput(Unit) {
-                    var startSec = 0.0
-                    var dx = 0f
-                    detectHorizontalDragGestures(
-                        onDragStart = {
-                            if (latestEnabled && latestDuration > 0) {
-                                startSec = latestStatus.currentSec
-                                dx = 0f
-                                dragSec = startSec
-                                visible = true
-                            }
-                        },
-                        onHorizontalDrag = { change, amount ->
-                            if (dragSec != null) {
-                                change.consume()
-                                dx += amount
-                                dragSec = scrubTargetSec(startSec, dx, size.width.toFloat(), latestDuration)
-                            }
-                        },
-                        onDragEnd = {
-                            dragSec?.let(latestOnSeek)
-                            dragSec = null
-                            touches++
-                        },
-                        onDragCancel = { dragSec = null },
-                    )
-                },
+                // 沒有時間軸就不能拖曳跳播：不掛手勢，水平拖曳留給外層（例如 pager）
+                .then(
+                    if (!showTimeline) Modifier else Modifier.pointerInput(Unit) {
+                        var startSec = 0.0
+                        var dx = 0f
+                        detectHorizontalDragGestures(
+                            onDragStart = {
+                                if (latestEnabled && latestDuration > 0) {
+                                    startSec = latestStatus.currentSec
+                                    dx = 0f
+                                    dragSec = startSec
+                                    visible = true
+                                }
+                            },
+                            onHorizontalDrag = { change, amount ->
+                                if (dragSec != null) {
+                                    change.consume()
+                                    dx += amount
+                                    dragSec = scrubTargetSec(startSec, dx, size.width.toFloat(), latestDuration)
+                                }
+                            },
+                            onDragEnd = {
+                                dragSec?.let(latestOnSeek)
+                                dragSec = null
+                                touches++
+                            },
+                            onDragCancel = { dragSec = null },
+                        )
+                    },
+                ),
         )
 
-        // 半透明底＋全螢幕鈕
+        // 半透明底＋右下（聲音）全螢幕鈕＋左下時間
         AnimatedVisibility(visible && enabled, enter = fadeIn(), exit = fadeOut()) {
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f))) {
-                IconButton(
-                    onClick = { onToggleFullscreen(); touches++ },
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 12.dp),
-                ) {
-                    Icon(
-                        if (fullscreen) VsIcons.Minimize else VsIcons.Maximize,
-                        contentDescription = if (fullscreen) "離開全螢幕" else "全螢幕",
-                        tint = OnDarkColors.primary,
-                    )
+                // 有進度條時讓開它（進度條打開時 16dp 高）
+                Row(Modifier.align(Alignment.BottomEnd).padding(bottom = if (showTimeline) 12.dp else 0.dp)) {
+                    if (muted != null) {
+                        IconButton(onClick = { onToggleMute(); touches++ }) {
+                            Icon(
+                                if (muted) VsIcons.VolumeOff else VsIcons.Volume,
+                                contentDescription = if (muted) "打開聲音" else "關掉聲音",
+                                tint = OnDarkColors.primary,
+                            )
+                        }
+                    }
+                    IconButton(onClick = { onToggleFullscreen(); touches++ }) {
+                        Icon(
+                            if (fullscreen) VsIcons.Minimize else VsIcons.Maximize,
+                            contentDescription = if (fullscreen) "離開全螢幕" else "全螢幕",
+                            tint = OnDarkColors.primary,
+                        )
+                    }
                 }
-                Row(
-                    Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 22.dp),
-                ) {
+                if (showTimeline) {
                     Text(
                         "${formatClock(position)} / ${formatClock(duration)}",
                         style = MaterialTheme.typography.labelSmall,
                         color = OnDarkColors.primary,
+                        modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 22.dp),
                     )
                 }
             }
@@ -248,7 +268,7 @@ fun PlayerControls(
 
         // 中央播放／暫停：控制層開著時是按鈕，點兩下時閃一下，兩者是同一個圖示
         AnimatedVisibility(
-            (visible && enabled && dragSec == null) || flash != null,
+            (visible && enabled && playable && dragSec == null) || flash != null,
             modifier = Modifier.align(Alignment.Center),
             enter = fadeIn(), exit = fadeOut(),
         ) {
@@ -274,14 +294,16 @@ fun PlayerControls(
             PreviewBubble(sec, preview, Modifier.align(Alignment.BottomStart).offset(x = x, y = (-28).dp).width(bubbleWidth))
         }
 
-        ProgressBar(
-            fraction = fraction,
-            thick = visible && enabled,
-            duration = duration,
-            position = position,
-            onSeek = { onSeek(it); touches++ },
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
-        )
+        if (showTimeline) {
+            ProgressBar(
+                fraction = fraction,
+                thick = visible && enabled,
+                duration = duration,
+                position = position,
+                onSeek = { onSeek(it); touches++ },
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+            )
+        }
     }
 }
 

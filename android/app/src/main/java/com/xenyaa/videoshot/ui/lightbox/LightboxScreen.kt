@@ -33,6 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,13 +61,10 @@ import com.xenyaa.videoshot.ui.thumb.ThumbImage
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.stateDescription
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -74,12 +72,11 @@ import androidx.lifecycle.compose.currentStateAsState
 import com.xenyaa.videoshot.core.player.CLIP_DELAY_MS
 import com.xenyaa.videoshot.player.ClipPlayer
 import com.xenyaa.videoshot.player.ClipPlayerSurface
-import com.xenyaa.videoshot.player.PLAY_PAUSE_FLASH_MS
-import com.xenyaa.videoshot.player.PlayPauseBadge
+import com.xenyaa.videoshot.player.PlaybackStatus
+import com.xenyaa.videoshot.player.PlayerControls
 import com.xenyaa.videoshot.player.ClipSource
 import com.xenyaa.videoshot.player.ClipTarget
 import com.xenyaa.videoshot.player.LightboxClipController
-import com.xenyaa.videoshot.player.CONTROLS_AUTO_HIDE_MS
 import com.xenyaa.videoshot.player.LocalPlayerFullscreen
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.WindowInsets
@@ -89,7 +86,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -184,10 +180,8 @@ fun LightboxScreen(
     }
     val currentItems by rememberUpdatedState(items)
 
-    // 片段的按鈕（點一下叫出、3 秒沒動作收起，同播放器控制層）與點兩下閃一下的圖示
-    var controlsVisible by remember { mutableStateOf(false) }
-    var touches by remember { mutableIntStateOf(0) }   // 每次有操作就 +1，自動收起重新計時
-    var flash by remember { mutableStateOf<Boolean?>(null) }   // 點兩下後中央圖示顯示的暫停狀態；null＝沒在閃
+    // 片段的控制層用播放器的 PlayerControls（不顯示時間軸）。開始上下拖就 +1：控制層以它當 key 重建，等於收起
+    var dragEpoch by remember { mutableIntStateOf(0) }
 
     // 全螢幕（規格第六節「自動播放片段」）：跟詳情頁同一份狀態，方向與系統列由 MainActivity 套用。
     // 返回鍵只離開全螢幕；Lightbox 關掉時一定離開
@@ -208,7 +202,7 @@ fun LightboxScreen(
             }.collect { target ->
                 if (target == null) {
                     controller.onDragStart()
-                    controlsVisible = false
+                    dragEpoch++
                 } else {
                     controller.onSettled(target)
                 }
@@ -249,19 +243,6 @@ fun LightboxScreen(
     // controller 是不是 null 由 clip 參數決定，同一個 Lightbox 裡不會變
     val showingId: Long? = controller?.showing?.collectAsState()?.value
     val userPaused: Boolean = controller?.userPaused?.collectAsState()?.value ?: false
-    // 影片出來了才有按鈕；全螢幕中縮圖也叫得出來——影片載不出來時才有辦法按鈕離開
-    val controlsEnabled = controller != null && (showingId != null || fullscreen)
-    LaunchedEffect(controlsEnabled) { if (!controlsEnabled) controlsVisible = false }
-    // 播放中 3 秒沒動作收起；使用者暫停中一直留著（同播放器控制層）
-    LaunchedEffect(controlsVisible, touches, userPaused) {
-        if (controlsVisible && !userPaused) {
-            delay(CONTROLS_AUTO_HIDE_MS)
-            controlsVisible = false
-        }
-    }
-    LaunchedEffect(flash) {
-        if (flash != null) { delay(PLAY_PAUSE_FLASH_MS); flash = null }
-    }
     val iconShape = RoundedCornerShape(AppTheme.radii.sm)
     val tags by produceState(emptyList<TagNameKind>(), shot.id, tagsRefreshKey) {
         value = emptyList()
@@ -368,44 +349,20 @@ fun LightboxScreen(
                         animationSpec = tween(if (showingThis) CLIP_FADE_MS else 0),
                         label = "clipThumbAlpha",
                     )
-                    // 用 pointerInput 不用 clickable：每一頁都變成可聚焦會打亂實體鍵盤的焦點順序。
-                    // 點一下＝叫出／收起按鈕，點兩下＝暫停／繼續（同播放器控制層）
-                    val tappable = controller != null && (showingThis || (fullscreen && page == pager.currentPage))
                     Box(
                         Modifier
                             .fillMaxSize()
                             .then(
-                                if (tappable && controller != null) {
-                                    Modifier
-                                        .pointerInput(controller, pageShot.id) {
-                                            detectTapGestures(
-                                                onTap = { controlsVisible = !controlsVisible; touches++ },
-                                                onDoubleTap = {
-                                                    // 手勢偵測不會隨重組換新：直接讀控制器的現值
-                                                    if (controller.showing.value == pageShot.id) {
-                                                        flash = !controller.userPaused.value   // 切換後的暫停狀態：暫停 → 閃播放圖示（按下去會做什麼）
-                                                        controller.togglePause()
-                                                        touches++
-                                                    }
-                                                },
-                                            )
-                                        }
-                                        .semantics {
-                                            if (showingThis) stateDescription = if (userPaused) "片段已暫停" else "片段播放中"
-                                            onClick(label = if (controlsVisible) "隱藏按鈕" else "顯示按鈕") {
-                                                controlsVisible = !controlsVisible
-                                                touches++
+                                if (showingThis && controller != null) {
+                                    Modifier.semantics {
+                                        stateDescription = if (userPaused) "片段已暫停" else "片段播放中"
+                                        customActions = listOf(
+                                            CustomAccessibilityAction(if (userPaused) "繼續播放片段" else "暫停片段") {
+                                                controller.togglePause()
                                                 true
-                                            }
-                                            if (showingThis) {
-                                                customActions = listOf(
-                                                    CustomAccessibilityAction(if (userPaused) "繼續播放片段" else "暫停片段") {
-                                                        controller.togglePause()
-                                                        true
-                                                    },
-                                                )
-                                            }
-                                        }
+                                            },
+                                        )
+                                    }
                                 } else {
                                     Modifier
                                 },
@@ -422,29 +379,38 @@ fun LightboxScreen(
                             fitImageAspect = true,
                             modifier = Modifier.alpha(thumbAlpha),
                         )
+                        // 控制層（規格第六節「自動播放片段」）：跟取圖第二步同一套，不顯示時間與進度條、不能拖曳跳播。
+                        // 只在影片出來的那一頁才有；全螢幕中目前這頁還是縮圖也叫得出來——影片載不出來時才有辦法離開
+                        if (controller != null && (showingThis || (fullscreen && page == pager.currentPage))) {
+                            key(dragEpoch) {
+                                PlayerControls(
+                                    status = PlaybackStatus(0.0, 0.0, paused = userPaused, started = true, 0, 0),
+                                    fallbackDurationSec = 0.0,
+                                    enabled = true,
+                                    fullscreen = fullscreen,
+                                    preview = { null },
+                                    onTogglePlay = { controller.togglePause() },
+                                    onSeek = {},
+                                    onToggleFullscreen = {
+                                        if (fullscreen) {
+                                            fullscreenState.exit()
+                                        } else {
+                                            // 方向照按下去當時這支影片決定，之後換張不再轉（規格第六節）
+                                            clipScope.launch { fullscreenState.enter(controller.videoLandscape()) }
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .then(if (fullscreen) Modifier.windowInsetsPadding(WindowInsets.safeDrawing) else Modifier),
+                                    showTimeline = false,
+                                    muted = muted,
+                                    onToggleMute = { onMutedChange(!muted) },
+                                    playable = showingThis,
+                                )
+                            }
+                        }
                     }
                 }
-
-                ClipButtons(
-                    visible = controlsVisible && controlsEnabled,
-                    muted = muted,
-                    fullscreen = fullscreen,
-                    onToggleMute = { onMutedChange(!muted); touches++ },
-                    onToggleFullscreen = {
-                        if (fullscreen) {
-                            fullscreenState.exit()
-                        } else if (controller != null) {
-                            // 方向照按下去當時這支影片決定，之後換張不再轉（規格第六節）
-                            clipScope.launch { fullscreenState.enter(controller.videoLandscape()) }
-                        }
-                        touches++
-                    },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .then(if (fullscreen) Modifier.windowInsetsPadding(WindowInsets.safeDrawing) else Modifier)
-                        .padding(AppTheme.spacing.s3),
-                )
-                flash?.let { PlayPauseBadge(paused = it, modifier = Modifier.align(Alignment.Center)) }
 
                 if (!hintDone && !fullscreen) {
                     Text(

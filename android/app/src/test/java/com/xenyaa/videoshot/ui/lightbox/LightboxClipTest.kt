@@ -137,16 +137,38 @@ class LightboxClipTest {
         assertEquals("resume", player.calls.last())
     }
 
+    /** 控制層開著時正中央是播放／暫停鈕，要收起或叫出時點偏離中央的位置（同 PlayerControlsTest）。 */
+    private fun tapAside(matcher: SemanticsMatcher) = compose.onNode(matcher).performTouchInput {
+        click(androidx.compose.ui.geometry.Offset(width * 0.2f, height * 0.3f))
+    }
+
     @Test
-    fun 點一下叫出聲音與全螢幕按鈕_不暫停() {
+    fun 點一下叫出控制層_不暫停_沒有時間與進度條() {
         playingWithManualClock()
         compose.onNodeWithContentDescription("全螢幕").assertDoesNotExist()
         compose.onNode(playing).performTouchInput { click() }
         settleTap()
         compose.onNodeWithContentDescription("全螢幕").assertExists()
         compose.onNodeWithContentDescription("關掉聲音").assertExists()
+        compose.onNodeWithContentDescription("暫停").assertExists()
+        compose.onNodeWithContentDescription("播放進度").assertDoesNotExist()
         compose.onNode(playing).assertExists()
         assertFalse("pause" in player.calls)
+    }
+
+    @Test
+    fun 控制層的中央鈕暫停與繼續() {
+        playingWithManualClock()
+        tapAside(playing)
+        settleTap()
+        compose.onNode(playing).performTouchInput { click() }
+        settleTap()
+        compose.onNode(pausedByUser).assertExists()
+        assertEquals("pause", player.calls.last())
+        compose.onNodeWithContentDescription("播放").assertExists()
+        compose.onNode(pausedByUser).performTouchInput { click() }
+        settleTap()
+        assertEquals("resume", player.calls.last())
     }
 
     @Test
@@ -163,7 +185,7 @@ class LightboxClipTest {
         playingWithManualClock()
         compose.onNode(playing).performTouchInput { click() }
         settleTap()
-        compose.onNode(playing).performTouchInput { click() }
+        tapAside(playing)
         settleTap()
         compose.mainClock.advanceTimeBy(500)   // 淡出動畫
         compose.onNodeWithContentDescription("全螢幕").assertDoesNotExist()
