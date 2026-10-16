@@ -16,6 +16,22 @@
 - [怎麼在手機上看 app 的檔案？](手機上看app檔案.md)
 - [files/ 底下的 harvest-test-*、thumbs-test-*、drafts/vid 是什麼？](測試留下的暫存資料夾.md)
 
+## 實機驗收
+
+- [怎麼用 adb 驅動手機做驗收？](用adb驅動手機驗收.md)
+- [怎麼讀 WebView 裡影片的實際狀態？](讀WebView裡影片的狀態.md)
+- [為什麼 app 偶爾白畫面不動？](開app白畫面不動.md)
+
+## 測試
+
+- [儀器測試（androidTest）怎麼跑才算數？](儀器測試怎麼跑才算數.md)
+- [Compose 單元測試（Robolectric）有哪些坑？](Robolectric測試的坑.md)
+- [為什麼只編譯過、單元測試綠燈還不夠？](只編譯過為什麼不夠.md)
+
+## 寫程式
+
+- [非同步讀取寫回畫面狀態要注意什麼？](非同步讀取寫回狀態.md)
+
 ---
 
 新增問題的格式規則見 [AGENTS.md](AGENTS.md)。
