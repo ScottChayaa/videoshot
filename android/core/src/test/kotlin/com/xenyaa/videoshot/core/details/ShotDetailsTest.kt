@@ -142,4 +142,33 @@ class ShotDetailsTest {
         assertFalse(isValidEventDate("2026-1-9"))
         assertFalse(isValidEventDate("不是日期"))
     }
+
+    // ---- 月曆選擇器（Material 3 DatePicker 用 UTC 午夜的毫秒） ----
+
+    @Test
+    fun 日期換成UTC午夜毫秒() {
+        assertEquals(0L, eventDateToUtcMillis("1970-01-01"))
+        assertEquals(1_770_595_200_000L, eventDateToUtcMillis("2026-02-09"))
+    }
+
+    @Test
+    fun 格式不對或不存在的日期換不出毫秒() {
+        assertEquals(null, eventDateToUtcMillis(""))
+        assertEquals(null, eventDateToUtcMillis("3/5"))
+        assertEquals(null, eventDateToUtcMillis("2026-02-30"))
+    }
+
+    @Test
+    fun 毫秒換回日期_同一天任何時刻都是那一天() {
+        assertEquals("2026-02-09", eventDateFromUtcMillis(1_770_595_200_000L))
+        assertEquals("2026-02-09", eventDateFromUtcMillis(1_770_595_200_000L + 86_399_999L))
+        assertEquals("1970-01-01", eventDateFromUtcMillis(0L))
+    }
+
+    @Test
+    fun 來回換算不變() {
+        for (d in listOf("2014-11-10", "2000-02-29", "2026-12-31")) {
+            assertEquals(d, eventDateFromUtcMillis(eventDateToUtcMillis(d)!!))
+        }
+    }
 }

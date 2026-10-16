@@ -2,6 +2,8 @@ package com.xenyaa.videoshot.wizard
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -49,6 +51,7 @@ class Step3DockTest {
 
     private fun show(
         state: Step3State,
+        onEditEventDate: (String) -> Unit = {},
         onEditPlace: (String) -> Unit = {},
         onEditTags: (List<String>) -> Unit = {},
         onApply: () -> Unit = {},
@@ -65,7 +68,7 @@ class Step3DockTest {
                 onSelectNone = {},
                 onInvert = {},
                 onSelectUnapplied = {},
-                onEditEventDate = {},
+                onEditEventDate = onEditEventDate,
                 onEditPlace = onEditPlace,
                 onEditDescription = {},
                 onEditTags = onEditTags,
@@ -83,16 +86,37 @@ class Step3DockTest {
         compose.onNodeWithText("套用到已選的 2 張").assertIsDisplayed()
     }
 
+    /** 時間是月曆選擇器；時間與描述下方沒有說明文字（2026-10-17 拿掉「預設帶入…」「留空，之後 AI 補」）。 */
     @Test
-    fun 時間欄位下方是中性說明不是警告() {
+    fun 時間是月曆欄位_時間與描述沒有說明文字() {
         show(stateOf())
-        compose.onNodeWithText("預設帶入 YouTube 的上傳日期，可以改成實際拍攝日").assertIsDisplayed()
+        compose.onNodeWithContentDescription("時間：2026年1月1日").assertIsDisplayed()
+        compose.onNodeWithText("預設帶入", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("留空", substring = true).assertDoesNotExist()
     }
 
     @Test
-    fun 描述的佔位字樣說得出可以留空() {
-        show(stateOf())
-        compose.onNodeWithText("留空，之後 AI 補").assertIsDisplayed()
+    fun 從月曆選一天送出那一天() {
+        val edits = mutableListOf<String>()
+        show(stateOf(), onEditEventDate = { edits += it })
+        compose.onNodeWithContentDescription("時間：2026年1月1日").performClick()
+        // 月曆的日期格文字是完整日期（測試環境是英文「Thursday, January 15, 2026」）
+        compose.onNode(hasText(" 15, ", substring = true) and hasClickAction()).performClick()
+        compose.onNodeWithText("確定").performClick()
+        assertEquals(listOf("2026-01-15"), edits)
+    }
+
+    @Test
+    fun 時間不一致時顯示多個值() {
+        show(
+            stateOf(
+                details = mapOf(
+                    0 to ShotDetails("2026-01-01"),
+                    1 to ShotDetails("2026-02-02"),
+                )
+            )
+        )
+        compose.onNodeWithContentDescription("時間：〈多個值〉").assertIsDisplayed()
     }
 
     @Test

@@ -117,6 +117,26 @@ private val EVENT_DATE_PATTERN = Regex("""\d{4}-\d{2}-\d{2}""")
 fun isValidEventDate(date: String): Boolean = date.matches(EVENT_DATE_PATTERN)
 
 /**
+ * 時間欄位的月曆選擇器（Material 3 `DatePicker`）以 **UTC 午夜**的毫秒表示日期。
+ * 一律用 UTC 換算：用手機時區的話，台灣（UTC+8）選 2 月 9 日會變成 2 月 8 日 16:00、存回去差一天。
+ * 格式不對或日期不存在（`2026-02-30`）回 null，呼叫端讓月曆停在今天。
+ */
+fun eventDateToUtcMillis(date: String): Long? {
+    if (!isValidEventDate(date)) return null
+    return try {
+        java.time.LocalDate.parse(date).toEpochDay() * MILLIS_PER_DAY
+    } catch (_: java.time.format.DateTimeParseException) {
+        null
+    }
+}
+
+/** [eventDateToUtcMillis] 的反方向：那一天（UTC）任何時刻都換成同一個 `YYYY-MM-DD`。 */
+fun eventDateFromUtcMillis(millis: Long): String =
+    java.time.LocalDate.ofEpochDay(Math.floorDiv(millis, MILLIS_PER_DAY)).toString()
+
+private const val MILLIS_PER_DAY = 86_400_000L
+
+/**
  * 時間欄位的預設值：YouTube 上傳日期的日期部分（規格第五節欄位表）。
  *
  * @param publishedAt ISO 8601 原字串，如 `2014-11-10T06:05:55-08:00`

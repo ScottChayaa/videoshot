@@ -45,7 +45,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.core.details.DetailsPatch
 import com.xenyaa.videoshot.core.details.ShotDetails
-import com.xenyaa.videoshot.core.details.isValidEventDate
 import com.xenyaa.videoshot.core.details.normalizeTags
 import com.xenyaa.videoshot.core.tags.TagKind
 import com.xenyaa.videoshot.data.library.dao.TagNameKind
@@ -55,6 +54,7 @@ import com.xenyaa.videoshot.ui.common.UNSELECTED_FILL_ALPHA
 import com.xenyaa.videoshot.ui.common.VsBottomSheet
 import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsChipPager
+import com.xenyaa.videoshot.ui.common.VsDateField
 import com.xenyaa.videoshot.ui.common.VsSheetHeader
 import com.xenyaa.videoshot.ui.common.VsTagChip
 import com.xenyaa.videoshot.ui.common.VsTextField
@@ -105,10 +105,6 @@ fun ShotEditSheet(
 
     val knownKinds = remember(tagSuggestions) { tagSuggestions.associate { it.name to it.kind } }
     fun kindOf(tag: String) = ChipKind.ofTagKind(knownKinds[tag] ?: newKinds[tag] ?: "other")
-
-    // 時間欄位是自由文字，沒有這一關的話「清空」或打錯格式都能一路送到 library.db ——
-    // 那張圖之後就沒有任何月份篩選找得到它（跟 :core 的 eventDateOf 用同一個判斷）
-    val dateValid = isValidEventDate(eventDate)
 
     // 「動過沒有」是拿現值跟原值比，不是記使用者按過幾次鍵 ——
     // 改完又改回來的話，那就是沒動過
@@ -161,15 +157,8 @@ fun ShotEditSheet(
                 Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s4),
             ) {
-                // 格式不對才是警告；平常是中性說明 —— 預設值永遠是上傳日，這是常態不是例外
-                VsTextField(
-                    value = eventDate,
-                    onValueChange = { eventDate = it },
-                    label = "時間",
-                    isError = !dateValid,
-                    supporting = if (dateValid) "預設帶入 YouTube 的上傳日期，可以改成實際拍攝日"
-                    else "格式要是 YYYY-MM-DD，例如 2026-01-09",
-                )
+                // 月曆選擇器（2026-10-17 由打字改成選擇器）：選出來的一定是合法的 YYYY-MM-DD，不用再驗格式
+                VsDateField(label = "時間", value = eventDate, onPick = { eventDate = it })
 
                 Column(
                     Modifier
@@ -247,7 +236,6 @@ fun ShotEditSheet(
                     value = description,
                     onValueChange = { description = it },
                     label = "描述",
-                    supporting = "留空，之後 AI 補",
                     lines = 2,
                 )
             }
@@ -258,7 +246,7 @@ fun ShotEditSheet(
                     "儲存",
                     onClick = { onSave(patch) },
                     modifier = Modifier.weight(1f),
-                    enabled = !patch.isEmpty && dateValid,
+                    enabled = !patch.isEmpty,
                 )
             }
         }

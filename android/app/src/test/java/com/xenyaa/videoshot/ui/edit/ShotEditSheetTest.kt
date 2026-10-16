@@ -3,8 +3,12 @@ package com.xenyaa.videoshot.ui.edit
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
@@ -59,7 +63,7 @@ class ShotEditSheetTest {
     @Test
     fun 帶入這一張現有的值() {
         show()
-        compose.onNodeWithText("2026-03-05").assertIsDisplayed()
+        compose.onNodeWithContentDescription("時間：2026年3月5日").assertIsDisplayed()
         compose.onNodeWithText("宜蘭").assertIsDisplayed()
         compose.onNodeWithText("在海邊烤肉").assertIsDisplayed()
         compose.onNodeWithText("露營").assertIsDisplayed()
@@ -108,12 +112,28 @@ class ShotEditSheetTest {
         assertEquals(listOf("阿明"), saved?.tags)
     }
 
+    /** 時間是月曆選擇器：點欄位開月曆、點一天、【確定】才寫回（2026-10-17 由打字改成選擇器）。 */
     @Test
     fun 改日期會送日期() {
         show()
-        compose.onNodeWithContentDescription("時間").performTextReplacement("2026-01-09")
+        compose.onNodeWithContentDescription("時間：2026年3月5日").performClick()
+        // 月曆的日期格文字是完整日期（測試環境是英文「Monday, March 9, 2026」）
+        compose.onNode(hasText(" 9, ", substring = true) and hasClickAction()).performClick()
+        compose.onNodeWithText("確定").performClick()
+        compose.onNodeWithContentDescription("時間：2026年3月9日").assertIsDisplayed()
         compose.onNodeWithText("儲存").performClick()
-        assertEquals(DetailsPatch(eventDate = "2026-01-09"), saved)
+        assertEquals(DetailsPatch(eventDate = "2026-03-09"), saved)
+    }
+
+    @Test
+    fun 月曆按取消日期不變() {
+        show()
+        compose.onNodeWithContentDescription("時間：2026年3月5日").performClick()
+        compose.onNode(hasText(" 9, ", substring = true) and hasClickAction()).performClick()
+        // 抽屜底部也有【取消】；月曆對話框在最上層，是最後一個
+        compose.onAllNodesWithText("取消").onLast().performClick()
+        compose.onNodeWithContentDescription("時間：2026年3月5日").assertIsDisplayed()
+        compose.onNodeWithText("儲存").assertIsNotEnabled()
     }
 
     @Test
@@ -125,36 +145,13 @@ class ShotEditSheetTest {
         assertEquals(1, dismissed)
     }
 
-    /** 時間欄位的說明是中性的，不是警告（手冊 §四第三步）。 */
+    /** 時間與描述欄位下方沒有說明文字（2026-10-17 拿掉「預設帶入…」「留空，之後 AI 補」）。 */
     @Test
-    fun 時間欄位有中性說明() {
+    fun 時間與描述沒有說明文字() {
         show()
-        compose.onNodeWithText("預設帶入 YouTube 的上傳日期，可以改成實際拍攝日").assertIsDisplayed()
-    }
-
-    // ---- 時間欄位格式驗證：空白或打錯格式不能存進 library.db（案例：清空月份篩選找不到這張圖）----
-
-    @Test
-    fun 清空日期時儲存停用() {
-        show()
-        compose.onNodeWithContentDescription("時間").performTextClearance()
-        compose.onNodeWithText("儲存").assertIsNotEnabled()
-        compose.onNodeWithText("格式要是 YYYY-MM-DD，例如 2026-01-09").assertIsDisplayed()
-    }
-
-    @Test
-    fun 日期格式不對時儲存停用() {
-        show()
-        compose.onNodeWithContentDescription("時間").performTextReplacement("3/5")
-        compose.onNodeWithText("儲存").assertIsNotEnabled()
-        compose.onNodeWithText("格式要是 YYYY-MM-DD，例如 2026-01-09").assertIsDisplayed()
-    }
-
-    @Test
-    fun 日期格式正確時儲存可用() {
-        show()
-        compose.onNodeWithContentDescription("時間").performTextReplacement("2026-01-09")
-        compose.onNodeWithText("儲存").assertIsEnabled()
+        compose.onNodeWithText("預設帶入", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("留空", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("格式要是", substring = true).assertDoesNotExist()
     }
 
     // ---- 2026-10-12：候選即時過濾、新標籤選種類 ----

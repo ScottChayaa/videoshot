@@ -70,6 +70,7 @@ import com.xenyaa.videoshot.ui.common.TextFieldSize
 import com.xenyaa.videoshot.ui.common.VsActionDock
 import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsTagChip
+import com.xenyaa.videoshot.ui.common.VsDateField
 import com.xenyaa.videoshot.ui.common.VsTextField
 import com.xenyaa.videoshot.ui.common.VsToolbarPill
 import com.xenyaa.videoshot.ui.common.VsSelectedBadge
@@ -343,20 +344,21 @@ private fun Step3Dock(
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                DrawerTextField(
+                // 月曆選擇器（2026-10-17 由打字改成選擇器）；各張不同時顯示〈多個值〉，不選就不會動到任何一張
+                val dateField = state.eventDateField
+                VsDateField(
                     label = "時間",
-                    field = state.eventDateField,
-                    edited = state.patch.eventDate,
-                    // 中性說明，不是警告色 —— 預設值永遠是上傳日，這是常態不是例外（規格第五節欄位表）
-                    supporting = "預設帶入 YouTube 的上傳日期，可以改成實際拍攝日",
-                    onEdit = onEditEventDate,
+                    value = state.patch.eventDate ?: (dateField as? Common.One<String>)?.value.orEmpty(),
+                    onPick = onEditEventDate,
+                    mixed = state.patch.eventDate == null && dateField is Common.Mixed,
+                    labelAccent = state.patch.eventDate != null,
+                    size = TextFieldSize.Dense,
                 )
 
                 DrawerTextField(
                     label = "地點",
                     field = state.placeField,
                     edited = state.patch.place,
-                    supporting = null,
                     onEdit = onEditPlace,
                 )
                 SuggestionRow("用過的地點", placeSuggestions, ChipKind.PLACE, onPick = onEditPlace)
@@ -372,8 +374,6 @@ private fun Step3Dock(
                     label = "描述",
                     field = state.descriptionField,
                     edited = state.patch.description,
-                    // 描述允許留空：18 張每張打一段字沒有人會做完（規格第五節欄位表）
-                    supporting = "留空，之後 AI 補",
                     onEdit = onEditDescription,
                 )
                 // 捲到底時，最後一個欄位與下面的提示行之間留一點呼吸
@@ -450,8 +450,6 @@ private fun DrawerTextField(
     label: String,
     field: Common<*>,
     edited: String?,
-    /** 欄位下方那一行說明：「預設帶入上傳日期」與「留空，之後 AI 補」是使用者**還沒碰這個欄位**時要看到的話。 */
-    supporting: String?,
     onEdit: (String) -> Unit,
 ) {
     val shown = edited ?: (field as? Common.One<*>)?.value?.toString() ?: ""
@@ -466,7 +464,6 @@ private fun DrawerTextField(
         // 不只靠顏色，色覺障礙的使用者才分得出「大家都空著」與「各不相同」
         placeholder = if (mixed) "〈多個值〉" else null,
         mixedPlaceholder = mixed,
-        supporting = supporting,
         size = TextFieldSize.Dense,
         // semanticLabel 預設就是 label（「時間」「地點」「描述」）
     )

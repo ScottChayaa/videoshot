@@ -103,27 +103,7 @@ fun VsTextField(
     val radiusPx = with(LocalDensity.current) { AppTheme.radii.sm.toPx() }
 
     Column(modifier.fillMaxWidth().alpha(if (enabled) 1f else 0.5f)) {
-        if (label != null) {
-            Row(
-                Modifier.padding(bottom = AppTheme.spacing.s2),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                // 會用到圓點的欄位才保留位置；不亮時透明且沒有語意
-                if (labelAccent != null) {
-                    Box(
-                        Modifier.size(6.dp)
-                            .background(if (labelAccent) colors.accent else Color.Transparent, CircleShape)
-                            .then(if (labelAccent) Modifier.semantics { contentDescription = "將寫入" } else Modifier),
-                    )
-                }
-                Text(
-                    label,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                    color = if (labelAccent == true) colors.accent else colors.textDim,
-                )
-            }
-        }
+        if (label != null) VsFieldLabel(label, labelAccent)
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
@@ -203,5 +183,30 @@ fun VsTextField(
                 color = colors.textDim,
             )
         }
+    }
+}
+
+/** 欄位上方的標籤列（[VsTextField] 與 [VsDateField] 共用）；[labelAccent] 見 [VsTextField]。 */
+@Composable
+internal fun VsFieldLabel(label: String, labelAccent: Boolean?) {
+    val colors = AppTheme.colors
+    Row(
+        Modifier.padding(bottom = AppTheme.spacing.s2),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        // 會用到圓點的欄位才保留位置；不亮時透明且沒有語意
+        if (labelAccent != null) {
+            Box(
+                Modifier.size(6.dp)
+                    .background(if (labelAccent) colors.accent else Color.Transparent, CircleShape)
+                    .then(if (labelAccent) Modifier.semantics { contentDescription = "將寫入" } else Modifier),
+            )
+        }
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+            color = if (labelAccent == true) colors.accent else colors.textDim,
+        )
     }
 }
