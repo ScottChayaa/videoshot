@@ -63,7 +63,7 @@ private fun row(id: Long, atSec: Double) = ShotRow(
 )
 
 /**
- * 詳情頁的接線：Lightbox【播放這一段】→ 詳情頁 → `⋯`【刪除整支收藏】回首頁。
+ * 詳情頁的接線：Lightbox【原片播放】→ 詳情頁 → `⋯`【刪除整支收藏】回首頁。
  * fixture 手法同 [AppRootFoldersTest]，這裡只在意詳情頁這一條路徑用得到的假資料。
  */
 @RunWith(RobolectricTestRunner::class)
@@ -187,14 +187,14 @@ class AppRootDetailTest {
     }
 
     @Test
-    fun lightbox播放這一段換成詳情頁() {
+    fun lightbox原片播放換成詳情頁() {
         val repo = Repo()
         compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
 
         // 首頁縮圖的 contentDescription 是「片段縮圖 MM:SS」（HomeScreen 用 labelOf），
         // row(1L, 30.0) 的 30 秒換算成 formatClock 是 00:30
         compose.onNodeWithContentDescription("片段縮圖 00:30").performClick()
-        compose.onNodeWithText("播放這一段").performClick()
+        compose.onNodeWithText("原片播放").performClick()
 
         compose.onNodeWithText("旅行影片").assertIsDisplayed()
         compose.onNodeWithText("這支影片的收藏 (2)").assertIsDisplayed()
@@ -206,7 +206,7 @@ class AppRootDetailTest {
         compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
 
         compose.onNodeWithContentDescription("片段縮圖 00:30").performClick()
-        compose.onNodeWithText("播放這一段").performClick()
+        compose.onNodeWithText("原片播放").performClick()
         compose.onNodeWithContentDescription("這支影片的更多操作").performClick()
         compose.onNodeWithText("刪除整支收藏").performClick()
         compose.onNodeWithText("刪除", substring = false).performClick()
@@ -227,7 +227,7 @@ class AppRootDetailTest {
         compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
 
         compose.onNodeWithContentDescription("片段縮圖 00:30").performClick()
-        compose.onNodeWithText("播放這一段").performClick()
+        compose.onNodeWithText("原片播放").performClick()
         compose.onNodeWithText("旅行影片").assertIsDisplayed()
 
         compose.onNodeWithContentDescription("這支影片的更多操作").performClick()
@@ -251,7 +251,7 @@ class AppRootDetailTest {
     }
 
     /**
-     * 最終審查 Finding 2：Lightbox【播放這一段】帶著 `focusShotId` 進詳情頁；`DetailViewModel`
+     * 最終審查 Finding 2：Lightbox【原片播放】帶著 `focusShotId` 進詳情頁；`DetailViewModel`
      * 用 videoId 當 key 快取，同一支影片第二次進來（播另一張截圖）拿到同一個實例。
      * 沒修好的話這裡第二次還是卡在第一張的秒數。
      */
@@ -261,14 +261,14 @@ class AppRootDetailTest {
         compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
 
         compose.onNodeWithContentDescription("片段縮圖 00:30").performClick()
-        compose.onNodeWithText("播放這一段").performClick()
+        compose.onNodeWithText("原片播放").performClick()
         // 資訊列改成「{中文日期} · 影片 MM:SS」一整句（階段 15C），所以改用 substring 定位
         compose.onNodeWithText("影片 00:30", substring = true).assertIsDisplayed()
 
         // 返回首頁，播第二張——同一支影片（v1），detailVm 是同一個快取實例
         compose.onNodeWithContentDescription("返回").performClick()
         compose.onNodeWithContentDescription("片段縮圖 01:30").performClick()
-        compose.onNodeWithText("播放這一段").performClick()
+        compose.onNodeWithText("原片播放").performClick()
 
         // 資訊列改成「{中文日期} · 影片 MM:SS」一整句（階段 15C），所以改用 substring 定位
         compose.onNodeWithText("影片 01:30", substring = true).assertIsDisplayed()

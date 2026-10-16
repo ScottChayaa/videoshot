@@ -171,7 +171,7 @@ class AppRootHomeFilterTest {
             io = Dispatchers.Unconfined,
         )
         override val wizardData: WizardData = object : WizardData {
-            // 這組測試不會走到詳情頁；萬一走到（Lightbox【播放這一段】），回一個可用的 WatchPage 而不是丟例外
+            // 這組測試不會走到詳情頁；萬一走到（Lightbox【原片播放】），回一個可用的 WatchPage 而不是丟例外
             override suspend fun watchPage(videoId: String) = com.xenyaa.videoshot.core.youtube.WatchPage(
                 com.xenyaa.videoshot.core.youtube.FetchResult.OK,
                 com.xenyaa.videoshot.core.youtube.VideoMeta(videoId, "旅行影片", "c", "2026-03-01T00:00:00Z", 600, "public", true),
@@ -237,7 +237,7 @@ class AppRootHomeFilterTest {
         applyDrawerPlace("礁溪")
         compose.onNodeWithContentDescription("片段縮圖 00:02", substring = true).performClick()
 
-        compose.onNodeWithText("播放這一段").assertIsDisplayed()
+        compose.onNodeWithText("原片播放").assertIsDisplayed()
     }
 
     /** 階段 17 設計決議 6：月份標籤點下去在首頁只篩這一個，不再跳到查詢分頁。 */
@@ -289,7 +289,7 @@ class AppRootHomeFilterTest {
         compose.onNodeWithText("儲存").performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithText("播放這一段").assertIsDisplayed()
+        compose.onNodeWithText("原片播放").assertIsDisplayed()
         compose.onNodeWithText("2026年3月2日").assertIsDisplayed()
         assertEquals("篩選中編輯一張不能重讀", searchCalls, repo.searchByFacetsCalls.size)
 
@@ -312,7 +312,7 @@ class AppRootHomeFilterTest {
         compose.onNodeWithText("儲存").performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithText("播放這一段").assertIsDisplayed()
+        compose.onNodeWithText("原片播放").assertIsDisplayed()
         compose.onNodeWithText("2026年3月3日").assertIsDisplayed()
 
         compose.onNodeWithContentDescription("返回").performClick()
@@ -333,7 +333,7 @@ class AppRootHomeFilterTest {
         compose.onNodeWithText("刪除").performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithText("播放這一段").assertIsDisplayed()
+        compose.onNodeWithText("原片播放").assertIsDisplayed()
         compose.onNodeWithText("2026年3月3日").assertIsDisplayed()
 
         compose.onNodeWithContentDescription("返回").performClick()

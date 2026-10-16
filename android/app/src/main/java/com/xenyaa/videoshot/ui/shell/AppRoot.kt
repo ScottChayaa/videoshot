@@ -605,7 +605,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                     nav.pop()?.let { nav = it }
                     homeVm.reload()
                     detailVm?.reload()
-                    // 詳情頁可能是從分類分頁的資料夾頁開出來的（Lightbox【播放這一段】），
+                    // 詳情頁可能是從分類分頁的資料夾頁開出來的（Lightbox【原片播放】），
                     // 批次編輯改的圖資可能就是那個資料夾本層預覽或子資料夾卡片用到的那幾張，
                     // 不重查的話切回分類分頁看到的還是編輯前的舊圖資（最終審查 Finding 5，
                     // 同 EditingSheet.onSave 已經在做的事）
@@ -662,7 +662,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                     // 每次「真的進場」都要用這次導覽目的地帶來的 focusShotId 重新聚焦——
                     // vm 是用 videoId 當 key 快取的，同一支影片第二次進詳情頁（例如 Lightbox
                     // 播了同一支影片的另一張）拿到的是同一個實例，reload() 不帶參數的話會
-                    // 沿用舊聚焦，看起來像按了播放這一段卻沒反應（最終審查 Finding 2）。
+                    // 沿用舊聚焦，看起來像按了原片播放卻沒反應（最終審查 Finding 2）。
                     // LaunchedEffect(Unit) 放在這個 when 分支裡：從別的分支（Lightbox、
                     // BatchEdit）切回來，Compose 會把這個分支的子樹整個拆掉重建，
                     // key 不變也一樣重新啟動——理由同 BatchEdit 分支那個 LaunchedEffect(Unit)

@@ -74,6 +74,8 @@ import androidx.lifecycle.compose.currentStateAsState
 import com.xenyaa.videoshot.core.player.CLIP_DELAY_MS
 import com.xenyaa.videoshot.player.ClipPlayer
 import com.xenyaa.videoshot.player.ClipPlayerSurface
+import com.xenyaa.videoshot.player.PLAY_PAUSE_FLASH_MS
+import com.xenyaa.videoshot.player.PlayPauseBadge
 import com.xenyaa.videoshot.player.ClipSource
 import com.xenyaa.videoshot.player.ClipTarget
 import com.xenyaa.videoshot.player.LightboxClipController
@@ -185,7 +187,7 @@ fun LightboxScreen(
     // 片段的按鈕（點一下叫出、3 秒沒動作收起，同播放器控制層）與點兩下閃一下的圖示
     var controlsVisible by remember { mutableStateOf(false) }
     var touches by remember { mutableIntStateOf(0) }   // 每次有操作就 +1，自動收起重新計時
-    var flash by remember { mutableStateOf<Boolean?>(null) }
+    var flash by remember { mutableStateOf<Boolean?>(null) }   // 點兩下後中央圖示顯示的暫停狀態；null＝沒在閃
 
     // 全螢幕（規格第六節「自動播放片段」）：跟詳情頁同一份狀態，方向與系統列由 MainActivity 套用。
     // 返回鍵只離開全螢幕；Lightbox 關掉時一定離開
@@ -258,7 +260,7 @@ fun LightboxScreen(
         }
     }
     LaunchedEffect(flash) {
-        if (flash != null) { delay(CLIP_FLASH_MS); flash = null }
+        if (flash != null) { delay(PLAY_PAUSE_FLASH_MS); flash = null }
     }
     val iconShape = RoundedCornerShape(AppTheme.radii.sm)
     val tags by produceState(emptyList<TagNameKind>(), shot.id, tagsRefreshKey) {
@@ -381,7 +383,7 @@ fun LightboxScreen(
                                                 onDoubleTap = {
                                                     // 手勢偵測不會隨重組換新：直接讀控制器的現值
                                                     if (controller.showing.value == pageShot.id) {
-                                                        flash = controller.userPaused.value   // 原本暫停 → 要播 → 閃播放圖示
+                                                        flash = !controller.userPaused.value   // 切換後的暫停狀態：暫停 → 閃播放圖示（按下去會做什麼）
                                                         controller.togglePause()
                                                         touches++
                                                     }
@@ -442,7 +444,7 @@ fun LightboxScreen(
                         .then(if (fullscreen) Modifier.windowInsetsPadding(WindowInsets.safeDrawing) else Modifier)
                         .padding(AppTheme.spacing.s3),
                 )
-                flash?.let { ClipFlash(playing = it, modifier = Modifier.align(Alignment.Center)) }
+                flash?.let { PlayPauseBadge(paused = it, modifier = Modifier.align(Alignment.Center)) }
 
                 if (!hintDone && !fullscreen) {
                     Text(
@@ -487,7 +489,7 @@ fun LightboxScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     VsButton(
-                        text = "播放這一段",
+                        text = "原片播放",
                         onClick = { actions.onPlay(shot) },
                         modifier = Modifier.weight(1f),
                         variant = ButtonVariant.Primary,
@@ -537,9 +539,6 @@ private fun DarkIconButton(icon: ImageVector, label: String, onClick: () -> Unit
 
 /** 標籤列的最小高度：迷你小膠囊一列的高度，沒有標籤時也佔住這一列。 */
 private val TAG_ROW_MIN_HEIGHT = 28.dp
-
-/** 點兩下時中央閃一下的圖示停多久（同播放器控制層）。 */
-private const val CLIP_FLASH_MS = 600L
 
 /** 縮圖換成影片的淡入時間（規格第六節「自動播放片段」：約 0.2 秒）。 */
 private const val CLIP_FADE_MS = 200

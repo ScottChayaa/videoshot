@@ -76,7 +76,7 @@ class LightboxFocusTest {
     }
 
     /**
-     * 【播放這一段】刻意不驗顏色 —— 它的底就是主色，跟焦點框同一個色相，
+     * 【原片播放】刻意不驗顏色 —— 它的底就是主色，跟焦點框同一個色相，
      * 疊上去幾乎不變色，這樣的比對驗不出東西。它跟其他鈕共用同一個 modifier。
      */
     @OptIn(ExperimentalTestApi::class)

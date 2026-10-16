@@ -49,7 +49,7 @@ sealed interface Dest {
 
     /**
      * 詳情頁（規格第六節）。**保留底部導覽**——跟 [Folder] 一起交給 `AppShell`。
-     * @param focusShotId 進場時要跳去播的那一張（從 Lightbox【播放這一段】帶進來）
+     * @param focusShotId 進場時要跳去播的那一張（從 Lightbox【原片播放】帶進來）
      */
     data class Detail(val videoId: String, val focusShotId: Long) : Dest
 

@@ -71,12 +71,12 @@ class LightboxActionsTest {
         }
     }
 
-    /** 手冊 §三第四條:主要動作只有一個,而且是【播放這一段】。 */
+    /** 手冊 §三第四條:主要動作只有一個,而且是【原片播放】。 */
     @Test
-    fun 主按鈕是播放這一段() {
+    fun 主按鈕是原片播放() {
         show()
-        compose.onNodeWithText("播放這一段").assertIsDisplayed()
-        compose.onNodeWithText("播放這一段").performClick()
+        compose.onNodeWithText("原片播放").assertIsDisplayed()
+        compose.onNodeWithText("原片播放").performClick()
         assertEquals(listOf("play"), clicked)
     }
 

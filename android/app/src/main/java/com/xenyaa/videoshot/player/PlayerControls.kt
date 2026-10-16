@@ -73,17 +73,12 @@ import kotlinx.coroutines.delay
 /** 播放中控制層沒人碰多久自己收起（規格第六節「播放器」）。 */
 const val CONTROLS_AUTO_HIDE_MS = 3_000L
 
-/** 中央播放／暫停按鈕的觸控半徑（64dp 見方的圓）。 */
-private val CENTER_BUTTON_RADIUS = 32.dp
-
-/** 點兩下時中央閃一下的圖示停多久。 */
-private const val FLASH_MS = 600L
-
 /** TalkBack 與實體鍵盤（←／→）一次前後跳幾秒。 */
 private const val A11Y_STEP_SEC = 10.0
 
 internal const val PLAYER_GESTURE_TAG = "player-gestures"
 internal const val PREVIEW_BUBBLE_TAG = "player-preview"
+internal const val PLAYER_CENTER_TAG = "player-center"
 
 /**
  * 蓋在影片上的控制層（規格第六節「播放器」）。只管畫面與手勢，不碰 WebView：
@@ -110,7 +105,8 @@ fun PlayerControls(
     // 每次有操作就 +1，讓自動收起的計時重來
     var touches by remember { mutableIntStateOf(0) }
     var dragSec by remember { mutableStateOf<Double?>(null) }
-    var flash by remember { mutableStateOf<Boolean?>(null) }   // true＝播放圖示、false＝暫停圖示
+    // 點兩下後中央圖示要顯示的暫停狀態（切換後預期的值）；null＝沒在閃。不等輪詢回來，圖示當下就對
+    var flash by remember { mutableStateOf<Boolean?>(null) }
     // 控制層裡任何元件（手勢區、全螢幕鈕）有焦點＝實體鍵盤使用者正在操作，不自動收起
     var focused by remember { mutableStateOf(false) }
 
@@ -130,12 +126,12 @@ fun PlayerControls(
         }
     }
     LaunchedEffect(flash) {
-        if (flash != null) { delay(FLASH_MS); flash = null }
+        if (flash != null) { delay(PLAY_PAUSE_FLASH_MS); flash = null }
     }
 
-    // 點兩下與鍵盤 Enter／空白鍵共用：切換播放，中央閃一下圖示
+    // 點兩下與鍵盤 Enter／空白鍵共用：切換播放，中央閃一下圖示（跟控制層的中央按鈕是同一個）
     fun toggleWithFlash() {
-        flash = latestStatus.paused   // 原本暫停 → 要播 → 閃播放圖示
+        flash = !latestStatus.paused   // 播放中 → 暫停 → 閃播放圖示（按下去會做什麼）
         latestOnTogglePlay()
     }
 
@@ -183,7 +179,7 @@ fun PlayerControls(
                             if (latestEnabled) {
                                 // 中央按鈕不攔觸控（否則點兩下會被它吃成兩次單擊）：控制層開著、點在它的範圍內就由這裡切換播放
                                 val centerHit = visible &&
-                                    (offset - Offset(size.width / 2f, size.height / 2f)).getDistance() <= CENTER_BUTTON_RADIUS.toPx()
+                                    (offset - Offset(size.width / 2f, size.height / 2f)).getDistance() <= (PLAY_PAUSE_BADGE_SIZE / 2).toPx()
                                 if (centerHit) latestOnTogglePlay() else visible = !visible
                                 touches++
                             }
@@ -225,30 +221,9 @@ fun PlayerControls(
                 },
         )
 
-        // 半透明底＋中央按鈕＋全螢幕鈕
+        // 半透明底＋全螢幕鈕
         AnimatedVisibility(visible && enabled, enter = fadeIn(), exit = fadeOut()) {
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f))) {
-                if (dragSec == null) {
-                    // 只畫圖示、不攔觸控；點擊由手勢框的 onTap 依位置判斷，TalkBack 走這裡的語意動作
-                    Box(
-                        Modifier
-                            .align(Alignment.Center)
-                            .size(CENTER_BUTTON_RADIUS * 2)
-                            .semantics(mergeDescendants = true) {
-                                role = Role.Button
-                                contentDescription = if (status.paused) "播放" else "暫停"
-                                onClick { onTogglePlay(); touches++; true }
-                            },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            if (status.paused) VsIcons.Play else VsIcons.Pause,
-                            contentDescription = null,
-                            tint = OnDarkColors.primary,
-                            modifier = Modifier.size(40.dp),
-                        )
-                    }
-                }
                 IconButton(
                     onClick = { onToggleFullscreen(); touches++ },
                     modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 12.dp),
@@ -271,14 +246,23 @@ fun PlayerControls(
             }
         }
 
-        // 點兩下時中央閃一下
-        flash?.let { playing ->
-            Icon(
-                if (playing) VsIcons.Play else VsIcons.Pause,
-                contentDescription = null,
-                tint = OnDarkColors.primary,
-                modifier = Modifier.align(Alignment.Center).size(48.dp)
-                    .background(Color.Black.copy(alpha = 0.4f), CircleShape).padding(8.dp),
+        // 中央播放／暫停：控制層開著時是按鈕，點兩下時閃一下，兩者是同一個圖示
+        AnimatedVisibility(
+            (visible && enabled && dragSec == null) || flash != null,
+            modifier = Modifier.align(Alignment.Center),
+            enter = fadeIn(), exit = fadeOut(),
+        ) {
+            val shownPaused = flash ?: status.paused
+            // 只畫圖示、不攔觸控；點擊由手勢框的 onTap 依位置判斷，TalkBack 走這裡的語意動作
+            PlayPauseBadge(
+                paused = shownPaused,
+                modifier = Modifier
+                    .testTag(PLAYER_CENTER_TAG)
+                    .semantics(mergeDescendants = true) {
+                        role = Role.Button
+                        contentDescription = if (shownPaused) "播放" else "暫停"
+                        onClick { onTogglePlay(); touches++; true }
+                    },
             )
         }
 

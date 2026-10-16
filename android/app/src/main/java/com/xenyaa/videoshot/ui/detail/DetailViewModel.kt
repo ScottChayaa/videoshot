@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 /**
  * 詳情頁的資料接線（規格第六節「詳情 `/v/[videoId]`」）。
  *
- * @param initialFocusShotId 從 Lightbox【播放這一段】帶進來的那一張——播放器要從它的 `at_sec` 開始播
+ * @param initialFocusShotId 從 Lightbox【原片播放】帶進來的那一張——播放器要從它的 `at_sec` 開始播
  * @param watchPage 只收這一個函式,不收整個 `WizardData`——播放器可不可用只需要 watch page 這一件事,
  *        窄依賴讓測試不必假一整套精靈用得到的介面
  */

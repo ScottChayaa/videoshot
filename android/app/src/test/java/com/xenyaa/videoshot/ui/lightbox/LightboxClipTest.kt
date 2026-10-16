@@ -202,7 +202,7 @@ class LightboxClipTest {
         assertTrue(fullscreen.active)
         assertTrue(fullscreen.landscape)
         compose.onNodeWithContentDescription("更多").assertDoesNotExist()
-        compose.onNodeWithText("播放這一段").assertDoesNotExist()
+        compose.onNodeWithText("原片播放").assertDoesNotExist()
         // 片段沒有被打斷
         compose.onNode(playing).assertExists()
     }

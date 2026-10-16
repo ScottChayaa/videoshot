@@ -12,6 +12,8 @@ import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -115,6 +117,41 @@ class PlayerControlsTest {
         compose.mainClock.advanceTimeBy(400)
         assertEquals(1, toggles)
         compose.onNodeWithContentDescription("全螢幕").assertDoesNotExist()
+    }
+
+    private fun centerIcons() = compose.onAllNodesWithTag(PLAYER_CENTER_TAG, useUnmergedTree = true)
+
+    /** 中央按鈕與點兩下的閃現是同一個圖示：控制層開著時點兩下不能疊出第二個。 */
+    @Test
+    fun 控制層開著時點兩下_中央只有一個圖示() {
+        show()
+        tapCenter(); compose.mainClock.advanceTimeBy(400)
+        compose.onNodeWithTag(PLAYER_GESTURE_TAG).performTouchInput { doubleClick(center) }
+        compose.mainClock.advanceTimeBy(100)
+        centerIcons().assertCountEquals(1)
+    }
+
+    @Test
+    fun 鍵盤切換播放_中央只有一個圖示() {
+        show()
+        focusGesture()
+        press(Key.Enter)
+        compose.mainClock.advanceTimeBy(100)
+        centerIcons().assertCountEquals(1)
+    }
+
+    /** 閃現跟按鈕一樣顯示「按下去會做什麼」：播放中點兩下暫停 → 閃播放圖示，收起後不留。 */
+    @Test
+    fun 控制層收著時點兩下_閃一下按鈕同款圖示後消失() {
+        show()
+        compose.onNodeWithTag(PLAYER_GESTURE_TAG).performTouchInput { doubleClick(center) }
+        // 先讓手勢處理完（autoAdvance 關著時不會自己跑），閃現在下一幀畫出來
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(100)
+        centerIcons().assertCountEquals(1)
+        compose.onNodeWithContentDescription("播放", useUnmergedTree = true).assertIsDisplayed()
+        compose.mainClock.advanceTimeBy(1_000)
+        centerIcons().assertCountEquals(0)
     }
 
     @Test

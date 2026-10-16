@@ -6,7 +6,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
@@ -50,17 +49,6 @@ internal fun ClipButtons(
             )
         }
     }
-}
-
-/** 點兩下時中央閃一下的圖示（同播放器控制層）：true＝播放圖示、false＝暫停圖示。 */
-@Composable
-internal fun ClipFlash(playing: Boolean, modifier: Modifier = Modifier) {
-    Icon(
-        if (playing) VsIcons.Play else VsIcons.Pause,
-        contentDescription = null,
-        tint = OnDarkColors.primary,
-        modifier = modifier.size(48.dp).background(OnDarkColors.hint, CircleShape).padding(8.dp),
-    )
 }
 
 /** 44dp 圓形、半透明黑底、白色圖示：疊在任何畫面上都看得清楚。 */
