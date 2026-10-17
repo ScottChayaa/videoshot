@@ -29,7 +29,7 @@ class Step3StoreTest {
     // ---- 快捷列（案例 11）----
 
     @Test
-    fun 全不選與全選() {
+    fun 全部取消與全選() {
         val s = store()
         s.selectNone()
         assertEquals(emptySet<Int>(), s.state.value.selected)
@@ -80,19 +80,6 @@ class Step3StoreTest {
     }
 
     @Test
-    fun 只勾一張時抽屜標題帶時間() {
-        val s = store()
-        s.selectNone()
-        s.toggle(1)
-        assertEquals("套用到已選的 1 張 · 01:10", s.state.value.drawerTitle)
-    }
-
-    @Test
-    fun 勾多張時抽屜標題只有張數() {
-        assertEquals("套用到已選的 4 張", store().state.value.drawerTitle)
-    }
-
-    @Test
     fun 沒有勾選時抽屜收合() {
         val s = store()
         s.selectNone()
@@ -100,38 +87,13 @@ class Step3StoreTest {
         assertEquals(0, s.state.value.selected.size)
     }
 
-    // ---- 主按鈕與提示行 ----
+    // ---- 套用與【完成】的條件 ----
 
     @Test
-    fun 沒動過欄位時主按鈕是完成() {
-        assertEquals("完成", store().state.value.mainButtonLabel)
-        assertEquals(null, store().state.value.hintLine)
-    }
-
-    @Test
-    fun 動了欄位主按鈕變成套用到N張() {
-        val s = store()
-        s.editPlace("冬山河")
-        assertEquals("套用到 4 張", s.state.value.mainButtonLabel)
-        assertEquals("將更新：地點　其他欄位維持各張原值", s.state.value.hintLine)
-    }
-
-    @Test
-    fun 主按鈕的字與它真正做的事永遠一致() {
-        val s = store()
-        assertTrue(s.state.value.mainActionIsFinish)
-        assertEquals("完成", s.state.value.mainButtonLabel)
-        s.editPlace("冬山河")
-        assertFalse(s.state.value.mainActionIsFinish)
-        assertEquals("套用到 4 張", s.state.value.mainButtonLabel)
-    }
-
-    @Test
-    fun 套用之後主按鈕變回完成() {
+    fun 套用之後清掉抽屜的差異() {
         val s = store()
         s.editPlace("冬山河")
         s.applyPatch()
-        assertEquals("完成", s.state.value.mainButtonLabel)
         assertEquals(DetailsPatch(), s.state.value.patch)
     }
 
@@ -141,7 +103,59 @@ class Step3StoreTest {
         s.editPlace("冬山河")
         s.toggle(0)
         assertEquals(DetailsPatch(), s.state.value.patch)
-        assertEquals("完成", s.state.value.mainButtonLabel)
+    }
+
+    /** 沒改欄位也能套用：照現值確認，一樣算已完成（不然只想沿用預設時間的那幾張永遠填不完）。 */
+    @Test
+    fun 沒改欄位按套用就把勾選的標成已完成_值不變() {
+        val s = store()
+        s.selectNone(); s.toggle(1); s.toggle(2)
+        s.applyPatch()
+        assertEquals(setOf(0, 3), s.state.value.unappliedCells)
+        assertEquals("2026-01-01", s.state.value.details[1]?.eventDate)
+        assertEquals("已套用到 2 張", s.state.value.appliedNotice)
+    }
+
+    @Test
+    fun 沒有勾選時套用什麼都不做() {
+        val s = store()
+        s.selectNone()
+        s.applyPatch()
+        assertEquals(0, s.state.value.appliedCount)
+        assertEquals(null, s.state.value.appliedNotice)
+    }
+
+    @Test
+    fun 還有沒套用的就不算全部填完() {
+        assertFalse(store().state.value.allFilled)
+    }
+
+    @Test
+    fun 全部套用過就算全部填完() {
+        val s = store()
+        s.applyPatch()
+        assertTrue(s.state.value.allFilled)
+    }
+
+    /** 「未填 N」歸 0 才算：還沒套用的修改涵蓋剩下的也不算（2026-10-17 scott）。 */
+    @Test
+    fun 還有修改沒套用時就算涵蓋剩下的也不算全部填完() {
+        val s = store()
+        s.selectNone(); s.toggle(0); s.toggle(1)
+        s.applyPatch()
+        s.selectNone(); s.toggle(2); s.toggle(3)
+        s.editPlace("冬山河")
+        assertFalse(s.state.value.allFilled)
+        s.applyPatch()
+        assertTrue(s.state.value.allFilled)
+    }
+
+    @Test
+    fun 修改沒涵蓋剩下的就不算全部填完() {
+        val s = store()
+        s.selectNone(); s.toggle(0)
+        s.editPlace("冬山河")
+        assertFalse(s.state.value.allFilled)
     }
 
     // ---- 標題與進度 ----

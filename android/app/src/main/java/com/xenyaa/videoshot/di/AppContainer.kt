@@ -217,7 +217,7 @@ class AppContainer(context: Context) : AppRootDeps {
             override suspend fun takenFrameIndexes(videoId: String, level: Int) =
                 libraryRepo.takenFrameIndexes(videoId, level)
             override suspend fun distinctPlaces() = libraryRepo.distinctPlaces()
-            override suspend fun allTagNames() = libraryRepo.allTagNames()
+            override suspend fun tagSuggestions() = libraryRepo.tagSuggestions()
 
             override suspend fun cropThumbs(
                 videoId: String,

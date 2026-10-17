@@ -6,7 +6,6 @@ import com.xenyaa.videoshot.core.details.ShotDetails
 import com.xenyaa.videoshot.core.details.applyToCells
 import com.xenyaa.videoshot.core.details.commonOf
 import com.xenyaa.videoshot.core.details.normalizeTags
-import com.xenyaa.videoshot.core.time.formatClock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,7 +22,7 @@ data class Step3Cell(val cell: Int, val atSec: Double, val manual: Boolean)
  * 第三步的畫面狀態。
  *
  * @param details 每一格目前的圖資。**鍵一定涵蓋 [cells] 的每一格** —— 少一格就是入庫時少一筆 event_date
- * @param patch 抽屜裡「動過但還沒套用」的部分。空的代表主按鈕是【完成】
+ * @param patch 抽屜裡「動過但還沒套用」的部分
  */
 data class Step3State(
     val cells: List<Step3Cell>,
@@ -58,36 +57,10 @@ data class Step3State(
     val appliedNotice: String? get() = lastAppliedCount?.let { "已套用到 $it 張" }
 
     /**
-     * 抽屜標題。只勾一張時**帶上時間** —— 那就是規格所說的「單張編輯」，
-     * 使用者要看得出現在編的是哪一張（規格第五節的勾選數表）。
+     * 【完成】按得下去嗎：「未填 N」歸 0，也就是每一張都套用過（2026-10-17 scott）。
+     * 取圖精靈才有這條規則；批次編輯只寫回套用過的那幾張，不需要全填。
      */
-    val drawerTitle: String
-        get() {
-            val one = selected.singleOrNull()
-            val clock = one?.let { c -> cells.firstOrNull { it.cell == c } }?.let { formatClock(it.atSec) }
-            return if (clock != null) {
-                "套用到已選的 1 張 · $clock"
-            } else {
-                "套用到已選的 ${selected.size} 張"
-            }
-        }
-
-    /**
-     * 主按鈕現在按下去是【完成】還是【套用】。**與 [mainButtonLabel] 同一個判斷**——
-     * 分成兩處寫的話，日後改了其中一個，按鈕的字就會與它真正做的事對不上。
-     */
-    val mainActionIsFinish: Boolean get() = patch.isEmpty
-
-    /**
-     * 主按鈕。**沒動過欄位時是【完成】**；動了任一欄位就變成【套用到 N 張】
-     * —— 流程終點永遠是最搶眼的那一顆（規格第五節、手冊 §四第三步）。
-     */
-    val mainButtonLabel: String
-        get() = if (mainActionIsFinish) "完成" else "套用到 ${selected.size} 張"
-
-    /** 「將更新：地點、標籤　其他欄位維持各張原值」。沒動過欄位時不顯示。 */
-    val hintLine: String?
-        get() = if (patch.isEmpty) null else "將更新：${patch.changedLabels.joinToString("、")}　其他欄位維持各張原值"
+    val allFilled: Boolean get() = unappliedCells.isEmpty()
 
     /** 進場裁圖的進度。sheet 已在本機，這行幾乎一閃而過（規格第五節）。 */
     val progressText: String? get() = if (cropping && cropTotal > 0) "處理縮圖 $cropDone/$cropTotal" else null
@@ -139,6 +112,7 @@ class Step3Store(
 
     fun selectAll() = select(_state.value.cells.map { it.cell }.toSet())
 
+    /** 全部取消勾選。畫面上沒有【全不選】了（2026-10-17 拿掉），一張張點掉是同一件事；留給測試與狀態還原用。 */
     fun selectNone() = select(emptySet())
 
     fun invert() {
@@ -161,10 +135,22 @@ class Step3Store(
         _state.value = _state.value.copy(patch = block(_state.value.patch), lastAppliedCount = null)
     }
 
-    /** 【套用到 N 張】。套完就把抽屜的差異清掉 —— 主按鈕跟著變回【完成】。 */
+    /**
+     * 抽屜標題列的【套用】。套完就把抽屜的差異清掉。
+     *
+     * **沒改任何欄位也能套用**：等於「這幾張照現在的值確認過了」，一樣算已完成（右上綠勾）——
+     * 取圖精靈要每一張都套用過才能【完成】，只想沿用預設時間的那幾張不能卡在這裡。
+     */
     fun applyPatch() {
         val current = _state.value
-        if (current.patch.isEmpty) return
+        if (current.selected.isEmpty()) return
+        if (current.patch.isEmpty) {
+            _state.value = current.copy(
+                details = current.details.mapValues { (cell, d) -> if (cell in current.selected) d.copy(applied = true) else d },
+                lastAppliedCount = current.selected.size,
+            )
+            return
+        }
         // 「新加」要用套用前的圖資判斷：抽屜的標籤欄位送出的是整份清單（起始值是勾選格子的共同標籤）
         val before = current.selected.mapNotNull { current.details[it] }
         val beforeTags = before.flatMapTo(mutableSetOf()) { it.tags }

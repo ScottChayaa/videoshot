@@ -10,13 +10,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Box
@@ -24,7 +22,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -53,7 +50,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -69,7 +65,12 @@ import com.xenyaa.videoshot.ui.common.PillStyle
 import com.xenyaa.videoshot.ui.common.TextFieldSize
 import com.xenyaa.videoshot.ui.common.VsActionDock
 import com.xenyaa.videoshot.ui.common.VsButton
+import com.xenyaa.videoshot.ui.common.VsFieldLabel
+import com.xenyaa.videoshot.ui.common.VsRemovableTag
 import com.xenyaa.videoshot.ui.common.VsTagChip
+import com.xenyaa.videoshot.ui.thumb.ThumbGridGap
+import com.xenyaa.videoshot.data.library.dao.TagNameKind
+import androidx.compose.ui.graphics.RectangleShape
 import com.xenyaa.videoshot.ui.common.VsDateField
 import com.xenyaa.videoshot.ui.common.VsTextField
 import com.xenyaa.videoshot.ui.common.VsToolbarPill
@@ -85,8 +86,7 @@ import kotlinx.coroutines.launch
 /**
  * 第三步：定義圖資。
  *
- * **每列 4 張**（規格第五節第三步的線框）—— 比第二步的 3 張密，因為這一步是「確認與勾選」，
- * 不是「從畫面裡挑」；辨識得出是哪一張就夠了。
+ * 縮圖牆跟第二步（與照片頁）一樣：**每列 4 張正方形、左右貼齊螢幕、格線 [ThumbGridGap]**（2026-10-17）。
  *
  * 這個 composable 只負責畫；規則全在 [Step3Store]，互動一律往上回報。
  */
@@ -97,7 +97,6 @@ fun Step3DetailsScreen(
     bitmapFor: suspend (Int) -> ImageBitmap?,
     onToggle: (Int) -> Unit,
     onSelectAll: () -> Unit,
-    onSelectNone: () -> Unit,
     onInvert: () -> Unit,
     onSelectUnapplied: () -> Unit,
     onEditEventDate: (String) -> Unit,
@@ -107,7 +106,12 @@ fun Step3DetailsScreen(
     onApply: () -> Unit,
     onFinish: () -> Unit,
     placeSuggestions: List<String> = emptyList(),
-    tagSuggestions: List<String> = emptyList(),
+    tagSuggestions: List<TagNameKind> = emptyList(),
+    /**
+     * 【完成】要每一張都套用過才按得下去（[Step3State.allFilled]）。取圖精靈是 true；
+     * 批次編輯是 false —— 它只寫回套用過的那幾張，本來就允許只改其中幾張。
+     */
+    requireAllFilled: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     // 外層高度 H：edge-to-edge 下視窗不會因鍵盤縮小，鍵盤佔掉的高度由 dock 的 imePadding 吃掉，
@@ -134,7 +138,6 @@ fun Step3DetailsScreen(
                 itemVerticalAlignment = Alignment.CenterVertically,
             ) {
                 VsToolbarPill("全選", onSelectAll, style = PillStyle.Quiet)
-                VsToolbarPill("全不選", onSelectNone, style = PillStyle.Quiet)
                 VsToolbarPill("反選", onInvert, style = PillStyle.Quiet)
                 // 收尾時用的：一鍵勾選所有還沒套用過的（規格第五節快捷列）；全都套用過就沒有東西可勾
                 val unapplied = state.unappliedCells.size
@@ -142,11 +145,11 @@ fun Step3DetailsScreen(
             }
 
             LazyVerticalGrid(
+                // 跟第二步一樣：每列 4 張正方形、左右貼齊螢幕、格線 ThumbGridGap
                 columns = GridCells.Fixed(4),
                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(ThumbGridGap),
+                verticalArrangement = Arrangement.spacedBy(ThumbGridGap),
             ) {
                 items(state.cells, key = { it.cell }) { cell ->
                     Step3Thumb(
@@ -169,6 +172,7 @@ fun Step3DetailsScreen(
                 onFinish = onFinish,
                 placeSuggestions = placeSuggestions,
                 tagSuggestions = tagSuggestions,
+                requireAllFilled = requireAllFilled,
                 availableHeight = columnHeight,
             )
         }
@@ -176,9 +180,10 @@ fun Step3DetailsScreen(
 }
 
 /**
- * 一格（原型 .wz-cell.sel／.done-mark）。**「已選」與「已套用」分開表達**：
- * 已選＝3dp 主色內框＋左上打勾圓徽章（同第二步），已套用＝右上打勾方塊，還沒套用的整格蓋暗層。
+ * 一格（正方形、直角，同第二步）。**「已選」與「已套用」分開表達**：
+ * 已選＝左上打勾圓徽章（只打勾、不畫框，同第二步），已套用＝右上綠色打勾方塊。
  * 兩件事會同時成立，用同一個記號說不清楚。紅色只留給破壞性操作（手冊 §零），這裡不用。
+ * （2026-10-17 前還沒套用的整格壓暗、已選另畫主色內框，都拿掉了。）
  *
  * 顏色不是唯一的訊號 —— 兩者都寫進整格的 `contentDescription`，輔助技術也讀得到（手冊 §零）；
  * 徽章與打勾方塊本身是純裝飾，不另設名稱，免得 TalkBack 把同一件事唸兩次。
@@ -197,13 +202,14 @@ private fun Step3Thumb(
         if (applied) append("・已套用")
         if (selected) append("・已勾選")
     }
-    val shape = RoundedCornerShape(AppTheme.radii.sm)
+    val cellShape = RectangleShape
+    val pill = RoundedCornerShape(AppTheme.radii.sm)
     Box(
         Modifier
-            .aspectRatio(16f / 9f)
-            .clip(shape)
+            .aspectRatio(1f)
+            .clip(cellShape)
             .background(AppTheme.colors.surface2)
-            .focusRing(shape)
+            .focusRing(cellShape)
             .clickable { onToggle() }
             .semantics { contentDescription = label },
     ) {
@@ -218,23 +224,19 @@ private fun Step3Thumb(
                 modifier = Modifier.fillMaxSize(),
             )
         }
-        // 還沒套用的整格壓暗，已套用的維持原色（原型 .wz-cell:not(.done)）
-        if (!applied) Box(Modifier.fillMaxSize().background(AppTheme.colors.overlay))
-        // 時間標籤同時是測試點得到的目標，也是使用者辨認「這是哪一張」的依據
+        // 時間標籤同時是測試點得到的目標，也是使用者辨認「這是哪一張」的依據（樣式同第二步）
         Text(
             formatClock(cell.atSec),
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.labelSmall,
             color = Color.White,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(AppTheme.spacing.s1)
-                .clip(shape)
+                .clip(pill)
                 .background(AppTheme.colors.scrim)
                 .padding(horizontal = AppTheme.spacing.s1),
         )
         if (selected) {
-            // 外框畫在格子內緣、疊在圖上
-            Box(Modifier.fillMaxSize().border(3.dp, AppTheme.colors.accent, shape))
             VsSelectedBadge(Modifier.align(Alignment.TopStart), semanticLabel = null)
         }
         if (applied) {
@@ -244,9 +246,9 @@ private fun Step3Thumb(
                     .align(Alignment.TopEnd)
                     .padding(4.dp)
                     .size(22.dp)
-                    .clip(shape)
+                    .clip(pill)
                     .background(AppTheme.colors.ok)
-                    .border(2.dp, Color.White, shape),
+                    .border(2.dp, Color.White, pill),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(VsIcons.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
@@ -257,10 +259,10 @@ private fun Step3Thumb(
 
 /**
  * 抽屜以外、鍵盤開著時仍要留住的高度。[Step3DetailsScreen] 的外層高度已經扣掉頂欄與步驟條，
- * 所以只算本體裡的：快速選取列（約 60）＋一排縮圖（約 56）＋標題列（約 44）＋提示行（約 36）
+ * 所以只算本體裡的：快速選取列（約 60）＋一排縮圖（約 56）＋標題列（約 52，含【套用】）
  * ＋ dock 的狀態文字與按鈕列（約 84）（粗估，寧可略大）。
  */
-private val DOCK_RESERVED = 280.dp
+private val DOCK_RESERVED = 260.dp
 
 /**
  * 底部的**單一 dock**：抽屜、提示行、主按鈕**收成同一塊**（手冊 §四第三步第一條）。
@@ -269,7 +271,10 @@ private val DOCK_RESERVED = 280.dp
  * 正是使用者用來判斷「現在勾的是哪幾張」的地方。精靈本來就沒有導覽列（規格第五節），
  * 抽屜與按鈕再合起來，就只剩一塊。
  *
- * 沒有勾選時**抽屜收合、主按鈕留著** —— 收掉按鈕會讓使用者在「全不選」之後無路可走。
+ * 沒有勾選時**抽屜收合、主按鈕留著** —— 收掉按鈕會讓使用者在取消全部勾選之後無路可走。
+ *
+ * **【套用】在抽屜標題列右邊，底部主按鈕永遠是【完成】**（2026-10-17，原本主按鈕在【完成】與【套用到 N 張】之間切換）。
+ * 還有沒套用的修改時按【完成】，先套用再結束 —— 畫面上看到的值就是存下去的值。
  *
  * **鍵盤**：[VsActionDock] 自己吃 `imePadding()`，dock 整塊被鍵盤頂上去，縮圖網格（`weight(1f)`）
  * 讓出高度；抽屜的最大高度改用「扣掉鍵盤後的可用高度」的 46%，鍵盤開著時抽屜才不會比剩下的空間還高；
@@ -286,7 +291,8 @@ private fun Step3Dock(
     onApply: () -> Unit,
     onFinish: () -> Unit,
     placeSuggestions: List<String>,
-    tagSuggestions: List<String>,
+    tagSuggestions: List<TagNameKind>,
+    requireAllFilled: Boolean,
     availableHeight: Dp,
 ) {
     val topShape = RoundedCornerShape(topStart = AppTheme.radii.md, topEnd = AppTheme.radii.md)
@@ -308,13 +314,15 @@ private fun Step3Dock(
             // 標題列不跟著捲動：捲到下面的欄位時，還是看得到現在在編輯哪幾張
             val one = state.selected.singleOrNull()
             val clock = one?.let { c -> state.cells.firstOrNull { it.cell == c } }?.let { formatClock(it.atSec) }
+            // 【套用】用小鈕（視覺 30dp，觸控區仍 44dp）：大按鈕把整列撐到快 70dp，太佔位（2026-10-17 scott）；
+            // 觸控區上下各多出約 7dp 的透明空間，標題列與下面的欄位因此不會貼在一起
             Row(
-                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.Bottom,
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    "套用到已選的 ${state.selected.size} 張",
+                    "照片詳細資訊",
                     style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
                     color = AppTheme.colors.text,
                 )
@@ -322,6 +330,10 @@ private fun Step3Dock(
                 if (clock != null) {
                     Text(clock, style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.textDim)
                 }
+                Spacer(Modifier.weight(1f))
+                // 有改動時換主色底，提醒還沒套用；沒改動時是中性底（照現值確認，見 Step3Store.applyPatch）。
+                // 不是切換型，不帶選取語意（isToggle 預設 false）
+                VsToolbarPill("套用", onApply, selected = !state.patch.isEmpty, style = PillStyle.Quiet)
             }
 
             // 欄位本身可以滾動，**提示行與主按鈕不行** —— 欄位一多，矮螢幕上剩下的高度就不夠
@@ -361,7 +373,7 @@ private fun Step3Dock(
                     edited = state.patch.place,
                     onEdit = onEditPlace,
                 )
-                SuggestionRow("用過的地點", placeSuggestions, ChipKind.PLACE, onPick = onEditPlace)
+                SuggestionRow(placeSuggestions, kindOf = { ChipKind.PLACE }, onPick = onEditPlace)
 
                 TagField(
                     field = state.tagsField,
@@ -381,21 +393,6 @@ private fun Step3Dock(
             }
         }
 
-        // 這條規則**要看得見**，不能只存在於腦袋裡（規格第五節、手冊 §四第三步第三條）
-        state.hintLine?.let {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .semantics { contentDescription = "將更新的欄位" },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Box(Modifier.size(6.dp).background(AppTheme.colors.accent, CircleShape))
-                Text(it, style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.textDim)
-            }
-        }
-
         VsActionDock(
             status = {
                 // 套用後的短暫回饋優先；使用者一動欄位或勾選就會消失，回到「N 張 · M 已完成」
@@ -412,8 +409,12 @@ private fun Step3Dock(
             },
         ) {
             VsButton(
-                state.mainButtonLabel,
-                onClick = { if (state.mainActionIsFinish) onFinish() else onApply() },
+                "完成",
+                onClick = {
+                    if (!state.patch.isEmpty) onApply()
+                    onFinish()
+                },
+                enabled = !requireAllFilled || state.allFilled,
             )
         }
     }
@@ -469,23 +470,23 @@ private fun DrawerTextField(
     )
 }
 
-/** 「用過的地點」「用過的標籤」：小標＋一排 chip，點了就填入／加入。沒有建議時整段不顯示。 */
+/** 用過的地點／標籤：一排 chip，點了就填入／加入。沒有建議時整段不顯示（2026-10-17 拿掉小標）。 */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SuggestionRow(title: String, values: List<String>, kind: ChipKind, onPick: (String) -> Unit) {
+private fun SuggestionRow(values: List<String>, kindOf: (String) -> ChipKind, onPick: (String) -> Unit) {
     if (values.isEmpty()) return
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(title, style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.textDim)
-        // 列距 0：小膠囊外面已有 44dp 高的透明觸控外框
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            values.forEach { value -> VsTagChip(value, kind, onClick = { onPick(value) }) }
-        }
+    // 列距 0：小膠囊外面已有 44dp 高的透明觸控外框
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        values.forEach { value -> VsTagChip(value, kindOf(value), onClick = { onPick(value) }) }
     }
 }
 
 /**
  * 標籤欄位。chip 形式（規格第五節欄位表），**整組覆蓋**：
  * 每一次增刪都把完整的一組往上送，不送差異 —— 差異在「整組覆蓋」的語意下沒有意義。
+ *
+ * 由上到下：標題 → 已加的標籤 → 輸入框＋【加入】→ 用過的標籤（同照片編輯抽屜，2026-10-17）。
+ * 小膠囊依標籤的種類畫圖示；資料庫裡還沒有的新標籤當成「其他」。
  *
  * **鍵盤的 Enter（完成）與【加入】做同一件事**：原本只有「＋」鈕能加，鍵盤送出沒有反應。
  */
@@ -494,24 +495,30 @@ private fun SuggestionRow(title: String, values: List<String>, kind: ChipKind, o
 private fun TagField(
     field: Common<List<String>>,
     edited: List<String>?,
-    suggestions: List<String>,
+    suggestions: List<TagNameKind>,
     onEdit: (List<String>) -> Unit,
 ) {
     val shown = edited ?: (field as? Common.One<List<String>>)?.value ?: emptyList()
     val mixed = edited == null && field is Common.Mixed
+    val kinds = remember(suggestions) { suggestions.associate { it.name to it.kind } }
+    fun kindOf(tag: String) = ChipKind.ofTagKind(kinds[tag] ?: "other")
     var typing by remember { mutableStateOf("") }
     // 空白不加、加完清空
     fun add() {
         if (typing.isNotBlank()) { onEdit(shown + typing); typing = "" }
     }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column {
+        VsFieldLabel("標籤", labelAccent = edited != null)
+        if (shown.isNotEmpty()) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                shown.forEach { tag -> VsRemovableTag(tag, kindOf(tag), onRemove = { onEdit(shown - tag) }) }
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
             VsTextField(
                 value = typing,
                 onValueChange = { typing = it },
                 modifier = Modifier.weight(1f).revealOnFocus(),
-                label = "標籤",
-                labelAccent = edited != null,
                 placeholder = if (mixed) "〈多個值〉" else "新增標籤",
                 mixedPlaceholder = mixed,
                 size = TextFieldSize.Dense,
@@ -521,40 +528,8 @@ private fun TagField(
             )
             VsButton("加入", onClick = ::add, variant = ButtonVariant.Secondary)
         }
-        if (shown.isNotEmpty()) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                shown.forEach { tag -> RemovableTag(tag, onRemove = { onEdit(shown - tag) }) }
-            }
-        }
-        SuggestionRow("用過的標籤", suggestions.filterNot { it in shown }, ChipKind.OTHER, onPick = { onEdit(shown + it) })
-    }
-}
-
-/**
- * 已選的標籤：外觀同 [VsTagChip] 的 Regular（不選取樣式），尾端多一個關閉圖示，整顆可點＝移除。
- * 名稱「移除標籤 X」讓輔助技術聽得出點下去會發生什麼事。
- */
-@Composable
-private fun RemovableTag(name: String, onRemove: () -> Unit) {
-    val shape = RoundedCornerShape(AppTheme.radii.full)
-    Row(
-        Modifier
-            .focusRing(shape)
-            .clip(shape)
-            .clickable(role = Role.Button, onClick = onRemove)
-            .semantics(mergeDescendants = true) { contentDescription = "移除標籤 $name" }
-            .background(AppTheme.colors.surface)
-            .border(1.dp, AppTheme.colors.border, shape)
-            .defaultMinSize(minHeight = AppTheme.spacing.tap)
-            .padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s2),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
-    ) {
-        Icon(ChipKind.OTHER.icon, contentDescription = null, tint = ChipKind.OTHER.color, modifier = Modifier.size(16.dp))
-        Text(name, style = MaterialTheme.typography.bodyMedium, color = AppTheme.colors.text)
-        Icon(VsIcons.Close, contentDescription = null, tint = AppTheme.colors.textDim, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.height(4.dp))
+        val options = suggestions.map { it.name }.filterNot { it in shown }
+        SuggestionRow(options, kindOf = ::kindOf, onPick = { onEdit(shown + it) })
     }
 }

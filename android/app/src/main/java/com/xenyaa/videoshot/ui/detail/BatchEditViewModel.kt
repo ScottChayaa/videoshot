@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.detail
 
+import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xenyaa.videoshot.core.details.ShotDetails
@@ -27,7 +28,7 @@ sealed interface BatchEditState {
         val store: Step3Store,
         val shots: List<ShotRow>,
         val places: List<String>,
-        val tags: List<String>,
+        val tags: List<TagNameKind>,
     ) : BatchEditState
 }
 
@@ -91,7 +92,7 @@ class BatchEditViewModel(
                 store = store,
                 shots = shots,
                 places = runCatching { library.distinctPlaces() }.getOrDefault(emptyList()),
-                tags = runCatching { library.allTagNames() }.getOrDefault(emptyList()),
+                tags = runCatching { library.tagSuggestions() }.getOrDefault(emptyList()),
             )
         }
     }
@@ -100,7 +101,6 @@ class BatchEditViewModel(
 
     fun toggle(cell: Int) = ready()?.store?.toggle(cell) ?: Unit
     fun selectAll() = ready()?.store?.selectAll() ?: Unit
-    fun selectNone() = ready()?.store?.selectNone() ?: Unit
     fun invert() = ready()?.store?.invert() ?: Unit
     fun selectUnapplied() = ready()?.store?.selectUnapplied() ?: Unit
     fun editEventDate(value: String) = ready()?.store?.editEventDate(value) ?: Unit

@@ -44,7 +44,7 @@ class BatchEditScreenTest {
                 BatchEditScreen(
                     state = state,
                     bitmapFor = { null },
-                    onToggle = {}, onSelectAll = {}, onSelectNone = {}, onInvert = {}, onSelectUnapplied = {},
+                    onToggle = {}, onSelectAll = {}, onInvert = {}, onSelectUnapplied = {},
                     onEditEventDate = {}, onEditPlace = {}, onEditDescription = {}, onEditTags = {},
                     onApply = {}, onFinish = {},
                     onClose = { closed = true },

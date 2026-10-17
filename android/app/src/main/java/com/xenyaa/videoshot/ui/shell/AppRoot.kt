@@ -589,7 +589,6 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                 bitmapFor = batchBitmapFor,
                 onToggle = vm::toggle,
                 onSelectAll = vm::selectAll,
-                onSelectNone = vm::selectNone,
                 onInvert = vm::invert,
                 onSelectUnapplied = vm::selectUnapplied,
                 onEditEventDate = vm::editEventDate,
@@ -1183,11 +1182,7 @@ private fun EditingSheet(
     }
     // 標籤要帶種類（小膠囊依種類畫圖示），用過越多張的排越前面
     val allTags by produceState(emptyList<TagNameKind>()) {
-        value = runCatching {
-            container.libraryRepo.allTagsWithUsage()
-                .sortedByDescending { it.shotCount }
-                .map { TagNameKind(it.name, it.kind) }
-        }.getOrDefault(emptyList())
+        value = runCatching { container.libraryRepo.tagSuggestions() }.getOrDefault(emptyList())
     }
     ShotEditSheet(
         details = details,

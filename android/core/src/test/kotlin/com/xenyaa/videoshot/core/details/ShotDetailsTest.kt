@@ -96,13 +96,7 @@ class ShotDetailsTest {
         assertEquals(listOf("玩水", "阿明"), normalizeTags(listOf("阿明", " 玩水 ", "阿明", "")))
     }
 
-    // ---- 提示行與主按鈕 ----
-
-    @Test
-    fun 將更新的欄位依抽屜由上到下排列() {
-        val patch = DetailsPatch(place = "冬山河", tags = listOf("玩水"))
-        assertEquals(listOf("地點", "標籤"), patch.changedLabels)
-    }
+    // ---- patch 是否為空 ----
 
     @Test
     fun 全部沒動過就是空的patch() {

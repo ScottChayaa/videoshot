@@ -178,7 +178,7 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                             bitmapFor = bitmapFor,
                             onToggle = { current.toggle(it) },
                             onSelectAll = { current.selectAll() },
-                            onSelectNone = { current.selectNone() },
+                            requireAllFilled = true,
                             onInvert = { current.invert() },
                             onSelectUnapplied = { current.selectUnapplied() },
                             onEditEventDate = { current.editEventDate(it) },
@@ -218,6 +218,8 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
         )
     }
 
+    // 第三步的【完成】要每一張都套用過才按得下（2026-10-17），正常操作走不到這個提醒框；
+    // 留著當 ViewModel 的防線（finish() 本身仍會擋下還沒填完的）
     val pendingFinish by vm.pendingFinish.collectAsStateWithLifecycle()
     pendingFinish?.let { count ->
         AlertDialog(

@@ -99,7 +99,7 @@ class AppRootFirstRunGateTest {
         override suspend fun recentVideos(limit: Int) = emptyList<com.xenyaa.videoshot.data.repo.model.RecentVideo>()
         override suspend fun takenFrameIndexes(videoId: String, level: Int): Set<Int> = emptySet()
         override suspend fun distinctPlaces(): List<String> = emptyList()
-        override suspend fun allTagNames(): List<String> = emptyList()
+        override suspend fun tagSuggestions() = emptyList<com.xenyaa.videoshot.data.library.dao.TagNameKind>()
         override suspend fun cropThumbs(videoId: String, sbSpec: String?, frameIndexes: List<Int>, onProgress: (Int, Int) -> Unit) =
             CropOutcome(emptyList(), emptyList())
         override suspend fun commit(video: VideoEntity, picks: List<NewShot>): List<Long> = emptyList()

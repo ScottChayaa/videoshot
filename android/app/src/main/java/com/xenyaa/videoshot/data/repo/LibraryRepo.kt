@@ -195,6 +195,10 @@ interface LibraryRepo {
     /** 標籤管理頁：全部標籤 ＋ 使用張數（規格第九節）。 */
     suspend fun allTagsWithUsage(): List<TagUsage>
 
+    /** 編輯圖資時的標籤候選：名稱＋種類（小膠囊依種類畫圖示），用過越多張的排越前面。 */
+    suspend fun tagSuggestions(): List<TagNameKind> =
+        allTagsWithUsage().sortedByDescending { it.shotCount }.map { TagNameKind(it.name, it.kind) }
+
     /**
      * 標籤改名／改 kind／改別名。**改名成既有的名稱＝合併**：兩者的 `shot_tag` 併到既有標籤，
      * 這個 `id` 的標籤列被刪除（規格第九節「標籤管理的規則」）。合併發生時，

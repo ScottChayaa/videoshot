@@ -51,7 +51,6 @@ class Step3ShortScreenTest {
                     bitmapFor = { null },
                     onToggle = {},
                     onSelectAll = {},
-                    onSelectNone = {},
                     onInvert = {},
                     onSelectUnapplied = {},
                     onEditEventDate = {},
@@ -67,9 +66,10 @@ class Step3ShortScreenTest {
     }
 
     @Test
-    fun 矮螢幕改過欄位時套用鈕仍看得到() {
+    fun 矮螢幕改過欄位時套用鈕與完成鈕仍看得到() {
         show(DetailsPatch(place = "沖繩"))
-        compose.onNodeWithText("套用到 2 張").assertIsDisplayed()
+        compose.onNodeWithText("套用").assertIsDisplayed()
+        compose.onNodeWithText("完成").assertIsDisplayed()
     }
 
     @Test

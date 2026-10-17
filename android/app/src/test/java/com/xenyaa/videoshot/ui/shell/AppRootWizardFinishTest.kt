@@ -159,7 +159,7 @@ class AppRootWizardFinishTest {
         override suspend fun recentVideos(limit: Int) = listOf(RecentVideo("v1", "海邊那支", 0L, 0))
         override suspend fun takenFrameIndexes(videoId: String, level: Int): Set<Int> = emptySet()
         override suspend fun distinctPlaces(): List<String> = emptyList()
-        override suspend fun allTagNames(): List<String> = emptyList()
+        override suspend fun tagSuggestions() = emptyList<com.xenyaa.videoshot.data.library.dao.TagNameKind>()
         override suspend fun cropThumbs(videoId: String, sbSpec: String?, frameIndexes: List<Int>, onProgress: (Int, Int) -> Unit) =
             CropOutcome(written = frameIndexes, missing = emptyList())
         override suspend fun commit(video: VideoEntity, picks: List<NewShot>) = repo.commitPicks(video, picks)
@@ -239,9 +239,9 @@ class AppRootWizardFinishTest {
         compose.onNodeWithContentDescription("第 1 格 00:00").performClick()
         compose.onNodeWithText("下一步（1 張）").performClick()
         compose.waitForIdle()
+        // 每一張都套用過才按得下【完成】；沒改欄位直接按【套用】＝照現值確認
+        compose.onNodeWithText("套用").performClick()
         compose.onNodeWithText("完成").performClick()
-        // 這一格沒填過圖資（沒動過任何欄位），會先跳「還有 1 張沒填資料」的提醒，不是直接完成
-        compose.onNodeWithText("仍要完成").performClick()
         compose.waitForIdle()
 
         // 回首頁分頁：CAPTURE 分頁沒有底部導覽，導覽列重新出現就代表真的切走了
@@ -278,8 +278,8 @@ class AppRootWizardFinishTest {
         compose.onNodeWithContentDescription("第 1 格 00:00").performClick()
         compose.onNodeWithText("下一步（1 張）").performClick()
         compose.waitForIdle()
+        compose.onNodeWithText("套用").performClick()
         compose.onNodeWithText("完成").performClick()
-        compose.onNodeWithText("仍要完成").performClick()
         compose.waitForIdle()
 
         compose.onNode(hasText("照片") and isSelectable()).assertIsDisplayed()

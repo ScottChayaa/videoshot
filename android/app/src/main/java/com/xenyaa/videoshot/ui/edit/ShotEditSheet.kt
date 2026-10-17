@@ -1,7 +1,6 @@
 package com.xenyaa.videoshot.ui.edit
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.runtime.LaunchedEffect
@@ -9,24 +8,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.focus.onFocusEvent
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,13 +29,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.core.details.DetailsPatch
 import com.xenyaa.videoshot.core.details.ShotDetails
 import com.xenyaa.videoshot.core.details.normalizeTags
@@ -50,17 +38,15 @@ import com.xenyaa.videoshot.core.tags.TagKind
 import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.ChipKind
-import com.xenyaa.videoshot.ui.common.UNSELECTED_FILL_ALPHA
 import com.xenyaa.videoshot.ui.common.VsBottomSheet
 import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsChipPager
 import com.xenyaa.videoshot.ui.common.VsDateField
 import com.xenyaa.videoshot.ui.common.VsSheetHeader
+import com.xenyaa.videoshot.ui.common.VsRemovableTag
 import com.xenyaa.videoshot.ui.common.VsTagChip
 import com.xenyaa.videoshot.ui.common.VsTextField
-import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
-import com.xenyaa.videoshot.ui.theme.focusRing
 
 /** 鍵盤彈出動畫大約多久；聚焦後等它跑完再捲，不然算到的可見範圍還是鍵盤出來前的。 */
 private const val KEYBOARD_SETTLE_MS = 300L
@@ -186,7 +172,7 @@ fun ShotEditSheet(
                     FieldLabel("標籤")
                     if (tags.isNotEmpty()) {
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
-                            tags.forEach { tag -> RemovableTag(tag, kindOf(tag)) { removeTag(tag) } }
+                            tags.forEach { tag -> VsRemovableTag(tag, kindOf(tag), onRemove = { removeTag(tag) }) }
                         }
                     }
                     // 輸入框＋種類選擇＋候選是一塊，鍵盤開著時一起捲上來
@@ -281,37 +267,6 @@ private fun NewTagKindRow(name: String, kind: String, onPick: (String) -> Unit) 
                 isToggle = true,
                 onClick = { onPick(k.id) },
             )
-        }
-    }
-}
-
-/**
- * 已選的標籤：外觀同 [VsTagChip]（中性半透明底、無框、帶種類圖示），尾端多一個關閉圖示，整顆可點＝移除。
- * 名稱「移除標籤 X」讓輔助技術聽得出點下去會發生什麼事。
- */
-@Composable
-private fun RemovableTag(name: String, kind: ChipKind, onRemove: () -> Unit) {
-    val shape = RoundedCornerShape(AppTheme.radii.sm)
-    // 觸控區至少 44dp 高（手冊 §零），看得到的膠囊置中、跟其他小膠囊一樣矮
-    Box(
-        Modifier
-            .defaultMinSize(minHeight = AppTheme.spacing.tap)
-            .semantics(mergeDescendants = true) { contentDescription = "移除標籤 $name" }
-            .clickable(role = Role.Button, onClick = onRemove),
-        contentAlignment = Alignment.Center,
-    ) {
-        Row(
-            Modifier
-                .focusRing(shape)
-                .clip(shape)
-                .background(AppTheme.colors.text.copy(alpha = UNSELECTED_FILL_ALPHA))
-                .padding(horizontal = AppTheme.spacing.s2, vertical = AppTheme.spacing.s1),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
-        ) {
-            Icon(kind.icon, contentDescription = null, tint = kind.color, modifier = Modifier.size(16.dp))
-            Text(name, style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.text)
-            Icon(VsIcons.Close, contentDescription = null, tint = AppTheme.colors.textDim, modifier = Modifier.size(14.dp))
         }
     }
 }

@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import com.xenyaa.videoshot.core.details.ShotDetails
 import org.junit.Assert.assertEquals
@@ -44,7 +45,6 @@ class Step3GridTest {
         state: Step3State,
         onToggle: (Int) -> Unit = {},
         onSelectAll: () -> Unit = {},
-        onSelectNone: () -> Unit = {},
         onInvert: () -> Unit = {},
         onSelectUnapplied: () -> Unit = {},
     ) {
@@ -54,7 +54,6 @@ class Step3GridTest {
                 bitmapFor = { null },
                 onToggle = onToggle,
                 onSelectAll = onSelectAll,
-                onSelectNone = onSelectNone,
                 onInvert = onInvert,
                 onSelectUnapplied = onSelectUnapplied,
                 onEditEventDate = {},
@@ -91,6 +90,19 @@ class Step3GridTest {
         compose.onAllNodesWithContentDescription("已勾選", substring = true).assertCountEquals(1)
     }
 
+    /** 跟第二步一樣：正方形、每列 4 張、貼齊螢幕。 */
+    @Test
+    fun 格子是正方形_每列四張貼齊螢幕() {
+        show(stateOf())
+        val first = compose.onAllNodesWithContentDescription("第三步的格子", substring = true)[0].fetchSemanticsNode().boundsInRoot
+        val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
+        assertEquals(first.width, first.height, 1f)
+        assertEquals(0f, first.left, 1f)
+        val fourth = compose.onAllNodesWithContentDescription("第三步的格子", substring = true)[3].fetchSemanticsNode().boundsInRoot
+        assertEquals(root.right, fourth.right, 1f)
+        assertEquals(first.top, fourth.top, 1f)
+    }
+
     @Test
     fun 點格子會回報切換() {
         var toggled: Int? = null
@@ -100,29 +112,27 @@ class Step3GridTest {
     }
 
     @Test
-    fun 快捷列四顆都在() {
+    fun 快捷列三顆都在_沒有全不選() {
         show(stateOf())
         compose.onNodeWithText("全選").assertIsDisplayed()
-        compose.onNodeWithText("全不選").assertIsDisplayed()
+        compose.onNodeWithText("全不選").assertDoesNotExist()
         compose.onNodeWithText("反選").assertIsDisplayed()
         compose.onNodeWithText("未填", substring = true).assertIsDisplayed()
     }
 
     @Test
-    fun 快捷列四顆各自回報() {
+    fun 快捷列三顆各自回報() {
         var log = mutableListOf<String>()
         show(
             stateOf(),
             onSelectAll = { log += "all" },
-            onSelectNone = { log += "none" },
             onInvert = { log += "invert" },
             onSelectUnapplied = { log += "unapplied" },
         )
         compose.onNodeWithText("全選").performClick()
-        compose.onNodeWithText("全不選").performClick()
         compose.onNodeWithText("反選").performClick()
         compose.onNodeWithText("未填", substring = true).performClick()
-        assertEquals(listOf("all", "none", "invert", "unapplied"), log)
+        assertEquals(listOf("all", "invert", "unapplied"), log)
     }
 
     /** 原型 .wz-tools.pick：「未填 N」帶張數；原本的「未填的」文字改成「未填 N」，故既有案例改用子字串定位。 */

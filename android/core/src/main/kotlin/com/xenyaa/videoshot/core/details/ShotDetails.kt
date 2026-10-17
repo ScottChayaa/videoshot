@@ -39,20 +39,6 @@ data class DetailsPatch(
 ) {
     val isEmpty: Boolean
         get() = eventDate == null && place == null && description == null && tags == null
-
-    /**
-     * 「將更新：地點、標籤」那一行要列的欄位名。
-     *
-     * 順序**固定且與抽屜由上到下一致**（時間／地點／標籤／描述）——
-     * 依使用者修改的先後排列的話，同一組修改每次讀起來都不一樣。
-     */
-    val changedLabels: List<String>
-        get() = buildList {
-            if (eventDate != null) add("時間")
-            if (place != null) add("地點")
-            if (tags != null) add("標籤")
-            if (description != null) add("描述")
-        }
 }
 
 /** 套用一次抽屜的修改。沒動過的欄位原封不動；空字串的欄位清成 null。 */

@@ -164,7 +164,7 @@ class AppRootDetailTest {
             override suspend fun recentVideos(limit: Int): List<RecentVideo> = emptyList()
             override suspend fun takenFrameIndexes(videoId: String, level: Int) = emptySet<Int>()
             override suspend fun distinctPlaces() = emptyList<String>()
-            override suspend fun allTagNames() = emptyList<String>()
+            override suspend fun tagSuggestions() = emptyList<com.xenyaa.videoshot.data.library.dao.TagNameKind>()
             override suspend fun cropThumbs(videoId: String, sbSpec: String?, frameIndexes: List<Int>, onProgress: (Int, Int) -> Unit) =
                 CropOutcome(emptyList(), emptyList())
             override suspend fun commit(video: VideoEntity, picks: List<NewShot>) = emptyList<Long>()
@@ -239,7 +239,7 @@ class AppRootDetailTest {
         // 只留第一張（00:30）勾選——把第二張（01:30）那一格點掉
         compose.onNodeWithContentDescription("01:30", substring = true).performClick()
         compose.onNodeWithContentDescription("地點").performTextReplacement("羅東")
-        compose.onNodeWithText("套用到 1 張").performClick()
+        compose.onNodeWithText("套用").performClick()
         compose.onNodeWithText("完成").performClick()
 
         // 回到詳情頁：finished 收集區塊 pop 掉批次編輯、detailVm 重查，聚焦張的地點是新值

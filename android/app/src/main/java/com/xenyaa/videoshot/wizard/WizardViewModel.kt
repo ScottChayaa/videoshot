@@ -271,7 +271,7 @@ class WizardViewModel(
         viewModelScope.launch {
             _suggestions.value = Suggestions(
                 places = runCatching { data.distinctPlaces() }.getOrDefault(emptyList()),
-                tags = runCatching { data.allTagNames() }.getOrDefault(emptyList()),
+                tags = runCatching { data.tagSuggestions() }.getOrDefault(emptyList()),
             )
         }
         loadDraft()

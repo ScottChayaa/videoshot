@@ -2,6 +2,8 @@ package com.xenyaa.videoshot.wizard
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -15,6 +17,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import com.xenyaa.videoshot.core.details.DetailsPatch
 import com.xenyaa.videoshot.core.details.ShotDetails
+import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -57,7 +60,8 @@ class Step3DockTest {
         onApply: () -> Unit = {},
         onFinish: () -> Unit = {},
         placeSuggestions: List<String> = emptyList(),
-        tagSuggestions: List<String> = emptyList(),
+        tagSuggestions: List<TagNameKind> = emptyList(),
+        requireAllFilled: Boolean = false,
     ) {
         compose.setContent {
             Step3DetailsScreen(
@@ -65,7 +69,6 @@ class Step3DockTest {
                 bitmapFor = { null },
                 onToggle = {},
                 onSelectAll = {},
-                onSelectNone = {},
                 onInvert = {},
                 onSelectUnapplied = {},
                 onEditEventDate = onEditEventDate,
@@ -76,14 +79,17 @@ class Step3DockTest {
                 onFinish = onFinish,
                 placeSuggestions = placeSuggestions,
                 tagSuggestions = tagSuggestions,
+                requireAllFilled = requireAllFilled,
             )
         }
     }
 
     @Test
-    fun 抽屜標題說得出在編輯幾張() {
+    fun 抽屜標題是照片詳細資訊_右邊有套用() {
         show(stateOf())
-        compose.onNodeWithText("套用到已選的 2 張").assertIsDisplayed()
+        compose.onNodeWithText("照片詳細資訊").assertIsDisplayed()
+        compose.onNodeWithText("套用").assertIsDisplayed()
+        compose.onNodeWithText("套用到已選的", substring = true).assertDoesNotExist()
     }
 
     /** 時間是月曆選擇器；時間與描述下方沒有說明文字（2026-10-17 拿掉「預設帶入…」「留空，之後 AI 補」）。 */
@@ -138,17 +144,66 @@ class Step3DockTest {
         show(stateOf(), onFinish = { finished = true })
         compose.onNodeWithText("完成").performClick()
         assertTrue(finished)
-        // 節點根本不存在時要用 assertDoesNotExist —— assertIsNotDisplayed 會因為找不到節點而丟例外
-        compose.onNodeWithContentDescription("將更新的欄位").assertDoesNotExist()
     }
 
     @Test
-    fun 動了欄位主按鈕變成套用而且提示行出現() {
+    fun 動了欄位主按鈕還是完成_按標題列的套用_沒有將更新提示行() {
         var applied = false
         show(stateOf(patch = DetailsPatch(place = "冬山河")), onApply = { applied = true })
-        compose.onNodeWithText("將更新：地點　其他欄位維持各張原值").assertIsDisplayed()
-        compose.onNodeWithText("套用到 2 張").performClick()
+        compose.onNodeWithText("將更新", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("完成").assertIsDisplayed()
+        compose.onNodeWithText("套用到", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("套用").performClick()
         assertTrue(applied)
+    }
+
+    /** 還有沒套用的修改時按【完成】：先套用再結束，畫面上看到的值就是存下去的值。 */
+    @Test
+    fun 有沒套用的修改時按完成會先套用再結束() {
+        val log = mutableListOf<String>()
+        show(
+            stateOf(patch = DetailsPatch(place = "冬山河")),
+            onApply = { log += "apply" },
+            onFinish = { log += "finish" },
+        )
+        compose.onNodeWithText("完成").performClick()
+        assertEquals(listOf("apply", "finish"), log)
+    }
+
+    @Test
+    fun 沒有修改時按完成不會套用() {
+        val log = mutableListOf<String>()
+        show(stateOf(), onApply = { log += "apply" }, onFinish = { log += "finish" })
+        compose.onNodeWithText("完成").performClick()
+        assertEquals(listOf("finish"), log)
+    }
+
+    /** 取圖精靈：每一張都套用過才按得下【完成】。 */
+    @Test
+    fun 要求全部填完時還有沒套用的就不能完成() {
+        show(stateOf(), requireAllFilled = true)
+        compose.onNodeWithText("完成").assertIsNotEnabled()
+    }
+
+    @Test
+    fun 要求全部填完時全部套用過就能完成() {
+        val all = (0..1).associateWith { ShotDetails("2026-01-01", applied = true) }
+        show(stateOf(details = all), requireAllFilled = true)
+        compose.onNodeWithText("完成").assertIsEnabled()
+    }
+
+    /** 「未填 N」歸 0 才啟用：有修改、而且涵蓋剩下沒套用的，也還不能按（先按【套用】）。 */
+    @Test
+    fun 要求全部填完時有修改但還沒套用也不能完成() {
+        show(stateOf(patch = DetailsPatch(place = "冬山河")), requireAllFilled = true)
+        compose.onNodeWithText("完成").assertIsNotEnabled()
+    }
+
+    /** 批次編輯只寫回套用過的那幾張，不要求全填。 */
+    @Test
+    fun 不要求全部填完時沒套用也能完成() {
+        show(stateOf())
+        compose.onNodeWithText("完成").assertIsEnabled()
     }
 
     @Test
@@ -247,8 +302,51 @@ class Step3DockTest {
     @Test
     fun 只勾一張時抽屜標題旁有時間() {
         show(stateOf(selected = setOf(1)))
-        compose.onNodeWithText("套用到已選的 1 張").assertIsDisplayed()
+        compose.onNodeWithText("照片詳細資訊").assertIsDisplayed()
         // 時間字樣會出現兩次：格子右下角的標籤＋抽屜標題旁
         compose.onAllNodesWithText("01:10", useUnmergedTree = true).assertCountEquals(2)
+    }
+
+    /** 已加的標籤在輸入框上方（同照片編輯抽屜）。 */
+    @Test
+    fun 已加的標籤在新增標籤輸入框上方() {
+        show(stateOf(details = (0..1).associateWith { ShotDetails("2026-01-01", tags = listOf("玩水")) }))
+        val tag = compose.onNodeWithContentDescription("移除標籤 玩水").fetchSemanticsNode().boundsInRoot
+        val input = compose.onNodeWithContentDescription("新增標籤").fetchSemanticsNode().boundsInRoot
+        assertTrue("標籤 $tag 要在輸入框 $input 上面", tag.bottom <= input.top)
+    }
+
+    /** 建議列不再有「用過的地點」「用過的標籤」小標。 */
+    @Test
+    fun 建議列沒有小標() {
+        show(
+            stateOf(),
+            placeSuggestions = listOf("冬山河"),
+            tagSuggestions = listOf(TagNameKind("阿明", "person")),
+        )
+        compose.onNodeWithText("冬山河").assertIsDisplayed()
+        compose.onNodeWithText("阿明").assertIsDisplayed()
+        compose.onNodeWithText("用過的地點").assertDoesNotExist()
+        compose.onNodeWithText("用過的標籤").assertDoesNotExist()
+    }
+
+    @Test
+    fun 點建議標籤會加進去() {
+        var tags: List<String>? = null
+        show(stateOf(), onEditTags = { tags = it }, tagSuggestions = listOf(TagNameKind("阿明", "person")))
+        compose.onNodeWithText("阿明").performClick()
+        assertEquals(listOf("阿明"), tags)
+    }
+
+    /** 標題列不要太高：【套用】是小鈕，整列約 52dp（原本大按鈕撐到快 70dp）。 */
+    @Test
+    fun 標題列不超過五十六dp() {
+        show(stateOf())
+        val title = compose.onNodeWithText("照片詳細資訊").fetchSemanticsNode().boundsInRoot
+        val apply = compose.onNodeWithText("套用").fetchSemanticsNode()
+        val density = apply.layoutInfo.density.density
+        // 觸控區 44dp ＋ 上下 4dp
+        assertTrue("套用的觸控區高 ${apply.boundsInRoot.height / density}dp", apply.boundsInRoot.height / density <= 48f)
+        assertTrue(title.height > 0f)
     }
 }
