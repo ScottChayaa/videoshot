@@ -126,7 +126,7 @@ fun Step3DetailsScreen(
                 )
             }
 
-            // 快速選取列（原型 .wz-tools.pick）。FlowRow：與第二步的工具列同理，**換行不截斷**（手冊 §四）
+            // 快速選取列（原型 .wz-tools.pick）。FlowRow：**換行不截斷**（手冊 §四）
             FlowRow(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),

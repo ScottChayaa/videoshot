@@ -2,8 +2,6 @@ package com.xenyaa.videoshot.wizard
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -38,7 +36,6 @@ class Step2GridScreenTest {
         onToggle: (Int) -> Unit = {},
         onSelectAll: () -> Unit = {},
         onShowAll: (Boolean) -> Unit = {},
-        onOnlySelected: (Boolean) -> Unit = {},
         onNext: () -> Unit = {},
         onTakeShot: () -> Unit = {},
         bitmapFor: suspend (Int) -> androidx.compose.ui.graphics.ImageBitmap? = { source.bitmapOf(it) },
@@ -54,7 +51,6 @@ class Step2GridScreenTest {
                 onSelectAll = onSelectAll,
                 onTakeShot = onTakeShot,
                 onShowAll = onShowAll,
-                onOnlySelected = onOnlySelected,
                 onDismissHint = {},
                 onNext = onNext,
             )
@@ -69,7 +65,6 @@ class Step2GridScreenTest {
         taken: Set<Int> = emptySet(),
         showAll: Boolean = false,
         lowQuality: Boolean = false,
-        onlySelected: Boolean = false,
     ) = Step2State(
         plan = FramePlan("v", 3, List(frameCount) { it * 10.0 }, lowQuality),
         ready = (0 until frameCount).toSet(),
@@ -79,18 +74,17 @@ class Step2GridScreenTest {
         selected = selected,
         taken = taken,
         showAll = showAll,
-        onlySelected = onlySelected,
         hintSeen = true,
     )
 
-    /** 工具列在縮圖牆裡：往下滑到底時跟著捲走，狀態列留著。 */
+    /** 全選與截圖在底部列：捲到縮圖牆最後面也還按得到（原本在牆的第一列，會跟著捲走）。 */
     @Test
-    fun 工具列跟著縮圖一起捲走() {
+    fun 底部列的按鈕捲到底也還在() {
         show(loaded(frameCount = 60))
-        compose.onNodeWithText("全部選取").assertIsDisplayed()
-        compose.onNode(androidx.compose.ui.test.hasScrollAction()).performScrollToIndex(60)
-        compose.onNodeWithText("全部選取").assertDoesNotExist()
-        compose.onNodeWithText("60 張照片").assertIsDisplayed()
+        compose.onNode(androidx.compose.ui.test.hasScrollAction()).performScrollToIndex(59)
+        compose.onNodeWithText("全選").assertIsDisplayed()
+        compose.onNodeWithText("截圖").assertIsDisplayed()
+        compose.onNodeWithText("下一步", substring = true).assertIsDisplayed()
     }
 
     @Test
@@ -127,13 +121,14 @@ class Step2GridScreenTest {
     }
 
     @Test
-    fun 工具列三顆按鈕依規格的順序排列() {
-        // 規格第五節的線框：全部選取│截圖│只看已選。
-        // 階段 4b 時這條測試斷言「沒有截圖」—— 那是當時的範圍，階段 4c 把它補上了
+    fun 底部列依序是全選截圖下一步_沒有只看已選() {
         show(loaded())
-        compose.onNodeWithText("全部選取").assertIsDisplayed()
-        compose.onNodeWithText("截圖").assertIsDisplayed()
-        compose.onNodeWithText("只看已選").assertIsDisplayed()
+        val x = listOf("全選", "截圖", "下一步（0 張）").map {
+            compose.onNodeWithText(it).assertIsDisplayed().fetchSemanticsNode().boundsInRoot.left
+        }
+        assertEquals(x.sorted(), x)
+        compose.onNodeWithText("只看已選").assertDoesNotExist()
+        compose.onNodeWithText("全部選取").assertDoesNotExist()
     }
 
     @Test
@@ -145,15 +140,15 @@ class Step2GridScreenTest {
     }
 
     @Test
-    fun 按全部選取會回報() {
+    fun 按全選會回報() {
         var called = 0
         show(loaded(), onSelectAll = { called++ })
-        compose.onNodeWithText("全部選取").performClick()
+        compose.onNodeWithText("全選").performClick()
         assertEquals(1, called)
     }
 
     @Test
-    fun 底部一列只有下一步_不再顯示候選數與已選數() {
+    fun 底部列不再顯示候選數與已選數() {
         show(loaded(frameCount = 4, kept = listOf(0, 1, 2), selected = setOf(0, 2)))
         compose.onNodeWithText("下一步（2 張）").assertIsDisplayed()
         compose.onNodeWithText("· 已選", substring = true).assertDoesNotExist()
@@ -308,28 +303,6 @@ class Step2GridScreenTest {
         compose.onAllNodesWithText("🔒", useUnmergedTree = true).assertCountEquals(0)
     }
 
-    /** 【只看已選】是切換型按鈕，狀態進語意；文字固定，不再在「看全部」間切換。 */
-    @Test
-    fun 只看已選是切換狀態() {
-        show(loaded(onlySelected = true))
-        compose.onNodeWithText("只看已選").assertIsSelected()
-        compose.onAllNodesWithText("看全部").assertCountEquals(0)
-    }
-
-    @Test
-    fun 沒開只看已選時是未選取() {
-        show(loaded(onlySelected = false))
-        compose.onNodeWithText("只看已選").assertIsNotSelected()
-    }
-
-    @Test
-    fun 按只看已選會回報相反值() {
-        var got: Boolean? = null
-        show(loaded(onlySelected = true), onOnlySelected = { got = it })
-        compose.onNodeWithText("只看已選").performClick()
-        assertEquals(false, got)
-    }
-
     @Test
     fun 手動格的時間標籤前面有截圖二字() {
         val base = Step2State(plan = source.plan, converging = false, hintSeen = true)
@@ -346,7 +319,7 @@ class Step2GridScreenTest {
     fun 沒看過提示時顯示新版提示卡() {
         val s = loaded().copy(hintSeen = false)
         show(s)
-        compose.onNodeWithText("點一下就收藏；每格右上角的 ▶ 可以跳到那一段看看。").assertIsDisplayed()
+        compose.onNodeWithText("點一下收藏・長按看看那一段").assertIsDisplayed()
         compose.onNodeWithContentDescription("一次性提示").assertExists()
     }
 }

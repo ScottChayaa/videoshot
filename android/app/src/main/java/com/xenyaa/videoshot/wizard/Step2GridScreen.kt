@@ -23,7 +23,6 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material3.Icon
@@ -52,8 +51,6 @@ import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.VsActionDock
 import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsHintCard
-import com.xenyaa.videoshot.ui.common.PillStyle
-import com.xenyaa.videoshot.ui.common.VsToolbarPill
 import com.xenyaa.videoshot.ui.thumb.ThumbGridGap
 import com.xenyaa.videoshot.ui.common.VsSelectedBadge
 import com.xenyaa.videoshot.ui.icons.VsIcons
@@ -68,7 +65,7 @@ import com.xenyaa.videoshot.ui.theme.focusRing
  *
  * 這個 composable 只負責畫；規則全在 [Step2Store]，互動一律往上回報。
  */
-@OptIn(ExperimentalFoundationApi::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun Step2GridScreen(
     state: Step2State,
@@ -85,7 +82,6 @@ fun Step2GridScreen(
     onSelectAll: () -> Unit,
     onTakeShot: () -> Unit,
     onShowAll: (Boolean) -> Unit,
-    onOnlySelected: (Boolean) -> Unit,
     onDismissHint: () -> Unit,
     onNext: () -> Unit,
     /** 上一次【截圖】的失敗原因；null 代表沒有要說的。 */
@@ -114,34 +110,10 @@ fun Step2GridScreen(
             horizontalArrangement = Arrangement.spacedBy(ThumbGridGap),
             verticalArrangement = Arrangement.spacedBy(ThumbGridGap),
         ) {
-            // 工具列與一次性提示放在縮圖牆裡、佔滿整列：往下滑時跟著縮圖一起捲走，把畫面讓給縮圖
-            item(key = "toolbar", span = { GridItemSpan(maxLineSpan) }) {
-                // FlowRow：工具列**換行不截斷**，文字不會被切掉（手冊 §四第二步）
-                // 順序照規格第五節的線框：全部選取│截圖│只看已選；大小與間距跟第三步的快速選取列一樣
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth()
-                        .padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s2),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    itemVerticalAlignment = Alignment.CenterVertically,
-                ) {
-                    VsToolbarPill("全部選取", onSelectAll, icon = VsIcons.Check, style = PillStyle.Quiet)
-                    VsToolbarPill("截圖", onTakeShot, icon = VsIcons.ImagePlus, style = PillStyle.Quiet)
-                    // 切換型：文字固定「只看已選」，開關狀態用主色底＋語意 selected 表達
-                    VsToolbarPill(
-                        "只看已選",
-                        { onOnlySelected(!state.onlySelected) },
-                        icon = VsIcons.Eye,
-                        selected = state.onlySelected,
-                        isToggle = true,
-                        style = PillStyle.Quiet,
-                    )
-                }
-            }
             if (!state.hintSeen) {
                 item(key = "hint", span = { GridItemSpan(maxLineSpan) }) {
                     VsHintCard(
-                        "點一下就收藏；每格右上角的 ▶ 可以跳到那一段看看。",
+                        "點一下收藏・長按看看那一段",
                         Modifier.semantics { contentDescription = "一次性提示" },
                         onDismiss = onDismissHint,
                     )
@@ -167,9 +139,13 @@ fun Step2GridScreen(
             }
         }
 
-        // 底部**只有一列**、只有【下一步】，底下不再疊導覽列（手冊 §四第二步）；
-        // 張數在頂部狀態列、已選數在按鈕上，不另外寫（2026-10-17 拿掉「N 張候選 · 已選 k」）
+        // 底部**只有一列**：【全選】【截圖】【下一步】，底下不再疊導覽列（手冊 §四第二步）；
+        // 張數在頂部狀態列、已選數在按鈕上，不另外寫（2026-10-17 拿掉「N 張候選 · 已選 k」）。
+        // 全選與截圖原本是縮圖牆第一列的小膠囊，捲下去就得捲回頂端才按得到（2026-10-17 移到這裡）；
+        // 用次要按鈕、不帶圖示：跟【下一步】同高，主色只留給【下一步】，也省下寬度給「下一步（123 張）」
         VsActionDock {
+            VsButton("全選", onSelectAll, variant = ButtonVariant.Secondary)
+            VsButton("截圖", onTakeShot, variant = ButtonVariant.Secondary)
             VsButton(
                 "下一步（${state.selectedCount} 張）",
                 onNext,

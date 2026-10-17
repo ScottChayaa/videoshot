@@ -238,7 +238,7 @@ class Step2StoreTest {
     }
 
     @Test
-    fun 全部選取不把已收藏的算進去() = runTest(dispatcher) {
+    fun 全選不把已收藏的算進去() = runTest(dispatcher) {
         val s = store(FakeFrameSource.of(frameCount = 4, perSheet = 4), taken = setOf(2), scope = this)
         advanceUntilIdle()
 
@@ -247,7 +247,7 @@ class Step2StoreTest {
     }
 
     @Test
-    fun 全部選取再按一次是全不選() = runTest(dispatcher) {
+    fun 全選再按一次是全不選() = runTest(dispatcher) {
         val s = store(FakeFrameSource.of(frameCount = 3, perSheet = 3), scope = this)
         advanceUntilIdle()
 
@@ -259,7 +259,7 @@ class Step2StoreTest {
     }
 
     @Test
-    fun 全部選取只作用在看得到的格子上() = runTest(dispatcher) {
+    fun 全選只作用在看得到的格子上() = runTest(dispatcher) {
         val source = FakeFrameSource(
             plan = FramePlan("v", 3, List(4) { it * 10.0 }, lowQuality = false),
             perSheet = 4,
@@ -271,22 +271,6 @@ class Step2StoreTest {
         // 收斂後只看得到第 0 格
         s.selectAll()
         assertEquals(setOf(0), s.state.value.selected)
-    }
-
-    // ---- 只看已選 ----
-
-    @Test
-    fun 只看已選會濾掉沒勾的() = runTest(dispatcher) {
-        val s = store(FakeFrameSource.of(frameCount = 4, perSheet = 4), scope = this)
-        advanceUntilIdle()
-
-        s.toggle(1)
-        s.toggle(3)
-        s.setOnlySelected(true)
-        assertEquals(listOf(1, 3), s.state.value.visible)
-
-        s.setOnlySelected(false)
-        assertEquals(listOf(0, 1, 2, 3), s.state.value.visible)
     }
 
     // ---- 播放中的格子 ----
@@ -543,16 +527,6 @@ class Step2StoreTest {
         val s = storeOf(frameCount = 0)
         advanceUntilIdle()
         assertEquals(0, s.addManual(atSec = 3.0, file = File("/tmp/a.webp")))
-        s.close()
-    }
-
-    @Test
-    fun 只看已選時手動格照樣在() = runTest(dispatcher) {
-        val s = storeOf(frameCount = 10)
-        advanceUntilIdle()
-        val cell = s.addManual(atSec = 15.0, file = File("/tmp/a.webp"))
-        s.setOnlySelected(true)
-        assertTrue(s.state.value.visible.contains(cell))
         s.close()
     }
 

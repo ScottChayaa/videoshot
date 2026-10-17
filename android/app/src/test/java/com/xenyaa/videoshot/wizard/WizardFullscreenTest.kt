@@ -86,16 +86,16 @@ class WizardFullscreenTest {
         }
         compose.waitForIdle()
         compose.onNodeWithText("宜蘭兩天一夜").assertIsDisplayed()
-        compose.onNodeWithText("全部選取").assertIsDisplayed()
+        compose.onNodeWithText("全選").assertIsDisplayed()
         compose.runOnUiThread { fs.enter(landscape = true) }
         compose.waitForIdle()
         compose.onNodeWithText("宜蘭兩天一夜").assertDoesNotExist()
-        compose.onNodeWithText("全部選取").assertDoesNotExist()
+        compose.onNodeWithText("全選").assertDoesNotExist()
         compose.onNodeWithText("下一步", substring = true).assertDoesNotExist()
         compose.runOnUiThread { fs.exit() }
         compose.waitForIdle()
         compose.onNodeWithText("宜蘭兩天一夜").assertIsDisplayed()
-        compose.onNodeWithText("全部選取").assertIsDisplayed()
+        compose.onNodeWithText("全選").assertIsDisplayed()
     }
 
     /** 捲到後面幾列、進全螢幕再離開，縮圖牆要停在原來的位置，不跳回頂端。 */
@@ -113,7 +113,7 @@ class WizardFullscreenTest {
         compose.onNodeWithContentDescription("第 1 格 00:00").assertIsDisplayed()
         compose.onNodeWithContentDescription("第 60 格 09:50").assertDoesNotExist()
 
-        compose.onNode(hasScrollAction()).performScrollToIndex(60)
+        compose.onNode(hasScrollAction()).performScrollToIndex(59)
         compose.waitForIdle()
         compose.onNodeWithContentDescription("第 60 格 09:50").assertIsDisplayed()
 

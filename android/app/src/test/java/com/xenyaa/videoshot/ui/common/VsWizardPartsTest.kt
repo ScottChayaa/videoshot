@@ -85,8 +85,8 @@ class VsWizardPartsTest {
 
     /** 15A 最終審查：切換型小按鈕的開關狀態要進語意。 */
     @Test fun 工具列小按鈕的選取狀態進語意() {
-        compose.setContent { VideoshotTheme { VsToolbarPill("只看已選", {}, selected = true, isToggle = true) } }
-        compose.onNodeWithText("只看已選").assertIsSelected()
+        compose.setContent { VideoshotTheme { VsToolbarPill("隱藏相似", {}, selected = true, isToggle = true) } }
+        compose.onNodeWithText("隱藏相似").assertIsSelected()
     }
 
     /** 一般動作鈕不帶 Selected，免得被唸成「未選取」。 */

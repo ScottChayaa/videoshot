@@ -55,7 +55,6 @@ data class Step2State(
     val kept: List<Int> = emptyList(),
     val hiddenCount: Int = 0,
     val showAll: Boolean = false,
-    val onlySelected: Boolean = false,
     val selected: Set<Int> = emptySet(),
     val taken: Set<Int> = emptySet(),
     val playingFrame: Int? = null,
@@ -104,9 +103,8 @@ data class Step2State(
             // （載入途中 converging 還是 true 時 base 直接就是 ready），於是同一格會出現兩次 ——
             // 牆上的 key 就是格號，重複會讓 LazyVerticalGrid 直接丟例外
             val all = (base + manual.map { it.cellIndex }).distinct()
-            val shown = if (onlySelected) all.filter { it in selected } else all
             // 依時間排序：手動圖要插在「對應時間的位置」（規格第五節）
-            return shown.sortedBy { atSecOf(it) }
+            return all.sortedBy { atSecOf(it) }
         }
 
     /**
@@ -234,10 +232,6 @@ class Step2Store(
         _state.value = _state.value.copy(showAll = value)
     }
 
-    fun setOnlySelected(value: Boolean) {
-        _state.value = _state.value.copy(onlySelected = value)
-    }
-
     /**
      * 切換勾選。
      * @return false 代表這一格先前已收藏過 —— 呼叫端要顯示「這一格已經收藏過了」
@@ -254,7 +248,7 @@ class Step2Store(
         return true
     }
 
-    /** 全選／全不選切換，**已收藏的格子不納入**，而且只作用在看得到的格子上（規格第五節工具列）。 */
+    /** 全選／全不選切換，**已收藏的格子不納入**，而且只作用在看得到的格子上（規格第五節底部列）。 */
     fun selectAll() {
         val current = _state.value
         val selectable = current.visible.filterNot { it in current.taken }.toSet()

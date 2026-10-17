@@ -188,7 +188,7 @@ object VsIcons {
         )
     }
 
-    /** 只看已選（原型 `ICONS.eye`；`<circle cx=12 cy=12 r=3>` 改寫成兩段弧線）。 */
+    /** 眼睛（原型 `ICONS.eye`；`<circle cx=12 cy=12 r=3>` 改寫成兩段弧線）。 */
     val Eye: ImageVector by lazy {
         strokeIcon(
             "eye",
