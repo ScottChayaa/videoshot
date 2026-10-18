@@ -73,29 +73,17 @@ class WizardViewModel(
     private val _step = MutableStateFlow(WizardStep.URL)
     val step: StateFlow<WizardStep> = _step.asStateFlow()
 
-    /** 走過的最遠步驟；進度列只讓使用者點回「已完成」的步驟。 */
-    private val _furthest = MutableStateFlow(WizardStep.URL)
-    val furthest: StateFlow<WizardStep> = _furthest.asStateFlow()
-
-    private val _hasDraft = MutableStateFlow(false)
-    val hasDraft: StateFlow<Boolean> = _hasDraft.asStateFlow()
+    /** 有沒有值得留的草稿：一離開第一步就有。 */
+    private var hasDraft = false
 
     fun goTo(target: WizardStep) {
         _step.value = target
-        if (target.order > _furthest.value.order) _furthest.value = target
         // 一離開第一步就有草稿可留 —— 使用者已經投入了選擇
-        if (target != WizardStep.URL) _hasDraft.value = true
+        if (target != WizardStep.URL) hasDraft = true
         // 每次進第三步都重建 —— 使用者可能回第二步改了勾選，舊的格子清單已經不對了
         if (target == WizardStep.DETAILS) openStep3()
         // 存檔時機之一：步驟變了。openStep3() 已經跑過，_step3 才有值
         if (target != WizardStep.URL) saveDraft()
-    }
-
-    /** 點進度列上的某一段。只有已完成的步驟能點回去。 */
-    fun jumpTo(target: WizardStep) {
-        // 走 goTo 而不是直接設 _step —— 第三步每次進場都要重建格子清單，
-        // 而使用者很可能正是回第二步改了勾選、補了截圖才點回來的
-        if (target.order <= _furthest.value.order) goTo(target)
     }
 
     /**
@@ -107,7 +95,7 @@ class WizardViewModel(
     fun back(): Boolean {
         val current = _step.value
         if (current == WizardStep.URL) return false
-        if (_hasDraft.value) saveDraft()
+        if (hasDraft) saveDraft()
         _step.value = WizardStep.entries.first { it.order == current.order - 1 }
         return true
     }
@@ -144,7 +132,7 @@ class WizardViewModel(
      * 返回只能一步一步退，從第一步離開之前一定是在第二步（磁碟上的草稿存的也是這一步）。
      */
     fun onExitKeepingDraft() {
-        if (_hasDraft.value && _loaded.value != null) resumeOnEnter = WizardStep.PICK
+        if (hasDraft && _loaded.value != null) resumeOnEnter = WizardStep.PICK
     }
 
     /**
@@ -157,22 +145,10 @@ class WizardViewModel(
         resumeJob = null
         pendingDraft = null
         resumeOnEnter = null
-        _hasDraft.value = false
+        hasDraft = false
         _status.value = Step1Status.Idle
         resetToStart()
         viewModelScope.launch { videoIds.forEach { runCatching { data.clearDraft(it) } } }
-    }
-
-    fun keepDraft() {
-        _hasDraft.value = true
-        saveDraft()
-    }
-
-    /** 捨棄草稿**就是刪目錄** —— 手動圖在完成前都在那裡，不刪就會留下孤兒資料（規格第五節）。 */
-    fun discardDraft() {
-        _hasDraft.value = false
-        val videoId = _loaded.value?.videoId ?: return
-        viewModelScope.launch { runCatching { data.clearDraft(videoId) } }
     }
 
     // ---- 草稿 ----
@@ -183,13 +159,26 @@ class WizardViewModel(
     /** 正在續做的協程。按 X 放棄時要取消。 */
     private var resumeJob: Job? = null
 
+    /** ViewModel 跟著 app 啟動一起建；這之後才建或才動過的草稿目錄，啟動時的清理不碰。 */
+    private val startedAt = System.currentTimeMillis()
+
     private fun loadDraft() {
         viewModelScope.launch {
-            val text = runCatching { data.currentDraft() }.getOrNull() ?: return@launch
+            val text = runCatching { data.currentDraft() }.getOrNull()
             // 解不出來就當作沒有草稿 —— 壞掉的草稿只該讓續做不發生，不該讓 app 開不起來
-            val payload = DraftCodec.decode(text) ?: return@launch
-            pendingDraft = payload
-            if (entered) resumeDraft()
+            val payload = text?.let { DraftCodec.decode(it) }
+            if (payload != null) {
+                pendingDraft = payload
+                if (entered) resumeDraft()
+            }
+            // 順手清掉沒有草稿指著的影片目錄（換影片、當掉、儀器測試留下的）。
+            // 目前的草稿與正在開的影片不刪；清不掉就算了，下次啟動再清
+            runCatching {
+                data.sweepDraftFiles(
+                    keep = { setOfNotNull(payload?.videoId, pendingDraft?.videoId, _loaded.value?.videoId) },
+                    olderThanMillis = startedAt,
+                )
+            }
         }
     }
 
@@ -256,7 +245,7 @@ class WizardViewModel(
     /**
      * 把目前的狀態寫成草稿。
      *
-     * **只在這幾個時機呼叫**：步驟變了（含返回上一步）、套用過一輪圖資、[keepDraft]。
+     * **只在這幾個時機呼叫**：步驟變了（含返回上一步）、套用過一輪圖資。
      * 不是每次勾選都存 —— 一次取圖會勾上百次，而勾選丟掉的代價（重點幾下）
      * 遠小於圖資丟掉的代價（重打一輪字）。
      */
@@ -335,9 +324,13 @@ class WizardViewModel(
 
     fun openRecent(videoId: String) {
         // 使用者自己開了一支影片：還沒接上的草稿（續做時沒網路而留下的）就不再自動接上，
-        // 這支影片進第二步時存的草稿會蓋過它
+        // 這支影片進第二步時存的草稿會蓋過它，所以它的目錄也一起清
+        val stale = pendingDraft?.videoId
         pendingDraft = null
-        viewModelScope.launch { openRecentAndAwait(videoId) }
+        viewModelScope.launch {
+            openRecentAndAwait(videoId) ?: return@launch
+            if (stale != null && stale != videoId) runCatching { data.deleteDraftFiles(stale) }
+        }
     }
 
     /**
@@ -363,10 +356,16 @@ class WizardViewModel(
             // no_storyboard 與 parse_failed **仍然進第二步** —— 縮圖牆空白，但可以截圖補上
             // （規格第五節第一步的表、第七節降級表）
             FetchResult.OK, FetchResult.NO_STORYBOARD, FetchResult.PARSE_FAILED -> {
+                val previous = _loaded.value?.videoId
                 val video = LoadedVideo(videoId = videoId, page = page)
                 _loaded.value = video
                 // 建狀態機要先問一次 DB（已收藏的格號），所以**轉圈圈留到這之後才收掉**
                 openStep2(video)
+                // 換了一支影片：上一支的草稿目錄（sheet 與手動圖）再也接不回來 —— 草稿只記最近一支，
+                // 這一支進第二步就會蓋掉它。openStep2 已經關掉上一支的狀態機，不會有下載還在寫那裡
+                if (previous != null && previous != videoId) {
+                    viewModelScope.launch { runCatching { data.deleteDraftFiles(previous) } }
+                }
                 _status.value = Step1Status.Idle
                 goTo(WizardStep.PICK)
                 video
@@ -679,7 +678,7 @@ class WizardViewModel(
                 runCatching { data.clearDraft(video.videoId) }
                 // 跟上面兩步一樣是另一個 DB（cache.db），沒做到只影響篩選抽屜的順序
                 runCatching { markFacetsUsed(state.usedPlaces, state.usedTags) }
-                _hasDraft.value = false
+                hasDraft = false
                 // 第 4 步的「標記有變更」由 repo 的 onChanged 做掉了，這裡不必再呼叫
                 _finished.emit(Finished(eventDate = picks.first().eventDate, count = picks.size))
                 // 回到第一步。**不做這件事的話使用者會停在一個已經入庫的第三步上**，
@@ -706,7 +705,6 @@ class WizardViewModel(
         cropJob?.cancel()
         cropJob = null
         cropped = CropOutcome(emptyList(), emptyList())
-        _furthest.value = WizardStep.URL
         _step.value = WizardStep.URL
         // 剛入庫的影片要出現在「最近取過的影片」清單最上面
         viewModelScope.launch { _recent.value = runCatching { data.recentVideos(20) }.getOrDefault(emptyList()) }

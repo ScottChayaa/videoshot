@@ -20,6 +20,7 @@ import kotlinx.coroutines.sync.withLock
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -89,10 +90,21 @@ class StoryboardFrameSourceTest {
         compute = Dispatchers.Default,
     )
 
+    /**
+     * 寫在 app 的快取資料夾裡、測完就刪。**不能用 `filesDir/drafts/`** —— 那是 app 真正的草稿資料夾，
+     * 在實機上跑過一次就留下一個 `drafts/vid/`（2026-10-18 在 scott 的手機上找到）。
+     */
+    private val workDir get() = File(context.cacheDir, "StoryboardFrameSourceTest")
+
     @Before
     fun setUp() {
-        sheetsDir = File(context.filesDir, "drafts/vid/sheets")
-        sheetsDir.deleteRecursively()
+        workDir.deleteRecursively()
+        sheetsDir = File(workDir, "sheets")
+    }
+
+    @After
+    fun tearDown() {
+        workDir.deleteRecursively()
     }
 
     @Test

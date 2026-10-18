@@ -84,6 +84,17 @@ interface WizardData {
     suspend fun saveDraft(json: String)
     suspend fun currentDraft(): String?
     suspend fun clearDraft(videoId: String)
+
+    /**
+     * 只刪這支影片的草稿目錄（sheet 與手動圖），**不動 `draft` 列**。
+     * 換了一支影片時清上一支用 —— 草稿只記最近一支，上一支的目錄再也接不回來。
+     */
+    suspend fun deleteDraftFiles(videoId: String) {}
+
+    /**
+     * 清掉草稿資料夾裡**沒有草稿指著**的影片目錄（[sweepDraftDirs]）。[keep] 每刪一個目錄前都重新問一次。
+     */
+    suspend fun sweepDraftFiles(keep: () -> Set<String>, olderThanMillis: Long) {}
 }
 
 /** 進場裁圖的結果。`missing` 交給回填（規格第十一節）。 */

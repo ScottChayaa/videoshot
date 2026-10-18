@@ -54,6 +54,7 @@ import com.xenyaa.videoshot.wizard.frames.EmptyFrameSource
 import com.xenyaa.videoshot.wizard.frames.FrameSource
 import com.xenyaa.videoshot.wizard.frames.StoryboardFrameSource
 import com.xenyaa.videoshot.wizard.frames.framePlanOf
+import com.xenyaa.videoshot.wizard.sweepDraftDirs
 import com.xenyaa.videoshot.youtube.OkHttpYoutube
 import com.xenyaa.videoshot.youtube.Youtube
 import okhttp3.OkHttpClient
@@ -281,8 +282,18 @@ class AppContainer(context: Context) : AppRootDeps {
             /** 清草稿**連目錄一起刪** —— 手動圖在完成前都在那裡（規格第五節）。 */
             override suspend fun clearDraft(videoId: String) {
                 cacheRepo.clearDraft()
+                deleteDraftFiles(videoId)
+            }
+
+            override suspend fun deleteDraftFiles(videoId: String) {
                 withContext(Dispatchers.IO) {
                     File(appContext.filesDir, "drafts/$videoId").deleteRecursively()
+                }
+            }
+
+            override suspend fun sweepDraftFiles(keep: () -> Set<String>, olderThanMillis: Long) {
+                withContext(Dispatchers.IO) {
+                    sweepDraftDirs(File(appContext.filesDir, "drafts"), keep, olderThanMillis)
                 }
             }
         }

@@ -56,7 +56,7 @@ class VsWizardPartsTest {
         compose.onNodeWithText("1. 貼網址", substring = true).assertHeightIsAtLeast(44.dp)
     }
 
-    /** 沿用既有精靈行為：已到達過的後面步驟也能點（WizardViewModel.jumpTo + furthest）。 */
+    /** 已到達過的後面步驟也能點（[furthest] 參數）。 */
     @Test fun 已到達的後面步驟可以點() {
         var went = -1
         compose.setContent { VideoshotTheme { VsStepIndicator(steps, current = 0, furthest = 2, onStepClick = { went = it }) } }

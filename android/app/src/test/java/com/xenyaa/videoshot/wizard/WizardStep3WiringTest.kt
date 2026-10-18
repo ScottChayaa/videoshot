@@ -317,7 +317,7 @@ class WizardStep3WiringTest {
     // ---- 最終複審 Finding 2：從進度列跳回第三步也要重建 ----
 
     @Test
-    fun 從進度列點回第三步會重建格子清單() = runTest(dispatcher) {
+    fun 回第二步改勾選再進第三步會重建格子清單() = runTest(dispatcher) {
         val data = RecordingData(pageOf())
         val vm = vmWith(data)
         vm.openRecent("v1"); advanceUntilIdle()
@@ -326,7 +326,7 @@ class WizardStep3WiringTest {
         vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
         vm.back()
         vm.step2.value!!.toggle(1)   // 回第二步取消一格
-        vm.jumpTo(WizardStep.DETAILS); advanceUntilIdle()
+        vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
         assertEquals(listOf(0), vm.step3.value!!.state.value.cells.map { it.cell })
         vm.finish(force = true); advanceUntilIdle()
         // 取消掉的那一格不能還是進了圖庫

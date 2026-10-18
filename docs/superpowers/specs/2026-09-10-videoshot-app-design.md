@@ -308,10 +308,10 @@ videoshot/
 |---|---|
 | `VsTopBar`、`VsBottomNav` | 頂欄（固定 60dp＋1dp 分隔線；首頁、相簿、相簿內頁、封存相簿不畫分隔線）與底部導覽（上緣分隔線一個實體像素；「取圖」是主色實心方塊；最後一格依帳號連結狀態顯示人像或頭像字母，文字維持「帳號」） |
 | `VsTagChip`、`ChipKind` | 標籤小膠囊，帶種類圖示與種類色；**沒選的一律是文字色 4% 半透明的中性底、無框**（一般與迷你尺寸都是，2026-10-12；主色只留給「已選」）；可點的分**動作型**（預設，當按鈕）與**切換型**（`isToggle`，帶選取語意，選取時變主色實心＋白字）。Lightbox 的深色底另用白色 12% 半透明（同一條規則的深色版，見第六節） |
-| `VsButton`、`VsToolbarPill` | 按鈕（主要／次要／純文字／破壞性）與工具列小按鈕；紅色只給破壞性 |
+| `VsButton`、`VsIconButton`、`VsToolbarPill` | 按鈕（主要／次要／純文字／破壞性）、只有圖示的方形按鈕（跟文字按鈕同高，例如取圖第二步的【全選】【截圖】）與工具列小按鈕；紅色只給破壞性 |
 | `VsListRow`、`VsSettingGroup`、`VsSettingNote`、`VsRadioRow`、`VsStepper`、`VsSelectField` | 清單列與設定頁元件組（帳號頁與其子畫面一律用它們） |
 | `VsSearchTopBar`、`VsClearQueryButton` | 頂欄的搜尋模式（整條頂欄換成 Dense 搜尋框＋【取消】，同高、分隔線跟著頂欄（相簿不畫））與搜尋框裡的【✕】；相簿清單與首頁篩選抽屜共用同一種搜尋框 |
-| `VsTextField`、`VsEmptyState`、`VsHintCard`、`VsActionDock`、`VsStepIndicator`、`VsUnderlineTabs` | 輸入欄、空狀態、可關閉提示卡、底部動作列（自動避開系統導覽列與鍵盤）、步驟條（2026-10-13 起取圖精靈不再使用，元件留在元件總覽頁）、底線分頁 |
+| `VsTextField`、`VsEmptyState`、`VsHintCard`、`VsActionDock`、`VsStepIndicator`、`VsUnderlineTabs` | 輸入欄、空狀態、可關閉提示卡、底部動作列（自動避開系統導覽列與鍵盤；跟底部導覽同高）、步驟條（2026-10-13 起取圖精靈不再使用，元件留在元件總覽頁）、底線分頁 |
 | `VsBottomSheet` | **全 app 的底部抽屜一律用它**（不直接用 Material 的 `ModalBottomSheet`）：底色與拖曳把手統一。抽屜頂部的距離（把手上 12、下 4dp，Material 預設上下各 22dp）只在 `VsBottomSheet.kt` 的 `SheetDragHandleTop`／`SheetDragHandleBottom` 調 |
 | `VsSheetHeader`、`VsTextAction` | 底部抽屜的標題列（固定 48dp，右邊有沒有按鈕都一樣高，下面一條一個實體像素的分隔線）、文字樣式的動作鈕（能按時主色＋底線，不能按時灰字） |
 | `VsChipSkeleton` | 小膠囊的骨架屏（資料還沒畫上去前的灰色色塊，一道亮光由左往右連續掃過整區（shimmer）；TalkBack 唸「載入中…」） |
@@ -891,6 +891,10 @@ flowchart LR
   還在就直接用，被清掉才重新下載**。指紋不存進草稿 —— sheet 在本機時重算是純 CPU，
   比維護一份會與 sheet 不同步的快取可靠。
 - 完成或按【✕】後清除。手動圖在完成前都在草稿目錄，**捨棄草稿就是刪目錄，不會留下孤兒資料**。
+- **每支進過第二步的影片都有一個 `drafts/{videoId}/`**（sheet 一進第二步就下載），但草稿只記一支，所以另外兩道清理（2026-10-18）：
+  - 在第一步**換開另一支影片**時，刪掉上一支的目錄（重開同一支不刪）。`draft` 列不必動，新影片進第二步就會蓋掉它。
+  - **app 啟動時**掃一次 `drafts/`，刪掉目前草稿與正在開的影片以外的目錄；這次啟動之後才動過的目錄不碰（可能正在用）。
+    換影片、app 當掉、儀器測試留下的都會在這裡收掉。
 
 > 曾評估「按下一步時就先入庫、標記為未完成」。否決：那等於把已移除的待處理佇列請回來（首頁或某處必須顯示這些未完成的圖）。
 

@@ -80,6 +80,10 @@ class WizardDraftTest {
         override suspend fun saveDraft(json: String) { stored = json }
         override suspend fun currentDraft(): String? = stored
         override suspend fun clearDraft(videoId: String) { clearedVideoId = videoId; stored = null }
+        val deletedFiles = mutableListOf<String>()
+        override suspend fun deleteDraftFiles(videoId: String) { deletedFiles += videoId }
+        var sweepKeep: (() -> Set<String>)? = null
+        override suspend fun sweepDraftFiles(keep: () -> Set<String>, olderThanMillis: Long) { sweepKeep = keep }
     }
 
     /**
@@ -208,6 +212,69 @@ class WizardDraftTest {
         assertEquals(WizardStep.URL, vm.step.value)
     }
 
+    // ---- 草稿目錄的清理（2026-10-18）----
+
+    @Test
+    fun 啟動時清理草稿資料夾_保留目前草稿那支() = runTest(dispatcher) {
+        val payload = DraftPayload("v1", step = 2, level = 3, frameCount = 4)
+        val data = DraftData(DraftCodec.encode(payload))
+        vmWith(data)
+        advanceUntilIdle()
+        assertEquals(setOf("v1"), data.sweepKeep!!())
+    }
+
+    @Test
+    fun 啟動時清理草稿資料夾_沒有草稿就什麼都不留() = runTest(dispatcher) {
+        val data = DraftData(null)
+        vmWith(data)
+        advanceUntilIdle()
+        assertEquals(emptySet<String>(), data.sweepKeep!!())
+    }
+
+    @Test
+    fun 清理時正在開的影片也不刪() = runTest(dispatcher) {
+        val data = DraftData(null)
+        val vm = vmWith(data)
+        advanceUntilIdle()
+        vm.openRecent("v2"); advanceUntilIdle()
+        // keep 每刪一個目錄前都重新問：清到一半使用者開了影片，那支也要留著
+        assertEquals(setOf("v2"), data.sweepKeep!!())
+    }
+
+    @Test
+    fun 換一支影片會清掉上一支的目錄_草稿列不動() = runTest(dispatcher) {
+        val data = DraftData(null)
+        val vm = vmWith(data)
+        vm.openRecent("v1"); advanceUntilIdle()
+        vm.back()
+        vm.openRecent("v2"); advanceUntilIdle()
+        assertEquals(listOf("v1"), data.deletedFiles)
+        assertNull(data.clearedVideoId)
+        assertEquals("v2", DraftCodec.decode(data.stored!!)!!.videoId)
+    }
+
+    @Test
+    fun 重開同一支影片不清目錄() = runTest(dispatcher) {
+        val data = DraftData(null)
+        val vm = vmWith(data)
+        vm.openRecent("v1"); advanceUntilIdle()
+        vm.back()
+        vm.openRecent("v1"); advanceUntilIdle()
+        assertEquals(emptyList<String>(), data.deletedFiles)
+    }
+
+    @Test
+    fun 續做沒接上就改開別支_清掉沒接上那支的目錄() = runTest(dispatcher) {
+        val payload = DraftPayload("v1", step = 2, level = 3, frameCount = 4)
+        val data = DraftData(DraftCodec.encode(payload)).apply { offline = true }
+        val vm = vmWith(data)
+        advanceUntilIdle()
+        vm.onEnter(); advanceUntilIdle()
+        data.offline = false
+        vm.openRecent("v2"); advanceUntilIdle()
+        assertEquals(listOf("v1"), data.deletedFiles)
+    }
+
     // ---- 案例 13：繼續 → 回到原步驟與原選擇 ----
 
     @Test
@@ -306,20 +373,6 @@ class WizardDraftTest {
     }
 
     @Test
-    fun 保留草稿並離開會存一份() = runTest(dispatcher) {
-        val data = DraftData(null)
-        val vm = vmWith(data)
-        vm.openRecent("v1"); advanceUntilIdle()
-        vm.step2.value!!.toggle(1)
-        data.stored = null
-        vm.keepDraft()
-        advanceUntilIdle()
-        assertNotNull(data.stored)
-        assertEquals(listOf(1), DraftCodec.decode(data.stored!!)!!.selected)
-    }
-
-    /** 沒有離開確認框了：返回上一步時先存草稿，存的是離開的那一步與最新的勾選。 */
-    @Test
     fun 返回上一步會存草稿() = runTest(dispatcher) {
         val data = DraftData(null)
         val vm = vmWith(data)
@@ -331,16 +384,6 @@ class WizardDraftTest {
         val saved = DraftCodec.decode(data.stored!!)!!
         assertEquals(2, saved.step)
         assertEquals(listOf(1), saved.selected)
-    }
-
-    @Test
-    fun 捨棄草稿會刪掉目錄() = runTest(dispatcher) {
-        val data = DraftData(null)
-        val vm = vmWith(data)
-        vm.openRecent("v1"); advanceUntilIdle()
-        vm.discardDraft()
-        advanceUntilIdle()
-        assertEquals("v1", data.clearedVideoId)
     }
 
     @Test
