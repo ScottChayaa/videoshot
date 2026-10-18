@@ -69,7 +69,14 @@ class WizardDraftTest {
                 storyboardSpec = null,
             )
         }
-        override suspend fun recentVideos(limit: Int): List<RecentVideo> = emptyList()
+        var recentCalls = 0
+        override suspend fun recentVideos(limit: Int): List<RecentVideo> { recentCalls++; return emptyList() }
+        val syncedTitles = mutableListOf<String>()
+        var titleChanged = false
+        override suspend fun syncVideoTitle(videoId: String, meta: VideoMeta): Boolean {
+            syncedTitles += meta.title
+            return titleChanged
+        }
         override suspend fun takenFrameIndexes(videoId: String, level: Int) = emptySet<Int>()
         override suspend fun distinctPlaces() = emptyList<String>()
         override suspend fun tagSuggestions() = emptyList<com.xenyaa.videoshot.data.library.dao.TagNameKind>()
@@ -362,6 +369,29 @@ class WizardDraftTest {
         data.offline = false
         vm.openRecent("v2"); advanceUntilIdle()
         assertEquals(listOf("v1"), data.deletedFiles)
+    }
+
+    // ---- 歷史紀錄的標題同步（2026-10-18）----
+
+    @Test
+    fun 開影片時把圖庫標題同步成YouTube的_有改到就重讀歷史紀錄() = runTest(dispatcher) {
+        val data = DraftData(null).apply { titleChanged = true }
+        val vm = vmWith(data)
+        advanceUntilIdle()
+        val before = data.recentCalls
+        vm.openRecent("v1"); advanceUntilIdle()
+        assertEquals(listOf("宜蘭兩天一夜"), data.syncedTitles)
+        assertEquals(before + 1, data.recentCalls)
+    }
+
+    @Test
+    fun 標題本來就一樣就不重讀歷史紀錄() = runTest(dispatcher) {
+        val data = DraftData(null)
+        val vm = vmWith(data)
+        advanceUntilIdle()
+        val before = data.recentCalls
+        vm.openRecent("v1"); advanceUntilIdle()
+        assertEquals(before, data.recentCalls)
     }
 
     // ---- 案例 13：繼續 → 回到原步驟與原選擇 ----

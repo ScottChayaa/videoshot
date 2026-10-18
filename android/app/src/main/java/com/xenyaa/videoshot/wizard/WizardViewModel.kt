@@ -358,7 +358,7 @@ class WizardViewModel(
     val suggestions: StateFlow<Suggestions> = _suggestions.asStateFlow()
 
     init {
-        viewModelScope.launch { _recent.value = data.recentVideos(20) }
+        reloadRecent()
         viewModelScope.launch {
             _suggestions.value = Suggestions(
                 places = runCatching { data.distinctPlaces() }.getOrDefault(emptyList()),
@@ -437,6 +437,12 @@ class WizardViewModel(
         val video = LoadedVideo(videoId = videoId, page = page)
         _loaded.value = video
         openStep2(video)
+        // 圖庫存的標題跟 YouTube 不一樣（例如假資料配錯、影片改過名）就順手更新，歷史紀錄才不會標錯
+        page.meta?.let { meta ->
+            viewModelScope.launch {
+                if (runCatching { data.syncVideoTitle(videoId, meta) }.getOrDefault(false)) reloadRecent()
+            }
+        }
         // 換了一支影片：上一支的草稿目錄（sheet 與手動圖）再也接不回來 —— 草稿只記最近一支，
         // 這一支進第二步就會蓋掉它。openStep2 已經關掉上一支的狀態機，不會有下載還在寫那裡
         if (previous != null && previous != videoId) {
@@ -779,7 +785,11 @@ class WizardViewModel(
         cropped = CropOutcome(emptyList(), emptyList())
         _step.value = WizardStep.URL
         // 剛入庫的影片要出現在「最近取過的影片」清單最上面
-        viewModelScope.launch { _recent.value = runCatching { data.recentVideos(20) }.getOrDefault(emptyList()) }
+        reloadRecent()
+    }
+
+    private fun reloadRecent() {
+        viewModelScope.launch { _recent.value = runCatching { data.recentVideos(RECENT_LIMIT) }.getOrDefault(emptyList()) }
     }
 
     fun dismissPendingFinish() { _pendingFinish.value = null }
@@ -802,3 +812,6 @@ class WizardViewModel(
         super.onCleared()
     }
 }
+
+/** 第一步「歷史紀錄」最多列幾支影片。 */
+private const val RECENT_LIMIT = 20

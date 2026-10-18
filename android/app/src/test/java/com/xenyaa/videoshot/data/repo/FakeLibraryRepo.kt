@@ -75,6 +75,7 @@ open class FakeLibraryRepo : LibraryRepo {
     override suspend fun removeShotFromFolder(shotId: Long, folderId: Long) = Unit
     override suspend fun shotImage(shotId: Long): ByteArray? = null
     override suspend fun recentVideos(limit: Int): List<RecentVideo> = emptyList()
+    override suspend fun syncVideoTitle(videoId: String, title: String, channelTitle: String): Boolean = false
     override suspend fun storyboardShots(): List<ShotRow> = emptyList()
     override suspend fun takenFrameIndexes(videoId: String, level: Int): Set<Int> = emptySet()
 }

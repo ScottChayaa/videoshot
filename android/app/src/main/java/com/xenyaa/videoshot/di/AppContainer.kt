@@ -31,6 +31,7 @@ import com.xenyaa.videoshot.data.repo.LibraryRepo
 import com.xenyaa.videoshot.data.repo.RoomCacheRepo
 import com.xenyaa.videoshot.data.repo.RoomLibraryRepo
 import com.xenyaa.videoshot.data.settings.AppSettings
+import com.xenyaa.videoshot.core.youtube.VideoMeta
 import com.xenyaa.videoshot.core.home.monthOf
 import com.xenyaa.videoshot.core.storyboard.Storyboard
 import com.xenyaa.videoshot.core.youtube.WatchPage
@@ -213,6 +214,8 @@ class AppContainer(context: Context) : AppRootDeps {
         object : WizardData {
             override suspend fun watchPage(videoId: String) = youtube.watchPage(videoId)
             override suspend fun recentVideos(limit: Int) = libraryRepo.recentVideos(limit)
+            override suspend fun syncVideoTitle(videoId: String, meta: VideoMeta) =
+                meta.title.isNotBlank() && libraryRepo.syncVideoTitle(videoId, meta.title, meta.channelTitle)
             // 直接用 repo 的查詢 —— 它把層級寫進 SQL。自己撈 shotsOfVideo 再 mapNotNull
             // 會漏掉 sbLevel 這個條件，把別的層級的格號當成這一層的鎖定格
             override suspend fun takenFrameIndexes(videoId: String, level: Int) =

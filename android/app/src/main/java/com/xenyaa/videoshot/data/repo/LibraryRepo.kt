@@ -165,6 +165,12 @@ interface LibraryRepo {
     /** 最近取過圖的影片，附各片的收藏張數。 */
     suspend fun recentVideos(limit: Int): List<RecentVideo>
 
+    /**
+     * 把影片的標題與頻道名同步成 YouTube 現在的（取圖精靈開影片時呼叫）。圖庫裡沒有這支影片、
+     * 或本來就一樣就什麼都不做。@return 有沒有改到
+     */
+    suspend fun syncVideoTitle(videoId: String, title: String, channelTitle: String): Boolean
+
     /** 回填掃描用：全部 storyboard 來源的 shot，不分影片、不分頁。 */
     suspend fun storyboardShots(): List<ShotRow>
 

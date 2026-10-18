@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -133,6 +134,20 @@ class LibraryRepoWriteTest {
         assertEquals(1, changed)
         watched.patchShots(ids, ShotPatch(null, "宜蘭", null, null))
         assertEquals(2, changed)
+    }
+
+    @Test
+    fun 同步標題_不一樣才寫並通知變更_圖庫沒有這支就不動() = runTest {
+        var changed = 0
+        val watched: LibraryRepo = RoomLibraryRepo(db, Dispatchers.IO, onChanged = { changed++ })
+        watched.commitPicks(video, listOf(storyboardPick(0)))
+        changed = 0
+        assertFalse(watched.syncVideoTitle("v1", "片名", "頻道"))
+        assertEquals(0, changed)
+        assertTrue(watched.syncVideoTitle("v1", "新片名", "頻道"))
+        assertEquals("新片名", db.videoDao().byId("v1")!!.title)
+        assertEquals(1, changed)
+        assertFalse(watched.syncVideoTitle("沒有這支", "x", "y"))
     }
 
     @Test

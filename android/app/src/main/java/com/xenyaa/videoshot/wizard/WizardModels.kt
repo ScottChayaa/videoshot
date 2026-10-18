@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.wizard
 
+import com.xenyaa.videoshot.core.youtube.VideoMeta
 import com.xenyaa.videoshot.core.youtube.WatchPage
 import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
@@ -73,6 +74,12 @@ interface WizardData {
         frameIndexes: List<Int>,
         onProgress: (Int, Int) -> Unit,
     ): CropOutcome
+
+    /**
+     * 開影片時把圖庫裡這支影片的標題同步成 YouTube 的（歷史紀錄顯示的是圖庫的標題）。
+     * @return 有沒有改到 —— 改到了歷史紀錄要重讀
+     */
+    suspend fun syncVideoTitle(videoId: String, meta: VideoMeta): Boolean = false
 
     /** 整批入庫（規格第五節「完成」第 1 步）。 */
     suspend fun commit(video: VideoEntity, picks: List<NewShot>): List<Long>

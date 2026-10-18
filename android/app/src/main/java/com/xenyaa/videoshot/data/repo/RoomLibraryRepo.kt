@@ -233,6 +233,13 @@ class RoomLibraryRepo(
         db.videoDao().recent(limit).map { RecentVideo(it.videoId, it.title, it.addedAt, it.shotCount) }
     }
 
+    override suspend fun syncVideoTitle(videoId: String, title: String, channelTitle: String): Boolean =
+        withContext(io) {
+            val changed = db.videoDao().syncTitle(videoId, title, channelTitle) > 0
+            if (changed) onChanged()
+            changed
+        }
+
     override suspend fun storyboardShots(): List<ShotRow> = withContext(io) {
         db.shotDao().allStoryboardShots().map { it.toRow() }
     }

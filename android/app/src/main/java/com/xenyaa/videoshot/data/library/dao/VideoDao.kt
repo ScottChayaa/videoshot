@@ -19,6 +19,15 @@ interface VideoDao {
     @Query("DELETE FROM video WHERE id = :id")
     suspend fun deleteById(id: String)
 
+    /** 標題或頻道名跟 YouTube 不一樣才寫。@return 改了幾列（0 或 1） */
+    @Query(
+        """
+        UPDATE video SET title = :title, channel_title = :channelTitle
+        WHERE id = :id AND (title != :title OR channel_title != :channelTitle)
+        """
+    )
+    suspend fun syncTitle(id: String, title: String, channelTitle: String): Int
+
     @Query(
         """
         SELECT v.id AS video_id, v.title AS title, v.added_at AS added_at,
