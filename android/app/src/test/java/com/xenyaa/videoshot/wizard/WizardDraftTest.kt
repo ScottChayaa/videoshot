@@ -6,6 +6,7 @@ import com.xenyaa.videoshot.capture.ManualImageStore
 import com.xenyaa.videoshot.core.draft.DraftCodec
 import com.xenyaa.videoshot.core.draft.DraftDetails
 import com.xenyaa.videoshot.core.draft.DraftManual
+import com.xenyaa.videoshot.core.draft.DraftMeta
 import com.xenyaa.videoshot.core.draft.DraftPayload
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.youtube.FetchResult
@@ -170,8 +171,10 @@ class WizardDraftTest {
         advanceUntilIdle()
         vm.onEnter()
         advanceUntilIdle()
-        assertEquals(WizardStep.URL, vm.step.value)
-        assertTrue(vm.status.value is Step1Status.Error)
+        // 停在第二步（骨架屏換成錯誤與【重試】），不退回第一步
+        assertEquals(WizardStep.PICK, vm.step.value)
+        assertNull(vm.step2.value)
+        assertEquals("取圖需要網路。", vm.resumeError.value)
         assertNull(data.clearedVideoId)
 
         data.offline = false
@@ -179,7 +182,92 @@ class WizardDraftTest {
         vm.onEnter()
         advanceUntilIdle()
         assertEquals(WizardStep.PICK, vm.step.value)
+        assertNull(vm.resumeError.value)
         assertEquals(setOf(1), vm.step2.value!!.state.value.selected)
+    }
+
+    @Test
+    fun 沒網路時按重試會再接一次() = runTest(dispatcher) {
+        val payload = DraftPayload("v1", step = 2, level = 3, frameCount = 4, selected = listOf(1))
+        val data = DraftData(DraftCodec.encode(payload)).apply { offline = true }
+        val vm = vmWith(data)
+        advanceUntilIdle()
+        vm.onEnter(); advanceUntilIdle()
+        data.offline = false
+        vm.retryResume(); advanceUntilIdle()
+        assertNull(vm.resumeError.value)
+        assertEquals(setOf(1), vm.step2.value!!.state.value.selected)
+    }
+
+    @Test
+    fun 接不上時按返回回第一步_草稿留著下次再接() = runTest(dispatcher) {
+        val payload = DraftPayload("v1", step = 3, level = 3, frameCount = 4, selected = listOf(1))
+        val data = DraftData(DraftCodec.encode(payload)).apply { offline = true }
+        val vm = vmWith(data)
+        advanceUntilIdle()
+        vm.onEnter(); advanceUntilIdle()
+        assertEquals(WizardStep.DETAILS, vm.step.value)
+
+        assertTrue(vm.back())
+        assertEquals(WizardStep.URL, vm.step.value)
+        assertNull(vm.resumeError.value)
+        assertNull(data.clearedVideoId)
+
+        data.offline = false
+        vm.onLeave()
+        vm.onEnter(); advanceUntilIdle()
+        assertEquals(WizardStep.DETAILS, vm.step.value)
+    }
+
+    @Test
+    fun 續做載入中按返回_不會被帶回草稿那一步() = runTest(dispatcher) {
+        val payload = DraftPayload("v1", step = 2, level = 3, frameCount = 4)
+        val data = DraftData(DraftCodec.encode(payload))
+        val vm = vmWith(data)
+        advanceUntilIdle()
+        vm.onEnter()
+        assertTrue(vm.back())
+        advanceUntilIdle()
+        assertEquals(WizardStep.URL, vm.step.value)
+    }
+
+    @Test
+    fun 一進場就切到草稿停的那一步_資料還沒好也一樣() = runTest(dispatcher) {
+        val payload = DraftPayload("v1", step = 3, level = 3, frameCount = 4, selected = listOf(0))
+        val vm = vmWith(DraftData(DraftCodec.encode(payload)))
+        advanceUntilIdle()
+        vm.onEnter()
+        // 還沒跑協程：畫面已經在第三步（畫骨架屏），不是先停在第一步
+        assertEquals(WizardStep.DETAILS, vm.step.value)
+        assertNull(vm.step3.value)
+        advanceUntilIdle()
+        assertNotNull(vm.step3.value)
+    }
+
+    @Test
+    fun 草稿存了spec與影片資訊_續做不等網路() = runTest(dispatcher) {
+        val payload = DraftPayload(
+            "v1", step = 2, level = 3, frameCount = 4, selected = listOf(2),
+            meta = DraftMeta("宜蘭兩天一夜", "ch", "2025-07-12T10:00:00-07:00", 600, "public", true),
+        )
+        val data = DraftData(DraftCodec.encode(payload)).apply { offline = true }
+        val vm = vmWith(data)
+        advanceUntilIdle()
+        vm.onEnter(); advanceUntilIdle()
+        assertEquals(0, data.watchPageCalls)
+        assertNull(vm.resumeError.value)
+        assertEquals("宜蘭兩天一夜", vm.loaded.value!!.page.meta!!.title)
+        assertEquals(setOf(2), vm.step2.value!!.state.value.selected)
+    }
+
+    @Test
+    fun 存草稿時一起存spec與影片資訊() = runTest(dispatcher) {
+        val data = DraftData(null)
+        val vm = vmWith(data)
+        vm.openRecent("v1"); advanceUntilIdle()
+        val saved = DraftCodec.decode(data.stored!!)!!
+        assertEquals("宜蘭兩天一夜", saved.meta!!.title)
+        assertEquals(600, saved.meta!!.durationSec)
     }
 
     @Test
@@ -270,6 +358,7 @@ class WizardDraftTest {
         val vm = vmWith(data)
         advanceUntilIdle()
         vm.onEnter(); advanceUntilIdle()
+        vm.back() // 接不上：回第一步
         data.offline = false
         vm.openRecent("v2"); advanceUntilIdle()
         assertEquals(listOf("v1"), data.deletedFiles)

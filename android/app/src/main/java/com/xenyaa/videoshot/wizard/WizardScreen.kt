@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -22,7 +21,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import kotlinx.coroutines.delay
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -100,6 +98,8 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                 TopBarIconButton(VsIcons.Close, "放棄這次取圖", abandon, tint = AppTheme.colors.text)
             }
         }
+        // 續做草稿時資料還沒好（或接不上）：那一步先畫骨架屏／錯誤與【重試】
+        val resumeError by vm.resumeError.collectAsStateWithLifecycle()
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (step) {
                 WizardStep.URL -> {
@@ -117,7 +117,7 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                     val loaded by vm.loaded.collectAsStateWithLifecycle()
                     val current = store
                     if (current == null) {
-                        LoadingText("正在載入縮圖…")
+                        WizardSkeleton(WizardStep.PICK, resumeError, onRetry = { vm.retryResume() })
                     } else {
                         val state by current.state.collectAsStateWithLifecycle()
                         val captureError by vm.captureError.collectAsStateWithLifecycle()
@@ -190,7 +190,7 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                     val suggestions by vm.suggestions.collectAsStateWithLifecycle()
                     val current = store
                     if (current == null) {
-                        LoadingText("正在準備縮圖…")
+                        WizardSkeleton(WizardStep.DETAILS, resumeError, onRetry = { vm.retryResume() })
                     } else {
                         val state by current.state.collectAsStateWithLifecycle()
                         // 圖仍然由第二步的狀態機供應 —— 它同時認得 storyboard 格與手動格
@@ -256,11 +256,3 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
 
 /** 播放進度輪詢間隔。夠順又不至於一直打擾 WebView。 */
 private const val PLAYBACK_POLL_MS = 250L
-
-/** 步驟內容還沒備妥時的置中提示（原型沒有對應畫面，沿用 15 textDim）。 */
-@Composable
-private fun LoadingText(text: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text, style = MaterialTheme.typography.bodyMedium, color = AppTheme.colors.textDim)
-    }
-}

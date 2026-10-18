@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.height
@@ -21,6 +22,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
@@ -60,34 +62,12 @@ fun VsChipSkeleton(
     chipGap: Dp = AppTheme.spacing.s2,
     rowSpacing: Dp = 0.dp,
 ) {
-    val sweep = rememberInfiniteTransition(label = "skeleton")
-    // 0 → 1：亮光從整區左邊外面掃到右邊外面
-    val progress = sweep.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(ShimmerDurationMs, easing = LinearEasing), RepeatMode.Restart),
-        label = "skeletonSweep",
-    )
     val shape = RoundedCornerShape(AppTheme.radii.sm)
     val base = AppTheme.colors.border
-    val highlight = lerp(base, AppTheme.colors.surface, 0.75f)
-    val bandWidthPx = with(LocalDensity.current) { ShimmerBandWidth.toPx() }
     FlowRow(
         modifier
             .clearAndSetSemantics { contentDescription = description }
-            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-            .drawWithContent {
-                drawContent()
-                val x = -bandWidthPx + (size.width + bandWidthPx * 2) * progress.value
-                drawRect(
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(Color.Transparent, highlight, Color.Transparent),
-                        startX = x - bandWidthPx,
-                        endX = x + bandWidthPx,
-                    ),
-                    blendMode = BlendMode.SrcAtop,
-                )
-            },
+            .then(shimmer()),
         horizontalArrangement = Arrangement.spacedBy(chipGap),
         verticalArrangement = Arrangement.spacedBy(rowSpacing),
     ) {
@@ -102,4 +82,55 @@ fun VsChipSkeleton(
             }
         }
     }
+}
+
+/**
+ * 一整塊區域的骨架屏（例如取圖精靈續做時的縮圖牆）：[content] 裡用 [VsSkeletonBlock] 排出灰塊，
+ * 亮光整區掃過一道（同 [VsChipSkeleton]）。TalkBack 把整塊當成一個節點，唸 [description]。
+ */
+@Composable
+fun VsSkeletonArea(
+    modifier: Modifier = Modifier,
+    description: String = "載入中…",
+    content: @Composable BoxScope.() -> Unit,
+) {
+    Box(modifier.clearAndSetSemantics { contentDescription = description }.then(shimmer()), content = content)
+}
+
+/** 骨架屏裡的一個灰塊。放在 [VsSkeletonArea] 裡才有亮光掃過。 */
+@Composable
+fun VsSkeletonBlock(modifier: Modifier = Modifier, shape: Shape = RoundedCornerShape(AppTheme.radii.sm)) {
+    Box(modifier.background(AppTheme.colors.border, shape))
+}
+
+/**
+ * 亮光掃過：整塊畫在離屏圖層上，內容畫完後疊一條漸層、用 `SrcAtop` 只留下落在灰塊上的部分。
+ * 位置在繪製階段讀值，不會每一幀重組。
+ */
+@Composable
+private fun shimmer(): Modifier {
+    val sweep = rememberInfiniteTransition(label = "skeleton")
+    // 0 → 1：亮光從整區左邊外面掃到右邊外面
+    val progress = sweep.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(ShimmerDurationMs, easing = LinearEasing), RepeatMode.Restart),
+        label = "skeletonSweep",
+    )
+    val highlight = lerp(AppTheme.colors.border, AppTheme.colors.surface, 0.75f)
+    val bandWidthPx = with(LocalDensity.current) { ShimmerBandWidth.toPx() }
+    return Modifier
+        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+        .drawWithContent {
+            drawContent()
+            val x = -bandWidthPx + (size.width + bandWidthPx * 2) * progress.value
+            drawRect(
+                brush = Brush.horizontalGradient(
+                    colors = listOf(Color.Transparent, highlight, Color.Transparent),
+                    startX = x - bandWidthPx,
+                    endX = x + bandWidthPx,
+                ),
+                blendMode = BlendMode.SrcAtop,
+            )
+        }
 }

@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.core.draft
 
 import com.xenyaa.videoshot.core.details.ShotDetails
 import com.xenyaa.videoshot.core.details.normalizeTags
+import com.xenyaa.videoshot.core.youtube.VideoMeta
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -20,6 +21,10 @@ import kotlinx.serialization.json.Json
  *
  * @param frameCount 第二步的 storyboard 格數 —— **手動格號的分界**，還原時少了它就分不出哪些是手動圖
  * @param details 鍵是格號的字串形式（JSON 的 map key 只能是字串）
+ * @param sbSpec 上次抓到的 storyboard spec 原字串；[meta] 是同一次抓到的影片資訊。
+ *        有這兩欄，續做時**不必等網路**就能把縮圖牆畫出來（2026-10-18，實測重抓 watch page 要 0.9～1 秒）。
+ *        spec 裡的簽章可能過期，但 sheet 多半已經在本機；本機沒有的那幾張下載碰到 403 會自己重抓 spec。
+ *        舊版存的草稿沒有這兩欄（都是 null）→ 續做時照舊先抓 watch page
  */
 @Serializable
 data class DraftPayload(
@@ -31,7 +36,26 @@ data class DraftPayload(
     val selected: List<Int> = emptyList(),
     val manual: List<DraftManual> = emptyList(),
     val details: Map<String, DraftDetails> = emptyMap(),
+    val sbSpec: String? = null,
+    val meta: DraftMeta? = null,
 )
+
+/** 草稿裡存的影片資訊（watch page 的 [VideoMeta]，少了 videoId —— 草稿本身就有）。 */
+@Serializable
+data class DraftMeta(
+    val title: String,
+    val channelTitle: String,
+    val publishedAt: String,
+    val durationSec: Int,
+    val privacy: String,
+    val playableInEmbed: Boolean,
+)
+
+fun VideoMeta.toDraftMeta(): DraftMeta =
+    DraftMeta(title, channelTitle, publishedAt, durationSec, privacy, playableInEmbed)
+
+fun DraftMeta.toVideoMeta(videoId: String): VideoMeta =
+    VideoMeta(videoId, title, channelTitle, publishedAt, durationSec, privacy, playableInEmbed)
 
 /**
  * 一張手動補圖。
@@ -77,7 +101,7 @@ object DraftCodec {
 
     /**
      * @return 解不出來回 null。**不丟例外** —— 草稿是可以重建的東西，
-     *         壞掉只該讓「要繼續嗎」這個問句不出現，不該讓 app 開不起來
+     *         壞掉只該讓續做不發生，不該讓 app 開不起來
      */
     fun decode(text: String): DraftPayload? = try {
         json.decodeFromString<DraftPayload>(text)

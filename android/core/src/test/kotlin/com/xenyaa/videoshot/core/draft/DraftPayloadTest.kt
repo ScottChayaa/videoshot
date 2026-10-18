@@ -45,6 +45,30 @@ class DraftPayloadTest {
     }
 
     @Test
+    fun 存了spec與影片資訊也編得回來() {
+        val withPage = payload.copy(
+            sbSpec = "https://i.ytimg.com/sb/v1/storyboard3_L\$L/\$N.jpg|48#27#100#10#10#0#default#rs\$abc",
+            meta = DraftMeta("宜蘭兩天一夜", "ch", "2025-07-12T10:00:00-07:00", 600, "public", true),
+        )
+        assertEquals(withPage, DraftCodec.decode(DraftCodec.encode(withPage)))
+    }
+
+    @Test
+    fun 舊版草稿沒有spec與影片資訊也解得回來() {
+        val old = """{"videoId":"v1","step":2,"level":3,"frameCount":4,"selected":[1]}"""
+        val decoded = DraftCodec.decode(old)!!
+        assertNull(decoded.sbSpec)
+        assertNull(decoded.meta)
+        assertEquals(listOf(1), decoded.selected)
+    }
+
+    @Test
+    fun 影片資訊與watch_page的型別互轉() {
+        val meta = com.xenyaa.videoshot.core.youtube.VideoMeta("v1", "標題", "ch", "2025-07-12", 600, "public", false)
+        assertEquals(meta, meta.toDraftMeta().toVideoMeta("v1"))
+    }
+
+    @Test
     fun 圖資與core的型別互轉() {
         val details = ShotDetails("2025-07-12", "冬山河", "下水前", listOf("玩水"), applied = true)
         assertEquals(details, details.toDraftDetails().toShotDetails())

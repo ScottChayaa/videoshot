@@ -11,10 +11,13 @@ import com.xenyaa.videoshot.core.draft.DraftCodec
 import com.xenyaa.videoshot.core.draft.DraftManual
 import com.xenyaa.videoshot.core.draft.DraftPayload
 import com.xenyaa.videoshot.core.draft.toDraftDetails
+import com.xenyaa.videoshot.core.draft.toDraftMeta
 import com.xenyaa.videoshot.core.draft.toShotDetails
+import com.xenyaa.videoshot.core.draft.toVideoMeta
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.url.parseVideoId
 import com.xenyaa.videoshot.core.youtube.FetchResult
+import com.xenyaa.videoshot.core.youtube.WatchPage
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.NewShot
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
@@ -95,6 +98,16 @@ class WizardViewModel(
     fun back(): Boolean {
         val current = _step.value
         if (current == WizardStep.URL) return false
+        // 續做還沒接上（骨架屏或「取圖需要網路」）：停掉、回第一步，草稿留著下次進場再接
+        resuming?.let { payload ->
+            resumeJob?.cancel()
+            resumeJob = null
+            resuming = null
+            pendingDraft = payload
+            _resumeError.value = null
+            _step.value = WizardStep.URL
+            return true
+        }
         if (hasDraft) saveDraft()
         _step.value = WizardStep.entries.first { it.order == current.order - 1 }
         return true
@@ -140,9 +153,11 @@ class WizardViewModel(
      * 還在續做的協程要先取消，否則它載完影片會把精靈又帶回第二步。
      */
     fun abandon() {
-        val videoIds = setOfNotNull(_loaded.value?.videoId, pendingDraft?.videoId)
+        val videoIds = setOfNotNull(_loaded.value?.videoId, pendingDraft?.videoId, resuming?.videoId)
         resumeJob?.cancel()
         resumeJob = null
+        resuming = null
+        _resumeError.value = null
         pendingDraft = null
         resumeOnEnter = null
         hasDraft = false
@@ -156,8 +171,15 @@ class WizardViewModel(
     /** app 啟動時讀到、還沒接上的草稿。續做時要靠它把勾選與圖資還原回去。 */
     private var pendingDraft: DraftPayload? = null
 
-    /** 正在續做的協程。按 X 放棄時要取消。 */
+    /** 正在續做的協程。按 X 放棄、或按返回時要取消。 */
     private var resumeJob: Job? = null
+
+    /** 正在接上的草稿：從進場切到目標步驟（畫骨架屏）開始，到勾選與圖資還原完為止；失敗時也留著。 */
+    private var resuming: DraftPayload? = null
+
+    /** 續做接不上的原因（沒網路、影片抓不到）。第二步就地顯示，按【重試】再接一次。 */
+    private val _resumeError = MutableStateFlow<String?>(null)
+    val resumeError: StateFlow<String?> = _resumeError.asStateFlow()
 
     /** ViewModel 跟著 app 啟動一起建；這之後才建或才動過的草稿目錄，啟動時的清理不碰。 */
     private val startedAt = System.currentTimeMillis()
@@ -183,18 +205,31 @@ class WizardViewModel(
     }
 
     /**
-     * 續做磁碟上的草稿（進場時自動呼叫，見 [onEnter]）。**先重抓 watch page**（規格第五節）——
-     * sprite 的簽章可能已經過期。sheet 若還在本機就不會重新下載（見 `StoryboardFrameSource.fetchSheet`）。
-     * 抓不到（沒網路）就停在第一步顯示錯誤，草稿留著，下次進場再試。
+     * 續做磁碟上的草稿（進場時自動呼叫，見 [onEnter]）。**一進來就切到草稿停的那一步**，
+     * 資料還沒好之前那一步畫骨架屏（2026-10-18：原本先停在第一步約 1 秒才跳過去）。
+     *
+     * - 草稿裡有上次的 spec 與影片資訊 → **不等網路**，直接用本機的 sheet 建縮圖牆。
+     *   簽章過期只影響本機沒有的 sheet，那幾張下載碰到 403 會自己重抓 spec（`StoryboardFrameSource`）。
+     * - 舊版草稿沒有 → 先抓 watch page。抓不到（沒網路）就停在那一步顯示錯誤與【重試】，草稿留著。
      */
     private fun resumeDraft() {
         val payload = pendingDraft ?: return
         pendingDraft = null
+        resuming = payload
+        _resumeError.value = null
+        hasDraft = true
+        // 直接設、不走 goTo：狀態機還沒建，goTo 會去存草稿、建第三步
+        _step.value = if (payload.step >= 3) WizardStep.DETAILS else WizardStep.PICK
         resumeJob = viewModelScope.launch {
-            openRecentAndAwait(payload.videoId) ?: run {
-                pendingDraft = payload
-                return@launch
+            val page = payload.cachedPage() ?: when (val fetched = fetchPage(payload.videoId)) {
+                is PageFetch.Failed -> {
+                    pendingDraft = payload
+                    _resumeError.value = fetched.message
+                    return@launch
+                }
+                is PageFetch.Ok -> fetched.page
             }
+            openVideo(payload.videoId, page)
             val store2 = _step2.value ?: return@launch
             val survivors = payload.manual.mapNotNull { m ->
                 // 檔案不見了（使用者清了資料）就跳過這一張，其餘照常還原
@@ -222,7 +257,11 @@ class WizardViewModel(
                 payload.selected.toSet()
             }
             store2.restoreFromDraft(restored, selected)
-            if (payload.step >= 3) {
+            resuming = null
+            if (payload.step < 3) {
+                // 還原完才存（goTo 會存一次草稿）：存進去的是還原後的勾選，而且補上 spec 與影片資訊
+                goTo(WizardStep.PICK)
+            } else {
                 goTo(WizardStep.DETAILS)
                 _step3.value?.restore(
                     details = payload.details.mapNotNull { (key, value) ->
@@ -271,6 +310,9 @@ class WizardViewModel(
                 details = state3?.details.orEmpty()
                     .mapKeys { it.key.toString() }
                     .mapValues { it.value.toDraftDetails() },
+                // 續做時不必等網路就畫得出縮圖牆（見 [resumeDraft]）
+                sbSpec = video.page.storyboardSpec,
+                meta = video.page.meta?.toDraftMeta(),
             )
             runCatching { data.saveDraft(DraftCodec.encode(payload)) }
         }
@@ -289,6 +331,21 @@ class WizardViewModel(
 
     private val _recent = MutableStateFlow<List<RecentVideo>>(emptyList())
     val recent: StateFlow<List<RecentVideo>> = _recent.asStateFlow()
+
+    /** 重試續做（第二步的「取圖需要網路」下面那顆【重試】）。 */
+    fun retryResume() {
+        if (resuming != null && resumeJob?.isActive != true) resumeDraft()
+    }
+
+    /** 草稿裡存的 spec 與影片資訊組回 watch page；舊版草稿沒有就是 null。 */
+    private fun DraftPayload.cachedPage(): WatchPage? {
+        val m = meta ?: return null
+        return WatchPage(
+            result = if (sbSpec != null) FetchResult.OK else FetchResult.NO_STORYBOARD,
+            meta = m.toVideoMeta(videoId),
+            storyboardSpec = sbSpec,
+        )
+    }
 
     /** 抓好的 watch page 與已收藏格號，交給第二步用。 */
     private val _loaded = MutableStateFlow<LoadedVideo?>(null)
@@ -327,6 +384,8 @@ class WizardViewModel(
         // 這支影片進第二步時存的草稿會蓋過它，所以它的目錄也一起清
         val stale = pendingDraft?.videoId
         pendingDraft = null
+        resuming = null
+        _resumeError.value = null
         viewModelScope.launch {
             openRecentAndAwait(videoId) ?: return@launch
             if (stale != null && stale != videoId) runCatching { data.deleteDraftFiles(stale) }
@@ -334,43 +393,56 @@ class WizardViewModel(
     }
 
     /**
-     * @return 成功載入的影片；失敗回 null（錯誤已經寫進 [_status]）。
-     *
-     * 拆成可以等的版本是給續做用的 —— [resumeDraft] 要等影片真的載完，
-     * 才能把勾選與圖資還原進剛建好的 [Step2Store]。
+     * 第一步開一支影片：抓 watch page、建第二步、切過去。
+     * @return 成功載入的影片；失敗回 null（錯誤已經寫進 [_status]，停在第一步）
      */
     private suspend fun openRecentAndAwait(videoId: String): LoadedVideo? {
         _status.value = Step1Status.Loading
-        val page = data.watchPage(videoId)
-        return when (page.result) {
-            FetchResult.FETCH_FAILED, FetchResult.RATE_LIMITED -> {
-                _status.value = Step1Status.Error("取圖需要網路。"); null
+        return when (val fetched = fetchPage(videoId)) {
+            is PageFetch.Failed -> {
+                _status.value = Step1Status.Error(fetched.message); null
             }
-
-            FetchResult.VIDEO_UNAVAILABLE -> {
-                _status.value = Step1Status.Error(
-                    "這支影片抓不到，可能是私人影片、已被刪除或需要登入。"
-                ); null
-            }
-
-            // no_storyboard 與 parse_failed **仍然進第二步** —— 縮圖牆空白，但可以截圖補上
-            // （規格第五節第一步的表、第七節降級表）
-            FetchResult.OK, FetchResult.NO_STORYBOARD, FetchResult.PARSE_FAILED -> {
-                val previous = _loaded.value?.videoId
-                val video = LoadedVideo(videoId = videoId, page = page)
-                _loaded.value = video
+            is PageFetch.Ok -> {
                 // 建狀態機要先問一次 DB（已收藏的格號），所以**轉圈圈留到這之後才收掉**
-                openStep2(video)
-                // 換了一支影片：上一支的草稿目錄（sheet 與手動圖）再也接不回來 —— 草稿只記最近一支，
-                // 這一支進第二步就會蓋掉它。openStep2 已經關掉上一支的狀態機，不會有下載還在寫那裡
-                if (previous != null && previous != videoId) {
-                    viewModelScope.launch { runCatching { data.deleteDraftFiles(previous) } }
-                }
+                val video = openVideo(videoId, fetched.page)
                 _status.value = Step1Status.Idle
                 goTo(WizardStep.PICK)
                 video
             }
         }
+    }
+
+    private sealed interface PageFetch {
+        data class Ok(val page: WatchPage) : PageFetch
+        data class Failed(val message: String) : PageFetch
+    }
+
+    /**
+     * 抓 watch page。no_storyboard 與 parse_failed **仍然算抓到** —— 縮圖牆空白，但可以截圖補上
+     * （規格第五節第一步的表、第七節降級表）。
+     */
+    private suspend fun fetchPage(videoId: String): PageFetch {
+        val page = data.watchPage(videoId)
+        return when (page.result) {
+            FetchResult.FETCH_FAILED, FetchResult.RATE_LIMITED -> PageFetch.Failed("取圖需要網路。")
+            FetchResult.VIDEO_UNAVAILABLE ->
+                PageFetch.Failed("這支影片抓不到，可能是私人影片、已被刪除或需要登入。")
+            FetchResult.OK, FetchResult.NO_STORYBOARD, FetchResult.PARSE_FAILED -> PageFetch.Ok(page)
+        }
+    }
+
+    /** 換上這支影片：建第二步的狀態機（不換步驟，由呼叫端決定）。 */
+    private suspend fun openVideo(videoId: String, page: WatchPage): LoadedVideo {
+        val previous = _loaded.value?.videoId
+        val video = LoadedVideo(videoId = videoId, page = page)
+        _loaded.value = video
+        openStep2(video)
+        // 換了一支影片：上一支的草稿目錄（sheet 與手動圖）再也接不回來 —— 草稿只記最近一支，
+        // 這一支進第二步就會蓋掉它。openStep2 已經關掉上一支的狀態機，不會有下載還在寫那裡
+        if (previous != null && previous != videoId) {
+            viewModelScope.launch { runCatching { data.deleteDraftFiles(previous) } }
+        }
+        return video
     }
 
     // ---- 第二步 ----
