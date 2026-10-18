@@ -13,6 +13,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextReplacement
 import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.core.home.monthLabel
 import com.xenyaa.videoshot.core.paging.ShotCursor
@@ -229,6 +230,13 @@ class AppRootWizardFinishTest {
      * production 的形狀），所以這裡跟著算同一個月份，不硬編日期字串。 */
     private fun todayMonthLabel(): String = monthLabel(LocalDate.now().toString().take(7))
 
+    /** 第三步：開地點選擇器、打字、按【確定】，寫進目前勾選的那張。 */
+    private fun fillPlace(name: String) {
+        compose.onNodeWithContentDescription("地點").performClick()
+        compose.onNodeWithContentDescription("地點名稱").performTextReplacement(name)
+        compose.onNodeWithText("確定").performClick()
+    }
+
     @Test
     fun 完成會切回首頁_重新整理_捲到新月份_跳出snackbar_而且不卡住() {
         val fixture = show()
@@ -239,8 +247,8 @@ class AppRootWizardFinishTest {
         compose.onNodeWithContentDescription("第 1 格 00:00").performClick()
         compose.onNodeWithText("下一步（1 張）").performClick()
         compose.waitForIdle()
-        // 每一張都套用過才按得下【完成】；沒改欄位直接按【套用】＝照現值確認
-        compose.onNodeWithText("套用").performClick()
+        // 每一張都有時間與地點才完成得了（時間預設有值）：開地點選擇器打一個地點、按【確定】
+        fillPlace("羅東")
         compose.onNodeWithText("完成").performClick()
         compose.waitForIdle()
 
@@ -259,7 +267,7 @@ class AppRootWizardFinishTest {
 
     /**
      * 裁定 H（階段 17 最終審查 Minor 2）：篩選中完成取圖要清掉首頁篩選——新圖多半不符合篩選，
-     * 留著篩選的話新圖看不到，「捲到新圖的月份」也落空。這裡新圖沒有地點，篩選是「宜蘭」。
+     * 留著篩選的話新圖看不到，「捲到新圖的月份」也落空。這裡新圖的地點是「羅東」，篩選是「宜蘭」。
      */
     @Test
     fun 篩選中完成取圖_篩選清掉並捲到新圖的月份() {
@@ -278,7 +286,7 @@ class AppRootWizardFinishTest {
         compose.onNodeWithContentDescription("第 1 格 00:00").performClick()
         compose.onNodeWithText("下一步（1 張）").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("套用").performClick()
+        fillPlace("羅東")
         compose.onNodeWithText("完成").performClick()
         compose.waitForIdle()
 

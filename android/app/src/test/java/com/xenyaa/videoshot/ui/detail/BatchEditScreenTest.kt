@@ -10,6 +10,7 @@ import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
 import com.xenyaa.videoshot.wizard.Step3Cell
 import com.xenyaa.videoshot.wizard.Step3Store
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -37,6 +38,7 @@ class BatchEditScreenTest {
     }
 
     private var closed = false
+    private var finishCount = 0
 
     private fun show(state: BatchEditState) {
         compose.setContent {
@@ -44,9 +46,8 @@ class BatchEditScreenTest {
                 BatchEditScreen(
                     state = state,
                     bitmapFor = { null },
-                    onToggle = {}, onSelectAll = {}, onInvert = {}, onSelectUnapplied = {},
-                    onEditEventDate = {}, onEditPlace = {}, onEditDescription = {}, onEditTags = {},
-                    onApply = {}, onFinish = {},
+                    onToggle = {}, onSelectAll = {}, onApply = {},
+                    onFinish = { finishCount++ },
                     onClose = { closed = true },
                 )
             }
@@ -74,8 +75,9 @@ class BatchEditScreenTest {
     }
 
     @Test
-    fun 沒有動過欄位時主按鈕是完成() {
+    fun 完成隨時可以按() {
         show(readyState())
-        compose.onNodeWithText("完成").assertIsDisplayed()
+        compose.onNodeWithText("完成").performClick()
+        assertEquals(1, finishCount)
     }
 }

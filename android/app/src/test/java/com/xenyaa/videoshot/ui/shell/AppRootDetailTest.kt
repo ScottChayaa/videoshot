@@ -217,11 +217,11 @@ class AppRootDetailTest {
     }
 
     /**
-     * 最終審查 Finding 1 ＋ Finding 6：詳情頁 →【批次編輯圖資】→ 改一張的地點 → 套用 → 完成
+     * 最終審查 Finding 1 ＋ Finding 6：詳情頁 →【批次編輯圖資】→ 改一張的地點 → 確定 → 完成
      * → 回到詳情頁看得到新地點（`finished` 收集區塊真的 pop＋reload 了）；接著**再進一次**
      * 批次編輯——`BatchEditViewModel` 是用 videoId 當 key 快取的，同一支影片第二次進來拿到
-     * 同一個實例，這裡驗證它沒有帶著上一輪「1 已完成」的舊 `Step3Store`（沒修好的話這裡會顯示
-     * 「2 張 · 1 已完成」，而且按【完成】會把剛存的新地點蓋回舊值）。
+     * 同一個實例，這裡驗證它沒有帶著上一輪改過的標記的舊 `Step3Store`
+     * （沒修好的話，按【完成】會把剛存的新地點蓋回舊值）。
      */
     @Test
     fun 批次編輯完成後圖資更新_再進一次不會殘留上一輪的套用狀態() {
@@ -234,22 +234,23 @@ class AppRootDetailTest {
 
         compose.onNodeWithContentDescription("這支影片的更多操作").performClick()
         compose.onNodeWithText("批次編輯圖資").performClick()
-        compose.onNodeWithText("2 張 · 0 已完成").assertIsDisplayed()
+        compose.onNodeWithContentDescription("地點").assertIsDisplayed()
 
         // 只留第一張（00:30）勾選——把第二張（01:30）那一格點掉
         compose.onNodeWithContentDescription("01:30", substring = true).performClick()
-        compose.onNodeWithContentDescription("地點").performTextReplacement("羅東")
-        compose.onNodeWithText("套用").performClick()
+        compose.onNodeWithContentDescription("地點").performClick()
+        compose.onNodeWithContentDescription("地點名稱").performTextReplacement("羅東")
+        compose.onNodeWithText("確定").performClick()
         compose.onNodeWithText("完成").performClick()
 
         // 回到詳情頁：finished 收集區塊 pop 掉批次編輯、detailVm 重查，聚焦張的地點是新值
         compose.onNodeWithText("旅行影片").assertIsDisplayed()
         compose.onNodeWithText("羅東").assertIsDisplayed()
 
-        // 再進一次批次編輯——沒有第二次的「1 已完成」殘留
+        // 再進一次批次編輯——沒有上一輪改過的標記殘留
         compose.onNodeWithContentDescription("這支影片的更多操作").performClick()
         compose.onNodeWithText("批次編輯圖資").performClick()
-        compose.onNodeWithText("2 張 · 0 已完成").assertIsDisplayed()
+        compose.onNodeWithContentDescription("地點").assertIsDisplayed()
     }
 
     /**

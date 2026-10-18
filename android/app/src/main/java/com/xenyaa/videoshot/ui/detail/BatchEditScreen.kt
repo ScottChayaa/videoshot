@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.xenyaa.videoshot.core.details.DetailsPatch
 import com.xenyaa.videoshot.ui.common.TopBarNav
 import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.wizard.Step3DetailsScreen
@@ -20,14 +21,14 @@ import com.xenyaa.videoshot.wizard.Step3DetailsScreen
 /**
  * 批次編輯的外殼：✕ ＋ 標題，其餘整段是階段 6 的 [Step3DetailsScreen]（規格第六節：不另做一套）。
  * **沒有底部導覽**（比照精靈／Lightbox）——理由同 `wizard/Step3DetailsScreen.kt` 的 KDoc：
- * 抽屜／按鈕列／導覽列三層會把縮圖區壓到剩四成。
+ * 欄位按鈕列下面再疊導覽列會把縮圖區壓扁。
  *
  * 標題列跟內容用 `Column` 上下排，不是疊在同一個 `Box` 裡——疊的話內容那一層得自己猜一個
  * padding 去讓開標題列，狀態列高度因裝置而異，猜出來的 56.dp 在真機上蓋住內容
  * （最終審查 Finding 3）。用 `Column` 讓內容照標題列真正量出來的高度自然讓開，不用猜。
  *
  * **整個 `Column` 要吃 `navigationBarsPadding()`**——精靈第三步的 [Step3DetailsScreen] 底部
- * dock（【完成】／【套用到 N 張】按鈕）平常是靠 `WizardScreen` 的 `Scaffold`（沒有另外指定
+ * 底部欄位按鈕列與【完成】平常是靠 `WizardScreen` 的 `Scaffold`（沒有另外指定
  * `contentWindowInsets` 時預設含底部導覽列的 inset）讓開三鍵導覽列；這裡沒有 `Scaffold`，
  * 同一顆按鈕在實機（三鍵導覽列機種）上會整顆畫到導覽列底下，點不到、Tab 也切不進去
  * （2026-09-24 實機驗收找到，手勢導覽的裝置量不出這個問題）。
@@ -38,13 +39,7 @@ fun BatchEditScreen(
     bitmapFor: suspend (Int) -> ImageBitmap?,
     onToggle: (Int) -> Unit,
     onSelectAll: () -> Unit,
-    onInvert: () -> Unit,
-    onSelectUnapplied: () -> Unit,
-    onEditEventDate: (String) -> Unit,
-    onEditPlace: (String) -> Unit,
-    onEditDescription: (String) -> Unit,
-    onEditTags: (List<String>) -> Unit,
-    onApply: () -> Unit,
+    onApply: (DetailsPatch) -> Unit,
     onFinish: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
@@ -67,12 +62,6 @@ fun BatchEditScreen(
                     bitmapFor = bitmapFor,
                     onToggle = onToggle,
                     onSelectAll = onSelectAll,
-                    onInvert = onInvert,
-                    onSelectUnapplied = onSelectUnapplied,
-                    onEditEventDate = onEditEventDate,
-                    onEditPlace = onEditPlace,
-                    onEditDescription = onEditDescription,
-                    onEditTags = onEditTags,
                     onApply = onApply,
                     onFinish = onFinish,
                     placeSuggestions = state.places,

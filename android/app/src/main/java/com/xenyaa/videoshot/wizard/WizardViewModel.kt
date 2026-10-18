@@ -5,6 +5,7 @@ import android.graphics.ImageDecoder
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.xenyaa.videoshot.core.details.DetailsPatch
 import com.xenyaa.videoshot.core.details.ShotDetails
 import com.xenyaa.videoshot.core.details.eventDateOf
 import com.xenyaa.videoshot.core.draft.DraftCodec
@@ -284,7 +285,7 @@ class WizardViewModel(
     /**
      * 把目前的狀態寫成草稿。
      *
-     * **只在這幾個時機呼叫**：步驟變了（含返回上一步）、套用過一輪圖資。
+     * **只在這幾個時機呼叫**：步驟變了（含返回上一步）、選擇器寫入一次圖資。
      * 不是每次勾選都存 —— 一次取圖會勾上百次，而勾選丟掉的代價（重點幾下）
      * 遠小於圖資丟掉的代價（重打一輪字）。
      */
@@ -321,6 +322,12 @@ class WizardViewModel(
     /** 第三步的【套用到 N 張】走這裡而不是直接呼叫 store —— 套完要順手存一次草稿。 */
     fun applyDetails() {
         _step3.value?.applyPatch()
+        saveDraft()
+    }
+
+    /** 第三步的選擇器按【確定】走這裡而不是直接呼叫 store —— 寫完要順手存一次草稿。 */
+    fun applyDetails(patch: DetailsPatch) {
+        _step3.value?.applyToSelected(patch)
         saveDraft()
     }
 

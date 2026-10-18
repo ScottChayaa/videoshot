@@ -35,6 +35,7 @@ class WizardSkeletonTest {
         compose.setContent { VideoshotTheme { WizardSkeleton(WizardStep.DETAILS, error = null, onRetry = {}) } }
         compose.onNodeWithContentDescription("正在載入縮圖…").assertIsDisplayed()
         compose.onNodeWithText("完成").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("地點").assertIsNotEnabled()
     }
 
     @Test

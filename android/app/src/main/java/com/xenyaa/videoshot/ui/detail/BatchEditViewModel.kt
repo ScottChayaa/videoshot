@@ -3,6 +3,7 @@ package com.xenyaa.videoshot.ui.detail
 import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.xenyaa.videoshot.core.details.DetailsPatch
 import com.xenyaa.videoshot.core.details.ShotDetails
 import com.xenyaa.videoshot.data.repo.LibraryRepo
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
@@ -108,6 +109,9 @@ class BatchEditViewModel(
     fun editDescription(value: String) = ready()?.store?.editDescription(value) ?: Unit
     fun editTags(value: List<String>) = ready()?.store?.editTags(value) ?: Unit
     fun apply() = ready()?.store?.applyPatch() ?: Unit
+
+    /** 選擇器按【確定】：寫進目前勾選的那幾張（並標成改過，【完成】只寫回這些）。 */
+    fun apply(patch: DetailsPatch) = ready()?.store?.applyToSelected(patch) ?: Unit
 
     /** 【完成】：只把套用過的那幾張寫回 `library.db`,回詳情頁。 */
     fun finish() {

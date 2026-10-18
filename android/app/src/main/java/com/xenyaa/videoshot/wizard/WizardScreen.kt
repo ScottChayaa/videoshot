@@ -213,17 +213,11 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                             bitmapFor = bitmapFor,
                             onToggle = { current.toggle(it) },
                             onSelectAll = { current.selectAll() },
-                            requireAllFilled = true,
-                            onInvert = { current.invert() },
-                            onSelectUnapplied = { current.selectUnapplied() },
-                            onEditEventDate = { current.editEventDate(it) },
-                            onEditPlace = { current.editPlace(it) },
-                            onEditDescription = { current.editDescription(it) },
-                            onEditTags = { current.editTags(it) },
-                            onApply = { vm.applyDetails() },
+                            onApply = { vm.applyDetails(it) },
                             onFinish = { vm.finish() },
                             placeSuggestions = suggestions.places,
                             tagSuggestions = suggestions.tags,
+                            requireTimeAndPlace = true,
                         )
                     }
                 }
