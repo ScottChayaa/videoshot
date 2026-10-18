@@ -74,7 +74,7 @@ fun VsFieldButton(
                 role = Role.Button
                 if (done != null) stateDescription = if (done) "已完成" else "未完成"
                 if (!enabled) disabled()
-                onClick { onClick(); true }
+                if (enabled) onClick { onClick(); true }
             },
         // 內容垂直置中；圖示上方固定留 4dp 給右上綠勾（綠勾往上凸 4dp，沒有這段會被 clip 切平）
         verticalArrangement = Arrangement.Center,

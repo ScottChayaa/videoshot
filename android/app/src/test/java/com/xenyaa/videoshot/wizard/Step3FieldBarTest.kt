@@ -122,6 +122,14 @@ class Step3FieldBarTest {
         assertEquals(0, finished)
     }
 
+    @Test fun 沒有任何圖片時按完成跳另一則提示_不會完成() {
+        show(stateOf(details = emptyMap(), selected = emptySet()))
+        compose.onNodeWithText("完成").performClick()
+        compose.onNodeWithText("沒有圖片，回上一步挑幾張").assertIsDisplayed()
+        compose.onAllNodesWithText("每一張都要先設定時間和地點").assertCountEquals(0)
+        assertEquals(0, finished)
+    }
+
     @Test fun 每一張都有時間與地點就能完成() {
         show(stateOf(details = (0..1).associateWith { ShotDetails("2026-01-01", place = "冬山河") }))
         compose.onNodeWithText("完成").performClick()

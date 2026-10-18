@@ -287,12 +287,12 @@ class WizardStep3WiringTest {
         val data = RecordingData(pageOf())
         val vm = vmWith(data)
         vm.openRecent("v1"); advanceUntilIdle()
-        // 一格都沒勾就進第三步（第三步按【全不選】再離開、續做回來也是這個狀態）
+        // 一格都沒勾就進第三步（續做一個沒勾任何圖的草稿就是這個狀態）
         vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
         vm.finish()
         advanceUntilIdle()
         assertNull(data.committed)
-        // committing 不能卡在 true，否則使用者回頭挑了圖也按不動【完成】
+        // 沒有格子時 canFinish 為 false，【完成】直接被擋下；回頭挑了圖之後照常能寫進圖庫
         vm.goTo(WizardStep.PICK)
         vm.step2.value!!.toggle(0)
         vm.goTo(WizardStep.DETAILS); advanceUntilIdle()

@@ -1,6 +1,5 @@
 package com.xenyaa.videoshot.wizard
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -38,9 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -157,7 +154,13 @@ fun Step3DetailsScreen(
                 }
                 VsButton(
                     "完成",
-                    onClick = { if (canFinish) onFinish() else hint("每一張都要先設定時間和地點") },
+                    onClick = {
+                        when {
+                            canFinish -> onFinish()
+                            state.cells.isEmpty() -> hint("沒有圖片，回上一步挑幾張")
+                            else -> hint("每一張都要先設定時間和地點")
+                        }
+                    },
                     modifier = Modifier
                         .weight(1f)
                         .align(Alignment.CenterVertically)
@@ -192,12 +195,11 @@ fun Step3DetailsScreen(
 /**
  * 一格（正方形、直角，同第二步）。左上打勾徽章＝勾選中；左下四個小圖示＝時間／地點／標籤／描述，有值亮白、沒有半透明。
  * （2026-10-18 拿掉右上的已套用綠勾與右下的時間：這一步的重點是替圖填資料，時間點在長按浮窗裡看。）
- * 長按＝浮出這張的圖資（[Step3InfoPopup]），不改勾選；震一下用系統的長按回饋。
+ * 長按＝浮出這張的圖資（[Step3InfoPopup]），不改勾選；震一下靠 combinedClickable 內建的長按回饋。
  *
  * 顏色不是唯一的訊號 —— 勾選與各欄位有沒有值都寫進整格的 `contentDescription`（手冊 §零）；
  * 徽章與小圖示本身是純裝飾，不另設名稱。
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun Step3Thumb(
     cell: Step3Cell,
@@ -207,7 +209,6 @@ private fun Step3Thumb(
     onToggle: () -> Unit,
 ) {
     val label = thumbLabel(cell, details, selected)
-    val haptic = LocalHapticFeedback.current
     var showInfo by remember { mutableStateOf(false) }
     val cellShape = RectangleShape
     Box(
@@ -218,10 +219,7 @@ private fun Step3Thumb(
             .focusRing(cellShape)
             .combinedClickable(
                 onClick = onToggle,
-                onLongClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    showInfo = true
-                },
+                onLongClick = { showInfo = true },
                 onLongClickLabel = "看這張的圖資",
             )
             .semantics { contentDescription = label },

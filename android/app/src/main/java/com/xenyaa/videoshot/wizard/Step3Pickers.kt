@@ -171,7 +171,8 @@ internal fun DescriptionPickerSheet(
         canClear = field.hasAnyValue(),
         canConfirm = true,
         onClear = { onConfirm(DetailsPatch(description = "")) },
-        onConfirm = { if (input == initial) onDismiss() else onConfirm(DetailsPatch(description = input)) },
+        // 比對 trim 後的：多個值時只打空白會被當成清除，但「沒動它就不會變」，所以視同沒動過
+        onConfirm = { if (input.trim() == initial.trim()) onDismiss() else onConfirm(DetailsPatch(description = input)) },
         onDismiss = onDismiss,
     ) {
         VsTextField(

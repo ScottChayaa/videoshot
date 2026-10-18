@@ -158,6 +158,16 @@ class Step3PickersTest {
         description(Common.Mixed)
         compose.onNodeWithText("確定").performClick()
         assertTrue(confirmed.isEmpty())
+        assertEquals(1, dismissed)
+    }
+
+    @Test fun 描述_多個值時只打空白按確定什麼都不送() {
+        description(Common.Mixed)
+        compose.onNodeWithContentDescription("描述").performTextInput("  ")
+        compose.onNodeWithText("確定").performClick()
+        // 空白會被當成清除；多個值不動它就不會變，所以不能送出
+        assertTrue(confirmed.isEmpty())
+        assertEquals(1, dismissed)
     }
 
     @Test fun 標題寫出要套用到幾張() {

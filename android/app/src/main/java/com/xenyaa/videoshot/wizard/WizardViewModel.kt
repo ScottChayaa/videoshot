@@ -61,7 +61,7 @@ class WizardViewModel(
     private val captureFor: (Player) -> Capture?,
     /** 注入而不是直接呼叫 `LocalDate.now()` —— 測試要能確定地驗「上傳日期缺漏時用今天」。 */
     private val today: () -> String = { java.time.LocalDate.now().toString() },
-    /** 【完成】寫入成功後記下這一輪套用過的地點與標籤（`FacetUsage.markUsed`，規格第六節「首頁」）。盡力而為。 */
+    /** 【完成】寫入成功後記下這一輪在選擇器填過的地點與標籤（`FacetUsage.markUsed`，規格第六節「首頁」）。盡力而為。 */
     private val markFacetsUsed: suspend (places: Set<String>, tags: Set<String>) -> Unit = { _, _ -> },
 ) : ViewModel() {
 
@@ -303,7 +303,7 @@ class WizardViewModel(
                 frameCount = state2.plan.frameCount,
                 // **存第二步的勾選，不是第三步的** —— 兩個 store 的 `selected` 意思不同：
                 // 第二步的是「使用者挑了哪些」，第三步的是「選擇器會寫進哪幾張」。
-                // 存錯的話，在第三步只挑 3 張套用過圖資再離開，續做回來就只剩那 3 張
+                // 存錯的話，在第三步用選擇器只挑 3 張填過圖資再離開，續做回來就只剩那 3 張
                 selected = state2.selected.sorted(),
                 manual = state2.manual.map {
                     DraftManual(it.cellIndex, it.atSec, it.file.name, it.fromGallery)
@@ -767,8 +767,8 @@ class WizardViewModel(
                         tagNames = d.tags,
                     )
                 }
-                // 一張都沒有就沒有「完成」這件事：寫進去是一列沒有圖的影片，
-                // 而且下面的 picks.first() 會在協程裡丟 NoSuchElementException 把 process 帶走。
+                // canFinish 已擋掉沒有格子的情況，這裡只是防線：
+                // 寫進去是一列沒有圖的影片，而且下面的 picks.first() 會在協程裡丟 NoSuchElementException 把 process 帶走。
                 // committing 由 finally 收掉，使用者回頭挑了圖仍然按得動【完成】
                 if (picks.isEmpty()) return@launch
                 val videoRow = VideoEntity(
