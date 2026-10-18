@@ -3,10 +3,12 @@ package com.xenyaa.videoshot.ui.common
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -20,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -37,6 +40,10 @@ import com.xenyaa.videoshot.ui.theme.focusRing
  * 剛好放得下兩個字加左右留白；52dp 的話只剩 56dp，「完成」會被擠成兩行（2026-10-18）。
  */
 val FieldButtonWidth = 48.dp
+
+// 版面測試用（綠勾在 clearAndSetSemantics 底下，要走未合併語意樹）
+internal const val FIELD_BUTTON_LABEL_TAG = "fieldButtonLabel"
+internal const val FIELD_BUTTON_DONE_BADGE_TAG = "fieldButtonDoneBadge"
 
 /**
  * 底部列的欄位按鈕（取圖第三步）：**圖示＋下方小字**，四個欄位的圖示不好一眼分辨，帶字才不會按錯（2026-10-18 scott）。
@@ -69,9 +76,11 @@ fun VsFieldButton(
                 if (!enabled) disabled()
                 onClick { onClick(); true }
             },
+        // 內容垂直置中；圖示上方固定留 4dp 給右上綠勾（綠勾往上凸 4dp，沒有這段會被 clip 切平）
+        verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box {
+        Box(Modifier.padding(top = 4.dp)) {
             Icon(
                 icon,
                 contentDescription = null,
@@ -84,6 +93,8 @@ fun VsFieldButton(
                         .align(Alignment.TopEnd)
                         .offset(x = 6.dp, y = (-4).dp)
                         .size(13.dp)
+                        // 要放在 offset 之後，量到的才是畫出來的位置
+                        .testTag(FIELD_BUTTON_DONE_BADGE_TAG)
                         .clip(CircleShape)
                         .background(colors.ok)
                         .border(1.5.dp, colors.surface, CircleShape),
@@ -98,6 +109,7 @@ fun VsFieldButton(
             style = MaterialTheme.typography.labelSmall,
             color = if (enabled) colors.textDim else colors.textFaint,
             maxLines = 1,
+            modifier = Modifier.testTag(FIELD_BUTTON_LABEL_TAG),
         )
     }
 }
