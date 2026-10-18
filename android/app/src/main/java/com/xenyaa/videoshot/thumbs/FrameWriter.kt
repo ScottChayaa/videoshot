@@ -22,7 +22,8 @@ internal fun writeFrameToThumbs(sheet: Bitmap, pos: FramePos, key: ThumbKey, thu
     val format =
         if (Build.VERSION.SDK_INT >= 30) Bitmap.CompressFormat.WEBP_LOSSY else Bitmap.CompressFormat.WEBP
     val encoded = frame.compress(format, 75, out)
-    frame.recycle()
+    // 裁切範圍等於整張 sheet 時 createBitmap 回的是 sheet 本身 —— 那是呼叫端的，由呼叫端回收
+    if (frame !== sheet) frame.recycle()
     if (!encoded) return false
     val file = thumbs.fileOf(key)
     file.parentFile?.mkdirs()

@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.xenyaa.videoshot.core.storyboard.StoryboardLevel
@@ -18,6 +19,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.After
@@ -155,6 +157,39 @@ class StoryboardFrameSourceTest {
         assertNotNull(bitmap)
         assertEquals(320, bitmap!!.width)
         assertEquals(180, bitmap.height)
+    }
+
+    /**
+     * 最後一張 sheet 只剩一格時，YouTube 給的圖就只有一格大（2026-10-19 實機：`M10.jpg` 是 101×180）。
+     * 這時裁切範圍等於整張圖，`Bitmap.createBitmap` 回的是 sheet 本身 ——
+     * 接著 `sheet.recycle()` 就把要給牆上畫的那一格也回收掉，捲到底一畫就當機。
+     */
+    @Test
+    fun bitmapOf_最後一張sheet只有一格時給的圖沒有被回收() = runBlocking {
+        val tenFrames = level.copy(frameCount = 10)   // 9 + 1：第二張 sheet 只有一格
+        val singleFrameSheet = run {
+            val bitmap = Bitmap.createBitmap(320, 180, Bitmap.Config.ARGB_8888)
+            Canvas(bitmap).drawColor(Color.RED)
+            val out = ByteArrayOutputStream()
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+            bitmap.recycle()
+            out.toByteArray()
+        }
+        val s = StoryboardFrameSource(
+            videoId = "vid",
+            spec = spec.copy(baseUrl = "https://example.invalid/sb/\$L/\$N.jpg", levels = listOf(tenFrames)),
+            level = tenFrames,
+            sheetsDir = sheetsDir,
+            youtube = FakeYoutube { url -> if (url.contains("M1")) singleFrameSheet else fakeSheet(0) },
+            refreshSpec = { null },
+            io = Dispatchers.IO,
+            compute = Dispatchers.Default,
+        )
+        s.load().toList()
+
+        val bitmap = s.bitmapOf(9)
+        assertNotNull(bitmap)
+        assertFalse("要給牆上畫的圖不能已經被回收", bitmap!!.asAndroidBitmap().isRecycled)
     }
 
     @Test

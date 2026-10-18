@@ -4,11 +4,13 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import androidx.test.platform.app.InstrumentationRegistry
+import com.xenyaa.videoshot.core.storyboard.FramePos
 import com.xenyaa.videoshot.core.storyboard.StoryboardLevel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -60,6 +62,27 @@ class LocalSheetCropperTest {
         assertEquals(emptyList<Int>(), result.missing)
         assertTrue(thumbs.exists(ThumbKey("v1", 3, 0)))
         assertTrue(thumbs.exists(ThumbKey("v1", 3, 3)))
+    }
+
+    /**
+     * 只有一格大的 sheet（影片最後一張常常是這樣）：裁切範圍等於整張圖時 `createBitmap` 回的是 sheet 本身，
+     * 裁完回收「裁出來的那一格」就等於把呼叫端還要用的 sheet 也回收掉。
+     */
+    @Test
+    fun 裁切範圍等於整張sheet時不會回收呼叫端的sheet() {
+        // 要不可變的 —— 跟 decodeFile 解出來的一樣；可變的 bitmap 不會被原物件奉還
+        val drawn = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888)
+        Canvas(drawn).drawColor(Color.BLUE)
+        val sheet = drawn.copy(Bitmap.Config.ARGB_8888, false)
+        drawn.recycle()
+        val whole = FramePos(
+            frameIndex = 0, sheetIndex = 0, col = 0, row = 0,
+            x = 0, y = 0, width = 10, height = 10, sheetWidth = 10, sheetHeight = 10,
+        )
+        val ok = writeFrameToThumbs(sheet, whole, ThumbKey("v1", 3, 0), thumbs)
+        assertTrue(ok)
+        assertFalse("sheet 是呼叫端的，由呼叫端回收", sheet.isRecycled)
+        sheet.recycle()
     }
 
     @Test

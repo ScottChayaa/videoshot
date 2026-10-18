@@ -267,7 +267,9 @@ class StoryboardFrameSource(
                     } else {
                         null
                     }
-                    sheet.recycle()
+                    // 最後一張 sheet 只剩一格時圖就只有一格大，裁切範圍等於整張圖 ——
+                    // createBitmap 這時回的是 sheet 本身，回收它就是回收要給牆上畫的那一格（捲到底當機）
+                    if (frame !== sheet) sheet.recycle()
                     frame?.asImageBitmap()
                 }
             } else {
