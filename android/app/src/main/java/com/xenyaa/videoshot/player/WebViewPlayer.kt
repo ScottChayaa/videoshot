@@ -360,6 +360,9 @@ fun PlayerSurface(
             factory = { context ->
                 WebView(context).apply {
                     applyPlayerViewSettings()
+                    // 透明，透出外框的黑底。WebView 預設白底，頁面畫出來之前那一幀會整片白
+                    // （實機看到的範圍還不只播放器框，連頂欄都蓋過去），進第二步就白一下
+                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
                     webChromeClient = WebChromeClient()
                     val webPlayer = WebViewPlayer(this)
                     webViewClient = object : WebViewClient() {
