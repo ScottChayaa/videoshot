@@ -11,6 +11,15 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.xenyaa.videoshot.core.time.formatClock
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -100,6 +109,8 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
         }
         // 續做草稿時資料還沒好（或接不上）：那一步先畫骨架屏／錯誤與【重試】
         val resumeError by vm.resumeError.collectAsStateWithLifecycle()
+        val manualSnackbar = remember { SnackbarHostState() }
+        ManualNoticeEffect(vm, manualSnackbar)
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (step) {
                 WizardStep.URL -> {
@@ -177,6 +188,7 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                                     ) },
                                     onDismissCaptureError = { vm.dismissCaptureError() },
                                     onNudgeManual = { cell, delta -> vm.nudgeManual(cell, delta) },
+                                    onRemoveManual = { vm.removeManual(it) },
                                     gridState = gridState,
                                     modifier = Modifier.weight(1f),
                                 )
@@ -216,6 +228,12 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                     }
                 }
             }
+            // 「已截圖／已移除【復原】」：浮在底部列正上方（三步的底部列一樣高，見 VsActionDock）
+            SnackbarHost(
+                manualSnackbar,
+                Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
+                    .padding(bottom = AppTheme.spacing.navHeight),
+            )
         }
     }
 
@@ -256,3 +274,32 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
 
 /** 播放進度輪詢間隔。夠順又不至於一直打擾 WebView。 */
 private const val PLAYBACK_POLL_MS = 250L
+
+/**
+ * 手動圖的「已截圖 MM:SS【復原】」「已移除截圖 MM:SS【復原】」（2026-10-18）。
+ * 新的一則出現時舊的先收掉 —— 舊的就算逾時，移除從那一刻生效。
+ * 不管怎麼消失（逾時、被蓋掉、離開精靈）都要回報 ViewModel：移除要等到這時才刪檔案。
+ */
+@Composable
+private fun ManualNoticeEffect(vm: WizardViewModel, host: SnackbarHostState) {
+    LaunchedEffect(vm, host) {
+        val scope = this
+        vm.manualNotices.collect { notice ->
+            host.currentSnackbarData?.dismiss()
+            scope.launch {
+                var undone = false
+                try {
+                    val clock = formatClock(notice.cell.atSec)
+                    val text = when (notice) {
+                        is ManualNotice.Captured -> "已截圖 $clock"
+                        is ManualNotice.Removed -> if (notice.cell.fromGallery) "已移除補圖 $clock" else "已移除截圖 $clock"
+                    }
+                    undone = host.showSnackbar(text, actionLabel = "復原", duration = SnackbarDuration.Short) ==
+                        SnackbarResult.ActionPerformed
+                } finally {
+                    if (undone) vm.undoManualNotice(notice) else vm.manualNoticeExpired(notice)
+                }
+            }
+        }
+    }
+}

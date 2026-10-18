@@ -269,8 +269,15 @@ class Step2Store(
         val current = _state.value
         // **不能用 manual.size 推算** —— 續做草稿時若有手動圖的檔案不見了，編號會留下一個洞，
         // size 算出來的格號就會跟既有的那一格撞號；牆上兩格同鍵會讓 LazyVerticalGrid 直接丟例外，
-        // 入庫時 `manualWebpOf` 的 firstOrNull 也會挑到另一張圖
-        val cell = maxOf(current.plan.frameCount, (current.manual.maxOfOrNull { it.cellIndex } ?: -1) + 1)
+        // 入庫時 `manualWebpOf` 的 firstOrNull 也會挑到另一張圖。
+        // 也不能只看現在牆上最大的格號：移除最後一張之後再截一張會拿到同一號，這時【復原】移除
+        // 就變成兩格同號 —— 所以記一個只增不減的 [manualHighWater]
+        val cell = maxOf(
+            current.plan.frameCount,
+            (current.manual.maxOfOrNull { it.cellIndex } ?: -1) + 1,
+            manualHighWater + 1,
+        )
+        manualHighWater = cell
         _state.value = current.copy(
             manual = current.manual + ManualCell(cell, atSec, file, fromGallery),
             selected = current.selected + cell,
@@ -295,6 +302,7 @@ class Step2Store(
     fun restoreFromDraft(manual: List<ManualCell>, selected: Set<Int>) {
         val current = _state.value
         val alive = manual.map { it.cellIndex }.toSet()
+        manualHighWater = maxOf(manualHighWater, alive.maxOrNull() ?: -1)
         _state.value = current.copy(
             manual = manual,
             ready = current.ready + alive,
@@ -302,6 +310,37 @@ class Step2Store(
             selected = selected.filter {
                 it !in current.taken && (it < current.plan.frameCount || it in alive)
             }.toSet(),
+        )
+    }
+
+    /** 用過的最大手動格號（只增不減，見 [addManual]）。 */
+    private var manualHighWater = -1
+
+    /**
+     * 從牆上拿掉一張手動圖（截圖或相簿補圖，2026-10-18）。**檔案不在這裡刪** ——
+     * 【復原】要把同一個檔案放回去，等復原的時限過了才由呼叫端刪。
+     * @return 拿掉的那一格、它原本有沒有勾；不是手動格回 null
+     */
+    fun removeManual(cell: Int): Pair<ManualCell, Boolean>? {
+        val current = _state.value
+        val entry = current.manual.firstOrNull { it.cellIndex == cell } ?: return null
+        _state.value = current.copy(
+            manual = current.manual - entry,
+            selected = current.selected - cell,
+            ready = current.ready - cell,
+            playingFrame = current.playingFrame.takeIf { it != cell },
+        )
+        return entry to (cell in current.selected)
+    }
+
+    /** 【復原】移除：同一格號、同一個檔案放回去，勾選照移除前的樣子。已經在牆上就不動。 */
+    fun restoreManual(entry: ManualCell, selected: Boolean) {
+        val current = _state.value
+        if (current.manual.any { it.cellIndex == entry.cellIndex }) return
+        _state.value = current.copy(
+            manual = current.manual + entry,
+            ready = current.ready + entry.cellIndex,
+            selected = if (selected) current.selected + entry.cellIndex else current.selected,
         )
     }
 

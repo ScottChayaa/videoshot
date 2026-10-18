@@ -13,6 +13,7 @@ import com.xenyaa.videoshot.core.time.formatClock
 import com.xenyaa.videoshot.wizard.frames.FakeFrameSource
 import com.xenyaa.videoshot.wizard.frames.FramePlan
 import org.junit.Assert.assertEquals
+import com.xenyaa.videoshot.ui.theme.VideoshotTheme
 import org.junit.Rule
 import androidx.compose.ui.test.assertCountEquals
 import org.junit.Assert.assertTrue
@@ -255,7 +256,44 @@ class Step2GridScreenTest {
         // 階段 15B：標記從 📷 圖示移到時間標籤「截圖 MM:SS」。標籤的文字本身就是無障礙名稱
         // （最終審查 M-3：不再另設相同的 contentDescription，免得唸兩次），所以改用文字比對。
         compose.onAllNodesWithText("截圖 00:15", useUnmergedTree = true).assertCountEquals(1)
-        compose.onAllNodesWithContentDescription("截圖", substring = true).assertCountEquals(1) // 只有底部列的【截圖】鈕
+        // 底部列的【截圖】鈕與這一格右上角的「移除這張截圖」，格子本身不另設
+        compose.onAllNodesWithContentDescription("截圖", substring = true).assertCountEquals(2)
+    }
+
+    @Test
+    fun 手動格右上角有移除鈕_按了回報那一格() {
+        val base = Step2State(plan = source.plan, converging = false)
+        val shot = base.plan.frameCount
+        val gallery = shot + 1
+        var removed: Int? = null
+        compose.setContent {
+            VideoshotTheme {
+                Step2GridScreen(
+                    state = base.copy(
+                        manual = listOf(
+                            ManualCell(shot, 15.0, java.io.File("/tmp/a.webp"), fromGallery = false),
+                            ManualCell(gallery, 25.0, java.io.File("/tmp/b.webp"), fromGallery = true),
+                        ),
+                        ready = setOf(shot, gallery),
+                        kept = emptyList(),
+                    ),
+                    bitmapFor = { null }, haptics = FakeHaptics(),
+                    onToggle = {}, onPlayFrame = {}, onTakenTap = {}, onSelectAll = {}, onTakeShot = {},
+                    onShowAll = {}, onDismissHint = {}, onNext = {},
+                    onRemoveManual = { removed = it },
+                )
+            }
+        }
+        compose.onNodeWithContentDescription("移除這張補圖").assertIsDisplayed()
+        compose.onNodeWithContentDescription("移除這張截圖").performClick()
+        assertEquals(shot, removed)
+    }
+
+    @Test
+    fun storyboard格沒有移除鈕() {
+        val base = Step2State(plan = source.plan, converging = false)
+        show(base.copy(ready = (0 until base.plan.frameCount).toSet(), kept = (0 until base.plan.frameCount).toList()))
+        compose.onAllNodesWithContentDescription("移除", substring = true).assertCountEquals(0)
     }
 
     @Test

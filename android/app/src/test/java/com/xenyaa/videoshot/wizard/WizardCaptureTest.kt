@@ -18,6 +18,9 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -104,6 +107,65 @@ class WizardCaptureTest {
         advanceUntilIdle()
         assertTrue("最後要繼續播", player.playing)
         assertTrue("應該暫停過", player.pauses > 0)
+    }
+
+    private fun waitUntil(what: String, cond: () -> Boolean) {
+        // 刪檔走 Dispatchers.IO（真的執行緒），測試排程器推不動它，只能等
+        val deadline = System.currentTimeMillis() + 2_000
+        while (!cond()) {
+            if (System.currentTimeMillis() > deadline) throw AssertionError(what)
+            Thread.sleep(10)
+        }
+    }
+
+    @Test
+    fun 截圖成功會出已截圖提示_按復原就丟掉那張並刪檔() = runTest(dispatcher) {
+        val vm = readyViewModel(capture = FakeCapture(atSec = 30.0))
+        val notices = mutableListOf<ManualNotice>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.manualNotices.toList(notices) }
+        vm.takeShot()
+        advanceUntilIdle()
+        val notice = notices.single() as ManualNotice.Captured
+        assertTrue(notice.cell.file.exists())
+        vm.undoManualNotice(notice)
+        advanceUntilIdle()
+        assertTrue(vm.step2.value!!.state.value.manual.isEmpty())
+        waitUntil("剛截的檔案要刪掉") { !notice.cell.file.exists() }
+    }
+
+    @Test
+    fun 移除截圖_提示逾時才刪檔() = runTest(dispatcher) {
+        val vm = readyViewModel(capture = FakeCapture(atSec = 30.0))
+        val notices = mutableListOf<ManualNotice>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.manualNotices.toList(notices) }
+        vm.takeShot(); advanceUntilIdle()
+        vm.manualNoticeExpired(notices.last()) // 「已截圖」的提示逾時：什麼都不做
+        val cell = vm.step2.value!!.state.value.manual.single()
+        vm.removeManual(cell.cellIndex)
+        advanceUntilIdle()
+        val removed = notices.last() as ManualNotice.Removed
+        assertTrue(vm.step2.value!!.state.value.manual.isEmpty())
+        assertTrue("提示還在時檔案要留著，才復原得回來", cell.file.exists())
+        vm.manualNoticeExpired(removed)
+        waitUntil("逾時後要刪檔") { !cell.file.exists() }
+    }
+
+    @Test
+    fun 移除截圖後按復原_放回牆上而且檔案還在() = runTest(dispatcher) {
+        val vm = readyViewModel(capture = FakeCapture(atSec = 30.0))
+        val notices = mutableListOf<ManualNotice>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.manualNotices.toList(notices) }
+        vm.takeShot(); advanceUntilIdle()
+        val cell = vm.step2.value!!.state.value.manual.single()
+        vm.removeManual(cell.cellIndex); advanceUntilIdle()
+        val removed = notices.last() as ManualNotice.Removed
+        vm.undoManualNotice(removed)
+        // 復原之後提示照樣會「消失」一次：檔案還被牆上用著，不能刪
+        vm.manualNoticeExpired(removed)
+        Thread.sleep(100)
+        assertEquals(listOf(cell), vm.step2.value!!.state.value.manual)
+        assertTrue(vm.step2.value!!.state.value.selected.contains(cell.cellIndex))
+        assertTrue(cell.file.exists())
     }
 
     @Test

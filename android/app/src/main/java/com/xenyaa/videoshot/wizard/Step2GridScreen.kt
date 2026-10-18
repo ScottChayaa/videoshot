@@ -94,6 +94,8 @@ fun Step2GridScreen(
     onDismissCaptureError: () -> Unit = {},
     /** 微調某一格的秒數。**只有相簿來的格子會呼叫它**（規格第五節）。 */
     onNudgeManual: (Int, Double) -> Unit = { _, _ -> },
+    /** 截圖格與相簿補圖格右上角的 ✕：從牆上移除那一張（2026-10-18）。 */
+    onRemoveManual: (Int) -> Unit = {},
     /** 捲動狀態由外面持有：全螢幕時整個畫面離開組合，狀態要留在外面才不會跳回頂端。 */
     gridState: LazyGridState = rememberLazyGridState(),
     modifier: Modifier = Modifier,
@@ -130,6 +132,7 @@ fun Step2GridScreen(
                     manual = state.isManual(frameIndex),
                     nudgable = state.manual.firstOrNull { it.cellIndex == frameIndex }?.fromGallery == true,
                     onNudge = { delta -> onNudgeManual(frameIndex, delta) },
+                    onRemove = { onRemoveManual(frameIndex) },
                     selected = frameIndex in state.selected,
                     taken = frameIndex in state.taken,
                     playing = state.playingFrame == frameIndex,
@@ -281,6 +284,7 @@ private fun FrameCell(
     manual: Boolean,
     nudgable: Boolean,
     onNudge: (Double) -> Unit,
+    onRemove: () -> Unit,
     selected: Boolean,
     taken: Boolean,
     playing: Boolean,
@@ -377,6 +381,19 @@ private fun FrameCell(
             }
         }
 
+        if (manual) {
+            // 右上角 ✕：移除這張截圖／補圖（底部會出「已移除…【復原】」，不另外確認）。
+            // 跟 ±1 秒微調鈕一樣是外層 Box 的手足、實際尺寸 24×22dp 避開格子中心 ——
+            // 點格子中央仍然是勾選，不會誤刪（理由見下面微調鈕的註解）
+            NudgeButton(
+                glyph = null,
+                label = if (nudgable) "移除這張補圖" else "移除這張截圖",
+                shape = scrimPill,
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 2.dp),
+                onClick = onRemove,
+            )
+        }
+
         if (nudgable) {
             // ±1 秒微調：**只有相簿選來的圖有**。截圖的圖與秒數是同一瞬間取的，
             // 給了微調鈕等於承諾一件做不到的事（規格第五節、手冊第 93 行）。
@@ -402,11 +419,20 @@ private fun FrameCell(
  */
 private val NUDGE_COMPACT_WIDTH = 122.dp
 
-/** ±1 秒微調的小鈕：scrim 底白字，實際尺寸 24×22dp（觸控區由 Compose 擴到 48dp）。名稱由呼叫端給（測試與無障礙靠它定位）。 */
+/**
+ * 格子上的小鈕（±1 秒微調、右上角的移除 ✕）：scrim 底白字，實際尺寸 24×22dp（觸控區由 Compose 擴到 48dp）。
+ * 名稱由呼叫端給（測試與無障礙靠它定位）。[glyph] 是 null 時畫 ✕ 圖示。
+ */
 @Composable
-private fun NudgeButton(glyph: String, label: String, shape: RoundedCornerShape, onClick: () -> Unit) {
+private fun NudgeButton(
+    glyph: String?,
+    label: String,
+    shape: RoundedCornerShape,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     Box(
-        Modifier
+        modifier
             .size(width = 24.dp, height = 22.dp)
             .clip(shape)
             .background(AppTheme.colors.scrim)
@@ -414,7 +440,11 @@ private fun NudgeButton(glyph: String, label: String, shape: RoundedCornerShape,
             .clickable(role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(glyph, style = MaterialTheme.typography.bodyMedium, color = Color.White)
+        if (glyph != null) {
+            Text(glyph, style = MaterialTheme.typography.bodyMedium, color = Color.White)
+        } else {
+            Icon(VsIcons.Close, null, tint = Color.White, modifier = Modifier.size(14.dp))
+        }
     }
 }
 

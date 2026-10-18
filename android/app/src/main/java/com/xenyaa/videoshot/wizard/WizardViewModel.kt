@@ -552,9 +552,13 @@ class WizardViewModel(
                         if (file == null) {
                             _captureError.value = CaptureError.SAVE_FAILED
                         } else {
-                            store.addManual(result.atSec, file, fromGallery = false)
+                            val cell = store.addManual(result.atSec, file, fromGallery = false)
                             // 成功了就把上一次的失敗訊息收掉，否則畫面會留著一句過期的話
                             _captureError.value = null
+                            // 「已截圖 MM:SS【復原】」：一截就發現截壞了，按一下就丟掉
+                            _manualNotices.tryEmit(
+                                ManualNotice.Captured(ManualCell(cell, result.atSec, file, fromGallery = false)),
+                            )
                         }
                     }
                     CaptureResult.BlackFrame -> _captureError.value = CaptureError.BLACK_FRAME
@@ -566,6 +570,48 @@ class WizardViewModel(
                 player?.play()
             }
         }
+    }
+
+    // ---- 移除手動圖（2026-10-18）----
+
+    private val _manualNotices = MutableSharedFlow<ManualNotice>(extraBufferCapacity = 8)
+
+    /** 「已截圖／已移除【復原】」提示。畫面顯示後回報 [undoManualNotice] 或 [manualNoticeExpired]。 */
+    val manualNotices: SharedFlow<ManualNotice> = _manualNotices.asSharedFlow()
+
+    /** 截圖格（或相簿補圖格）右上角的 ✕。檔案等【復原】的時限過了才刪（[manualNoticeExpired]）。 */
+    fun removeManual(cell: Int) {
+        val store = _step2.value ?: return
+        val (entry, wasSelected) = store.removeManual(cell) ?: return
+        _manualNotices.tryEmit(ManualNotice.Removed(entry, wasSelected))
+    }
+
+    /** 提示上按了【復原】。 */
+    fun undoManualNotice(notice: ManualNotice) {
+        val store = _step2.value ?: return
+        when (notice) {
+            // 剛截的那張不要了：拿掉、檔案直接刪
+            is ManualNotice.Captured -> if (store.removeManual(notice.cell.cellIndex) != null) {
+                deleteManualFile(notice.cell.file)
+            }
+            is ManualNotice.Removed -> store.restoreManual(notice.cell, notice.wasSelected)
+        }
+    }
+
+    /**
+     * 提示消失了沒按【復原】（逾時、被下一則蓋掉、離開畫面）：移除才算數，刪檔案、存一次草稿。
+     * 檔案還被牆上的格子用著（例如已經復原過）就不刪。
+     */
+    fun manualNoticeExpired(notice: ManualNotice) {
+        if (notice !is ManualNotice.Removed) return
+        val stillUsed = _step2.value?.state?.value?.manual.orEmpty().any { it.file == notice.cell.file }
+        if (stillUsed) return
+        deleteManualFile(notice.cell.file)
+        if (hasDraft) saveDraft()
+    }
+
+    private fun deleteManualFile(file: java.io.File) {
+        viewModelScope.launch(Dispatchers.IO) { runCatching { file.delete() } }
     }
 
     /**

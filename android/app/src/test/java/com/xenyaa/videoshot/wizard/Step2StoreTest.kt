@@ -20,6 +20,7 @@ import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.test.resetMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -498,6 +499,55 @@ class Step2StoreTest {
         assertEquals(listOf(0), s.state.value.kept)
         val cell = s.addManual(atSec = 15.0, file = File("/tmp/a.webp"))
         assertTrue(s.state.value.visible.toString(), s.state.value.visible.contains(cell))
+        s.close()
+    }
+
+    @Test
+    fun 移除手動格_從牆上拿掉也不再勾選() = runTest(dispatcher) {
+        val s = storeOf(frameCount = 10)
+        advanceUntilIdle()
+        val cell = s.addManual(atSec = 15.0, file = File("/tmp/a.webp"))
+        val (entry, wasSelected) = s.removeManual(cell)!!
+        assertEquals(cell, entry.cellIndex)
+        assertTrue(wasSelected)
+        assertFalse(s.state.value.visible.contains(cell))
+        assertFalse(s.state.value.selected.contains(cell))
+        assertTrue(s.state.value.manual.isEmpty())
+        s.close()
+    }
+
+    @Test
+    fun 復原移除_同一格號放回去_勾選照移除前() = runTest(dispatcher) {
+        val s = storeOf(frameCount = 10)
+        advanceUntilIdle()
+        val cell = s.addManual(atSec = 15.0, file = File("/tmp/a.webp"))
+        s.toggle(cell) // 先取消勾選再移除
+        val (entry, wasSelected) = s.removeManual(cell)!!
+        s.restoreManual(entry, wasSelected)
+        assertTrue(s.state.value.visible.contains(cell))
+        assertFalse(s.state.value.selected.contains(cell))
+        s.close()
+    }
+
+    @Test
+    fun 移除最後一張再截一張_不會跟被移除的撞號() = runTest(dispatcher) {
+        // 撞號的話【復原】移除會讓牆上兩格同號，LazyVerticalGrid 直接丟例外
+        val s = storeOf(frameCount = 10)
+        advanceUntilIdle()
+        val first = s.addManual(atSec = 15.0, file = File("/tmp/a.webp"))
+        val (entry, wasSelected) = s.removeManual(first)!!
+        val second = s.addManual(atSec = 25.0, file = File("/tmp/b.webp"))
+        assertTrue(second != first)
+        s.restoreManual(entry, wasSelected)
+        assertEquals(2, s.state.value.manual.map { it.cellIndex }.distinct().size)
+        s.close()
+    }
+
+    @Test
+    fun 移除storyboard格什麼都不做() = runTest(dispatcher) {
+        val s = storeOf(frameCount = 10)
+        advanceUntilIdle()
+        assertNull(s.removeManual(3))
         s.close()
     }
 

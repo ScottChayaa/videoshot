@@ -119,3 +119,13 @@ data class Finished(val eventDate: String, val count: Int)
  */
 enum class CaptureError { BLACK_FRAME, NOT_DECODABLE, AD_PLAYING, NOT_READY, SAVE_FAILED }
 
+/**
+ * 手動圖的「已截圖／已移除【復原】」提示（2026-10-18）。
+ * [Captured] 的復原＝把剛截的丟掉；[Removed] 的復原＝放回去，[wasSelected] 是移除前有沒有勾。
+ */
+sealed interface ManualNotice {
+    val cell: ManualCell
+
+    data class Captured(override val cell: ManualCell) : ManualNotice
+    data class Removed(override val cell: ManualCell, val wasSelected: Boolean) : ManualNotice
+}
