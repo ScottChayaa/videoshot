@@ -38,6 +38,24 @@ class Step3StoreTest {
         assertEquals(setOf(0, 1, 2, 3), s.state.value.selected)
     }
 
+    @Test
+    fun 全選狀態下再按全選會全部取消() {
+        val s = store()
+        assertEquals(setOf(0, 1, 2, 3), s.state.value.selected) // 進場預設就是全選
+        s.selectAll()
+        assertEquals(emptySet<Int>(), s.state.value.selected)
+        s.selectAll() // 再按一次又全部勾上
+        assertEquals(setOf(0, 1, 2, 3), s.state.value.selected)
+    }
+
+    @Test
+    fun 部分勾選時按全選會全部勾上() {
+        val s = store()
+        s.selectNone(); s.toggle(1)
+        s.selectAll()
+        assertEquals(setOf(0, 1, 2, 3), s.state.value.selected)
+    }
+
     // ---- 選擇器的起始值（案例 10）----
 
     @Test

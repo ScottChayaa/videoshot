@@ -112,6 +112,8 @@ class WizardStep3WiringTest {
     /** 精靈的【完成】要每一張都有時間與地點：全選後設一個地點（時間一進來就有）。 */
     private fun WizardViewModel.fillPlace(place: String = "冬山河") {
         val s3 = step3.value!!
+        // 進第三步預設就是全選，直接再按【全選】會變成全部取消，所以先清掉再全選。
+        s3.selectNone()
         s3.selectAll()
         s3.applyToSelected(DetailsPatch(place = place))
     }

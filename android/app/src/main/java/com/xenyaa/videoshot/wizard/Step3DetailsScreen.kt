@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
@@ -158,7 +159,7 @@ fun Step3DetailsScreen(
                         when {
                             canFinish -> onFinish()
                             state.cells.isEmpty() -> hint("沒有圖片，回上一步挑幾張")
-                            else -> hint("每一張都要先設定時間和地點")
+                            else -> hint("每一張都要設定【時間】和【地點】才能完成")
                         }
                     },
                     modifier = Modifier
@@ -229,18 +230,21 @@ private fun Step3Thumb(
             Image(bitmap = it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         }
         if (selected) VsSelectedBadge(Modifier.align(Alignment.TopStart), semanticLabel = null)
+        // 圖示 16dp、間距 3dp、底框左右 4dp／上下 3dp。每格約 98dp 寬（393dp 手機），
+        // 4×16＋3×3＋8 ≈ 81dp 放得下；18dp 會太擠。
         Row(
             Modifier
                 .align(Alignment.BottomStart)
                 .padding(AppTheme.spacing.s1)
                 .clip(RoundedCornerShape(AppTheme.radii.sm))
                 .background(AppTheme.colors.scrim)
-                .padding(horizontal = 3.dp, vertical = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                .padding(horizontal = 4.dp, vertical = 3.dp)
+                .testTag("step3-field-icons"),
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
         ) {
             DetailField.entries.forEach { f ->
                 val on = details?.has(f) == true
-                Icon(f.icon, contentDescription = null, tint = Color.White.copy(alpha = if (on) 1f else 0.35f), modifier = Modifier.size(12.dp))
+                Icon(f.icon, contentDescription = null, tint = Color.White.copy(alpha = if (on) 1f else 0.35f), modifier = Modifier.size(16.dp))
             }
         }
         if (showInfo) Step3InfoPopup(cell, details, onDismiss = { showInfo = false })

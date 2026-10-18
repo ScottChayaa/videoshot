@@ -118,7 +118,7 @@ class Step3FieldBarTest {
     @Test fun 還沒每一張都有地點時按完成只跳提示() {
         show(stateOf())
         compose.onNodeWithText("完成").performClick()
-        compose.onNodeWithText("每一張都要先設定時間和地點").assertIsDisplayed()
+        compose.onNodeWithText("每一張都要設定【時間】和【地點】才能完成").assertIsDisplayed()
         assertEquals(0, finished)
     }
 
@@ -126,7 +126,7 @@ class Step3FieldBarTest {
         show(stateOf(details = emptyMap(), selected = emptySet()))
         compose.onNodeWithText("完成").performClick()
         compose.onNodeWithText("沒有圖片，回上一步挑幾張").assertIsDisplayed()
-        compose.onAllNodesWithText("每一張都要先設定時間和地點").assertCountEquals(0)
+        compose.onAllNodesWithText("每一張都要設定【時間】和【地點】才能完成").assertCountEquals(0)
         assertEquals(0, finished)
     }
 

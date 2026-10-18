@@ -3,8 +3,10 @@ package com.xenyaa.videoshot.wizard
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -14,6 +16,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import com.xenyaa.videoshot.core.details.ShotDetails
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -81,6 +84,13 @@ class Step3GridTest {
         assertEquals(first.top, fourth.top, 1f)
     }
 
+    /** 縮圖左下四個欄位圖示那一排不能比格子寬（16dp 圖示＋間距）。w360dp 的情況見 [Step3GridNarrowTest]。 */
+    @Test
+    fun 欄位圖示那排不比格子寬() {
+        show(stateOf())
+        assertFieldIconRowsFit(compose)
+    }
+
     @Test
     fun 格子沒有時間字樣也沒有已套用記號() {
         show(stateOf())
@@ -140,5 +150,52 @@ class Step3GridTest {
     fun 裁圖中會顯示進度() {
         show(stateOf().copy(cropping = true, cropDone = 2, cropTotal = 4))
         compose.onNodeWithText("處理縮圖 2/4").assertIsDisplayed()
+    }
+}
+
+/**
+ * 每格約 98dp 寬（393dp 手機），圖示列 4×16＋3×3＋8＝81dp 放得下。
+ * 圖示列加了 testTag `step3-field-icons`；格子本身是可點的合併節點，所以要看未合併的樹才找得到。
+ */
+internal fun assertFieldIconRowsFit(compose: ComposeContentTestRule) {
+    val rows = compose.onAllNodesWithTag("step3-field-icons", useUnmergedTree = true)
+    rows.assertCountEquals(4)
+    val cells = compose.onAllNodesWithContentDescription("第三步的格子", substring = true)
+    for (i in 0 until 4) {
+        val row = rows[i].fetchSemanticsNode().boundsInRoot
+        val cell = cells[i].fetchSemanticsNode().boundsInRoot
+        assertTrue("第 $i 格圖示列寬 ${row.width} 超過格寬 ${cell.width}", row.width <= cell.width)
+    }
+}
+
+/**
+ * 同一項檢查換成 w360dp（常見的最窄手機）。拆成另一個類別是因為 Robolectric 的 qualifiers 以類別為單位設定，
+ * 這樣不必在測試中途動態改視窗。
+ */
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [35], qualifiers = "w360dp-h780dp")
+class Step3GridNarrowTest {
+
+    @get:Rule val compose = createComposeRule()
+
+    @Test
+    fun 窄螢幕下欄位圖示那排也不比格子寬() {
+        compose.setContent {
+            Step3DetailsScreen(
+                state = Step3State(
+                    cells = List(4) { Step3Cell(it, it * 70.0, manual = false) },
+                    details = List(4) { it }.associateWith { ShotDetails(eventDate = "2026-01-01") },
+                    selected = setOf(0, 1, 2, 3),
+                    cropping = false,
+                ),
+                bitmapFor = { null },
+                onToggle = {},
+                onSelectAll = {},
+                onApply = {},
+                onFinish = {},
+            )
+        }
+        assertFieldIconRowsFit(compose)
     }
 }

@@ -102,7 +102,14 @@ class Step3Store(
         select(if (cell in current) current - cell else current + cell)
     }
 
-    fun selectAll() = select(_state.value.cells.map { it.cell }.toSet())
+    /**
+     * 【全選】：還沒全選就勾選每一張；已經全選時再按一次＝全部取消勾選（同第二步 `Step2Store.selectAll()`）。
+     * 批次編輯共用這個 store，行為一起生效。
+     */
+    fun selectAll() {
+        val all = _state.value.cells.map { it.cell }.toSet()
+        select(if (all.isNotEmpty() && _state.value.selected.containsAll(all)) emptySet() else all)
+    }
 
     /** 全部取消勾選。畫面上沒有【全不選】了（2026-10-17 拿掉），一張張點掉是同一件事；留給測試與狀態還原用。 */
     fun selectNone() = select(emptySet())
