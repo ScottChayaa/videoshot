@@ -12,6 +12,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,10 +31,12 @@ import com.xenyaa.videoshot.player.LocalPlayerFullscreen
 import com.xenyaa.videoshot.player.PlayerSurface
 import com.xenyaa.videoshot.player.playerFrame
 import com.xenyaa.videoshot.ui.common.ButtonVariant
+import com.xenyaa.videoshot.ui.common.TopBarIconButton
 import com.xenyaa.videoshot.ui.common.TopBarNav
 import com.xenyaa.videoshot.ui.common.TopBarTitle
 import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsTopBar
+import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 
 /**
@@ -57,9 +60,26 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
 
     var takenTapped by remember { mutableStateOf<Int?>(null) }
 
-    // 頂欄返回鍵與 Android 返回同一套：第二、三步回上一步（選擇不會丟，草稿會存），第一步才離開取圖
-    val goBack = { if (!vm.back()) onExit() }
+    // 進場就接上中斷的流程（不再詢問，2026-10-18）；離開時記下，草稿比進場晚讀到才知道要不要接
+    DisposableEffect(vm) {
+        vm.onEnter()
+        onDispose { vm.onLeave() }
+    }
+
+    // 頂欄返回鍵與 Android 返回同一套：第二、三步回上一步（選擇不會丟，草稿會存），第一步才離開取圖。
+    // 離開時草稿留著，下次按【取圖】直接回到離開前的那一步
+    val goBack = {
+        if (!vm.back()) {
+            vm.onExitKeepingDraft()
+            onExit()
+        }
+    }
     BackHandler(onBack = goBack)
+    // 右上角 X：放棄這次取圖（草稿與手動圖一起刪），下次按【取圖】從第一步開始
+    val abandon = {
+        vm.abandon()
+        onExit()
+    }
 
     val loadedForTitle by vm.loaded.collectAsStateWithLifecycle()
     // 播放器全螢幕時藏頂欄與縮圖牆（規格第六節「播放器」）
@@ -76,7 +96,9 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                 nav = TopBarNav.Back(onClick = goBack),
                 titleStyle = TopBarTitle.Small,
                 divider = false,
-            )
+            ) {
+                TopBarIconButton(VsIcons.Close, "放棄這次取圖", abandon, tint = AppTheme.colors.text)
+            }
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (step) {
@@ -195,19 +217,6 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                 }
             }
         }
-    }
-
-    val draftPrompt by vm.draftPrompt.collectAsStateWithLifecycle()
-    draftPrompt?.let { prompt ->
-        val stepName = WizardStep.entries.firstOrNull { it.order == prompt.step }?.label ?: "挑畫面"
-        AlertDialog(
-            // 點外面不算回答 —— 兩個選項的後果差很多（其中一個會刪掉手動補圖）
-            onDismissRequest = {},
-            title = { Text("上次做到「$stepName」，要繼續嗎？") },
-            text = { Text("選【重新開始】會把上次的選擇與補圖一起清掉。") },
-            confirmButton = { VsButton("繼續", { vm.resumeDraft() }) },
-            dismissButton = { VsButton("重新開始", { vm.startOver() }, variant = ButtonVariant.Quiet) },
-        )
     }
 
     takenTapped?.let {

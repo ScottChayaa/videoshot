@@ -57,8 +57,11 @@ class WizardDraftTest {
     private class DraftData(var stored: String?) : WizardData {
         var watchPageCalls = 0
         var clearedVideoId: String? = null
+        /** 沒網路：watch page 抓不到（續做失敗的情境）。 */
+        var offline = false
         override suspend fun watchPage(videoId: String): WatchPage {
             watchPageCalls++
+            if (offline) return WatchPage(FetchResult.FETCH_FAILED, null, storyboardSpec = null)
             return WatchPage(
                 FetchResult.OK,
                 VideoMeta("v1", "宜蘭兩天一夜", "ch", "2025-07-12T10:00:00-07:00", 600, "public", true),
@@ -103,25 +106,106 @@ class WizardDraftTest {
     )
 
     @Test
-    fun 有草稿時進場會問要不要繼續() = runTest(dispatcher) {
+    fun 有草稿時進場直接續做不再詢問() = runTest(dispatcher) {
         val payload = DraftPayload("v1", step = 3, level = 3, frameCount = 4, selected = listOf(0))
         val vm = vmWith(DraftData(DraftCodec.encode(payload)))
         advanceUntilIdle()
-        assertEquals(DraftPrompt("v1", 3), vm.draftPrompt.value)
+        vm.onEnter()
+        advanceUntilIdle()
+        assertEquals(WizardStep.DETAILS, vm.step.value)
     }
 
     @Test
-    fun 沒有草稿就不問() = runTest(dispatcher) {
-        val vm = vmWith(DraftData(null))
+    fun 草稿比進場晚讀到也會續做() = runTest(dispatcher) {
+        val payload = DraftPayload("v1", step = 2, level = 3, frameCount = 4, selected = listOf(1))
+        val vm = vmWith(DraftData(DraftCodec.encode(payload)))
+        // app 啟動時就停在取圖分頁：畫面進場的當下草稿還沒讀完
+        vm.onEnter()
         advanceUntilIdle()
-        assertNull(vm.draftPrompt.value)
+        assertEquals(WizardStep.PICK, vm.step.value)
+    }
+
+    @Test
+    fun 沒進精靈就不續做() = runTest(dispatcher) {
+        val payload = DraftPayload("v1", step = 2, level = 3, frameCount = 4)
+        val data = DraftData(DraftCodec.encode(payload))
+        val vm = vmWith(data)
+        advanceUntilIdle()
+        // ViewModel 跟著 app 一起建，使用者還沒按【取圖】—— 不該先去抓網路
+        assertEquals(0, data.watchPageCalls)
+        assertEquals(WizardStep.URL, vm.step.value)
+    }
+
+    @Test
+    fun 沒有草稿就停在第一步() = runTest(dispatcher) {
+        val data = DraftData(null)
+        val vm = vmWith(data)
+        advanceUntilIdle()
+        vm.onEnter()
+        advanceUntilIdle()
+        assertEquals(WizardStep.URL, vm.step.value)
+        assertEquals(0, data.watchPageCalls)
     }
 
     @Test
     fun 草稿壞掉就當作沒有草稿() = runTest(dispatcher) {
-        val vm = vmWith(DraftData("{ 這不是 json"))
+        val data = DraftData("{ 這不是 json")
+        val vm = vmWith(data)
         advanceUntilIdle()
-        assertNull(vm.draftPrompt.value)
+        vm.onEnter()
+        advanceUntilIdle()
+        assertEquals(WizardStep.URL, vm.step.value)
+        assertEquals(0, data.watchPageCalls)
+    }
+
+    @Test
+    fun 續做時沒網路就留著草稿_下次進場再接() = runTest(dispatcher) {
+        val payload = DraftPayload("v1", step = 2, level = 3, frameCount = 4, selected = listOf(1))
+        val data = DraftData(DraftCodec.encode(payload)).apply { offline = true }
+        val vm = vmWith(data)
+        advanceUntilIdle()
+        vm.onEnter()
+        advanceUntilIdle()
+        assertEquals(WizardStep.URL, vm.step.value)
+        assertTrue(vm.status.value is Step1Status.Error)
+        assertNull(data.clearedVideoId)
+
+        data.offline = false
+        vm.onLeave()
+        vm.onEnter()
+        advanceUntilIdle()
+        assertEquals(WizardStep.PICK, vm.step.value)
+        assertEquals(setOf(1), vm.step2.value!!.state.value.selected)
+    }
+
+    @Test
+    fun 返回到第一步離開後_再進場回到第二步() = runTest(dispatcher) {
+        val vm = vmWith(DraftData(null))
+        vm.openRecent("v1")
+        advanceUntilIdle()
+        vm.step2.value!!.toggle(2)
+        vm.back()
+        assertTrue(!vm.back()) // 第一步：交給畫面離開精靈
+        vm.onExitKeepingDraft()
+        vm.onLeave()
+
+        vm.onEnter()
+        advanceUntilIdle()
+        assertEquals(WizardStep.PICK, vm.step.value)
+        assertEquals(setOf(2), vm.step2.value!!.state.value.selected)
+    }
+
+    @Test
+    fun 停在第一步時畫面重建不會跳回第二步() = runTest(dispatcher) {
+        val vm = vmWith(DraftData(null))
+        vm.openRecent("v1")
+        advanceUntilIdle()
+        vm.back()
+        // 轉螢幕：畫面重建、再進場一次，但使用者沒有離開精靈
+        vm.onLeave()
+        vm.onEnter()
+        advanceUntilIdle()
+        assertEquals(WizardStep.URL, vm.step.value)
     }
 
     // ---- 案例 13：繼續 → 回到原步驟與原選擇 ----
@@ -136,12 +220,11 @@ class WizardDraftTest {
         val data = DraftData(DraftCodec.encode(payload))
         val vm = vmWith(data)
         advanceUntilIdle()
-        vm.resumeDraft()
+        vm.onEnter()
         advanceUntilIdle()
         assertEquals(WizardStep.DETAILS, vm.step.value)
         assertEquals(listOf(0, 2), vm.step3.value!!.state.value.cells.map { it.cell })
         assertEquals("冬山河", vm.step3.value!!.state.value.details[0]!!.place)
-        assertNull(vm.draftPrompt.value)
     }
 
     @Test
@@ -150,23 +233,47 @@ class WizardDraftTest {
         val data = DraftData(DraftCodec.encode(payload))
         val vm = vmWith(data)
         advanceUntilIdle()
-        vm.resumeDraft()
+        vm.onEnter()
         advanceUntilIdle()
         assertEquals(1, data.watchPageCalls)
         assertEquals(setOf(1), vm.step2.value!!.state.value.selected)
     }
 
     @Test
-    fun 重新開始會清掉草稿與目錄() = runTest(dispatcher) {
+    fun 按X會清掉草稿與目錄_再進場從第一步開始() = runTest(dispatcher) {
         val payload = DraftPayload("v1", step = 2, level = 3, frameCount = 4)
         val data = DraftData(DraftCodec.encode(payload))
         val vm = vmWith(data)
         advanceUntilIdle()
-        vm.startOver()
+        vm.onEnter()
+        advanceUntilIdle()
+        assertEquals(WizardStep.PICK, vm.step.value)
+
+        vm.abandon()
+        vm.onLeave()
         advanceUntilIdle()
         assertEquals("v1", data.clearedVideoId)
-        assertNull(vm.draftPrompt.value)
+        assertNull(data.stored)
         assertEquals(WizardStep.URL, vm.step.value)
+        assertNull(vm.step2.value)
+
+        vm.onEnter()
+        advanceUntilIdle()
+        assertEquals(WizardStep.URL, vm.step.value)
+        assertEquals(1, data.watchPageCalls)
+    }
+
+    @Test
+    fun 續做還在載入時按X_不會被帶回第二步() = runTest(dispatcher) {
+        val payload = DraftPayload("v1", step = 2, level = 3, frameCount = 4)
+        val data = DraftData(DraftCodec.encode(payload))
+        val vm = vmWith(data)
+        advanceUntilIdle()
+        vm.onEnter()
+        vm.abandon()
+        advanceUntilIdle()
+        assertEquals(WizardStep.URL, vm.step.value)
+        assertNull(vm.step2.value)
     }
 
     // ---- 存檔時機 ----
@@ -266,7 +373,7 @@ class WizardDraftTest {
         )
         val vm = vmWith(DraftData(DraftCodec.encode(payload)))
         advanceUntilIdle()
-        vm.resumeDraft()
+        vm.onEnter()
         advanceUntilIdle()
         val state = vm.step2.value!!.state.value
         assertEquals(setOf(4), state.selected)
@@ -287,7 +394,7 @@ class WizardDraftTest {
         )
         val vm = vmWith(DraftData(DraftCodec.encode(payload)))
         advanceUntilIdle()
-        vm.resumeDraft()
+        vm.onEnter()
         advanceUntilIdle()
         val state = vm.step2.value!!.state.value
         // 第 5 格還是第 5 格 —— 第三步的 details 是用這個號碼當鍵的
@@ -335,7 +442,7 @@ class WizardDraftTest {
         )
         val vm = vmWith(DraftData(DraftCodec.encode(payload)), capture = FakeCapture(atSec = 30.0))
         advanceUntilIdle()
-        vm.resumeDraft(); advanceUntilIdle()
+        vm.onEnter(); advanceUntilIdle()
         // 播放器與截圖器要在 openStep2 之後才接得上（openStep2 會把上一支影片的清掉）
         vm.attachPlayer(FakePlayer())
         vm.takeShot(); advanceUntilIdle()
@@ -368,7 +475,7 @@ class WizardDraftTest {
             },
         )
         advanceUntilIdle()
-        vm.resumeDraft(); advanceUntilIdle()
+        vm.onEnter(); advanceUntilIdle()
         val state = vm.step2.value!!.state.value
         // 手動圖搬到新空間的第一格（frameCount = 6）
         assertEquals(listOf(6), state.manual.map { it.cellIndex })
@@ -402,7 +509,7 @@ class WizardDraftTest {
             },
         )
         advanceUntilIdle()
-        vm.resumeDraft(); advanceUntilIdle()
+        vm.onEnter(); advanceUntilIdle()
         val state = vm.step2.value!!.state.value
         // 兩張都還在牆上（換層級不影響手動圖本身），但格號整批往後搬
         assertEquals(listOf(6, 7), state.manual.map { it.cellIndex })

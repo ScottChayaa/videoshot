@@ -9,6 +9,7 @@ import com.xenyaa.videoshot.core.youtube.FetchResult
 import com.xenyaa.videoshot.core.youtube.WatchPage
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -68,12 +69,23 @@ class WizardShellTest {
         assertEquals(WizardStep.URL, vm.step.value)
     }
 
-    /** 頂欄左上角是返回鍵（不是 ✕）。 */
+    /** 頂欄左上角是返回鍵，右上角是放棄的 ✕（2026-10-18）。 */
     @Test
-    fun 頂欄左上角是返回鍵() {
+    fun 頂欄左上角是返回鍵_右上角是放棄() {
         show()
-        compose.onNodeWithContentDescription("返回").assertIsDisplayed()
-        compose.onNodeWithContentDescription("關閉").assertDoesNotExist()
+        val back = compose.onNodeWithContentDescription("返回").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val close = compose.onNodeWithContentDescription("放棄這次取圖").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue(back.left < close.left)
+    }
+
+    @Test
+    fun 第二步按X直接離開並回到第一步() {
+        val vm = newVm()
+        vm.goTo(WizardStep.PICK)
+        show(vm)
+        compose.onNodeWithContentDescription("放棄這次取圖").performClick()
+        assertEquals(1, exits)
+        assertEquals(WizardStep.URL, vm.step.value)
     }
 
     @Test

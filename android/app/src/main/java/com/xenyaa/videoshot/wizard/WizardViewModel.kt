@@ -112,6 +112,57 @@ class WizardViewModel(
         return true
     }
 
+    /**
+     * 精靈畫面正在顯示（使用者按了【取圖】）。草稿比進場晚讀到時（app 剛啟動），讀到的當下就續做。
+     * 轉螢幕會重建畫面、再呼叫一次 [onEnter]，所以「離開時停在哪一步」只在真的離開時記（[onExitKeepingDraft]）。
+     */
+    private var entered = false
+
+    /** 用返回鍵離開精靈時記下的那一步；下次進場直接回到這裡。 */
+    private var resumeOnEnter: WizardStep? = null
+
+    /**
+     * 進入精靈（按【取圖】）。**有中斷的流程就直接接上，不再詢問**（2026-10-18）：
+     * - app 重開過：磁碟上有草稿 → 續做（[resumeDraft]）。
+     * - app 還活著：上次是一路返回、從第一步離開的 → 回到離開前的那一步，勾選與圖資都還在記憶體裡。
+     * 要從頭開始就按右上角 X（[abandon]）。
+     */
+    fun onEnter() {
+        entered = true
+        val step = resumeOnEnter
+        resumeOnEnter = null
+        when {
+            pendingDraft != null -> resumeDraft()
+            step != null && _step.value == WizardStep.URL && _loaded.value != null -> goTo(step)
+        }
+    }
+
+    fun onLeave() { entered = false }
+
+    /**
+     * 用返回鍵從第一步離開精靈。草稿留著，下次按【取圖】回到第二步 ——
+     * 返回只能一步一步退，從第一步離開之前一定是在第二步（磁碟上的草稿存的也是這一步）。
+     */
+    fun onExitKeepingDraft() {
+        if (_hasDraft.value && _loaded.value != null) resumeOnEnter = WizardStep.PICK
+    }
+
+    /**
+     * 右上角 X：放棄這次取圖。草稿（含手動圖目錄）一起刪，下次按【取圖】從第一步開始。
+     * 還在續做的協程要先取消，否則它載完影片會把精靈又帶回第二步。
+     */
+    fun abandon() {
+        val videoIds = setOfNotNull(_loaded.value?.videoId, pendingDraft?.videoId)
+        resumeJob?.cancel()
+        resumeJob = null
+        pendingDraft = null
+        resumeOnEnter = null
+        _hasDraft.value = false
+        _status.value = Step1Status.Idle
+        resetToStart()
+        viewModelScope.launch { videoIds.forEach { runCatching { data.clearDraft(it) } } }
+    }
+
     fun keepDraft() {
         _hasDraft.value = true
         saveDraft()
@@ -126,33 +177,35 @@ class WizardViewModel(
 
     // ---- 草稿 ----
 
-    /** 「上次《…》做到第幾步，要繼續嗎？」正在問。null 代表沒有草稿或已經回答過了。 */
-    private val _draftPrompt = MutableStateFlow<DraftPrompt?>(null)
-    val draftPrompt: StateFlow<DraftPrompt?> = _draftPrompt.asStateFlow()
-
-    /** 目前這一份草稿。續做時要靠它把勾選與圖資還原回去。 */
+    /** app 啟動時讀到、還沒接上的草稿。續做時要靠它把勾選與圖資還原回去。 */
     private var pendingDraft: DraftPayload? = null
+
+    /** 正在續做的協程。按 X 放棄時要取消。 */
+    private var resumeJob: Job? = null
 
     private fun loadDraft() {
         viewModelScope.launch {
             val text = runCatching { data.currentDraft() }.getOrNull() ?: return@launch
-            // 解不出來就當作沒有草稿 —— 壞掉的草稿只該讓問句不出現，不該讓 app 開不起來
+            // 解不出來就當作沒有草稿 —— 壞掉的草稿只該讓續做不發生，不該讓 app 開不起來
             val payload = DraftCodec.decode(text) ?: return@launch
             pendingDraft = payload
-            _draftPrompt.value = DraftPrompt(payload.videoId, payload.step)
+            if (entered) resumeDraft()
         }
     }
 
     /**
-     * 【繼續】。**先重抓 watch page**（規格第五節）—— sprite 的簽章可能已經過期。
-     * sheet 若還在本機就不會重新下載（見 `StoryboardFrameSource.fetchSheet`）。
+     * 續做磁碟上的草稿（進場時自動呼叫，見 [onEnter]）。**先重抓 watch page**（規格第五節）——
+     * sprite 的簽章可能已經過期。sheet 若還在本機就不會重新下載（見 `StoryboardFrameSource.fetchSheet`）。
+     * 抓不到（沒網路）就停在第一步顯示錯誤，草稿留著，下次進場再試。
      */
-    fun resumeDraft() {
+    private fun resumeDraft() {
         val payload = pendingDraft ?: return
         pendingDraft = null
-        _draftPrompt.value = null
-        viewModelScope.launch {
-            openRecentAndAwait(payload.videoId) ?: return@launch
+        resumeJob = viewModelScope.launch {
+            openRecentAndAwait(payload.videoId) ?: run {
+                pendingDraft = payload
+                return@launch
+            }
             val store2 = _step2.value ?: return@launch
             val survivors = payload.manual.mapNotNull { m ->
                 // 檔案不見了（使用者清了資料）就跳過這一張，其餘照常還原
@@ -198,14 +251,6 @@ class WizardViewModel(
                 saveDraft()
             }
         }
-    }
-
-    /** 【重新開始】。草稿目錄一起刪 —— 手動圖在完成前都在那裡，不刪就是孤兒檔案（規格第五節）。 */
-    fun startOver() {
-        val payload = pendingDraft ?: return
-        pendingDraft = null
-        _draftPrompt.value = null
-        viewModelScope.launch { runCatching { data.clearDraft(payload.videoId) } }
     }
 
     /**
@@ -289,6 +334,9 @@ class WizardViewModel(
     }
 
     fun openRecent(videoId: String) {
+        // 使用者自己開了一支影片：還沒接上的草稿（續做時沒網路而留下的）就不再自動接上，
+        // 這支影片進第二步時存的草稿會蓋過它
+        pendingDraft = null
         viewModelScope.launch { openRecentAndAwait(videoId) }
     }
 

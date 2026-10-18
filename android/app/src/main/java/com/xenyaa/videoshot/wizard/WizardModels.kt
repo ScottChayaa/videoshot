@@ -101,5 +101,3 @@ data class Finished(val eventDate: String, val count: Int)
  */
 enum class CaptureError { BLACK_FRAME, NOT_DECODABLE, AD_PLAYING, NOT_READY, SAVE_FAILED }
 
-/** 「上次《宜蘭兩天一夜》做到第三步，要繼續嗎？」的內容（規格第五節草稿）。 */
-data class DraftPrompt(val videoId: String, val step: Int)
