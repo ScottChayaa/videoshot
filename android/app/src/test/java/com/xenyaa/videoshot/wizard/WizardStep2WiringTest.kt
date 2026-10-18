@@ -120,7 +120,7 @@ class WizardStep2WiringTest {
         show(vm)
         compose.waitForIdle()
         compose.onNodeWithText("第二步（挑畫面）在階段 4b 實作").assertDoesNotExist()
-        compose.onNodeWithText("全選").assertIsDisplayed()
+        compose.onNodeWithContentDescription("全選").assertIsDisplayed()
     }
 
     @Test

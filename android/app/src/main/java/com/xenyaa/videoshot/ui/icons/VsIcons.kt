@@ -199,6 +199,33 @@ object VsIcons {
 
     val Check: ImageVector by lazy { strokeIcon("check", "M20 6 9 17l-5-5") }
 
+    /** 全選（取圖第二步底部列）：前張打勾、後張只露左下邊的疊圖。改自 Lucide `images`（山與太陽換成勾），原型 `ICONS` 沒有這個 key。 */
+    val ImagesCheck: ImageVector by lazy {
+        strokeIcon(
+            "images-check",
+            "M8 2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z",
+            "M18 22H4a2 2 0 0 1-2-2V6",
+            "m10 10 3 3 5-5",
+        )
+    }
+
+    /** 已收藏（取圖第二步縮圖格左上角）。Lucide `bookmark-check`，原型 `ICONS` 沒有這個 key。 */
+    val BookmarkCheck: ImageVector by lazy {
+        strokeIcon("bookmark-check", "m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2Z", "m9 10 2 2 4-4")
+    }
+
+    /** 截圖（取圖第二步底部列與手動格的時間標記）。Lucide `scissors`，原型 `ICONS` 沒有這個 key；圓形改寫成兩段弧線（同 [Search]）。 */
+    val Scissors: ImageVector by lazy {
+        strokeIcon(
+            "scissors",
+            "M3 6a3 3 0 1 0 6 0a3 3 0 1 0 -6 0",
+            "M8.12 8.12 12 12",
+            "M20 4 8.12 15.88",
+            "M3 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0",
+            "M14.8 14.8 20 20",
+        )
+    }
+
     /** 下拉欄位的箭頭（原型 `chevronDown`）。 */
     val ChevronDown: ImageVector by lazy { strokeIcon("chevron-down", "m6 9 6 6 6-6") }
 

@@ -82,8 +82,8 @@ class Step2GridScreenTest {
     fun 底部列的按鈕捲到底也還在() {
         show(loaded(frameCount = 60))
         compose.onNode(androidx.compose.ui.test.hasScrollAction()).performScrollToIndex(59)
-        compose.onNodeWithText("全選").assertIsDisplayed()
-        compose.onNodeWithText("截圖").assertIsDisplayed()
+        compose.onNodeWithContentDescription("全選").assertIsDisplayed()
+        compose.onNodeWithContentDescription("截圖").assertIsDisplayed()
         compose.onNodeWithText("下一步", substring = true).assertIsDisplayed()
     }
 
@@ -123,9 +123,11 @@ class Step2GridScreenTest {
     @Test
     fun 底部列依序是全選截圖下一步_沒有只看已選() {
         show(loaded())
-        val x = listOf("全選", "截圖", "下一步（0 張）").map {
-            compose.onNodeWithText(it).assertIsDisplayed().fetchSemanticsNode().boundsInRoot.left
-        }
+        val x = listOf(
+            compose.onNodeWithContentDescription("全選"),
+            compose.onNodeWithContentDescription("截圖"),
+            compose.onNodeWithText("下一步（0 張）"),
+        ).map { it.assertIsDisplayed().fetchSemanticsNode().boundsInRoot.left }
         assertEquals(x.sorted(), x)
         compose.onNodeWithText("只看已選").assertDoesNotExist()
         compose.onNodeWithText("全部選取").assertDoesNotExist()
@@ -135,7 +137,7 @@ class Step2GridScreenTest {
     fun 按截圖會回報() {
         var called = 0
         show(loaded(), onTakeShot = { called++ })
-        compose.onNodeWithText("截圖").performClick()
+        compose.onNodeWithContentDescription("截圖").performClick()
         assertEquals(1, called)
     }
 
@@ -143,7 +145,7 @@ class Step2GridScreenTest {
     fun 按全選會回報() {
         var called = 0
         show(loaded(), onSelectAll = { called++ })
-        compose.onNodeWithText("全選").performClick()
+        compose.onNodeWithContentDescription("全選").performClick()
         assertEquals(1, called)
     }
 
@@ -253,14 +255,14 @@ class Step2GridScreenTest {
         // 階段 15B：標記從 📷 圖示移到時間標籤「截圖 MM:SS」。標籤的文字本身就是無障礙名稱
         // （最終審查 M-3：不再另設相同的 contentDescription，免得唸兩次），所以改用文字比對。
         compose.onAllNodesWithText("截圖 00:15", useUnmergedTree = true).assertCountEquals(1)
-        compose.onAllNodesWithContentDescription("截圖", substring = true).assertCountEquals(0)
+        compose.onAllNodesWithContentDescription("截圖", substring = true).assertCountEquals(1) // 只有底部列的【截圖】鈕
     }
 
     @Test
     fun storyboard格沒有截圖標記() {
         val base = Step2State(plan = source.plan, converging = false)
         show(base.copy(ready = (0 until base.plan.frameCount).toSet(), kept = (0 until base.plan.frameCount).toList()))
-        compose.onAllNodesWithContentDescription("截圖", substring = true).assertCountEquals(0)
+        compose.onAllNodesWithContentDescription("截圖", substring = true).assertCountEquals(1) // 只有底部列的【截圖】鈕
     }
 
     @Test

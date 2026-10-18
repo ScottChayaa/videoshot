@@ -37,6 +37,7 @@ import com.xenyaa.videoshot.ui.common.TopBarIconButton
 import com.xenyaa.videoshot.ui.common.VsActionDock
 import com.xenyaa.videoshot.ui.common.VsBottomNav
 import com.xenyaa.videoshot.ui.common.VsButton
+import com.xenyaa.videoshot.ui.common.VsIconButton
 import com.xenyaa.videoshot.ui.common.VsEmptyState
 import com.xenyaa.videoshot.ui.common.VsHintCard
 import com.xenyaa.videoshot.ui.common.VsListRow
@@ -175,6 +176,11 @@ private fun ButtonSection() = Section("按鈕") {
     VsButton("刪除這些收藏", onClick = {}, variant = ButtonVariant.DangerQuiet)
     VsButton("下一步", onClick = {}, enabled = false)
     VsButton("新增圖片", onClick = {}, icon = VsIcons.Plus)
+    Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s3)) {
+        VsIconButton(VsIcons.ImagesCheck, "全選", onClick = {})
+        VsIconButton(VsIcons.Scissors, "截圖", onClick = {})
+        VsIconButton(VsIcons.Scissors, "截圖", onClick = {}, enabled = false)
+    }
 }
 
 @Composable

@@ -43,12 +43,16 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.core.time.formatClock
 import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.VsActionDock
+import com.xenyaa.videoshot.ui.common.VsIconButton
 import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsHintCard
 import com.xenyaa.videoshot.ui.thumb.ThumbGridGap
@@ -142,10 +146,11 @@ fun Step2GridScreen(
         // 底部**只有一列**：【全選】【截圖】【下一步】，底下不再疊導覽列（手冊 §四第二步）；
         // 張數在頂部狀態列、已選數在按鈕上，不另外寫（2026-10-17 拿掉「N 張候選 · 已選 k」）。
         // 全選與截圖原本是縮圖牆第一列的小膠囊，捲下去就得捲回頂端才按得到（2026-10-17 移到這裡）；
-        // 用次要按鈕、不帶圖示：跟【下一步】同高，主色只留給【下一步】，也省下寬度給「下一步（123 張）」
+        // 用只有圖示的次要方鈕：跟【下一步】同高，主色只留給【下一步】，也省下寬度給「下一步（123 張）」
         VsActionDock {
-            VsButton("全選", onSelectAll, variant = ButtonVariant.Secondary)
-            VsButton("截圖", onTakeShot, variant = ButtonVariant.Secondary)
+            // 圖示用主色（同狀態列的【顯示全部】），外框仍是次要鈕
+            VsIconButton(VsIcons.ImagesCheck, "全選", onSelectAll, tint = AppTheme.colors.accent)
+            VsIconButton(VsIcons.Scissors, "截圖", onTakeShot, tint = AppTheme.colors.accent)
             VsButton(
                 "下一步（${state.selectedCount} 張）",
                 onNext,
@@ -337,36 +342,39 @@ private fun FrameCell(
             }
 
             if (taken) {
-                // 先前已收藏過（規格第五節互動表）：左上「已收藏」小標
-                Text(
-                    "已收藏",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White,
+                // 先前已收藏過（規格第五節互動表）：左上書籤勾圖示，不墊底色、貼近角落；無障礙名稱仍是「已收藏」
+                Icon(
+                    VsIcons.BookmarkCheck,
+                    null,
+                    tint = Color.White,
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .padding(AppTheme.spacing.s1)
-                        .clip(scrimPill)
-                        .background(AppTheme.colors.scrim)
-                        .padding(horizontal = AppTheme.spacing.s1),
+                        .padding(2.dp)
+                        .size(22.dp)
+                        .clearAndSetSemantics { text = AnnotatedString("已收藏") },
                 )
             }
 
-            Text(
-                // 手動格前面加「截圖」，取代原本的 📷 標記（這一格是使用者自己補的，不是 YouTube 的
-                // storyboard，規格第五節）；文字本身就是無障礙名稱（不另設 contentDescription，
-                // 否則輔助技術會唸兩次）。放右下角 —— 左上角是徽章。
-                // 相簿來的手動格左下角還有 ±1 秒微調鈕，格子窄（< NUDGE_COMPACT_WIDTH）時兩者放不下，
-                // 這時只留時間 —— 有微調鈕就已經看得出這是自己補的圖。
-                if (manual && !(nudgable && compact)) "截圖 $clock" else clock,
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White,
-                modifier = Modifier
+            // 手動格的時間前面加剪刀圖示（同底部列【截圖】鈕），標出這一格是使用者自己補的，
+            // 不是 YouTube 的 storyboard（規格第五節）。放右下角 —— 左上角是徽章。
+            // 無障礙名稱整塊設成「截圖 MM:SS」：圖示本身不唸，免得唸兩次。
+            // 相簿來的手動格左下角還有 ±1 秒微調鈕，格子窄（< NUDGE_COMPACT_WIDTH）時兩者放不下，
+            // 這時只留時間 —— 有微調鈕就已經看得出這是自己補的圖。
+            val shotMark = manual && !(nudgable && compact)
+            Row(
+                Modifier
                     .align(Alignment.BottomEnd)
                     .padding(AppTheme.spacing.s1)
                     .clip(scrimPill)
                     .background(AppTheme.colors.scrim)
-                    .padding(horizontal = AppTheme.spacing.s1),
-            )
+                    .padding(horizontal = AppTheme.spacing.s1)
+                    .clearAndSetSemantics { text = AnnotatedString(if (shotMark) "截圖 $clock" else clock) },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                if (shotMark) Icon(VsIcons.Scissors, null, tint = Color.White, modifier = Modifier.size(12.dp))
+                Text(clock, style = MaterialTheme.typography.labelSmall, color = Color.White)
+            }
         }
 
         if (nudgable) {

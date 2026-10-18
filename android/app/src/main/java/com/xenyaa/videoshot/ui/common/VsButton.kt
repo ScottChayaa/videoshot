@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.ui.common
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.size
@@ -10,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,6 +38,57 @@ fun VsButton(
     icon: ImageVector? = null,
     enabled: Boolean = true,
 ) {
+    VsButtonBase(
+        onClick = onClick,
+        variant = variant,
+        enabled = enabled,
+        contentPadding = PaddingValues(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s2),
+        modifier = modifier.defaultMinSize(minHeight = AppTheme.spacing.tap),
+    ) {
+        if (icon != null) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(AppTheme.spacing.s2))
+        }
+        Text(text, style = MaterialTheme.typography.labelLarge) // 17 Medium
+    }
+}
+
+/**
+ * 只有圖示的方形按鈕：外框與 [VsButton] 同一套變體、同高（44dp 見方），放在底部列跟文字按鈕並排。
+ * [contentDescription] 必填 —— 沒有文字，TalkBack 只能唸這個。
+ * [tint] 只換圖示顏色（例如次要鈕的圖示用主色）；停用時一律用停用色。
+ */
+@Composable
+fun VsIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    variant: ButtonVariant = ButtonVariant.Secondary,
+    tint: Color? = null,
+    enabled: Boolean = true,
+) {
+    VsButtonBase(
+        onClick = onClick,
+        variant = variant,
+        enabled = enabled,
+        contentPadding = PaddingValues(0.dp),
+        modifier = modifier.size(AppTheme.spacing.tap),
+    ) {
+        val color = if (enabled && tint != null) tint else LocalContentColor.current
+        Icon(icon, contentDescription = contentDescription, tint = color, modifier = Modifier.size(22.dp))
+    }
+}
+
+@Composable
+private fun VsButtonBase(
+    onClick: () -> Unit,
+    variant: ButtonVariant,
+    enabled: Boolean,
+    contentPadding: PaddingValues,
+    modifier: Modifier,
+    content: @Composable RowScope.() -> Unit,
+) {
     val c = AppTheme.colors
     val (bg, fg, line) = when (variant) {
         ButtonVariant.Primary -> Triple(c.accent, c.accentInk, Color.Transparent)
@@ -56,14 +109,9 @@ fun VsButton(
             disabledContainerColor = c.surface2,
             disabledContentColor = c.textFaint,
         ),
-        contentPadding = PaddingValues(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s2),
+        contentPadding = contentPadding,
         elevation = null,
-        modifier = modifier.defaultMinSize(minHeight = AppTheme.spacing.tap).focusRing(shape),
-    ) {
-        if (icon != null) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(AppTheme.spacing.s2))
-        }
-        Text(text, style = MaterialTheme.typography.labelLarge) // 17 Medium
-    }
+        modifier = modifier.focusRing(shape),
+        content = content,
+    )
 }

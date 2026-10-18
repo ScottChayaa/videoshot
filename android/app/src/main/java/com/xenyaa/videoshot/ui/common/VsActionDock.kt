@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -18,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.ui.theme.AppTheme
 
@@ -34,10 +36,13 @@ fun VsActionDock(
     content: @Composable RowScope.() -> Unit,
 ) {
     Column(modifier.fillMaxWidth().background(AppTheme.colors.surface)) {
-        HorizontalDivider(thickness = 1.dp, color = AppTheme.colors.border)
+        // 跟底部導覽（VsBottomNav）同高：一個實體像素的分隔線＋navHeight，按鈕在列裡垂直置中。
+        // 不用上下 padding —— 按鈕的觸控區是 48dp（Material 的最小觸控尺寸，看得到的是 44），再加 12＋12 會比導覽列高一截
+        HorizontalDivider(thickness = (1f / LocalDensity.current.density).dp, color = AppTheme.colors.border)
         Row(
             Modifier.fillMaxWidth().navigationBarsPadding().imePadding()
-                .padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
+                .heightIn(min = AppTheme.spacing.navHeight)
+                .padding(horizontal = AppTheme.spacing.s4),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s3),
         ) {
