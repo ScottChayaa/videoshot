@@ -568,7 +568,7 @@ class WizardDraftTest {
     // ---- 最終複審 Finding 1：草稿存的必須是「第二步挑了哪些」 ----
 
     @Test
-    fun 在第三步只挑幾張套用圖資_草稿存的仍是第二步的全部勾選() = runTest(dispatcher) {
+    fun 在第三步用選擇器只挑幾張填圖資_草稿存的仍是第二步的全部勾選() = runTest(dispatcher) {
         val data = DraftData(null)
         val vm = vmWith(data)
         vm.openRecent("v1"); advanceUntilIdle()

@@ -53,7 +53,7 @@ class BatchEditViewModelTest {
         val step3State = ready.store.state.value
         assertEquals("宜蘭", step3State.details[0]?.place)
         assertEquals(listOf("露營"), step3State.details[0]?.tags)
-        // 剛讀進來、還沒編輯過——不該顯示綠點
+        // 剛讀進來、還沒編輯過——不該算改過
         assertEquals(false, step3State.details[0]?.applied)
     }
 
@@ -65,7 +65,7 @@ class BatchEditViewModelTest {
     }
 
     @Test
-    fun 完成時只寫套用過的那幾張_其餘不呼叫patchShots() = runTest(dispatcher) {
+    fun 完成時只寫改過的那幾張_其餘不呼叫patchShots() = runTest(dispatcher) {
         val (s1, _) = shot(1, 10.0, place = "宜蘭")
         val (s2, _) = shot(2, 20.0, place = "台北")
         val repo = Repo().apply { shots = listOf(s1, s2) }
@@ -88,10 +88,10 @@ class BatchEditViewModelTest {
      * 最終審查 Finding 1：`AppRoot` 用 videoId 當 key 快取這個 VM，同一支影片第二次進批次編輯
      * 拿到的是同一個實例，`init{}` 不會再跑——呼叫端（`AppRoot.kt` 的 `LaunchedEffect(Unit)`）
      * 改叫公開的 `reload()`，這裡直接驗證 `reload()` 本身會重建一個乾淨的 `Step3Store`：
-     * 上一輪套用過的 cell 0，重查之後不該還帶著 `applied = true`。
+     * 上一輪改過的 cell 0，重查之後不該還帶著 `applied = true`。
      */
     @Test
-    fun reload會建立全新的store_不殘留上一輪的套用狀態() = runTest(dispatcher) {
+    fun reload會建立全新的store_不殘留上一輪的改過狀態() = runTest(dispatcher) {
         val (s1, _) = shot(1, 10.0, place = "宜蘭")
         val (s2, _) = shot(2, 20.0, place = "台北")
         val repo = Repo().apply { shots = listOf(s1, s2) }
@@ -132,7 +132,7 @@ class BatchEditViewModelTest {
     }
 
     @Test
-    fun 完成後記下這一輪套用過的地點與標籤_原本就有的不算() = runTest(dispatcher) {
+    fun 完成後記下這一輪改過的地點與標籤_原本就有的不算() = runTest(dispatcher) {
         val used = mutableListOf<Pair<Set<String>, Set<String>>>()
         val (s1, t1) = shot(1, 10.0, place = "宜蘭", tags = listOf("露營"))
         val repo = Repo().apply { shots = listOf(s1); tagsById = mapOf(1L to t1) }
@@ -145,7 +145,7 @@ class BatchEditViewModelTest {
     }
 
     @Test
-    fun 沒有套用過就完成_不記() = runTest(dispatcher) {
+    fun 沒有改過就完成_不記() = runTest(dispatcher) {
         val used = mutableListOf<Pair<Set<String>, Set<String>>>()
         val (s1, _) = shot(1, 10.0, place = "宜蘭")
         val repo = Repo().apply { shots = listOf(s1) }

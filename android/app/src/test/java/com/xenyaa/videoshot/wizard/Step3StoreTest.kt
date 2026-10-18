@@ -57,8 +57,6 @@ class Step3StoreTest {
         assertEquals(Common.Mixed, s.state.value.placeField)
     }
 
-    // ---- 套用與【完成】的條件 ----
-
     // ---- 標題與進度 ----
 
     @Test
@@ -154,7 +152,7 @@ class Step3StoreTest {
     }
 
     @Test
-    fun 沒有勾選時套用什麼都不做_新入口() {
+    fun 沒有勾選時套用什麼都不做() {
         val s = store()
         s.selectNone()
         val before = s.state.value
@@ -234,7 +232,7 @@ class Step3StoreTest {
     }
 
     @Test
-    fun 新入口也累積這一輪用過的地點與標籤() {
+    fun 也累積這一輪用過的地點與標籤() {
         val s = store()
         s.applyToSelected(DetailsPatch(place = "冬山河", tags = listOf("玩水")))
         s.applyToSelected(DetailsPatch(description = "x"))
@@ -243,16 +241,14 @@ class Step3StoreTest {
     }
 
     @Test
-    fun 新入口清除地點不算使用() {
+    fun 清除地點不算使用() {
         val s = store()
         s.applyToSelected(DetailsPatch(place = ""))
         assertEquals(emptySet<String>(), s.state.value.usedPlaces)
     }
 
     @Test
-    fun 新入口_圖上原本就有的標籤不算使用() {
-        val s = store()
-        s.applyToSelected(DetailsPatch(tags = listOf("玩水")))
+    fun 圖上原本就有的標籤不算使用() {
         val fresh = Step3Store(listOf(Step3Cell(0, 0.0, false)), defaultEventDate = "2026-01-01")
         fresh.restore(mapOf(0 to ShotDetails("2026-01-01", tags = listOf("玩水"))), setOf(0))
         fresh.applyToSelected(DetailsPatch(tags = listOf("玩水", "阿明")))
