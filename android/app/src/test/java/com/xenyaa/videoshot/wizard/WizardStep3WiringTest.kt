@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.wizard
 
+import com.xenyaa.videoshot.core.details.DetailsPatch
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.youtube.FetchResult
 import com.xenyaa.videoshot.core.youtube.VideoMeta
@@ -108,6 +109,13 @@ class WizardStep3WiringTest {
 
     private fun pageOf() = WatchPage(FetchResult.OK, meta, storyboardSpec = null)
 
+    /** 精靈的【完成】要每一張都有時間與地點：全選後設一個地點（時間一進來就有）。 */
+    private fun WizardViewModel.fillPlace(place: String = "冬山河") {
+        val s3 = step3.value!!
+        s3.selectAll()
+        s3.applyToSelected(DetailsPatch(place = place))
+    }
+
     @Test
     fun 進第三步會帶進第二步勾選的那幾格() = runTest(dispatcher) {
         val data = RecordingData(pageOf())
@@ -122,7 +130,7 @@ class WizardStep3WiringTest {
     }
 
     @Test
-    fun 完成寫入成功後記下這一輪套用過的地點與標籤() = runTest(dispatcher) {
+    fun 完成寫入成功後記下這一輪選擇器填過的地點與標籤() = runTest(dispatcher) {
         val used = mutableListOf<Pair<Set<String>, Set<String>>>()
         val data = RecordingData(pageOf())
         val vm = vmWith(data) { p, t -> used += p to t }
@@ -130,11 +138,9 @@ class WizardStep3WiringTest {
         vm.step2.value!!.toggle(0)
         vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
         val s3 = vm.step3.value!!
-        s3.editPlace("冬山河")
-        s3.editTags(listOf("玩水"))
-        s3.applyPatch()
-        assertEquals(emptyList<Pair<Set<String>, Set<String>>>(), used) // 套用當下還不記
-        vm.finish(force = true)
+        s3.applyToSelected(DetailsPatch(place = "冬山河", tags = listOf("玩水")))
+        assertEquals(emptyList<Pair<Set<String>, Set<String>>>(), used) // 選擇器按確定當下還不記
+        vm.finish()
         advanceUntilIdle()
         assertEquals(listOf(setOf("冬山河") to setOf("玩水")), used)
     }
@@ -147,9 +153,8 @@ class WizardStep3WiringTest {
         vm.openRecent("v1"); advanceUntilIdle()
         vm.step2.value!!.toggle(0)
         vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
-        vm.step3.value!!.editPlace("冬山河")
-        vm.step3.value!!.applyPatch()
-        vm.finish(force = true)
+        vm.step3.value!!.applyToSelected(DetailsPatch(place = "冬山河"))
+        vm.finish()
         advanceUntilIdle()
         assertEquals(emptyList<Pair<Set<String>, Set<String>>>(), used)
     }
@@ -176,7 +181,7 @@ class WizardStep3WiringTest {
     }
 
     @Test
-    fun 抽屜的既有值建議來自圖庫() = runTest(dispatcher) {
+    fun 選擇器的既有值建議來自圖庫() = runTest(dispatcher) {
         val vm = vmWith(RecordingData(pageOf()))
         advanceUntilIdle()
         assertEquals(listOf("冬山河"), vm.suggestions.value.places)
@@ -184,7 +189,7 @@ class WizardStep3WiringTest {
     }
 
     @Test
-    fun 還有沒填的會先提醒而不是直接寫進去() = runTest(dispatcher) {
+    fun 還有圖沒地點時完成不寫進去() = runTest(dispatcher) {
         val data = RecordingData(pageOf())
         val vm = vmWith(data)
         vm.openRecent("v1"); advanceUntilIdle()
@@ -193,22 +198,7 @@ class WizardStep3WiringTest {
         vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
         vm.finish()
         advanceUntilIdle()
-        assertEquals(2, vm.pendingFinish.value)
         assertNull(data.committed)
-    }
-
-    @Test
-    fun 提醒之後仍然可以完成_提醒不阻擋() = runTest(dispatcher) {
-        val data = RecordingData(pageOf())
-        val vm = vmWith(data)
-        vm.openRecent("v1"); advanceUntilIdle()
-        vm.step2.value!!.toggle(0)
-        vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
-        vm.finish()
-        advanceUntilIdle()
-        vm.finish(force = true)
-        advanceUntilIdle()
-        assertNotNull(data.committed)
     }
 
     @Test
@@ -219,10 +209,8 @@ class WizardStep3WiringTest {
         vm.step2.value!!.toggle(0)
         vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
         val s3 = vm.step3.value!!
-        s3.editPlace("冬山河")
-        s3.editTags(listOf("玩水"))
-        s3.applyPatch()
-        vm.finish(force = true)
+        s3.applyToSelected(DetailsPatch(place = "冬山河", tags = listOf("玩水")))
+        vm.finish()
         advanceUntilIdle()
         val (video, picks) = data.committed!!
         assertEquals("v1", video.id)
@@ -243,7 +231,7 @@ class WizardStep3WiringTest {
         vm.openRecent("v1"); advanceUntilIdle()
         vm.step2.value!!.toggle(0)
         vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
-        vm.finish(force = true)
+        vm.fillPlace(); vm.finish()
         advanceUntilIdle()
         assertEquals(listOf(0), data.thumbStatesOk)
         assertTrue(data.draftCleared)
@@ -258,7 +246,7 @@ class WizardStep3WiringTest {
         vm.openRecent("v1"); advanceUntilIdle()
         vm.step2.value!!.toggle(0)
         vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
-        vm.finish(force = true)
+        vm.fillPlace(); vm.finish()
         advanceUntilIdle()
         assertEquals(listOf(Finished("2025-07-12", 1)), seen)
         job.cancel()
@@ -271,7 +259,7 @@ class WizardStep3WiringTest {
         vm.openRecent("v1"); advanceUntilIdle()
         vm.step2.value!!.toggle(0)
         vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
-        vm.finish(force = true)
+        vm.fillPlace(); vm.finish()
         advanceUntilIdle()
         assertEquals(WizardStep.URL, vm.step.value)
         assertNull(vm.step3.value)
@@ -286,8 +274,8 @@ class WizardStep3WiringTest {
         vm.step2.value!!.toggle(0)
         vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
         // 兩次呼叫之間不 advance —— 第一次的協程還在飛，正是連點兩下的情境
-        vm.finish(force = true)
-        vm.finish(force = true)
+        vm.fillPlace(); vm.finish()
+        vm.finish()
         advanceUntilIdle()
         assertEquals(1, data.commitCount)
     }
@@ -303,14 +291,12 @@ class WizardStep3WiringTest {
         vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
         vm.finish()
         advanceUntilIdle()
-        // 沒有格子就沒有「還有 N 張沒填」，提醒不會擋下來 —— 擋不住就會一路做到 picks.first()
-        assertNull(vm.pendingFinish.value)
         assertNull(data.committed)
         // committing 不能卡在 true，否則使用者回頭挑了圖也按不動【完成】
         vm.goTo(WizardStep.PICK)
         vm.step2.value!!.toggle(0)
         vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
-        vm.finish(force = true); advanceUntilIdle()
+        vm.fillPlace(); vm.finish(); advanceUntilIdle()
         assertEquals(1, data.commitCount)
     }
 
@@ -328,7 +314,7 @@ class WizardStep3WiringTest {
         vm.step2.value!!.toggle(1)   // 回第二步取消一格
         vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
         assertEquals(listOf(0), vm.step3.value!!.state.value.cells.map { it.cell })
-        vm.finish(force = true); advanceUntilIdle()
+        vm.fillPlace(); vm.finish(); advanceUntilIdle()
         // 取消掉的那一格不能還是進了圖庫
         assertEquals(listOf(0), data.committed!!.second.map { it.frameIndex })
     }
@@ -350,7 +336,7 @@ class WizardStep3WiringTest {
         vm.step2.value!!.toggle(1)   // 取消第 1 格
         vm.goTo(WizardStep.DETAILS)
         advanceUntilIdle()
-        vm.finish(force = true); advanceUntilIdle()
+        vm.fillPlace(); vm.finish(); advanceUntilIdle()
         // thumb_state 只該記這一批真的裁出來的那一格
         assertEquals(listOf(0), data.thumbStatesOk)
     }

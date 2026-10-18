@@ -3,6 +3,7 @@ package com.xenyaa.videoshot.wizard
 import com.xenyaa.videoshot.capture.Capture
 import com.xenyaa.videoshot.capture.FakeCapture
 import com.xenyaa.videoshot.capture.ManualImageStore
+import com.xenyaa.videoshot.core.details.DetailsPatch
 import com.xenyaa.videoshot.core.draft.DraftCodec
 import com.xenyaa.videoshot.core.draft.DraftDetails
 import com.xenyaa.videoshot.core.draft.DraftManual
@@ -476,14 +477,13 @@ class WizardDraftTest {
     }
 
     @Test
-    fun 套用之後會把圖資存進草稿() = runTest(dispatcher) {
+    fun 選擇器寫入後會把圖資存進草稿() = runTest(dispatcher) {
         val data = DraftData(null)
         val vm = vmWith(data)
         vm.openRecent("v1"); advanceUntilIdle()
         vm.step2.value!!.toggle(0)
         vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
-        vm.step3.value!!.editPlace("冬山河")
-        vm.applyDetails()
+        vm.applyDetails(DetailsPatch(place = "冬山河"))
         advanceUntilIdle()
         val saved = DraftCodec.decode(data.stored!!)!!
         assertEquals(3, saved.step)
@@ -512,7 +512,7 @@ class WizardDraftTest {
         vm.openRecent("v1"); advanceUntilIdle()
         vm.step2.value!!.toggle(0)
         vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
-        vm.finish(force = true)
+        vm.applyDetails(DetailsPatch(place = "冬山河")); vm.finish()
         advanceUntilIdle()
         assertNull(data.stored)
     }
@@ -576,14 +576,13 @@ class WizardDraftTest {
         vm.step2.value!!.toggle(1)
         vm.step2.value!!.toggle(2)
         vm.goTo(WizardStep.DETAILS); advanceUntilIdle()
-        // 第三步把抽屜縮到只編輯其中一張，再【套用到 1 張】
+        // 第三步把勾選縮到只剩其中一張，再用選擇器寫入
         val s3 = vm.step3.value!!
         s3.selectNone()
         s3.toggle(0)
-        s3.editPlace("冬山河")
-        vm.applyDetails()
+        vm.applyDetails(DetailsPatch(place = "冬山河"))
         advanceUntilIdle()
-        // 第三步的 selected 是「抽屜在編哪幾張」，存進草稿的話另外兩張會在續做時消失
+        // 第三步的 selected 是「選擇器會寫進哪幾張」，存進草稿的話另外兩張會在續做時消失
         assertEquals(listOf(0, 1, 2), DraftCodec.decode(data.stored!!)!!.selected)
     }
 

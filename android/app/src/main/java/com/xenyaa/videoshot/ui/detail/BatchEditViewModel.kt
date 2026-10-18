@@ -39,12 +39,12 @@ sealed interface BatchEditState {
  *
  * 跟精靈本身的差異：精靈的 `WizardViewModel.finish()` 是**插入**新 shot（`commitPicks`），
  * 這裡是**修改**既有 shot（`patchShots`），所以完全是另一個 finish 實作，`Step3Store` 純粹是
- * 「勾選／抽屜／套用語意」那一層邏輯的複用，不牽涉精靈的草稿或第二步。
+ * 「勾選／選擇器寫入語意」那一層邏輯的複用，不牽涉精靈的草稿或第二步。
  */
 class BatchEditViewModel(
     private val videoId: String,
     private val library: LibraryRepo,
-    /** 【完成】寫入後記下這一輪套用過的地點與標籤（`FacetUsage.markUsed`，規格第六節「首頁」）。盡力而為。 */
+    /** 【完成】寫入後記下這一輪選擇器填過的地點與標籤（`FacetUsage.markUsed`，規格第六節「首頁」）。盡力而為。 */
     private val markFacetsUsed: suspend (places: Set<String>, tags: Set<String>) -> Unit = { _, _ -> },
 ) : ViewModel() {
 
@@ -60,7 +60,7 @@ class BatchEditViewModel(
      * 重新查詢這支影片的收藏，建一個全新的 [Step3Store]。**每次「真的進場」都要呼叫**，
      * 不能只靠 `init{}`：`AppRoot` 用 `videoId` 當 key 快取這個 VM（`viewModel(key = "batchedit-$videoId")`），
      * 同一支影片第二次進批次編輯拿到的是同一個實例，`init{}` 不會再跑一次。舊的 `Step3Store`
-     * 還留著上一輪「套用過」的痕跡——不重建的話使用者會看到過期的綠點與圖資，按下【完成】
+     * 還留著上一輪「改過」的痕跡——不重建的話使用者會看到過期的圖資，按下【完成】
      * 甚至會把別處剛改好的圖資蓋回這個舊值（最終審查 Finding 1）。呼叫端是 `AppRoot.kt`
      * `Dest.BatchEdit` 分支裡的 `LaunchedEffect(Unit)`——那個 key 不能用 videoId，
      * 理由同一份 KDoc。
@@ -87,7 +87,7 @@ class BatchEditViewModel(
                 Step3Cell(cell = index, atSec = shot.atSec, manual = shot.source == "manual")
             }
             val store = Step3Store(cells, defaultEventDate = shots.first().eventDate)
-            // restore() 只覆蓋現值,不動 applied——剛讀進來的每一格都還沒被「套用」過(同測試斷言)
+            // restore() 只覆蓋現值,不動 applied——剛讀進來的每一格都還沒被「改過」(同測試斷言)
             store.restore(details = details, selected = cells.map { it.cell }.toSet())
             _state.value = BatchEditState.Ready(
                 store = store,
@@ -102,18 +102,11 @@ class BatchEditViewModel(
 
     fun toggle(cell: Int) = ready()?.store?.toggle(cell) ?: Unit
     fun selectAll() = ready()?.store?.selectAll() ?: Unit
-    fun invert() = ready()?.store?.invert() ?: Unit
-    fun selectUnapplied() = ready()?.store?.selectUnapplied() ?: Unit
-    fun editEventDate(value: String) = ready()?.store?.editEventDate(value) ?: Unit
-    fun editPlace(value: String) = ready()?.store?.editPlace(value) ?: Unit
-    fun editDescription(value: String) = ready()?.store?.editDescription(value) ?: Unit
-    fun editTags(value: List<String>) = ready()?.store?.editTags(value) ?: Unit
-    fun apply() = ready()?.store?.applyPatch() ?: Unit
 
     /** 選擇器按【確定】：寫進目前勾選的那幾張（並標成改過，【完成】只寫回這些）。 */
     fun apply(patch: DetailsPatch) = ready()?.store?.applyToSelected(patch) ?: Unit
 
-    /** 【完成】：只把套用過的那幾張寫回 `library.db`,回詳情頁。 */
+    /** 【完成】：只把改過的那幾張寫回 `library.db`,回詳情頁。 */
     fun finish() {
         val ready = ready() ?: return
         val snapshot = ready.store.state.value

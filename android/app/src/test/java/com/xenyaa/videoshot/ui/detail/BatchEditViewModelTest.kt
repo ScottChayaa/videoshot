@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.detail
 
+import com.xenyaa.videoshot.core.details.DetailsPatch
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import kotlinx.coroutines.Dispatchers
@@ -72,8 +73,7 @@ class BatchEditViewModelTest {
         advanceUntilIdle()
 
         vm.toggle(1) // 只留 cell 0 勾選（進場預設全選，toggle 掉 cell 1）
-        vm.editPlace("羅東")
-        vm.apply()
+        vm.apply(DetailsPatch(place = "羅東"))
         vm.finish()
         advanceUntilIdle()
 
@@ -99,8 +99,7 @@ class BatchEditViewModelTest {
         advanceUntilIdle()
 
         vm.toggle(1)
-        vm.editPlace("羅東")
-        vm.apply()
+        vm.apply(DetailsPatch(place = "羅東"))
         vm.finish()
         advanceUntilIdle()
         val beforeReload = (vm.state.value as BatchEditState.Ready).store.state.value
@@ -112,7 +111,7 @@ class BatchEditViewModelTest {
 
         val afterReload = (vm.state.value as BatchEditState.Ready).store.state.value
         assertEquals(false, afterReload.details[0]?.applied)
-        assertEquals(0, afterReload.appliedCount)
+        assertTrue(afterReload.details.values.none { it.applied })
     }
 
     @Test
@@ -139,8 +138,7 @@ class BatchEditViewModelTest {
         val repo = Repo().apply { shots = listOf(s1); tagsById = mapOf(1L to t1) }
         val vm = BatchEditViewModel("v1", repo) { p, t -> used += p to t }
         advanceUntilIdle()
-        vm.editPlace("羅東")
-        vm.apply()
+        vm.apply(DetailsPatch(place = "羅東"))
         vm.finish()
         advanceUntilIdle()
         assertEquals(listOf(setOf("羅東") to emptySet<String>()), used)
@@ -165,8 +163,7 @@ class BatchEditViewModelTest {
         val repo = Repo().apply { shots = listOf(s1); tagsById = mapOf(1L to t1) }
         val vm = BatchEditViewModel("v1", repo) { p, t -> used += p to t }
         advanceUntilIdle()
-        vm.editTags(listOf("露營", "玩水"))
-        vm.apply()
+        vm.apply(DetailsPatch(tags = listOf("露營", "玩水")))
         vm.finish()
         advanceUntilIdle()
         assertEquals(listOf(emptySet<String>() to setOf("玩水")), used)
@@ -181,8 +178,7 @@ class BatchEditViewModelTest {
         }.apply { shots = listOf(s1) }
         val vm = BatchEditViewModel("v1", repo) { p, t -> used += p to t }
         advanceUntilIdle()
-        vm.editPlace("羅東")
-        vm.apply()
+        vm.apply(DetailsPatch(place = "羅東"))
         vm.finish()
         advanceUntilIdle()
         assertEquals(emptyList<Pair<Set<String>, Set<String>>>(), used)

@@ -302,7 +302,7 @@ class WizardViewModel(
                 level = state2.plan.level,
                 frameCount = state2.plan.frameCount,
                 // **存第二步的勾選，不是第三步的** —— 兩個 store 的 `selected` 意思不同：
-                // 第二步的是「使用者挑了哪些」，第三步的是「抽屜正在編輯哪幾張」。
+                // 第二步的是「使用者挑了哪些」，第三步的是「選擇器會寫進哪幾張」。
                 // 存錯的話，在第三步只挑 3 張套用過圖資再離開，續做回來就只剩那 3 張
                 selected = state2.selected.sorted(),
                 manual = state2.manual.map {
@@ -317,12 +317,6 @@ class WizardViewModel(
             )
             runCatching { data.saveDraft(DraftCodec.encode(payload)) }
         }
-    }
-
-    /** 第三步的【套用到 N 張】走這裡而不是直接呼叫 store —— 套完要順手存一次草稿。 */
-    fun applyDetails() {
-        _step3.value?.applyPatch()
-        saveDraft()
     }
 
     /** 第三步的選擇器按【確定】走這裡而不是直接呼叫 store —— 寫完要順手存一次草稿。 */
@@ -683,10 +677,6 @@ class WizardViewModel(
     private val _step3 = MutableStateFlow<Step3Store?>(null)
     val step3: StateFlow<Step3Store?> = _step3.asStateFlow()
 
-    /** 非 null 代表「還有 N 張沒填資料，仍要完成嗎？」正在問。**提醒但不阻擋**（規格第五節）。 */
-    private val _pendingFinish = MutableStateFlow<Int?>(null)
-    val pendingFinish: StateFlow<Int?> = _pendingFinish.asStateFlow()
-
     /** 完成了。用 SharedFlow 而不是 StateFlow —— 這是一次性事件，重新訂閱不該再導一次首頁。 */
     private val _finished = MutableSharedFlow<Finished>()
     val finished: SharedFlow<Finished> = _finished.asSharedFlow()
@@ -695,7 +685,7 @@ class WizardViewModel(
      * 進第三步：把第二步勾選的格子接過來，並在背景把它們從本機 sheet 裁進 `thumbs/`。
      *
      * **裁圖不擋畫面** —— sheet 已經在本機，進度幾乎一閃而過（規格第五節），
-     * 但磁碟慢的時候使用者仍該看得到格子與抽屜。
+     * 但磁碟慢的時候使用者仍該看得到格子與欄位按鈕。
      */
     private fun openStep3() {
         val step2 = _step2.value ?: return
@@ -747,22 +737,16 @@ class WizardViewModel(
     private var committing = false
 
     /**
-     * 【完成】。還有沒套用過圖資的就**先問一次**，但問完仍然做得下去（規格第五節）。
-     *
-     * @param force 使用者在提醒框按了「仍要完成」
+     * 【完成】。每一張都要有時間與地點（[Step3State.canFinish]，2026-10-18 scott）——畫面上還不能完成時按鈕是淡化的、
+     * 按了只跳提示，不會走到這裡；這裡再擋一次是防線（例如測試或之後別的入口）。
      */
-    fun finish(force: Boolean = false) {
+    fun finish() {
         if (committing) return
         val store = _step3.value ?: return
         val video = _loaded.value ?: return
         val meta = video.page.meta
         val state = store.state.value
-        val unfilled = state.unappliedCells.size
-        if (!force && unfilled > 0) {
-            _pendingFinish.value = unfilled
-            return
-        }
-        _pendingFinish.value = null
+        if (!state.canFinish) return
 
         val level = _step2.value?.state?.value?.plan?.level ?: 3
         committing = true
@@ -844,8 +828,6 @@ class WizardViewModel(
     private fun reloadRecent() {
         viewModelScope.launch { _recent.value = runCatching { data.recentVideos(RECENT_LIMIT) }.getOrDefault(emptyList()) }
     }
-
-    fun dismissPendingFinish() { _pendingFinish.value = null }
 
     private val _commitFailed = MutableStateFlow(false)
     val commitFailed: StateFlow<Boolean> = _commitFailed.asStateFlow()

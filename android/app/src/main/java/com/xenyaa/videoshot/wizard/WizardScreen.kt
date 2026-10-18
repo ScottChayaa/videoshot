@@ -37,7 +37,6 @@ import com.xenyaa.videoshot.core.player.nearestFrameIndex
 import com.xenyaa.videoshot.player.LocalPlayerFullscreen
 import com.xenyaa.videoshot.player.PlayerSurface
 import com.xenyaa.videoshot.player.playerFrame
-import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.TopBarIconButton
 import com.xenyaa.videoshot.ui.common.TopBarNav
 import com.xenyaa.videoshot.ui.common.TopBarTitle
@@ -237,20 +236,6 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
             title = { Text("這一格已經收藏過了") },
             text = { Text("長按仍然可以跳到那一段看看。") },
             confirmButton = { VsButton("知道了", { takenTapped = null }) },
-        )
-    }
-
-    // 第三步的【完成】要每一張都套用過才按得下（2026-10-17），正常操作走不到這個提醒框；
-    // 留著當 ViewModel 的防線（finish() 本身仍會擋下還沒填完的）
-    val pendingFinish by vm.pendingFinish.collectAsStateWithLifecycle()
-    pendingFinish?.let { count ->
-        AlertDialog(
-            onDismissRequest = { vm.dismissPendingFinish() },
-            title = { Text("還有 $count 張沒填資料，仍要完成嗎？") },
-            // 提醒但不阻擋（規格第五節「完成」）—— 圖本身已經有價值，圖資可以之後補
-            text = { Text("沒填的圖仍然會進圖庫，之後可以在詳情頁補上。") },
-            confirmButton = { VsButton("仍要完成", { vm.finish(force = true) }) },
-            dismissButton = { VsButton("回去填", { vm.dismissPendingFinish() }, variant = ButtonVariant.Quiet) },
         )
     }
 
