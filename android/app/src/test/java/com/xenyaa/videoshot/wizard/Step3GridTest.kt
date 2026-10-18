@@ -8,8 +8,10 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import com.xenyaa.videoshot.core.details.ShotDetails
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -103,6 +105,35 @@ class Step3GridTest {
         show(stateOf(), onToggle = { toggled = it })
         compose.onNodeWithContentDescription("第三步的格子 00:00", substring = true).performClick()
         assertEquals(0, toggled)
+    }
+
+    @Test
+    fun 長按格子浮出這張的圖資_不改勾選() {
+        var toggled = 0
+        show(
+            Step3State(
+                cells = listOf(Step3Cell(0, 70.0, false)),
+                details = mapOf(0 to ShotDetails("2025-07-12", place = "冬山河", tags = listOf("玩水", "阿明"))),
+                selected = emptySet(),
+                cropping = false,
+            ),
+            onToggle = { toggled++ },
+        )
+        compose.onNodeWithContentDescription("第三步的格子 01:10", substring = true).performTouchInput { longClick() }
+        compose.onNodeWithText("2025年7月12日").assertIsDisplayed()
+        compose.onNodeWithText("冬山河").assertIsDisplayed()
+        compose.onNodeWithText("玩水、阿明").assertIsDisplayed()
+        compose.onNodeWithText("未設定").assertIsDisplayed()
+        compose.onNodeWithText("影片 01:10").assertIsDisplayed()
+        assertEquals(0, toggled)
+    }
+
+    @Test
+    fun 點浮窗本身也會關掉() {
+        show(stateOf())
+        compose.onNodeWithContentDescription("第三步的格子 00:00", substring = true).performTouchInput { longClick() }
+        compose.onNodeWithText("影片 00:00").performClick()
+        compose.onAllNodesWithText("影片 00:00").assertCountEquals(0)
     }
 
     @Test
