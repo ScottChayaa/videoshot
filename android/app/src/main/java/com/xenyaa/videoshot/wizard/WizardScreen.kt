@@ -75,6 +75,7 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                 modifier = Modifier.statusBarsPadding(),
                 nav = TopBarNav.Back(onClick = goBack),
                 titleStyle = TopBarTitle.Small,
+                divider = false,
             )
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
