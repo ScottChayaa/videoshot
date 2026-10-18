@@ -5,7 +5,7 @@ package com.xenyaa.videoshot.core.details
  *
  * @param eventDate 首頁分組的依據，預設帶入 YouTube 的上傳日期（`YYYY-MM-DD`）
  * @param tags **一律經 [normalizeTags]**：去重、去空白、排序。順序不該讓兩張本來相同的圖看起來不同
- * @param applied 套用過（畫面上的綠點）。【未填的】快捷鍵勾的就是這個為 false 的那些
+ * @param applied 這一輪在第三步改過（任何一個選擇器按【確定】寫進來過）。批次編輯只寫回這些；草稿也記著它
  */
 data class ShotDetails(
     val eventDate: String,
