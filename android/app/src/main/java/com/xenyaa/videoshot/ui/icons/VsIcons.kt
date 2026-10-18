@@ -284,6 +284,9 @@ object VsIcons {
         )
     }
 
+    /** 描述（取圖第三步的欄位按鈕與縮圖圖示）。Lucide `text`：三行長短不一的字。 */
+    val Notes: ImageVector by lazy { strokeIcon("notes", "M17 6.1H3", "M21 12.1H3", "M15.1 18H3") }
+
     /** 標籤管理選單列（規格第九節：標籤＝標籤管理）。原型 `tag`；小圓孔改寫成兩段弧線。 */
     val Tag: ImageVector by lazy {
         strokeIcon(

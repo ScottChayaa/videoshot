@@ -45,6 +45,7 @@ import com.xenyaa.videoshot.ui.common.VsBottomNav
 import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsIconButton
 import com.xenyaa.videoshot.ui.common.VsEmptyState
+import com.xenyaa.videoshot.ui.common.VsFieldButton
 import com.xenyaa.videoshot.ui.common.VsHintCard
 import com.xenyaa.videoshot.ui.common.VsListRow
 import com.xenyaa.videoshot.ui.common.VsRadioRow
@@ -195,6 +196,14 @@ private fun ButtonSection() = Section("按鈕") {
         VsIconButton(VsIcons.ImagesCheck, "全選", onClick = {})
         VsIconButton(VsIcons.Scissors, "截圖", onClick = {})
         VsIconButton(VsIcons.Scissors, "截圖", onClick = {}, enabled = false)
+    }
+    VsButton("完成", onClick = {}, dimmed = true)
+    Row {
+        VsFieldButton(VsIcons.ImagesCheck, "全選", onClick = {})
+        VsFieldButton(VsIcons.Calendar, "時間", onClick = {}, done = true)
+        VsFieldButton(VsIcons.MapPin, "地點", onClick = {}, done = false)
+        VsFieldButton(VsIcons.Tag, "標籤", onClick = {}, done = false)
+        VsFieldButton(VsIcons.Notes, "描述", onClick = {}, enabled = false)
     }
 }
 

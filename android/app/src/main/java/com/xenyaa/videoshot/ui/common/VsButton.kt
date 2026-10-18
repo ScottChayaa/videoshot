@@ -28,6 +28,8 @@ enum class ButtonVariant { Primary, Secondary, Quiet, Danger, DangerQuiet }
 /**
  * 全 app 共用按鈕（原型「按鈕（單一基底＋變體）」）。底層借 Material3 的 [Button] 處理
  * 按壓、停用與語意，外觀全部由這裡指定。
+ *
+ * [dimmed]：外觀同停用、但按得下去 —— 給「還不能做，按了要說為什麼」的情況（取圖第三步的【完成】）。
  */
 @Composable
 fun VsButton(
@@ -37,11 +39,13 @@ fun VsButton(
     variant: ButtonVariant = ButtonVariant.Primary,
     icon: ImageVector? = null,
     enabled: Boolean = true,
+    dimmed: Boolean = false,
 ) {
     VsButtonBase(
         onClick = onClick,
         variant = variant,
         enabled = enabled,
+        dimmed = dimmed,
         contentPadding = PaddingValues(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s2),
         modifier = modifier.defaultMinSize(minHeight = AppTheme.spacing.tap),
     ) {
@@ -87,6 +91,7 @@ private fun VsButtonBase(
     enabled: Boolean,
     contentPadding: PaddingValues,
     modifier: Modifier,
+    dimmed: Boolean = false,
     content: @Composable RowScope.() -> Unit,
 ) {
     val c = AppTheme.colors
@@ -97,15 +102,17 @@ private fun VsButtonBase(
         ButtonVariant.Danger -> Triple(c.danger, c.dangerInk, Color.Transparent)
         ButtonVariant.DangerQuiet -> Triple(c.surface, c.danger, c.borderStrong)
     }
+    // 淡化：顏色照停用的那一套，但 Button 仍是 enabled（按得下去、TalkBack 不唸「已停用」）
+    val (bgShown, fgShown, lineShown) = if (dimmed) Triple(c.surface2, c.textFaint, c.border) else Triple(bg, fg, line)
     val shape = RoundedCornerShape(AppTheme.radii.sm)
     Button(
         onClick = onClick,
         enabled = enabled,
         shape = shape,
-        border = BorderStroke(1.dp, if (enabled) line else c.border),
+        border = BorderStroke(1.dp, if (enabled) lineShown else c.border),
         colors = ButtonDefaults.buttonColors(
-            containerColor = bg,
-            contentColor = fg,
+            containerColor = bgShown,
+            contentColor = fgShown,
             disabledContainerColor = c.surface2,
             disabledContentColor = c.textFaint,
         ),

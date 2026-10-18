@@ -3,6 +3,7 @@ package com.xenyaa.videoshot.ui.common
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -39,5 +40,12 @@ class VsButtonTest {
     @Test fun 至少44高() {
         compose.setContent { VideoshotTheme { VsButton("好", {}, Modifier.testTag("b"), variant = ButtonVariant.Quiet) } }
         compose.onNodeWithTag("b").assertHeightIsAtLeast(44.dp)
+    }
+
+    @Test fun 淡化的按鈕看起來停用但按得下去() {
+        var clicks = 0
+        compose.setContent { VideoshotTheme { VsButton("完成", onClick = { clicks++ }, dimmed = true) } }
+        compose.onNodeWithText("完成").assertIsEnabled().performClick()
+        assertEquals(1, clicks)
     }
 }

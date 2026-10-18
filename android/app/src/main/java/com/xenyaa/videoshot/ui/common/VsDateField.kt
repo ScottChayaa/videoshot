@@ -98,22 +98,31 @@ fun VsDateField(
         }
     }
 
-    if (picking) {
-        val state = rememberDatePickerState(initialSelectedDateMillis = if (mixed) null else eventDateToUtcMillis(value))
-        DatePickerDialog(
-            onDismissRequest = { picking = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        state.selectedDateMillis?.let { onPick(eventDateFromUtcMillis(it)) }
-                        picking = false
-                    },
-                    enabled = state.selectedDateMillis != null,
-                ) { Text("確定") }
-            },
-            dismissButton = { TextButton(onClick = { picking = false }) { Text("取消") } },
-        ) {
-            DatePicker(state)
-        }
+    if (picking) VsDatePickerDialog(initial = if (mixed) null else value, onPick = onPick, onDismiss = { picking = false })
+}
+
+/**
+ * 月曆對話框（Material 3）。[initial] 是 `YYYY-MM-DD`；`null` 或格式不對時停在今天、沒有預選，選了一天才能按【確定】。
+ * 【確定】才 [onPick]，接著一律 [onDismiss]；【取消】或點外面只 [onDismiss]。
+ * [VsDateField] 與取圖第三步的【時間】按鈕共用（2026-10-18 抽出來）。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun VsDatePickerDialog(initial: String?, onPick: (String) -> Unit, onDismiss: () -> Unit) {
+    val state = rememberDatePickerState(initialSelectedDateMillis = initial?.let { eventDateToUtcMillis(it) })
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    state.selectedDateMillis?.let { onPick(eventDateFromUtcMillis(it)) }
+                    onDismiss()
+                },
+                enabled = state.selectedDateMillis != null,
+            ) { Text("確定") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    ) {
+        DatePicker(state)
     }
 }
