@@ -216,7 +216,6 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                             onFinish = { vm.finish() },
                             placeSuggestions = suggestions.places,
                             tagSuggestions = suggestions.tags,
-                            requireTimeAndPlace = true,
                         )
                     }
                 }

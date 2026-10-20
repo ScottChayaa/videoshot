@@ -47,7 +47,7 @@ class MainActivity : ComponentActivity() {
             // 色系存在 DataStore，這裡是唯一的套用點；沒有深色模式，不看系統的淺色／深色設定。
             // 讀不到（第一幀、或使用者沒選過）就是預設色系，不阻塞畫面。
             val themeId by app.container.settings.themeId.collectAsStateWithLifecycle(initialValue = null)
-            // 取圖第二步與詳情頁播放器的【聲音】：跟全螢幕一樣整個 app 一份，播放器自己取用
+            // 取圖第二步與原片播放的【聲音】：跟全螢幕一樣整個 app 一份，播放器自己取用
             val playerMuted by app.container.settings.playerMuted.collectAsStateWithLifecycle(initialValue = false)
             val playerSound = remember(playerMuted) {
                 PlayerSound(playerMuted) { value -> lifecycleScope.launch { app.container.settings.setPlayerMuted(value) } }

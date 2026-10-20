@@ -5,9 +5,9 @@ import com.xenyaa.videoshot.data.FacetUsage
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTextReplacement
 import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.core.paging.FolderCursor
 import com.xenyaa.videoshot.core.paging.ShotCursor
@@ -28,7 +28,6 @@ import com.xenyaa.videoshot.data.repo.model.FolderPage
 import com.xenyaa.videoshot.data.repo.model.NewShot
 import com.xenyaa.videoshot.data.repo.model.Page
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
-import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.data.settings.ShellSettings
 import com.xenyaa.videoshot.query.FakeGeminiClient
@@ -44,6 +43,7 @@ import com.xenyaa.videoshot.wizard.CropOutcome
 import com.xenyaa.videoshot.wizard.FakeHaptics
 import com.xenyaa.videoshot.wizard.LoadedVideo
 import com.xenyaa.videoshot.wizard.WizardData
+import com.xenyaa.videoshot.wizard.frames.FakeFrameSource
 import com.xenyaa.videoshot.wizard.frames.FrameSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOf
@@ -63,13 +63,13 @@ private fun row(id: Long, atSec: Double) = ShotRow(
 )
 
 /**
- * 詳情頁的接線：Lightbox【原片播放】→ 詳情頁 → `⋯`【刪除整支收藏】回首頁。
- * fixture 手法同 [AppRootFoldersTest]，這裡只在意詳情頁這一條路徑用得到的假資料。
+ * 原片播放的接線：Lightbox【原片播放】→ 全螢幕播放 → 返回回到 Lightbox；`⋯`【重新取圖】刪掉舊收藏、開精靈。
+ * fixture 手法同 [AppRootFoldersTest]，這裡只在意這一條路徑用得到的假資料。
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], qualifiers = "w411dp-h891dp")
-class AppRootDetailTest {
+class AppRootPlayTest {
 
     @get:Rule val compose = createComposeRule()
 
@@ -84,14 +84,6 @@ class AppRootDetailTest {
         override suspend fun shotsOfVideo(videoId: String) = videoShots
         override suspend fun videoById(videoId: String) = video
         override suspend fun deleteVideo(videoId: String) { deletedVideoIds += videoId; homeItems = emptyList(); videoShots = emptyList() }
-
-        // 批次編輯的【完成】真的要寫回——Finding 1 的迴歸測試得看得出「重進一次批次編輯
-        // 不會拿到上一輪的舊資料」，這代表 shotsOfVideo() 下一次要回傳更新後的值
-        override suspend fun patchShots(ids: List<Long>, patch: ShotPatch) {
-            videoShots = videoShots.map { row ->
-                if (row.id in ids) row.copy(eventDate = patch.eventDate ?: row.eventDate, place = patch.place, description = patch.description) else row
-            }
-        }
     }
 
     /** 跟 `AppRootFoldersTest.kt`／`AppRootLightboxTest.kt` 一樣，各檔案各自私有一份（沒有共用的測試替身）。 */
@@ -180,7 +172,8 @@ class AppRootDetailTest {
             geminiKey = { null },
             vocabulary = { QueryVocabulary(emptyList(), emptyList()) },
         )
-        override fun frameSourceFor(video: LoadedVideo): FrameSource = throw UnsupportedOperationException("測試不用到")
+        // 【重新取圖】會開精靈第二步
+        override fun frameSourceFor(video: LoadedVideo): FrameSource = FakeFrameSource.of(frameCount = 1, intervalSec = 0.0)
         override fun manualImagesFor(videoId: String) = throw UnsupportedOperationException("測試不用到")
         override fun captureFor(player: com.xenyaa.videoshot.player.Player) = null
         override val accountDeps: AccountDeps = FakeAccountDeps()
@@ -188,92 +181,61 @@ class AppRootDetailTest {
         override suspend fun restore(backup: com.xenyaa.videoshot.backup.RemoteBackup) = error("這組測試不碰還原")
     }
 
-    @Test
-    fun lightbox原片播放換成詳情頁() {
-        val repo = Repo()
+    private fun openPlay(repo: Repo) {
         compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
-
         // 首頁縮圖的 contentDescription 是「片段縮圖 MM:SS」（HomeScreen 用 labelOf），
         // row(1L, 30.0) 的 30 秒換算成 formatClock 是 00:30
         compose.onNodeWithContentDescription("片段縮圖 00:30").performClick()
         compose.onNodeWithText("原片播放").performClick()
-
-        compose.onNodeWithText("旅行影片").assertIsDisplayed()
-        compose.onNodeWithText("這支影片的收藏 (2)").assertIsDisplayed()
     }
 
     @Test
-    fun 刪除整支收藏會回首頁() {
-        val repo = Repo()
-        compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
+    fun lightbox原片播放進全螢幕_上緣有標題沒有底部導覽() {
+        openPlay(Repo())
 
-        compose.onNodeWithContentDescription("片段縮圖 00:30").performClick()
-        compose.onNodeWithText("原片播放").performClick()
+        compose.onNodeWithText("旅行影片").assertIsDisplayed()
+        compose.onNodeWithContentDescription("返回").assertIsDisplayed()
+        compose.onNodeWithContentDescription("這支影片的更多操作").assertIsDisplayed()
+        compose.onNodeWithText("照片").assertDoesNotExist()
+        compose.onNodeWithContentDescription("全螢幕").assertDoesNotExist()
+    }
+
+    @Test
+    fun 返回回到lightbox() {
+        openPlay(Repo())
+
+        compose.onNodeWithContentDescription("返回").performClick()
+
+        compose.onNodeWithText("原片播放").assertIsDisplayed()
+    }
+
+    @Test
+    fun 重新取圖_確認後刪掉整支收藏並開精靈() {
+        val repo = Repo()
+        openPlay(repo)
+
         compose.onNodeWithContentDescription("這支影片的更多操作").performClick()
-        compose.onNodeWithText("刪除整支收藏").performClick()
-        compose.onNodeWithText("刪除", substring = false).performClick()
+        compose.onNodeWithText("重新取圖").performClick()
+        compose.onNodeWithText("將刪除這支影片已收藏的 2 張，再從第二步重新挑畫面。").assertIsDisplayed()
+        compose.onNodeWithText("重新取圖", substring = false).performClick()
+        compose.waitForIdle()
 
         assertEquals(listOf("v1"), repo.deletedVideoIds)
+        // 原片播放收掉、到了取圖分頁
+        compose.onNodeWithContentDescription("這支影片的更多操作").assertDoesNotExist()
+        assertTrue(compose.onAllNodesWithText("旅行影片").fetchSemanticsNodes().isNotEmpty())
     }
 
-    /**
-     * 最終審查 Finding 1 ＋ Finding 6：詳情頁 →【批次編輯圖資】→ 改一張的地點 → 確定 → 完成
-     * → 回到詳情頁看得到新地點（`finished` 收集區塊真的 pop＋reload 了）；接著**再進一次**
-     * 批次編輯——`BatchEditViewModel` 是用 videoId 當 key 快取的，同一支影片第二次進來拿到
-     * 同一個實例，這裡驗證它沒有帶著上一輪改過的標記的舊 `Step3Store`
-     * （沒修好的話，按【完成】會把剛存的新地點蓋回舊值）。
-     */
     @Test
-    fun 批次編輯完成後圖資更新_再進一次不會殘留上一輪的套用狀態() {
+    fun 重新取圖_按取消什麼都不刪() {
         val repo = Repo()
-        compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
-
-        compose.onNodeWithContentDescription("片段縮圖 00:30").performClick()
-        compose.onNodeWithText("原片播放").performClick()
-        compose.onNodeWithText("旅行影片").assertIsDisplayed()
+        openPlay(repo)
 
         compose.onNodeWithContentDescription("這支影片的更多操作").performClick()
-        compose.onNodeWithText("批次編輯圖資").performClick()
-        compose.onNodeWithContentDescription("地點").assertIsDisplayed()
+        compose.onNodeWithText("重新取圖").performClick()
+        compose.onNodeWithText("取消").performClick()
 
-        // 只留第一張（00:30）勾選——把第二張（01:30）那一格點掉
-        compose.onNodeWithContentDescription("01:30", substring = true).performClick()
-        compose.onNodeWithContentDescription("地點").performClick()
-        compose.onNodeWithContentDescription("地點名稱").performTextReplacement("羅東")
-        compose.onNodeWithText("確定").performClick()
-        compose.onNodeWithText("完成").performClick()
-
-        // 回到詳情頁：finished 收集區塊 pop 掉批次編輯、detailVm 重查，聚焦張的地點是新值
+        assertTrue(repo.deletedVideoIds.isEmpty())
         compose.onNodeWithText("旅行影片").assertIsDisplayed()
-        compose.onNodeWithText("羅東").assertIsDisplayed()
-
-        // 再進一次批次編輯——沒有上一輪改過的標記殘留
-        compose.onNodeWithContentDescription("這支影片的更多操作").performClick()
-        compose.onNodeWithText("批次編輯圖資").performClick()
-        compose.onNodeWithContentDescription("地點").assertIsDisplayed()
-    }
-
-    /**
-     * 最終審查 Finding 2：Lightbox【原片播放】帶著 `focusShotId` 進詳情頁；`DetailViewModel`
-     * 用 videoId 當 key 快取，同一支影片第二次進來（播另一張截圖）拿到同一個實例。
-     * 沒修好的話這裡第二次還是卡在第一張的秒數。
-     */
-    @Test
-    fun lightbox播放同一支影片的另一張_詳情頁改聚焦新的那張() {
-        val repo = Repo().apply { homeItems = listOf(row(1L, 30.0), row(2L, 90.0)) }
-        compose.setContent { VideoshotTheme { AppRoot(deps(repo)) {} } }
-
-        compose.onNodeWithContentDescription("片段縮圖 00:30").performClick()
-        compose.onNodeWithText("原片播放").performClick()
-        // 資訊列改成「{中文日期} · 影片 MM:SS」一整句（階段 15C），所以改用 substring 定位
-        compose.onNodeWithText("影片 00:30", substring = true).assertIsDisplayed()
-
-        // 返回首頁，播第二張——同一支影片（v1），detailVm 是同一個快取實例
-        compose.onNodeWithContentDescription("返回").performClick()
-        compose.onNodeWithContentDescription("片段縮圖 01:30").performClick()
-        compose.onNodeWithText("原片播放").performClick()
-
-        // 資訊列改成「{中文日期} · 影片 MM:SS」一整句（階段 15C），所以改用 substring 定位
-        compose.onNodeWithText("影片 01:30", substring = true).assertIsDisplayed()
     }
 }

@@ -90,6 +90,10 @@ internal const val PLAYER_CENTER_TAG = "player-center"
  * @param showTimeline false：沒有左下時間、進度條、拖曳跳播與左右鍵（Lightbox 片段只有 3 秒，用不到）
  * @param muted 有給才在全螢幕鈕左邊顯示【聲音】鈕；true＝目前靜音
  * @param playable false：還沒有影片可播（Lightbox 全螢幕中還是縮圖）——控制層叫得出來，但沒有中央鈕、點兩下不切換
+ * @param showFullscreenButton false：沒有全螢幕鈕、F 鍵不作用（原片播放一進來就是全螢幕，離開走返回）
+ * @param topBar 畫在上緣的一列（原片播放的返回／標題／⋯），跟控制層一起出現、一起收起；
+ *        播放器還沒載好（[enabled] false）時一直顯示，不然影片載不出來就沒有地方可以按返回
+ * @param holdVisible true：不自動收起（例如 [topBar] 裡的選單開著，收起來選單會跟著不見）
  */
 @Composable
 fun PlayerControls(
@@ -106,6 +110,9 @@ fun PlayerControls(
     muted: Boolean? = null,
     onToggleMute: () -> Unit = {},
     playable: Boolean = true,
+    showFullscreenButton: Boolean = true,
+    topBar: (@Composable () -> Unit)? = null,
+    holdVisible: Boolean = false,
 ) {
     val duration = status.durationSec.takeIf { it > 0 } ?: fallbackDurationSec
     var visible by remember { mutableStateOf(false) }
@@ -127,8 +134,8 @@ fun PlayerControls(
     val latestOnToggleFullscreen by rememberUpdatedState(onToggleFullscreen)
 
     // 播放中、沒在拖、3 秒沒人碰 → 收起；暫停中一直留著
-    LaunchedEffect(visible, status.paused, touches, dragSec == null, focused) {
-        if (visible && !status.paused && dragSec == null && !focused) {
+    LaunchedEffect(visible, status.paused, touches, dragSec == null, focused, holdVisible) {
+        if (visible && !status.paused && dragSec == null && !focused && !holdVisible) {
             delay(CONTROLS_AUTO_HIDE_MS)
             visible = false
         }
@@ -158,7 +165,7 @@ fun PlayerControls(
                     if (!latestEnabled || event.type != KeyEventType.KeyDown) return@onKeyEvent false
                     val handled = when (event.key) {
                         Key.Enter, Key.NumPadEnter, Key.Spacebar -> { toggleWithFlash(); true }
-                        Key.F -> { latestOnToggleFullscreen(); true }
+                        Key.F -> if (!showFullscreenButton) false else { latestOnToggleFullscreen(); true }
                         Key.DirectionRight, Key.DirectionLeft -> if (!showTimeline) false else {
                             val total = latestDuration
                             if (total > 0) {
@@ -247,12 +254,14 @@ fun PlayerControls(
                             )
                         }
                     }
-                    IconButton(onClick = { onToggleFullscreen(); touches++ }) {
-                        Icon(
-                            if (fullscreen) VsIcons.Minimize else VsIcons.Maximize,
-                            contentDescription = if (fullscreen) "離開全螢幕" else "全螢幕",
-                            tint = OnDarkColors.primary,
-                        )
+                    if (showFullscreenButton) {
+                        IconButton(onClick = { onToggleFullscreen(); touches++ }) {
+                            Icon(
+                                if (fullscreen) VsIcons.Minimize else VsIcons.Maximize,
+                                contentDescription = if (fullscreen) "離開全螢幕" else "全螢幕",
+                                tint = OnDarkColors.primary,
+                            )
+                        }
                     }
                 }
                 if (showTimeline) {
@@ -264,6 +273,14 @@ fun PlayerControls(
                     )
                 }
             }
+        }
+
+        if (topBar != null) {
+            AnimatedVisibility(
+                (visible && enabled) || !enabled,
+                modifier = Modifier.align(Alignment.TopStart).fillMaxWidth(),
+                enter = fadeIn(), exit = fadeOut(),
+            ) { topBar() }
         }
 
         // 中央播放／暫停：控制層開著時是按鈕，點兩下時閃一下，兩者是同一個圖示
@@ -353,7 +370,7 @@ private fun ProgressBar(
     }
 }
 
-/** 預覽縮圖＋時間。圖還沒到（詳情頁要下載）或沒有 storyboard 時只顯示時間。 */
+/** 預覽縮圖＋時間。圖還沒到（原片播放要下載）或沒有 storyboard 時只顯示時間。 */
 @Composable
 private fun PreviewBubble(sec: Double, preview: suspend (Double) -> ImageBitmap?, modifier: Modifier) {
     val image by produceState<ImageBitmap?>(null, sec) { value = preview(sec) }

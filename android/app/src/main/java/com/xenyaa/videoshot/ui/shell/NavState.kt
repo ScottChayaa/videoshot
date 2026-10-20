@@ -29,7 +29,7 @@ enum class AccountSection(val id: String) {
 /**
  * 一格分頁裡的一層畫面。
  *
- * 階段 8 的資料夾頁、階段 9 的詳情頁往這裡加項目，`AppShell` 的 `when` 會因為窮盡檢查
+ * 階段 8 的資料夾頁、原片播放往這裡加項目，`AppShell` 的 `when` 會因為窮盡檢查
  * 直接指出還沒處理的那一項 —— 這是不用 navigation-compose 換到的好處。
  */
 sealed interface Dest {
@@ -48,26 +48,19 @@ sealed interface Dest {
     data object ArchivedFolders : Dest
 
     /**
-     * 詳情頁（規格第六節）。**保留底部導覽**——跟 [Folder] 一起交給 `AppShell`。
-     * @param focusShotId 進場時要跳去播的那一張（從 Lightbox【原片播放】帶進來）
+     * 原片播放（規格第六節）：全螢幕、**沒有底部導覽**，疊在 [Lightbox] 上面——返回回到 Lightbox 原本那一張。
+     * @param shotId 從哪一張進來：從它的 `at_sec` 開始播，進場方向也照它的縮圖比例
      */
-    data class Detail(val videoId: String, val focusShotId: Long) : Dest
+    data class Play(val videoId: String, val shotId: Long) : Dest
 
     /**
-     * 批次編輯圖資（規格第六節：複用精靈第三步的同一個介面）。**沒有底部導覽**——
-     * 跟 [Lightbox] 一樣是全螢幕、有終點的流程，理由同 `AppShell` 對精靈的 KDoc。
-     * 只存 videoId：要編輯的 shot 清單每次進來重查，改動後才不會顯示過期的一批。
-     */
-    data class BatchEdit(val videoId: String) : Dest
-
-    /**
-     * 帳號頁的一個設定子畫面（規格第九節）。**保留底部導覽**——跟 [Folder]／[Detail] 一樣，
+     * 帳號頁的一個設定子畫面（規格第九節）。**保留底部導覽**——跟 [Folder] 一樣，
      * 這不是有進有出的全螢幕流程，使用者應該隨時能切別的分頁。
      */
     data class AccountSetting(val section: AccountSection) : Dest
 
     /**
-     * 還原挑選流程（規格第十節）。**沒有底部導覽**——跟 [Lightbox]／[BatchEdit] 一樣是
+     * 還原挑選流程（規格第十節）。**沒有底部導覽**——跟 [Lightbox]／[Play] 一樣是
      * 全螢幕、有終點的流程；還原成功會整個重啟 app，不會走到「回上一層」這條路。
      */
     data object RestoreFlow : Dest
@@ -119,16 +112,6 @@ data class NavState(
      */
     fun openFolderId(): Long? =
         stacks.getValue(Tab.FOLDERS).filterIsInstance<Dest.Folder>().lastOrNull()?.folderId
-
-    /**
-     * 詳情頁、或疊在它上面的批次編輯，目前是哪一支影片。都不是就回 null。
-     * [Dest.Detail] 與 [Dest.BatchEdit] 都自帶 videoId，不必像 [openFolderId] 那樣往下找父層。
-     */
-    fun currentDetailVideoId(): String? = when (val top = current) {
-        is Dest.Detail -> top.videoId
-        is Dest.BatchEdit -> top.videoId
-        else -> null
-    }
 }
 
 /**
@@ -148,8 +131,7 @@ object NavCodec {
                     is Dest.Root -> "R"
                     is Dest.Lightbox -> "L${dest.startIndex}"
                     is Dest.Folder -> "F${dest.folderId}"
-                    is Dest.Detail -> "D${dest.videoId}:${dest.focusShotId}"
-                    is Dest.BatchEdit -> "B${dest.videoId}"
+                    is Dest.Play -> "P${dest.videoId}:${dest.shotId}"
                     is Dest.AccountSetting -> "A${dest.section.id}"
                     is Dest.RestoreFlow -> "V"
                     is Dest.ArchivedFolders -> "X"
@@ -176,14 +158,13 @@ object NavCodec {
                     item == "X" -> Dest.ArchivedFolders
                     item.startsWith("L") -> Dest.Lightbox(item.drop(1).toIntOrNull() ?: return NavState())
                     item.startsWith("F") -> Dest.Folder(item.drop(1).toLongOrNull() ?: return NavState())
-                    item.startsWith("D") -> {
+                    item.startsWith("P") -> {
                         val body = item.drop(1)
                         val sep = body.lastIndexOf(':')
                         if (sep < 0) return NavState()
                         val shotId = body.substring(sep + 1).toLongOrNull() ?: return NavState()
-                        Dest.Detail(body.substring(0, sep), shotId)
+                        Dest.Play(body.substring(0, sep), shotId)
                     }
-                    item.startsWith("B") -> Dest.BatchEdit(item.drop(1))
                     item.startsWith("A") -> {
                         val section = AccountSection.entries.firstOrNull { it.id == item.drop(1) }
                             ?: return NavState()

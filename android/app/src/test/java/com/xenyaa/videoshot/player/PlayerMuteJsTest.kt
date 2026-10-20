@@ -3,7 +3,7 @@ package com.xenyaa.videoshot.player
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 取圖第二步與詳情頁播放器的【聲音】：靜音要撐得住 YouTube 自己把 `muted` 改回去（同 Lightbox 片段）。 */
+/** 取圖第二步與原片播放的【聲音】：靜音要撐得住 YouTube 自己把 `muted` 改回去（同 Lightbox 片段）。 */
 class PlayerMuteJsTest {
 
     @Test fun 靜音同時改強制旗標與影片() {

@@ -56,7 +56,7 @@ data class Step3State(
     fun isComplete(field: DetailField): Boolean =
         cells.isNotEmpty() && cells.all { details[it.cell]?.has(field) == true }
 
-    /** 取圖精靈的【完成】按得下去嗎：每一張都有時間與地點（2026-10-18 scott）。批次編輯不看這個。 */
+    /** 取圖精靈的【完成】按得下去嗎：每一張都有時間與地點（2026-10-18 scott）。 */
     val canFinish: Boolean get() = isComplete(DetailField.DATE) && isComplete(DetailField.PLACE)
 
     /** 進場裁圖的進度。sheet 已在本機，這行幾乎一閃而過（規格第五節）。 */
@@ -104,7 +104,6 @@ class Step3Store(
 
     /**
      * 【全選】：還沒全選就勾選每一張；已經全選時再按一次＝全部取消勾選（同第二步 `Step2Store.selectAll()`）。
-     * 批次編輯共用這個 store，行為一起生效。
      */
     fun selectAll() {
         val all = _state.value.cells.map { it.cell }.toSet()

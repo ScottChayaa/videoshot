@@ -183,7 +183,7 @@ fun LightboxScreen(
     // 片段的控制層用播放器的 PlayerControls（不顯示時間軸）。開始上下拖就 +1：控制層以它當 key 重建，等於收起
     var dragEpoch by remember { mutableIntStateOf(0) }
 
-    // 全螢幕（規格第六節「自動播放片段」）：跟詳情頁同一份狀態，方向與系統列由 MainActivity 套用。
+    // 全螢幕（規格第六節「自動播放片段」）：跟原片播放同一份狀態，方向與系統列由 MainActivity 套用。
     // 返回鍵只離開全螢幕；Lightbox 關掉時一定離開
     val fullscreenState = LocalPlayerFullscreen.current
     val fullscreen = fullscreenState.active
@@ -246,7 +246,7 @@ fun LightboxScreen(
     val iconShape = RoundedCornerShape(AppTheme.radii.sm)
     val tags by produceState(emptyList<TagNameKind>(), shot.id, tagsRefreshKey) {
         value = emptyList()
-        // 輔助資訊：讀不到就沒有標籤列，不擋看圖（跟詳情頁讀標籤同一個取捨）
+        // 輔助資訊：讀不到就沒有標籤列，不擋看圖
         value = try {
             tagsOf(shot)
         } catch (c: CancellationException) {

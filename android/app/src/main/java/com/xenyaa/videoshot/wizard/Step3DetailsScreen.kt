@@ -85,8 +85,7 @@ internal val DetailField.label: String
  *
  * 縮圖牆跟第二步一樣：**每列 4 張正方形、左右貼齊螢幕、格線 [ThumbGridGap]**。
  *
- * @param requireTimeAndPlace 取圖精靈是 true：每一張都有時間與地點（[Step3State.canFinish]）才完成；
- *        還不能完成時【完成】是淡化的，按了跳提示。批次編輯是 false —— 只寫回改過的那幾張，隨時可完成。
+ * 每一張都有時間與地點（[Step3State.canFinish]）才完成；還不能完成時【完成】是淡化的，按了跳提示。
  */
 @Composable
 fun Step3DetailsScreen(
@@ -99,7 +98,6 @@ fun Step3DetailsScreen(
     modifier: Modifier = Modifier,
     placeSuggestions: List<String> = emptyList(),
     tagSuggestions: List<TagNameKind> = emptyList(),
-    requireTimeAndPlace: Boolean = false,
 ) {
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -114,7 +112,7 @@ fun Step3DetailsScreen(
     fun open(field: DetailField) {
         if (state.selected.isEmpty()) hint("先勾選圖片") else picking = field
     }
-    val canFinish = !requireTimeAndPlace || state.canFinish
+    val canFinish = state.canFinish
 
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {

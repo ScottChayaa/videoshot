@@ -115,7 +115,7 @@ class FolderViewModel(
         _state.value = current.copy(
             items = current.items.filterNot { it.id == id },
         )
-        // 先等 repo 再以當下狀態更新——理由見 DetailViewModel.loadPlayerInfo
+        // 先等 repo 再以當下狀態更新——理由見 PlayViewModel.loadPlayerInfo
         launchGuarded {
             val children = loadChildren()
             _state.update { it.copy(children = children) }

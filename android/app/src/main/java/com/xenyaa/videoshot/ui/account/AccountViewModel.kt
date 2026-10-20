@@ -127,7 +127,7 @@ class AccountViewModel(
     fun refreshBackfillProgress() {
         viewModelScope.launch {
             try {
-                // 先等結果再以當下狀態更新——理由見 DetailViewModel.loadPlayerInfo
+                // 先等結果再以當下狀態更新——理由見 PlayViewModel.loadPlayerInfo
                 val progress = deps.backfillProgress()
                 _state.update { it.copy(backfillProgress = progress) }
             } catch (e: CancellationException) {

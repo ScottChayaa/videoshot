@@ -46,7 +46,7 @@ class Step3FieldBarTest {
         cropping = false,
     )
 
-    private fun show(state: Step3State, requireTimeAndPlace: Boolean = true) = compose.setContent {
+    private fun show(state: Step3State) = compose.setContent {
         VideoshotTheme {
             Step3DetailsScreen(
                 state = state,
@@ -56,7 +56,6 @@ class Step3FieldBarTest {
                 onApply = { applied += it },
                 onFinish = { finished++ },
                 placeSuggestions = listOf("冬山河"),
-                requireTimeAndPlace = requireTimeAndPlace,
             )
         }
     }
@@ -132,12 +131,6 @@ class Step3FieldBarTest {
 
     @Test fun 每一張都有時間與地點就能完成() {
         show(stateOf(details = (0..1).associateWith { ShotDetails("2026-01-01", place = "冬山河") }))
-        compose.onNodeWithText("完成").performClick()
-        assertEquals(1, finished)
-    }
-
-    @Test fun 批次編輯不要求地點_隨時可完成() {
-        show(stateOf(), requireTimeAndPlace = false)
         compose.onNodeWithText("完成").performClick()
         assertEquals(1, finished)
     }

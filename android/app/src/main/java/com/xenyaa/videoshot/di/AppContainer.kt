@@ -473,7 +473,7 @@ class AppContainer(context: Context) : AppRootDeps {
         else -> null
     }
 
-    /** 詳情頁播放器拖曳預覽的圖來源；沒有 storyboard 回 null。快取放 `cacheDir/preview/`。 */
+    /** 原片播放拖曳預覽的圖來源；沒有 storyboard 回 null。快取放 `cacheDir/preview/`。 */
     override fun previewFramesFor(videoId: String, page: WatchPage): (suspend (Double) -> ImageBitmap?)? =
         previewFramesOf(videoId, page, appContext.cacheDir, youtube)?.let { it::at }
 

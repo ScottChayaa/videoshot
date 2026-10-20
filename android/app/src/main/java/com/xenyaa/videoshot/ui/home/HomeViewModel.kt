@@ -204,7 +204,7 @@ class HomeViewModel(
     }
 
     /**
-     * 就地編輯了一張（Lightbox 或資料夾的【編輯圖資】、詳情頁）。**一律不重讀**——重讀會先把清單
+     * 就地編輯了一張（Lightbox 的【詳細資料】）。**一律不重讀**——重讀會先把清單
      * 清空，開著的 Lightbox 看到空清單會自己關掉、沒關也會被換成前 50 張而跳到別張，首頁捲動位置
      * 也丟了（階段 17 最終審查 Important 1，裁定 G 取代裁定 E）。
      *
@@ -245,7 +245,7 @@ class HomeViewModel(
         return repo.tagsOfShot(row.id).any { it in filter.tags }
     }
 
-    /** 先等 repo 再以當下狀態更新——理由見 `DetailViewModel.loadPlayerInfo`：跟 [loadMore] 同時在跑，先取快照會把剛載入的列表蓋掉。 */
+    /** 先等 repo 再以當下狀態更新——理由見 `PlayViewModel.loadPlayerInfo`：跟 [loadMore] 同時在跑，先取快照會把剛載入的列表蓋掉。 */
     private fun refreshMonths() {
         // 換篩選時舊條件的月份清單不能晚到蓋掉新的
         monthsJob?.cancel()

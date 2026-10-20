@@ -55,7 +55,7 @@ private const val KEYBOARD_SETTLE_MS = 300L
 const val NEW_TAG_DEFAULT_KIND = "topic"
 
 /**
- * 就地編輯**一張**圖的圖資。Lightbox ⋯ 選單的【詳細資料】與詳情頁的【編輯詳細資料】共用
+ * 就地編輯**一張**圖的圖資。Lightbox ⋯ 選單的【詳細資料】
  * （主計畫第 284 行）。
  *
  * 送出的是 [DetailsPatch]：**只帶動過的欄位**，沒動過的是 null。

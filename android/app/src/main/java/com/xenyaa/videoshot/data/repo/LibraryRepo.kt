@@ -38,7 +38,7 @@ interface LibraryRepo {
     suspend fun shotsOfVideo(videoId: String): List<ShotRow>
     suspend fun shotById(id: Long): ShotRow?
 
-    /** 這支影片的列——詳情頁的標題（不存在回 null）。 */
+    /** 這支影片的列——原片播放的標題（不存在回 null）。 */
     suspend fun videoById(videoId: String): VideoEntity?
 
     /** 某個月出現過的地點與標籤，附張數。 */

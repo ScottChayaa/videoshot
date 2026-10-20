@@ -21,7 +21,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * 詳情頁拖曳預覽的圖（規格第六節「預覽縮圖的來源」）：**拖到哪才下載哪一張 sheet**。
+ * 原片播放拖曳預覽的圖（規格第六節「預覽縮圖的來源」）：**拖到哪才下載哪一張 sheet**。
  *
  * 跟第二步的 `StoryboardFrameSource` 不同：那邊一進場就照順序下載整支影片的 sheet（要算指紋收斂），
  * 這裡使用者可能只拖一下，整支下載是白花流量。sheet 放在快取目錄（[dir]），被系統清掉只是下次重新下載。

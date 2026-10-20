@@ -83,7 +83,7 @@ class SearchViewModel(
     init {
         loadFacets()
         // 日期選擇器的選項，跟首頁看的是同一份「有收藏的月份」清單，只查一次不必跟著時間篩選重查
-        // 先等 repo 再以當下狀態更新——跟 loadFacets() 同時在跑，理由見 DetailViewModel.loadPlayerInfo
+        // 先等 repo 再以當下狀態更新——跟 loadFacets() 同時在跑，理由見 PlayViewModel.loadPlayerInfo
         launchGuarded {
             val months = repo.monthCounts()
             _state.update { it.copy(months = months) }
@@ -189,7 +189,7 @@ class SearchViewModel(
     }
 
     /**
-     * 從詳情頁【刪除整支收藏】之後同步查詢結果，理由同 [onShotDeleted]——差別是這裡一次
+     * 刪掉整支影片的收藏（原片播放【重新取圖】）之後同步查詢結果，理由同 [onShotDeleted]——差別是這裡一次
      * 可能要拔掉好幾張（同一支影片的好幾個 shot 都在查詢結果裡），見 `SearchStore.removeVideo`
      * 的 KDoc（最終審查 Important 4）。
      */

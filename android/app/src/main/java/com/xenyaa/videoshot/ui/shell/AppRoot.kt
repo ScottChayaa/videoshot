@@ -33,6 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xenyaa.videoshot.core.details.ShotDetails
 import com.xenyaa.videoshot.core.home.monthOf
+import com.xenyaa.videoshot.core.player.isLandscapeVideo
 import com.xenyaa.videoshot.data.repo.model.FolderNode
 import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
@@ -69,11 +70,8 @@ import com.xenyaa.videoshot.ui.onboarding.FirstRunChooserScreen
 import com.xenyaa.videoshot.ui.common.avatarInitialOf
 import com.xenyaa.videoshot.player.ClipSource
 import com.xenyaa.videoshot.player.LocalPlayerFullscreen
-import com.xenyaa.videoshot.ui.detail.BatchEditScreen
-import com.xenyaa.videoshot.ui.detail.BatchEditState
-import com.xenyaa.videoshot.ui.detail.BatchEditViewModel
-import com.xenyaa.videoshot.ui.detail.DetailScreen
-import com.xenyaa.videoshot.ui.detail.DetailViewModel
+import com.xenyaa.videoshot.ui.play.PlayScreen
+import com.xenyaa.videoshot.ui.play.PlayViewModel
 import com.xenyaa.videoshot.wizard.WizardScreen
 import com.xenyaa.videoshot.wizard.WizardViewModel
 import kotlinx.coroutines.CancellationException
@@ -224,45 +222,26 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
     // 這一輪的範圍也只需要這樣（見全盤覆查 N4：匯流排式的方案留到階段 9 有第三個消費者時再做）。
     LaunchedEffect(openFolderId) { folderVm?.reload() }
 
-    // 詳情頁（或疊在它上面的批次編輯）的 VM，跟 folderVm 同一個手法：以 videoId 當 key，
-    // 換一支影片就是換一個實例；**同一支影片**重查靠 Dest.Detail 分支自己的
-    // LaunchedEffect(Unit)（見下面那個分支），不能靠這裡的 key 帶 videoId ——
-    // 同一支影片再進一次詳情頁，這個 key 沒變，viewModel() 會回傳快取的舊實例，
-    // 以 detailVideoId 當 key 的 LaunchedEffect 不會重新跑（最終審查 Finding 2）
-    val detailVideoId = nav.currentDetailVideoId()
-    val detailVm: DetailViewModel? = detailVideoId?.let { vid ->
+    // 原片播放的 VM：以「影片＋從哪一張進來」當 key——同一支影片從另一張進來要從另一個秒數播，
+    // 只用 videoId 當 key 會拿到快取的舊實例、跳去上一次的秒數
+    val playDest = nav.current as? Dest.Play
+    val playVm: PlayViewModel? = playDest?.let { dest ->
         viewModel(
             factory = object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    DetailViewModel(
-                        videoId = vid,
-                        // 只有第一次建構（nav.current 真的是 Dest.Detail）這個值才有意義；
-                        // 疊了 BatchEdit 之後 viewModel(key=...) 會回傳既有實例，這個工廠不會再被呼叫
-                        initialFocusShotId = (nav.current as? Dest.Detail)?.focusShotId ?: 0L,
+                    PlayViewModel(
+                        videoId = dest.videoId,
+                        startShotId = dest.shotId,
                         library = container.libraryRepo,
                         watchPage = container.wizardData::watchPage,
-                        previewFor = { page -> container.previewFramesFor(vid, page) },
+                        landscapeOf = { shot -> container.thumbLoader.load(shot)?.let { isLandscapeVideo(it.width, it.height) } },
+                        previewFor = { page -> container.previewFramesFor(dest.videoId, page) },
                     ) as T
             },
-            key = "detail-$vid",
+            key = "play-${dest.videoId}-${dest.shotId}",
         )
     }
-
-    val batchEditVm: BatchEditViewModel? = if (nav.current is Dest.BatchEdit) {
-        viewModel(
-            factory = object : ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    BatchEditViewModel(
-                        videoId = detailVideoId!!,
-                        library = container.libraryRepo,
-                        markFacetsUsed = container.facetUsage::markUsed,
-                    ) as T
-            },
-            key = "batchedit-$detailVideoId",
-        )
-    } else null
 
     // 精靈的 VM 建在這裡（不是 CaptureTab 裡）—— finished 是沒有 replay 的 SharedFlow，
     // 只有切到取圖分頁才組合的地方收集會漏掉事件；同一個 key 仍確保實例不重複
@@ -442,11 +421,8 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                     }
                 },
                 actions = LightboxActions(
-                    // Lightbox 換成詳情頁——pop 掉 Lightbox 再 push 詳情頁，
-                    // 不是疊上去：返回鍵從詳情頁退一步該回到清單，不是回到 Lightbox
-                    onPlay = { shot ->
-                        nav = (nav.pop() ?: nav).push(Dest.Detail(shot.videoId, shot.id))
-                    },
+                    // 疊在 Lightbox 上面：返回回到 Lightbox 原本那一張（規格第六節「原片播放」）
+                    onPlay = { shot -> nav = nav.push(Dest.Play(shot.videoId, shot.id)) },
                     onAddToFolder = { addingTo = it },
                     onShare = { shot ->
                         val send = Intent(Intent.ACTION_SEND).apply {
@@ -568,51 +544,49 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             }
         }
 
-        // 批次編輯跟 Lightbox 一樣全螢幕、沒有底部導覽（Task 6 的 BatchEditScreen KDoc）
-        is Dest.BatchEdit -> {
-            val vm = batchEditVm!!
-            // 每次「真的進場」都要重查——vm 是用 videoId 當 key 快取的，同一支影片第二次
-            // 進批次編輯拿到的是同一個實例，不會再跑一次 init{}。LaunchedEffect(Unit) 放在
-            // 這個 when 分支的內容裡：切到別的分支再切回來，Compose 會把這個分支的子樹
-            // 整個拆掉重建，key 不變也一樣重新啟動——不能像 folderVm 那樣以 id 當 key，
-            // 因為這裡同一支影片重進兩次是常態，videoId 不會變（最終審查 Finding 1）
-            LaunchedEffect(Unit) { vm.reload() }
-            val beState by vm.state.collectAsStateWithLifecycle()
-            val batchBitmapFor: suspend (Int) -> ImageBitmap? = remember(beState) {
-                val fn: suspend (Int) -> ImageBitmap? = { cell ->
-                    (beState as? BatchEditState.Ready)?.shots?.getOrNull(cell)?.let { container.thumbLoader.load(it) }
-                }
-                fn
-            }
-            BatchEditScreen(
-                state = beState,
-                bitmapFor = batchBitmapFor,
-                onToggle = vm::toggle,
-                onSelectAll = vm::selectAll,
-                onApply = vm::apply,
-                onFinish = vm::finish,
-                onClose = { nav.pop()?.let { nav = it } },
+        // 原片播放跟 Lightbox 一樣蓋掉整個外殼（規格第六節）；自己疊一顆 SnackbarHost，理由同 Lightbox 分支
+        is Dest.Play -> Box(Modifier.fillMaxSize()) {
+            val vm = playVm!!
+            val pState by vm.state.collectAsStateWithLifecycle()
+            PlayScreen(
+                state = pState,
+                onBack = { nav.pop()?.let { nav = it } },
+                onPlayerReady = vm::attachPlayer,
+                onPlayerReleased = vm::detachPlayer,
+                onRetryPlayer = vm::loadPlayerInfo,
+                onRecapture = {
+                    scope.launch {
+                        try {
+                            // 先刪再開精靈：第二步要看到「這支影片一張都沒收藏」，從零開始挑
+                            container.shotDeleter.deleteVideo(dest.videoId)
+                            // 原片播放與底下的 Lightbox 都收掉——那支影片的圖已經不在了，切回這一格要回到清單
+                            var popped = nav
+                            if (popped.current is Dest.Play) popped = popped.pop() ?: popped
+                            if (popped.current is Dest.Lightbox) popped = popped.pop() ?: popped
+                            nav = popped
+                            homeVm.reload()
+                            foldersVm.reload()
+                            // 相簿裡的那幾張也一起不見了，開著的相簿頁張數與預覽要重查
+                            folderVm?.reload()
+                            accountVm.reload()
+                            wizardVm.openRecent(dest.videoId)
+                            nav = nav.select(Tab.CAPTURE)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            snackbarHostState.showSnackbar("刪除失敗，請再試一次")
+                        }
+                    }
+                },
             )
-            LaunchedEffect(vm) {
-                vm.finished.collect {
-                    nav.pop()?.let { nav = it }
-                    homeVm.reload()
-                    detailVm?.reload()
-                    // 詳情頁可能是從分類分頁的資料夾頁開出來的（Lightbox【原片播放】），
-                    // 批次編輯改的圖資可能就是那個資料夾本層預覽或子資料夾卡片用到的那幾張，
-                    // 不重查的話切回分類分頁看到的還是編輯前的舊圖資（最終審查 Finding 5，
-                    // 同 EditingSheet.onSave 已經在做的事）
-                    folderVm?.reload()
-                    // 批次編輯可能透過 patchShots 的 tagNames 建立新標籤,帳號頁「N 個標籤」
-                    // 的計數與統計卡都可能變了,同一個理由跟著重查（最終審查 Important 2）
-                    accountVm.reload()
-                }
-            }
+            SnackbarHost(
+                snackbarHostState,
+                Modifier.align(Alignment.BottomCenter).navigationBarsPadding(),
+            )
         }
 
-        // 還原挑選流程跟 Lightbox／BatchEdit 一樣全螢幕、沒有底部導覽（規格第十節、
-        // Dest.RestoreFlow 的 KDoc）——還原成功會整個重啟 app，不會走到「回上一層」這條路,
-        // 也因此不需要像 BatchEdit 那樣在 finished 之後手動 pop／重查別的 VM。
+        // 還原挑選流程跟 Lightbox 一樣全螢幕、沒有底部導覽（規格第十節、
+        // Dest.RestoreFlow 的 KDoc）——還原成功會整個重啟 app，不會走到「回上一層」這條路。
         is Dest.RestoreFlow -> {
             val restoreVm: RestoreViewModel = viewModel(
                 factory = object : ViewModelProvider.Factory {
@@ -639,7 +613,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             )
         }
 
-        Dest.Root, is Dest.Folder, Dest.ArchivedFolders, is Dest.Detail, is Dest.AccountSetting -> AppShell(nav = nav,
+        Dest.Root, is Dest.Folder, Dest.ArchivedFolders, is Dest.AccountSetting -> AppShell(nav = nav,
             onSelectTab = { foldersVm.clearSelection(); nav = nav.select(it) },
             snackbarHostState = snackbarHostState, accountInitial = avatarInitialOf(accountState.linkedAccount?.displayName),
             // 照片頁、相簿畫面、封存相簿畫面多選時藏起底部導覽，由各自畫面的動作列取代
@@ -650,56 +624,6 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                         foldersState.selection.isNotEmpty())
                 )) { tab ->
             when (val current = nav.current) {
-                is Dest.Detail -> {
-                    val vm = detailVm!!
-                    // 每次「真的進場」都要用這次導覽目的地帶來的 focusShotId 重新聚焦——
-                    // vm 是用 videoId 當 key 快取的，同一支影片第二次進詳情頁（例如 Lightbox
-                    // 播了同一支影片的另一張）拿到的是同一個實例，reload() 不帶參數的話會
-                    // 沿用舊聚焦，看起來像按了原片播放卻沒反應（最終審查 Finding 2）。
-                    // LaunchedEffect(Unit) 放在這個 when 分支裡：從別的分支（Lightbox、
-                    // BatchEdit）切回來，Compose 會把這個分支的子樹整個拆掉重建，
-                    // key 不變也一樣重新啟動——理由同 BatchEdit 分支那個 LaunchedEffect(Unit)
-                    LaunchedEffect(Unit) { vm.reload(focusShotId = current.focusShotId) }
-                    val dState by vm.state.collectAsStateWithLifecycle()
-                    DetailScreen(
-                        state = dState,
-                        loader = container.thumbLoader,
-                        onBack = { nav.pop()?.let { nav = it } },
-                        onPlayerReady = vm::attachPlayer,
-                        onPlayerReleased = vm::detachPlayer,
-                        onRetryPlayer = vm::loadPlayerInfo,
-                        onFocus = vm::focus,
-                        onEdit = { editing = it },
-                        onContinueCapture = {
-                            wizardVm.openRecent(current.videoId)
-                            nav = nav.select(Tab.CAPTURE)
-                        },
-                        onBatchEdit = { nav = nav.push(Dest.BatchEdit(current.videoId)) },
-                        onDeleteVideo = {
-                            scope.launch {
-                                try {
-                                    container.shotDeleter.deleteVideo(current.videoId)
-                                    // 退回詳情頁底下那一層、換到首頁分頁（規格第六節：「導回首頁」）
-                                    nav = (nav.pop() ?: nav).select(Tab.HOME)
-                                    homeVm.reload()
-                                    foldersVm.reload()
-                                    // 詳情頁可能是從分類分頁的資料夾頁開出來的，刪掉整支影片
-                                    // 也可能刪掉那個資料夾本層的某幾張，不重查的話切回去看到的
-                                    // 還是刪除前的張數與預覽（最終審查 Finding 5）
-                                    folderVm?.reload()
-                                    // 帳號頁的「收藏片段」／「來源影片」統計整支都少了,同一個
-                                    // 理由——背景分頁也要跟著重查（這次最終審查 Important 2）
-                                    accountVm.reload()
-                                    snackbarHostState.showSnackbar("已刪除整支收藏")
-                                } catch (e: CancellationException) {
-                                    throw e
-                                } catch (e: Exception) {
-                                    snackbarHostState.showSnackbar("刪除失敗，請再試一次")
-                                }
-                            }
-                        },
-                    )
-                }
                 else -> when (tab) {
                     Tab.HOME -> {
                     HomeScreen(
@@ -1019,7 +943,6 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             container = container,
             homeVm = homeVm,
             folderVm = folderVm,
-            detailVm = detailVm,
             scope = scope,
             snackbarHostState = snackbarHostState,
             onDismiss = { editing = null },
@@ -1152,7 +1075,6 @@ private fun EditingSheet(
     container: AppRootDeps,
     homeVm: HomeViewModel,
     folderVm: FolderViewModel?,
-    detailVm: DetailViewModel?,
     scope: CoroutineScope,
     snackbarHostState: SnackbarHostState,
     onDismiss: () -> Unit,
@@ -1201,7 +1123,6 @@ private fun EditingSheet(
                 // 資料夾頁的預覽拼貼跟本層列表也可能用到這張圖的圖資，一併重查
                 container.libraryRepo.shotById(shot.id)?.let { updated ->
                     homeVm.onShotChanged(updated)
-                    detailVm?.onShotChanged(updated)
                 }
                 folderVm?.reload()
                 onSaved()

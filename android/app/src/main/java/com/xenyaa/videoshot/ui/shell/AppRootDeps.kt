@@ -71,7 +71,7 @@ interface AppRootDeps {
     fun captureFor(player: Player): Capture?
 
     /**
-     * 詳情頁播放器拖曳預覽的圖來源（規格第六節）；沒有 storyboard 回 null。
+     * 原片播放拖曳預覽的圖來源（規格第六節）；沒有 storyboard 回 null。
      * 預設回 null：只有 `AppContainer` 握著 `Youtube` 與快取目錄，各測試的假實作不必管這件事。
      */
     fun previewFramesFor(videoId: String, page: WatchPage): (suspend (Double) -> ImageBitmap?)? = null

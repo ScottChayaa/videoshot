@@ -3,7 +3,7 @@ package com.xenyaa.videoshot.player
 import androidx.compose.runtime.compositionLocalOf
 
 /**
- * 取圖第二步與詳情頁播放器的【聲音】（規格第六節「播放器」）：設定值 `player_muted`，
+ * 取圖第二步與原片播放的【聲音】（規格第六節「播放器」）：設定值 `player_muted`，
  * 跟 Lightbox 片段的 `clip_muted` 分開記。`AppRoot` 從設定讀出來發下去，[PlayerSurface] 自己取用，
  * 兩個畫面不必一層層傳。
  */

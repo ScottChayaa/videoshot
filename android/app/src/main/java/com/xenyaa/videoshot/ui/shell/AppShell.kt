@@ -40,7 +40,7 @@ fun AppShell(
      */
     showBottomNav: Boolean = true,
     /**
-     * true＝詳情頁播放器全螢幕（沉浸模式）：內容區不墊任何系統 inset、底色全黑。
+     * true＝播放器全螢幕（沉浸模式）：內容區不墊任何系統 inset、底色全黑。
      * 只改 Scaffold 的參數值，不改內容區的組合結構——否則裡面的 WebView 會被重建、影片從頭載入。
      */
     fullscreen: Boolean = false,
