@@ -107,6 +107,10 @@ L3 範例：320#180#25#3#3#1000#M$M#rs$AOn4CL...
 
 - 一支 3 分鐘的影片每 2 秒一張，一支 30 分鐘的影片每 12 秒一張 —— **影片越長，可挑的畫面越粗**，這正是截圖補洞要補的洞。
 - **縮圖牆的張數與影片長度無關**，永遠是一兩百張；**一支影片的 L3 sheet 最多約 18 張、約 1 MB**。
+- **`frameCount` 一律比片長多一格**：spec 給 ceil(片長 ÷ 間隔) ＋ 1 格，第 k 格代表 k × 間隔，所以**最後一格的時間點總是超過片長**
+  （178.8 秒、每 2 秒一格的影片 spec 寫 91 格，最後一格標 180 秒；2026-10-20 抽查 6 支都是這樣）。
+  縮圖牆只放時間點 ≤ 片長的格子（`Storyboard.frameCountWithin`），多出來的那一格不上牆、它所在的 sheet 只有那一格時也不下載。
+  片長用精確的毫秒數（見第 4 點的欄位表）—— `lengthSeconds` 四捨五入過，281.5 秒的影片記成 282，282 秒那一格就判不掉
 
 **sheet 的副檔名是 `.jpg`，內容其實是 WebP**（`RIFF` 開頭，2026-09-15 實測）。
 Android 的 `BitmapFactory` 兩種都吃得下所以 app 不受影響，但**離開 Android 的工具就會踩到** ——
@@ -135,7 +139,8 @@ watch page 內嵌的 `ytInitialPlayerResponse` 一次提供取圖所需的全部
 | 需要的資料 | 來源 |
 |---|---|
 | 可否播放 | `playabilityStatus.status`（`OK` / `UNPLAYABLE` / `LOGIN_REQUIRED` / `ERROR`…）與 `reason` |
-| 標題、頻道、片長 | `videoDetails.title` / `author` / `lengthSeconds` |
+| 標題、頻道、片長 | `videoDetails.title` / `author` / `lengthSeconds`（整數秒，四捨五入） |
+| 精確片長 | `streamingData.formats[]` 與 `adaptiveFormats[]` 的 `approxDurationMs` 取最大值（各格式差幾十毫秒）。只用來決定縮圖牆的格數；讀不到時退回 `lengthSeconds`。草稿也存這一欄，續做時算出的格數才跟存草稿時一樣 |
 | 上傳日期、是否不公開 | `microformat.playerMicroformatRenderer.publishDate` / `isUnlisted`（2026-09-13 實機確認；`uploadDate` 為同值，取其一即可） |
 | **可否嵌入播放** | `playabilityStatus.playableInEmbed` —— **掛在 `playabilityStatus` 底下，不是 `microformat`**。決定播放器的載入方式，見第二節第 5 點 |
 | storyboard spec | `storyboards.playerStoryboardSpecRenderer.spec` |
@@ -877,7 +882,10 @@ flowchart LR
 
 - 存在 `cache.db` 的 `draft` 列 ＋ `drafts/{videoId}/` 目錄，**只記最近一支**，不進備份。
 - 內容：`videoId`、步驟、已勾選的 `frame_index`、手動補圖清單、第三步填好的圖資，
-  以及上次抓到的 storyboard spec 原字串與影片資訊（標題、頻道、上傳時間、長度、公開狀態、能否 embed；2026-10-18 加）。
+  以及上次抓到的 storyboard spec 原字串與影片資訊（標題、頻道、上傳時間、長度、公開狀態、能否 embed；2026-10-18 加；精確片長 2026-10-20 加）。
+- **續做時縮圖牆的格數跟草稿記的不一樣**：換了層級 → storyboard 的勾選與圖資整批丟掉，只留手動圖、往後搬到新分界；
+  **同一層級只是格數變了**（例：2026-10-20 起超過片長的最後一格不上牆，舊草稿多記一格）→ storyboard 的勾選與圖資留下
+  （超出新格數的那幾格除外），手動圖跟著分界搬。手動圖的勾選與圖資一律跟著搬，不是一律勾上。
 - 下次按【取圖】**直接續做**，不詢問（2026-10-18）：app 重開過就讀 `draft` 列還原；app 還活著時勾選與圖資本來就在記憶體裡，
   直接回到離開前的那一步。**只在按【取圖】時才續做** —— app 啟動時不先抓網路。
 - app 重開過的續做**一按【取圖】就切到草稿停的那一步**，資料還沒好之前那一步畫骨架屏（播放器框、狀態列、4 欄縮圖牆、
@@ -1560,7 +1568,7 @@ POC 的結論**不承諾所有影片、所有播放情境 100% 可截**；截圖
 ### v1 的整合測試案例
 
 1. 貼各種形式的網址（`youtu.be`、`watch?v=`、帶 `&t=`、`shorts/`、純 videoId）→ 都能進第二步
-2. 進第二步 → 縮圖數量與 `frameCount` 一致、每格時間標籤正確
+2. 進第二步 → 縮圖數量比 `frameCount` 少一格（時間點超過片長的最後一格不上牆）、每格時間標籤正確、最後一格不超過片長
 3. 點縮圖 → 勾選切換；長按 → 播放器跳到正確秒數，外框跟著播放位置走
 4. 【全選】→ 已選數 = 總數（不含已收藏的）
 5. 進場即收斂：狀態列文案正確；【顯示全部】／【重新過濾】可來回切

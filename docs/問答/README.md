@@ -6,6 +6,7 @@
 
 - [首頁的圖存在哪裡？](首頁的圖存在哪裡.md)
 - [為什麼 thumbs/ 裡有圖庫沒有的檔案？](thumbs多出來的檔案.md)
+- [縮圖牆的格數為什麼比 storyboard spec 的 frameCount 少一格？](縮圖牆格數為什麼比spec少一格.md)
 
 ## 首頁篩選
 
