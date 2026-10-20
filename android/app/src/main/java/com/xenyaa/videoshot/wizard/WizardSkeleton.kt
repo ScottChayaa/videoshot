@@ -28,7 +28,6 @@ import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.VsActionDock
 import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsFieldButton
-import com.xenyaa.videoshot.ui.common.VsIconButton
 import com.xenyaa.videoshot.ui.common.VsSkeletonArea
 import com.xenyaa.videoshot.ui.common.VsSkeletonBlock
 import com.xenyaa.videoshot.ui.icons.VsIcons
@@ -87,9 +86,11 @@ internal fun WizardSkeleton(
             }
         } else {
             VsActionDock {
-                VsIconButton(VsIcons.ImagesCheck, "全選", onClick = {}, enabled = false)
-                VsIconButton(VsIcons.Scissors, "截圖", onClick = {}, enabled = false)
-                VsButton("下一步", onClick = {}, modifier = Modifier.weight(1f), enabled = false)
+                Row(Modifier.align(Alignment.CenterVertically), verticalAlignment = Alignment.CenterVertically) {
+                    VsFieldButton(VsIcons.ImagesCheck, "全選", onClick = {}, enabled = false)
+                    VsFieldButton(VsIcons.Scissors, "截圖", onClick = {}, enabled = false)
+                }
+                VsButton("下一步", onClick = {}, modifier = Modifier.weight(1f).align(Alignment.CenterVertically), enabled = false)
             }
         }
     }

@@ -52,7 +52,7 @@ import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.core.time.formatClock
 import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.VsActionDock
-import com.xenyaa.videoshot.ui.common.VsIconButton
+import com.xenyaa.videoshot.ui.common.VsFieldButton
 import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsHintCard
 import com.xenyaa.videoshot.ui.thumb.ThumbGridGap
@@ -149,15 +149,16 @@ fun Step2GridScreen(
         // 底部**只有一列**：【全選】【截圖】【下一步】，底下不再疊導覽列（手冊 §四第二步）；
         // 張數在頂部狀態列、已選數在按鈕上，不另外寫（2026-10-17 拿掉「N 張候選 · 已選 k」）。
         // 全選與截圖原本是縮圖牆第一列的小膠囊，捲下去就得捲回頂端才按得到（2026-10-17 移到這裡）；
-        // 用只有圖示的次要方鈕：跟【下一步】同高，主色只留給【下一步】，也省下寬度給「下一步（123 張）」
+        // 用第三步同款的「圖示＋下方小字」欄位按鈕（2026-10-20 scott），兩步的底部列長得一樣
         VsActionDock {
-            // 圖示用主色（同狀態列的【顯示全部】），外框仍是次要鈕
-            VsIconButton(VsIcons.ImagesCheck, "全選", onSelectAll, tint = AppTheme.colors.accent)
-            VsIconButton(VsIcons.Scissors, "截圖", onTakeShot, tint = AppTheme.colors.accent)
+            Row(Modifier.align(Alignment.CenterVertically), verticalAlignment = Alignment.CenterVertically) {
+                VsFieldButton(VsIcons.ImagesCheck, "全選", onSelectAll)
+                VsFieldButton(VsIcons.Scissors, "截圖", onTakeShot)
+            }
             VsButton(
                 "下一步（${state.selectedCount} 張）",
                 onNext,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).align(Alignment.CenterVertically),
                 enabled = state.selectedCount > 0,
             )
         }
