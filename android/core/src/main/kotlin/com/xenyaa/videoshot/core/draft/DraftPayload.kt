@@ -49,13 +49,15 @@ data class DraftMeta(
     val durationSec: Int,
     val privacy: String,
     val playableInEmbed: Boolean,
+    /** 精確片長；舊版草稿沒有這欄（0），續做時退回用 [durationSec] 算格數 */
+    val durationMs: Long = 0,
 )
 
 fun VideoMeta.toDraftMeta(): DraftMeta =
-    DraftMeta(title, channelTitle, publishedAt, durationSec, privacy, playableInEmbed)
+    DraftMeta(title, channelTitle, publishedAt, durationSec, privacy, playableInEmbed, durationMs)
 
 fun DraftMeta.toVideoMeta(videoId: String): VideoMeta =
-    VideoMeta(videoId, title, channelTitle, publishedAt, durationSec, privacy, playableInEmbed)
+    VideoMeta(videoId, title, channelTitle, publishedAt, durationSec, privacy, playableInEmbed, durationMs)
 
 /**
  * 一張手動補圖。

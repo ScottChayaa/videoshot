@@ -41,10 +41,20 @@ fun framePlanOf(videoId: String, page: WatchPage): Pair<FramePlan, StoryboardLev
     return FramePlan(
         videoId = videoId,
         level = level.level,
-        atSec = List(level.frameCount) { Storyboard.frameTimeSec(level, it) },
+        atSec = List(frameCountOf(level, page)) { Storyboard.frameTimeSec(level, it) },
         // L3 是偏好層級；拿到別的代表這支影片沒有 L3（規格第五節「畫質與排列」）
         lowQuality = level.level < 3,
     ) to level
+}
+
+/**
+ * 縮圖牆的格數：spec 一律多給一格、時間點超過片長，那一格不上牆（2026-10-20）。
+ * 片長優先用精確的毫秒數；讀不到（沒有 `streamingData`、舊版草稿）才退回四捨五入過的整數秒。
+ */
+fun frameCountOf(level: StoryboardLevel, page: WatchPage): Int {
+    val meta = page.meta ?: return level.frameCount
+    val durationSec = if (meta.durationMs > 0) meta.durationMs / 1000.0 else meta.durationSec.toDouble()
+    return Storyboard.frameCountWithin(level, durationSec)
 }
 
 /**
@@ -63,6 +73,8 @@ class StoryboardFrameSource(
     private val videoId: String,
     spec: StoryboardSpec,
     private val level: StoryboardLevel,
+    /** 上牆的格數（[frameCountOf]）；少於 spec 的格數時，最後那幾格不下載也不裁 */
+    frameCount: Int = level.frameCount,
     private val sheetsDir: File,
     private val youtube: Youtube,
     private val refreshSpec: suspend () -> StoryboardSpec?,
@@ -73,7 +85,7 @@ class StoryboardFrameSource(
     override val plan: FramePlan = FramePlan(
         videoId = videoId,
         level = level.level,
-        atSec = List(level.frameCount) { Storyboard.frameTimeSec(level, it) },
+        atSec = List(frameCount) { Storyboard.frameTimeSec(level, it) },
         lowQuality = level.level < 3,
     )
 

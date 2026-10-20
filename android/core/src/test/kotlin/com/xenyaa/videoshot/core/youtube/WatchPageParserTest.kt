@@ -65,6 +65,18 @@ class WatchPageParserTest {
     }
 
     @Test
+    fun `精確片長取各格式 approxDurationMs 的最大值`() {
+        // lengthSeconds 是四捨五入過的 635；各格式的長度差幾十毫秒，取最長的那一個
+        val meta = parseWatchPage("aqz-KE-bpKQ", page("ok-real.html")).meta!!
+        assertEquals(634_709L, meta.durationMs)
+    }
+
+    @Test
+    fun `沒有 streamingData 時精確片長是 0`() {
+        assertEquals(0L, parseWatchPage("short1", page("no-storyboard.html")).meta!!.durationMs)
+    }
+
+    @Test
     fun `影片不能播就是 video_unavailable`() {
         val r = parseWatchPage("gone", page("unavailable.html"))
         assertEquals(FetchResult.VIDEO_UNAVAILABLE, r.result)

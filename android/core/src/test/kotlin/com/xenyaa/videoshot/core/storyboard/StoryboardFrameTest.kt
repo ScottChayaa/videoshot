@@ -139,4 +139,32 @@ class StoryboardFrameTest {
         assertTrue(url, url.contains("sigh=rs\$AOn4CLAF8rkqvc6h6mM0WUjOJy55DJC1vA"))
         assertTrue(url, url.contains("sqp=-oaymwENSDfyq4qpAwVwAcABBqLzl_8DBgjTpKzTBg=="))
     }
+
+    // ---- frameCountWithin ----
+
+    // YouTube 給的格數一律是 ceil(片長 / 間隔) + 1，最後一格的時間點總是超過片長
+    private fun level(frameCount: Int, intervalMs: Int) = StoryboardLevel(3, 101, 180, frameCount, 3, 3, intervalMs, "s")
+
+    @Test
+    fun `超過片長的最後一格不算`() {
+        // -8Irr9Ah2i4：178.845 秒、每 2 秒一格、spec 寫 91 格 → 第 90 格是 180 秒
+        assertEquals(90, Storyboard.frameCountWithin(level(91, 2000), 178.845))
+        // OPf0YbXqDm0：270.395 秒 → 第 135 格（270 秒）還在片長內，要留
+        assertEquals(136, Storyboard.frameCountWithin(level(137, 2000), 270.395))
+    }
+
+    @Test
+    fun `片長剛好落在格上時那一格要留`() {
+        assertEquals(91, Storyboard.frameCountWithin(level(91, 2000), 180.0))
+    }
+
+    @Test
+    fun `不會比 spec 寫的格數多`() {
+        assertEquals(91, Storyboard.frameCountWithin(level(91, 2000), 999.0))
+    }
+
+    @Test
+    fun `讀不到片長時照 spec 的格數`() {
+        assertEquals(91, Storyboard.frameCountWithin(level(91, 2000), 0.0))
+    }
 }

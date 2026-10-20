@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.core.storyboard
 
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -55,6 +56,18 @@ object Storyboard {
         if (level.intervalMs <= 0 || level.frameCount <= 0) return 0
         val raw = (max(0.0, t) / (level.intervalMs / 1000.0)).roundToInt()
         return raw.coerceIn(0, level.frameCount - 1)
+    }
+
+    /**
+     * 縮圖牆實際要用的格數：**時間點超過片長的格子不算**。
+     * YouTube 的 spec 一律給 ceil(片長 / 間隔) + 1 格，最後一格的時間點總是超過片長
+     * （178.8 秒的影片會有一格標 180 秒；2026-10-20 抽查 6 支都是這樣）。
+     * [durationSec] ≤ 0（讀不到片長）時照 spec 的格數。
+     */
+    fun frameCountWithin(level: StoryboardLevel, durationSec: Double): Int {
+        if (durationSec <= 0.0 || level.intervalMs <= 0) return level.frameCount
+        val within = floor(durationSec * 1000.0 / level.intervalMs).toInt() + 1
+        return within.coerceIn(0, level.frameCount)
     }
 
     fun framePosition(level: StoryboardLevel, frameIndex: Int): FramePos {

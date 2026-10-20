@@ -242,21 +242,28 @@ class WizardViewModel(
             // storyboard 的格號在新層級裡指的是別的時間點，留著就是把錯的 frame_index 與 at_sec
             // 寫進 library.db —— 那是唯一推導不回來的東西，所以整批丟掉。
             // 手動圖是使用者親手截的（也不屬於任何層級），重新編號搬進新空間裡
-            val levelChanged = payload.level != plan.level || payload.frameCount != plan.frameCount
-            val restored = if (levelChanged) {
+            val levelChanged = payload.level != plan.level
+            // 同一層級但格數變了（2026-10-20 起超過片長的最後一格不上牆，舊草稿多記一格）：
+            // storyboard 的格號意思沒變，只是分界移了 —— 手動圖跟著分界搬，storyboard 格留下（超出新格數的除外）
+            val boundaryMoved = payload.frameCount != plan.frameCount
+            val restored = if (levelChanged || boundaryMoved) {
                 survivors.mapIndexed { i, cell -> cell.copy(cellIndex = plan.frameCount + i) }
             } else {
                 survivors
             }
             val renumbered = survivors.map { it.cellIndex }.zip(restored.map { it.cellIndex }).toMap()
-            val selected = if (levelChanged) {
-                // 層級換了只留手動圖，但**勾選狀態要跟著搬，不是一律勾上** ——
-                // 使用者刻意取消勾選的截圖不該因為續做就自己回來，那會把他沒要的圖寫進 library.db。
-                // renumbered 裡只有活著的手動格，所以 storyboard 的勾選自己就落空了，不必再過濾
-                payload.selected.mapNotNull { renumbered[it] }.toSet()
-            } else {
-                payload.selected.toSet()
+            // 舊格號 → 新格號；null＝這一格已經不在牆上
+            val remap: (Int) -> Int? = when {
+                // 層級換了只留手動圖。renumbered 裡只有活著的手動格，所以 storyboard 的勾選與圖資自己就落空了
+                levelChanged -> { cell -> renumbered[cell] }
+                boundaryMoved -> { cell ->
+                    if (cell < payload.frameCount) cell.takeIf { it < plan.frameCount } else renumbered[cell]
+                }
+                else -> { cell -> cell }
             }
+            // **勾選狀態要跟著搬，不是一律勾上** ——
+            // 使用者刻意取消勾選的截圖不該因為續做就自己回來，那會把他沒要的圖寫進 library.db
+            val selected = payload.selected.mapNotNull(remap).toSet()
             store2.restoreFromDraft(restored, selected)
             resuming = null
             if (payload.step < 3) {
@@ -270,8 +277,7 @@ class WizardViewModel(
                         // 搬過家的格子要**連圖資一起搬** —— 用舊格號當鍵會全部落空，
                         // 使用者打過的字就這樣靜靜不見了。查不到新號的（storyboard 格、
                         // 檔案不見的手動格）本來就已經不在牆上，丟掉是對的
-                        val target = if (levelChanged) renumbered[cell] else cell
-                        target?.let { it to value.toShotDetails() }
+                        remap(cell)?.let { it to value.toShotDetails() }
                     }.toMap(),
                     selected = selected,
                 )

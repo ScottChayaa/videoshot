@@ -482,7 +482,7 @@ class AppContainer(context: Context) : AppRootDeps {
      * 空牆，但第二步仍然進得去（規格第七節降級表）。
      */
     override fun frameSourceFor(video: LoadedVideo): FrameSource {
-        val (_, level) = framePlanOf(video.videoId, video.page)
+        val (plan, level) = framePlanOf(video.videoId, video.page)
         val spec = video.page.storyboardSpec?.let { Storyboard.parse(it) }
         if (level == null || spec == null) {
             // 空牆，但第二步進得去（規格第七節降級表）。plan 由 framePlanOf 算出來的那一份已經是空的
@@ -492,6 +492,7 @@ class AppContainer(context: Context) : AppRootDeps {
             videoId = video.videoId,
             spec = spec,
             level = level,
+            frameCount = plan.frameCount,
             sheetsDir = sheetsDirFor(video.videoId, level.level),
             youtube = youtube,
             refreshSpec = { youtube.watchPage(video.videoId).storyboardSpec?.let { Storyboard.parse(it) } },

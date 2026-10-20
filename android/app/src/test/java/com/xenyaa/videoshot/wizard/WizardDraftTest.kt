@@ -677,4 +677,33 @@ class WizardDraftTest {
         // **勾選狀態要跟著搬** —— 一律勾上的話，使用者刻意取消的那張會被寫進 library.db
         assertEquals(setOf(7), state.selected)
     }
+
+    // ---- 同一層級、格數變了（2026-10-20：超過片長的最後一格不再上牆，舊草稿多記了一格） ----
+
+    @Test
+    fun 續做時同層級格數少了_storyboard勾選與圖資留下而手動圖往前搬() = runTest(dispatcher) {
+        val dir = File(tmp.root, "v1").apply { mkdirs() }
+        File(dir, "a.webp").writeBytes(byteArrayOf(1))
+        val payload = DraftPayload(
+            "v1", step = 3, level = 3, frameCount = 5,
+            // 第 4 格是舊草稿多記的那一格（超過片長），第 5 格是手動圖
+            selected = listOf(1, 4, 5),
+            manual = listOf(DraftManual(cell = 5, atSec = 12.0, fileName = "a.webp", fromGallery = false)),
+            details = mapOf(
+                "1" to DraftDetails("2025-07-12", place = "冬山河", applied = true),
+                "5" to DraftDetails("2025-07-13", place = "龜山島", applied = true),
+            ),
+        )
+        val vm = vmWith(DraftData(DraftCodec.encode(payload)))
+        advanceUntilIdle()
+        vm.onEnter(); advanceUntilIdle()
+        val state = vm.step2.value!!.state.value
+        // 手動圖搬到新的分界（frameCount = 4）
+        assertEquals(listOf(4), state.manual.map { it.cellIndex })
+        // storyboard 的格號在同一層級裡意思沒變，留下；多出來的第 4 格已經不在牆上，丟掉
+        assertEquals(setOf(1, 4), state.selected)
+        val details = vm.step3.value!!.state.value.details
+        assertEquals("冬山河", details[1]!!.place)
+        assertEquals("龜山島", details[4]!!.place)
+    }
 }

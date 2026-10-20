@@ -4,6 +4,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -65,6 +66,7 @@ fun parseWatchPage(videoId: String, html: String): WatchPage {
         durationSec = details?.str("lengthSeconds")?.toIntOrNull() ?: 0,
         privacy = if (microformat?.bool("isUnlisted") == true) "unlisted" else "public",
         playableInEmbed = playability?.bool("playableInEmbed") ?: false,
+        durationMs = approxDurationMs(root.obj("streamingData")),
     )
 
     val spec = root.obj("storyboards")?.obj("playerStoryboardSpecRenderer")?.str("spec")
@@ -75,4 +77,13 @@ fun parseWatchPage(videoId: String, html: String): WatchPage {
     } else {
         WatchPage(FetchResult.OK, meta, spec)
     }
+}
+
+/** 各格式的長度差幾十毫秒，取最長的那一個；沒有 `streamingData` 或欄位讀不到時是 0。 */
+private fun approxDurationMs(streaming: JsonObject?): Long {
+    if (streaming == null) return 0
+    return listOf("formats", "adaptiveFormats")
+        .flatMap { key -> streaming[key]?.let { runCatching { it.jsonArray }.getOrNull() }.orEmpty() }
+        .mapNotNull { format -> runCatching { format.jsonObject }.getOrNull()?.str("approxDurationMs")?.toLongOrNull() }
+        .maxOrNull() ?: 0
 }

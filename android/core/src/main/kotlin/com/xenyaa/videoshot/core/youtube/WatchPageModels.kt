@@ -45,6 +45,11 @@ data class VideoMeta(
     val privacy: String,
     /** 決定播放器載入 embed 還是 m.youtube.com（規格第二節第 5 點） */
     val playableInEmbed: Boolean,
+    /**
+     * 精確片長（毫秒，`streamingData` 各格式 `approxDurationMs` 的最大值）；讀不到是 0。
+     * [durationSec] 是四捨五入過的整數，拿來判斷 storyboard 哪幾格超過片長不夠準
+     */
+    val durationMs: Long = 0,
 )
 
 /**
