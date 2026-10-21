@@ -25,6 +25,7 @@ import com.xenyaa.videoshot.capture.encodeManualWebp
 import com.xenyaa.videoshot.player.Player
 import com.xenyaa.videoshot.wizard.frames.FrameSource
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
@@ -59,6 +60,12 @@ class WizardViewModel(
     private val today: () -> String = { java.time.LocalDate.now().toString() },
     /** 【完成】寫入成功後記下這一輪套用過的地點與標籤（`FacetUsage.markUsed`，規格第六節「首頁」）。盡力而為。 */
     private val markFacetsUsed: suspend (places: Set<String>, tags: Set<String>) -> Unit = { _, _ -> },
+    /**
+     * 第二步收斂（`converge`）跑在哪裡（[Step2Store] 的 `compute`）。測試傳測試用的 dispatcher ——
+     * 用真的 `Dispatchers.Default` 的話 `advanceUntilIdle()` 等不到它，測試結束、`resetMain()` 之後
+     * 它才算完、切回 Main，例外會算到下一個測試頭上。
+     */
+    private val compute: CoroutineDispatcher = Dispatchers.Default,
 ) : ViewModel() {
 
     private val _captureError = MutableStateFlow<CaptureError?>(null)
@@ -364,7 +371,7 @@ class WizardViewModel(
             // 現在解析到 L3 的話，不過濾就會把不相干的格子畫成灰＋鎖，使用者選不了
             taken = data.takenFrameIndexes(video.videoId, source.plan.level),
             scope = viewModelScope,
-            compute = Dispatchers.Default,
+            compute = compute,
         )
         _step2.value = store
         step2Jobs = listOf(

@@ -104,6 +104,7 @@ class WizardStep3WiringTest {
         captureFor = { null },
         today = { "2026-09-15" },
         markFacetsUsed = markFacetsUsed,
+        compute = dispatcher,
     )
 
     private fun pageOf() = WatchPage(FetchResult.OK, meta, storyboardSpec = null)

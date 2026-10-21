@@ -87,6 +87,7 @@ class WizardCaptureTest {
             onHintSeen = {},
             manualImages = { ManualImageStore(manualDir) },
             captureFor = { capture },
+            compute = dispatcher,
         )
         vm.submit("aqz-KE-bpKQ")
         advanceUntilIdle()
