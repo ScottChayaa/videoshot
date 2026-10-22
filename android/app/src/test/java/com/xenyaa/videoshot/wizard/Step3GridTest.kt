@@ -16,6 +16,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import com.xenyaa.videoshot.core.details.ShotDetails
 import org.junit.Assert.assertEquals
+import kotlinx.coroutines.awaitCancellation
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -46,11 +47,12 @@ class Step3GridTest {
     private fun show(
         state: Step3State,
         onToggle: (Int) -> Unit = {},
+        bitmapFor: suspend (Int) -> androidx.compose.ui.graphics.ImageBitmap? = { null },
     ) {
         compose.setContent {
             Step3DetailsScreen(
                 state = state,
-                bitmapFor = { null },
+                bitmapFor = bitmapFor,
                 onToggle = onToggle,
                 onSelectAll = {},
                 onApply = {},
@@ -150,6 +152,18 @@ class Step3GridTest {
     fun 裁圖中會顯示進度() {
         show(stateOf().copy(cropping = true, cropDone = 2, cropTotal = 4))
         compose.onNodeWithText("處理縮圖 2/4").assertIsDisplayed()
+    }
+    /** 跟第二步、照片頁一致：載入中畫骨架塊（拿不到圖只留底色，見下一則）。 */
+    @Test
+    fun 載入中的格子畫骨架() {
+        show(stateOf(), bitmapFor = { awaitCancellation() })
+        compose.onAllNodesWithTag(FRAME_SKELETON_TAG, useUnmergedTree = true).assertCountEquals(4)
+    }
+
+    @Test
+    fun 拿不到圖的格子不畫骨架() {
+        show(stateOf())
+        compose.onAllNodesWithTag(FRAME_SKELETON_TAG, useUnmergedTree = true).assertCountEquals(0)
     }
 }
 

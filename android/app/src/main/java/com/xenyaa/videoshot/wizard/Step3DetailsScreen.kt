@@ -1,6 +1,5 @@
 package com.xenyaa.videoshot.wizard
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,7 +25,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -37,7 +35,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
@@ -223,10 +220,7 @@ private fun Step3Thumb(
             )
             .semantics { contentDescription = label },
     ) {
-        val bitmap by produceState<ImageBitmap?>(null, cell.cell, bitmapFor) { value = bitmapFor(cell.cell) }
-        bitmap?.let {
-            Image(bitmap = it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-        }
+        FrameImage(bitmapFor, cell.cell, Modifier.fillMaxSize())
         if (selected) VsSelectedBadge(Modifier.align(Alignment.TopStart), semanticLabel = null)
         // 圖示 16dp、間距 3dp、底框左右 4dp／上下 3dp。每格約 98dp 寬（393dp 手機），
         // 4×16＋3×3＋8 ≈ 81dp 放得下；18dp 會太擠。

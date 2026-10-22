@@ -41,6 +41,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -55,6 +56,7 @@ import com.xenyaa.videoshot.ui.common.VsActionDock
 import com.xenyaa.videoshot.ui.common.VsFieldButton
 import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsHintCard
+import com.xenyaa.videoshot.ui.common.VsSkeletonBlock
 import com.xenyaa.videoshot.ui.thumb.ThumbGridGap
 import com.xenyaa.videoshot.ui.common.VsSelectedBadge
 import com.xenyaa.videoshot.ui.icons.VsIcons
@@ -450,7 +452,7 @@ private fun NudgeButton(
 }
 
 /**
- * 圖是**要畫的時候才去拿**（規格第二節第 6 點：148 格全部留在記憶體要 34 MB）。
+ * 第二步、第三步縮圖牆的一格圖。圖是**要畫的時候才去拿**（規格第二節第 6 點：148 格全部留在記憶體要 34 MB）。
  *
  * [bitmapFor] 也是 key，**不能只用 frameIndex**：`LazyVerticalGrid` 的 item 同樣以 frameIndex 當 key，
  * 所以換一支影片、`Step2Store` 被換掉之後，item 的槽位會存活下來；producer 只看 frameIndex
@@ -460,17 +462,30 @@ private fun NudgeButton(
  * 每次重組都給一個新的 lambda 的話，這裡會每次重組都重新解一次圖。
  */
 @Composable
-private fun FrameImage(
+internal fun FrameImage(
     bitmapFor: suspend (Int) -> ImageBitmap?,
     frameIndex: Int,
     modifier: Modifier,
 ) {
-    val bitmap: ImageBitmap? by produceState<ImageBitmap?>(initialValue = null, bitmapFor, frameIndex) {
-        value = bitmapFor(frameIndex)
+    val frame by produceState<FrameLoad>(initialValue = FrameLoad.Loading, bitmapFor, frameIndex) {
+        value = bitmapFor(frameIndex)?.let(FrameLoad::Ready) ?: FrameLoad.Missing
     }
-    bitmap?.let {
-        Image(bitmap = it, contentDescription = null, contentScale = ContentScale.Crop, modifier = modifier)
+    when (val current = frame) {
+        // 載入中畫骨架塊，跟照片頁的縮圖一致（2026-10-22 scott）；不加亮光掃過，理由同 ThumbImage
+        FrameLoad.Loading -> VsSkeletonBlock(modifier.testTag(FRAME_SKELETON_TAG), shape = RectangleShape)
+        is FrameLoad.Ready -> Image(bitmap = current.image, contentDescription = null, contentScale = ContentScale.Crop, modifier = modifier)
+        // 拿不到圖只留格子底色：畫骨架的話看起來會像永遠在載入
+        FrameLoad.Missing -> Unit
     }
 }
 
+private sealed interface FrameLoad {
+    data object Loading : FrameLoad
+    data class Ready(val image: ImageBitmap) : FrameLoad
+    data object Missing : FrameLoad
+}
 
+
+
+/** 縮圖載入中骨架塊的測試標籤（第二步、第三步共用）。 */
+internal const val FRAME_SKELETON_TAG = "frame-skeleton"

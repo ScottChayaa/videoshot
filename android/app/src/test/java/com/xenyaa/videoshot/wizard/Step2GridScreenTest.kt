@@ -9,6 +9,8 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.onAllNodesWithTag
+import kotlinx.coroutines.awaitCancellation
 import com.xenyaa.videoshot.core.time.formatClock
 import com.xenyaa.videoshot.wizard.frames.FakeFrameSource
 import com.xenyaa.videoshot.wizard.frames.FramePlan
@@ -361,5 +363,19 @@ class Step2GridScreenTest {
         show(s)
         compose.onNodeWithText("點一下收藏・長按看看那一段").assertIsDisplayed()
         compose.onNodeWithContentDescription("一次性提示").assertExists()
+    }
+
+    /** 縮圖還在載入時畫骨架塊，跟照片頁一致（2026-10-22 scott）。 */
+    @Test
+    fun 載入中的格子畫骨架() {
+        show(loaded(), bitmapFor = { awaitCancellation() })
+        compose.onAllNodesWithTag(FRAME_SKELETON_TAG, useUnmergedTree = true).assertCountEquals(4)
+    }
+
+    /** 拿不到圖的格子只留底色，不畫骨架 —— 不然看起來像永遠在載入。 */
+    @Test
+    fun 拿不到圖的格子不畫骨架() {
+        show(loaded(), bitmapFor = { null })
+        compose.onAllNodesWithTag(FRAME_SKELETON_TAG, useUnmergedTree = true).assertCountEquals(0)
     }
 }
