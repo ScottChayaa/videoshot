@@ -31,6 +31,7 @@ class ThumbLoader(
     private val maxEntries: Int = 120,
 ) {
 
+    /** 管 [inFlight]。[cache] 另外用 `synchronized(cache)`：[peek] 是在主執行緒同步呼叫的，拿不了 [Mutex]。 */
     private val lock = Mutex()
 
     private val cache = object : LinkedHashMap<Long, ImageBitmap>(16, 0.75f, true) {
@@ -44,7 +45,7 @@ class ThumbLoader(
     suspend fun load(shot: ShotRow): ImageBitmap? {
         var mine = false
         val pending = lock.withLock {
-            cache[shot.id]?.let { return it }
+            peek(shot)?.let { return it }
             inFlight[shot.id] ?: CompletableDeferred<ImageBitmap?>().also {
                 inFlight[shot.id] = it
                 mine = true
@@ -72,16 +73,22 @@ class ThumbLoader(
             null
         }
         lock.withLock {
-            if (bitmap != null) cache[shot.id] = bitmap
+            if (bitmap != null) synchronized(cache) { cache[shot.id] = bitmap }
             inFlight.remove(shot.id)
         }
         pending.complete(bitmap)
         return bitmap
     }
 
+    /**
+     * 同步查記憶體快取，沒有就回 null，**不解碼**。給畫面當第一幀的初始值：
+     * 快取裡已經有的圖不必先畫一幀預留圖（圖示＋秒數文字）再換掉。
+     */
+    fun peek(shot: ShotRow): ImageBitmap? = synchronized(cache) { cache[shot.id] }
+
     /** 刪掉一張圖之後叫一次，否則同一個 id 的舊圖會留在記憶體裡。 */
     suspend fun evict(shotId: Long) {
-        lock.withLock { cache.remove(shotId) }
+        synchronized(cache) { cache.remove(shotId) }
     }
 
     private suspend fun decode(shot: ShotRow): ImageBitmap? = when (val source = thumbs.thumbFor(shot)) {

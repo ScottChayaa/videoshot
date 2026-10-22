@@ -194,6 +194,24 @@ class ThumbLoaderTest {
         assertNull(loader.load(row(1)))
     }
 
+    /** 畫面第一幀用的同步查詢：只看記憶體快取，沒有就回 null，絕不去解碼。 */
+    @Test
+    fun peek_只看快取_不解碼() = runTest {
+        var files = 0
+        val loader = ThumbLoader(
+            thumbs = FakeThumbs { ThumbSource.LocalFile(File("/a.webp")) },
+            decodeFile = { files++; ImageBitmap(1, 1) },
+            decodeBytes = { null }, cover = { null },
+        )
+        assertNull(loader.peek(row(1)))
+        assertEquals(0, files)
+        val loaded = loader.load(row(1))
+        assertSame(loaded, loader.peek(row(1)))
+        assertEquals(1, files)
+        loader.evict(1)
+        assertNull(loader.peek(row(1)))
+    }
+
     /** 刪掉一張圖之後，同一個 id 不該還在快取裡。 */
     @Test
     fun evict_之後會重新載入() = runTest {
