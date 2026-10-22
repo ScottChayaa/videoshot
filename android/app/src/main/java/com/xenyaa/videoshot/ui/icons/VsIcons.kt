@@ -226,6 +226,14 @@ object VsIcons {
         )
     }
 
+    /**
+     * 重來（原片播放 ⋯【重新取圖】）。Lucide `rotate-ccw`，原型 `ICONS` 沒有這個 key。
+     * 不用雙箭頭的 `refresh-cw`：在播放器裡容易讀成「重新載入影片」，而這個動作會先刪掉整支收藏。
+     */
+    val RotateCcw: ImageVector by lazy {
+        strokeIcon("rotate-ccw", "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8", "M3 3v5h5")
+    }
+
     /** 下拉欄位的箭頭（原型 `chevronDown`）。 */
     val ChevronDown: ImageVector by lazy { strokeIcon("chevron-down", "m6 9 6 6 6-6") }
 

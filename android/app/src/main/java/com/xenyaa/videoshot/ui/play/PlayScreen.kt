@@ -156,7 +156,7 @@ private fun PlayTopBar(
             DropdownMenu(expanded = menuOpen, onDismissRequest = { onMenuOpenChange(false) }) {
                 DropdownMenuItem(
                     text = { Text("重新取圖") },
-                    leadingIcon = { Icon(VsIcons.ImagePlus, contentDescription = null) },
+                    leadingIcon = { Icon(VsIcons.RotateCcw, contentDescription = null) },
                     onClick = onRecapture,
                 )
             }
