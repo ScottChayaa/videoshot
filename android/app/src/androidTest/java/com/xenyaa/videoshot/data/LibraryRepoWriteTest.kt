@@ -79,8 +79,8 @@ class LibraryRepoWriteTest {
     @Test
     fun 標籤是整組覆蓋() = runTest {
         val ids = repo.commitPicks(video, listOf(storyboardPick(0)))
-        val a = db.tagDao().insert(TagEntity(0, "露營", "topic", "[]"))
-        val b = db.tagDao().insert(TagEntity(0, "夜潛", "topic", "[]"))
+        val a = db.tagDao().insert(TagEntity(0, "露營", "[]"))
+        val b = db.tagDao().insert(TagEntity(0, "夜潛", "[]"))
         repo.patchShots(ids, ShotPatch(null, null, null, tagIds = listOf(a, b)))
         assertEquals(2, db.tagDao().linkCountOfShot(ids.single()))
         repo.patchShots(ids, ShotPatch(null, null, null, tagIds = listOf(a)))
@@ -169,12 +169,6 @@ class LibraryRepoWriteTest {
         repo.commitPicks(video, listOf(storyboardPick(0).copy(tagNames = listOf("玩水"))))
         repo.commitPicks(video, listOf(storyboardPick(1).copy(tagNames = listOf("玩水"))))
         assertEquals(1, db.tagDao().count())
-    }
-
-    @Test
-    fun 精靈建的標籤kind是other() = runTest {
-        repo.commitPicks(video, listOf(storyboardPick(0).copy(tagNames = listOf("玩水"))))
-        assertEquals("other", db.tagDao().byName("玩水")!!.kind)
     }
 
     @Test

@@ -100,7 +100,7 @@ class StatsTriggerTest {
     @Test fun 標籤合併與刪除標籤() = runTest {
         seed()
         val tags = repo.allTagsWithUsage().associateBy { it.name }
-        repo.renameTag(tags.getValue("阿明").id, "露營", "other", emptyList()) // 改名撞名＝合併
+        repo.renameTag(tags.getValue("阿明").id, "露營", emptyList()) // 改名撞名＝合併
         repo.deleteTag(tags.getValue("夜景").id)
         assertStatsMatch()
     }

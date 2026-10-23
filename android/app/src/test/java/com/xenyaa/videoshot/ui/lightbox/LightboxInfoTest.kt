@@ -8,7 +8,6 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.thumbs.ThumbKey
 import com.xenyaa.videoshot.thumbs.ThumbSource
@@ -53,9 +52,9 @@ class LightboxInfoTest {
 
     private fun show(
         items: List<ShotRow> = listOf(shot),
-        tagsOf: suspend (ShotRow) -> List<TagNameKind> = {
+        tagsOf: suspend (ShotRow) -> List<String> = {
             tagReads++
-            listOf(TagNameKind("Emiru", "person"), TagNameKind("夜潛", "topic"))
+            listOf("Emiru", "夜潛")
         },
         refreshKey: () -> Int = { 0 },
     ) {

@@ -8,7 +8,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.xenyaa.videoshot.core.tags.TagKind
 import com.xenyaa.videoshot.data.repo.model.TagUsage
 import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.ChipKind
@@ -30,7 +29,6 @@ fun TagManagementScreen(
     onOpenEditor: (TagUsage) -> Unit,
     onDismissEditor: () -> Unit,
     onEditName: (String) -> Unit,
-    onEditKind: (TagKind) -> Unit,
     onEditAliases: (String) -> Unit,
     onRequestSave: () -> Unit,
     onConfirmMerge: () -> Unit,
@@ -71,7 +69,6 @@ fun TagManagementScreen(
             editor = editor,
             onDismiss = onDismissEditor,
             onEditName = onEditName,
-            onEditKind = onEditKind,
             onEditAliases = onEditAliases,
             onSave = onRequestSave,
             onStartMerge = onStartMerge,
@@ -95,7 +92,7 @@ fun TagManagementScreen(
         MergePickerSheet(
             sourceName = picking.fromName,
             candidates = state.tags.filter { it.id != picking.fromId }.map {
-                MergeCandidate(it.id, it.name, it.shotCount, ChipKind.ofTagKind(it.kind).icon, ChipKind.ofTagKind(it.kind).color)
+                MergeCandidate(it.id, it.name, it.shotCount, ChipKind.TAG.icon, ChipKind.TAG.color)
             },
             onPick = onPickMergeTarget,
             onDismiss = onDismissMergePicker,
@@ -137,16 +134,14 @@ fun TagManagementScreen(
     }
 }
 
-/** 標籤清單列：圖示＝種類圖示＋種類色（人物／動物／主題／其他，同首頁的小膠囊），副標＝種類 ・ 張數。 */
+/** 標籤清單列：圖示＝`#`（同首頁的小膠囊），副標＝張數。 */
 @Composable
 private fun TagRow(tag: TagUsage, onClick: () -> Unit) {
-    val kind = TagKind.byId(tag.kind)
-    val chipKind = ChipKind.ofTagKind(tag.kind)
     VsListRow(
         title = tag.name,
-        subtitle = "${kind.label} ・ ${tag.shotCount} 張",
-        icon = chipKind.icon,
-        iconTint = chipKind.color,
+        subtitle = "${tag.shotCount} 張",
+        icon = ChipKind.TAG.icon,
+        iconTint = ChipKind.TAG.color,
         onClick = onClick,
     )
 }

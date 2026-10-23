@@ -174,7 +174,7 @@ class PlaceManagementRepoTest {
         seed()
         val from = db.tagDao().byName("明哥")!!.id
         val target = db.tagDao().byName("阿明")!!.id
-        assertEquals(target, repo.renameTag(from, "阿明", "person", emptyList()))
-        assertEquals(target, repo.renameTag(target, "阿明哥", "person", emptyList()))
+        assertEquals(target, repo.renameTag(from, "阿明", emptyList()))
+        assertEquals(target, repo.renameTag(target, "阿明哥", emptyList()))
     }
 }

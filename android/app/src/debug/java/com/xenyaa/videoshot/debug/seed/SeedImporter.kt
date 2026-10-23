@@ -27,13 +27,7 @@ class SeedImporter(
             b.shotKeys.forEachIndexed { i, key -> shotIds[key] = ids[i] }
         }
 
-        // 3. 標籤 kind：只改 kind，名稱與別名不變
-        for (t in library.allTagsWithUsage()) {
-            val kind = plan.tagKinds[t.name] ?: continue
-            if (kind != t.kind) library.renameTag(t.id, t.name, kind, t.aliases)
-        }
-
-        // 4. 資料夾
+        // 3. 資料夾
         for (f in plan.folders) {
             val folderId = library.createFolder(null, f.name)
             for (key in f.shotKeys) shotIds[key]?.let { library.addShotToFolder(it, folderId) }

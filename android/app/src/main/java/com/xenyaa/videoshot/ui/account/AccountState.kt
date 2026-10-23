@@ -4,13 +4,12 @@ import com.xenyaa.videoshot.backfill.BackfillProgress
 import com.xenyaa.videoshot.backup.LinkedGoogleAccount
 import com.xenyaa.videoshot.core.home.DEFAULT_THUMB_COLUMNS
 import com.xenyaa.videoshot.core.similarity.FilterStrength
-import com.xenyaa.videoshot.core.tags.TagKind
 import com.xenyaa.videoshot.data.repo.model.AccountStats
 import com.xenyaa.videoshot.data.repo.model.PlaceUsage
 import com.xenyaa.videoshot.data.repo.model.TagUsage
 
 /** 標籤編輯抽屜的草稿。`id` 是正在編輯的那個標籤，儲存時拿它跟既有標籤名比對決定要不要合併。 */
-data class TagEditor(val id: Long, val name: String, val kind: TagKind, val aliasesRaw: String)
+data class TagEditor(val id: Long, val name: String, val aliasesRaw: String)
 
 /** 地點編輯抽屜的草稿。`id` 是正在編輯的地點，儲存時拿名稱跟既有地點比對決定要不要合併。 */
 data class PlaceEditor(val id: Long, val name: String, val aliasesRaw: String)
@@ -60,15 +59,12 @@ data class AccountState(
 object AccountStore {
 
     fun openEditor(state: AccountState, tag: TagUsage): AccountState =
-        state.copy(editor = TagEditor(tag.id, tag.name, TagKind.byId(tag.kind), tag.aliases.joinToString(", ")))
+        state.copy(editor = TagEditor(tag.id, tag.name, tag.aliases.joinToString(", ")))
 
     fun closeEditor(state: AccountState): AccountState = state.copy(editor = null, pendingMerge = null)
 
     fun editName(state: AccountState, name: String): AccountState =
         state.copy(editor = state.editor?.copy(name = name))
-
-    fun editKind(state: AccountState, kind: TagKind): AccountState =
-        state.copy(editor = state.editor?.copy(kind = kind))
 
     fun editAliases(state: AccountState, raw: String): AccountState =
         state.copy(editor = state.editor?.copy(aliasesRaw = raw))

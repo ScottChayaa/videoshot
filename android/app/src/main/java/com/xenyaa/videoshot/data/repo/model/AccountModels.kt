@@ -7,11 +7,10 @@ data class AccountStats(
     val distinctVideos: Int,
 )
 
-/** 標籤管理頁的一列。`kind` 是原始字串（`tag.kind`），畫面自己用 `TagKind.byId` 轉圖示與文字。 */
+/** 標籤管理頁的一列。 */
 data class TagUsage(
     val id: Long,
     val name: String,
-    val kind: String,
     val aliases: List<String>,
     val shotCount: Int,
 )

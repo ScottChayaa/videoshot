@@ -53,7 +53,7 @@ class WizardCaptureTest {
         override suspend fun recentVideos(limit: Int): List<RecentVideo> = emptyList()
         override suspend fun takenFrameIndexes(videoId: String, level: Int): Set<Int> = emptySet()
         override suspend fun distinctPlaces() = emptyList<String>()
-        override suspend fun tagSuggestions() = emptyList<com.xenyaa.videoshot.data.library.dao.TagNameKind>()
+        override suspend fun tagSuggestions() = emptyList<String>()
         override suspend fun cropThumbs(
             videoId: String, sbSpec: String?, frameIndexes: List<Int>, onProgress: (Int, Int) -> Unit,
         ) = CropOutcome(frameIndexes, emptyList())

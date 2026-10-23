@@ -10,8 +10,8 @@ import org.junit.Test
 
 class HomeFilterStoreTest {
 
-    private fun place(name: String, vararg aliases: String) = FilterOption(name, true, "other", aliases.toList())
-    private fun tag(name: String, vararg aliases: String) = FilterOption(name, false, "topic", aliases.toList())
+    private fun place(name: String, vararg aliases: String) = FilterOption(name, true, aliases.toList())
+    private fun tag(name: String, vararg aliases: String) = FilterOption(name, false, aliases.toList())
     private fun draft(
         places: Set<String> = emptySet(),
         tags: Set<String> = emptySet(),
@@ -42,7 +42,7 @@ class HomeFilterStoreTest {
         val options = listOf(place("礁溪"), place("宜蘭"))
         val section = FilterLists.visible(options, isPlace = true, draft = draft(places = setOf("墾丁")))
         assertEquals(listOf("墾丁", "礁溪", "宜蘭"), section.shown.map { it.name })
-        assertEquals(FilterOption("墾丁", true, "other", emptyList()), section.shown.first())
+        assertEquals(FilterOption("墾丁", true, emptyList()), section.shown.first())
         assertEquals(0, section.hiddenCount)
     }
 
@@ -144,8 +144,8 @@ class HomeFilterStoreTest {
     @Test
     fun 月份標籤轉成篩選候選() {
         val p = MonthFacet("礁溪", "place", 3).toFilterOption()
-        assertEquals(FilterOption("礁溪", true, "other", emptyList()), p)
-        val t = MonthFacet("小黑", "tag", 2, tagKind = "animal").toFilterOption()
-        assertEquals(FilterOption("小黑", false, "animal", emptyList()), t)
+        assertEquals(FilterOption("礁溪", true, emptyList()), p)
+        val t = MonthFacet("小黑", "tag", 2).toFilterOption()
+        assertEquals(FilterOption("小黑", false, emptyList()), t)
     }
 }

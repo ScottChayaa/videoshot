@@ -351,7 +351,7 @@ private fun ResultBar(state: SearchState) {
  * `loadFacets()` 之後重查的是**整個時間範圍**的 top-30 池子，很容易把它修剪掉
  * （`SearchStore.loadedFacets` 的 pruning）。查詢結果本身沒受影響，但如果 chips 還要
  * 反查 `state.facets` 才畫得出來，選到的條件就會憑空消失（最終審查 Important 3）。
- * 種類同理：地點看 key 前綴；標籤在 facets 找得到才取它的 `tagKind`，找不到退回 [ChipKind.OTHER]。
+ * 種類只看 key 前綴：`place:` 是地點，其餘是標籤。
  */
 @Composable
 private fun ConditionChipsRow(state: SearchState) {
@@ -361,25 +361,22 @@ private fun ConditionChipsRow(state: SearchState) {
                 // 列距 0：小膠囊外面已有 44dp 高的透明觸控外框，列與列之間的空隙由它撐出來
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
                     for (key in state.selected) {
-                        VsTagChip(nameOfFacetKey(key), kindOfFacetKey(key, state.facets), size = ChipSize.Mini)
+                        VsTagChip(nameOfFacetKey(key), kindOfFacetKey(key), size = ChipSize.Mini)
                     }
                 }
             }
         }
         SearchMode.TEXT -> {
             if (state.textQuery.isNotBlank()) {
-                VsTagChip(state.textQuery, ChipKind.OTHER, size = ChipSize.Mini)
+                VsTagChip(state.textQuery, ChipKind.TAG, size = ChipSize.Mini)
             }
         }
     }
 }
 
-/** 條件 key → 小膠囊種類：`place:` 前綴就是地點；標籤在 [facets] 找得到才取它的 `tagKind`，否則 [ChipKind.OTHER]。 */
-internal fun kindOfFacetKey(key: String, facets: List<MonthFacet>): ChipKind {
-    if (key.startsWith("place:")) return ChipKind.PLACE
-    val facet = facets.firstOrNull { facetKey(it) == key }
-    return if (facet == null) ChipKind.OTHER else chipKindOf(facet)
-}
+/** 條件 key → 小膠囊種類：`place:` 前綴就是地點，其餘是標籤。 */
+internal fun kindOfFacetKey(key: String): ChipKind =
+    if (key.startsWith("place:")) ChipKind.PLACE else ChipKind.TAG
 
 /** [facetKey] 的反函式：`"$kind:$name"` 拆回 `name`——找不到分隔符就整段當名稱顯示。 */
 private fun nameOfFacetKey(key: String): String {

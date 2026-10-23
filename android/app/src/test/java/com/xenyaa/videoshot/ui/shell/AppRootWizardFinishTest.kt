@@ -119,7 +119,7 @@ class AppRootWizardFinishTest {
         }
 
         // 首頁篩選（Ruling H 的測試用）：候選只有「宜蘭」，篩選結果依地點比對
-        override suspend fun filterOptions(upToMonth: String?) = listOf(FilterOption("宜蘭", true, "other", emptyList()))
+        override suspend fun filterOptions(upToMonth: String?) = listOf(FilterOption("宜蘭", true, emptyList()))
         override suspend fun monthsMatching(places: Set<String>, tagNames: Set<String>) =
             items.filter { it.place in places }.map { it.eventDate.take(7) }.distinct()
         override suspend fun searchByFacets(places: Set<String>, tagNames: Set<String>, upToMonth: String?, after: ShotCursor?, limit: Int) =
@@ -160,7 +160,7 @@ class AppRootWizardFinishTest {
         override suspend fun recentVideos(limit: Int) = listOf(RecentVideo("v1", "海邊那支", 0L, 0))
         override suspend fun takenFrameIndexes(videoId: String, level: Int): Set<Int> = emptySet()
         override suspend fun distinctPlaces(): List<String> = emptyList()
-        override suspend fun tagSuggestions() = emptyList<com.xenyaa.videoshot.data.library.dao.TagNameKind>()
+        override suspend fun tagSuggestions() = emptyList<String>()
         override suspend fun cropThumbs(videoId: String, sbSpec: String?, frameIndexes: List<Int>, onProgress: (Int, Int) -> Unit) =
             CropOutcome(written = frameIndexes, missing = emptyList())
         override suspend fun commit(video: VideoEntity, picks: List<NewShot>) = repo.commitPicks(video, picks)

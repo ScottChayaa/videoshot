@@ -34,8 +34,6 @@ import androidx.compose.ui.text.input.ImeAction
 import com.xenyaa.videoshot.core.details.DetailsPatch
 import com.xenyaa.videoshot.core.details.ShotDetails
 import com.xenyaa.videoshot.core.details.normalizeTags
-import com.xenyaa.videoshot.core.tags.TagKind
-import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.ChipKind
 import com.xenyaa.videoshot.ui.common.VsBottomSheet
@@ -44,15 +42,11 @@ import com.xenyaa.videoshot.ui.common.VsChipPager
 import com.xenyaa.videoshot.ui.common.VsDateField
 import com.xenyaa.videoshot.ui.common.VsSheetHeader
 import com.xenyaa.videoshot.ui.common.VsRemovableTag
-import com.xenyaa.videoshot.ui.common.VsTagChip
 import com.xenyaa.videoshot.ui.common.VsTextField
 import com.xenyaa.videoshot.ui.theme.AppTheme
 
 /** 鍵盤彈出動畫大約多久；聚焦後等它跑完再捲，不然算到的可見範圍還是鍵盤出來前的。 */
 private const val KEYBOARD_SETTLE_MS = 300L
-
-/** 新建標籤時預設的種類（2026-10-12 scott 決定：主題）。 */
-const val NEW_TAG_DEFAULT_KIND = "topic"
 
 /**
  * 就地編輯**一張**圖的圖資。Lightbox ⋯ 選單的【詳細資料】
@@ -65,18 +59,16 @@ const val NEW_TAG_DEFAULT_KIND = "topic"
  * 空字串＝清空，與 `:core` 的 `DetailsPatch` 同一個約定。
  *
  * 地點與標籤的候選是小膠囊（[VsChipPager]：每頁最多 4 列、多的左右滑，同首頁篩選抽屜），
- * **打字就即時過濾**（名稱含有輸入的字）。新打的標籤（資料庫裡還沒有的）加入後，
- * 輸入框下面出現一列種類讓使用者選，預設 [NEW_TAG_DEFAULT_KIND]；種類隨 [DetailsPatch.newTagKinds] 送出，
- * 只在新建時寫入——既有標籤的種類在帳號頁的標籤管理改。
+ * **打字就即時過濾**（名稱含有輸入的字）。
  *
- * @param tagSuggestions 全部既有標籤（名稱與種類），已選的小膠囊也從這裡查種類
+ * @param tagSuggestions 全部既有標籤名
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun ShotEditSheet(
     details: ShotDetails,
     placeSuggestions: List<String>,
-    tagSuggestions: List<TagNameKind>,
+    tagSuggestions: List<String>,
     onDismiss: () -> Unit,
     onSave: (DetailsPatch) -> Unit,
 ) {
@@ -85,31 +77,23 @@ fun ShotEditSheet(
     var description by remember(details) { mutableStateOf(details.description.orEmpty()) }
     var tags by remember(details) { mutableStateOf(details.tags) }
     var typing by remember(details) { mutableStateOf("") }
-    // 這次新打的標籤 → 種類；最後一個新標籤的名字（輸入框下面那一列種類選擇是給它的）
-    var newKinds by remember(details) { mutableStateOf(emptyMap<String, String>()) }
-    var kindFor by remember(details) { mutableStateOf<String?>(null) }
-
-    val knownKinds = remember(tagSuggestions) { tagSuggestions.associate { it.name to it.kind } }
-    fun kindOf(tag: String) = ChipKind.ofTagKind(knownKinds[tag] ?: newKinds[tag] ?: "other")
 
     // 「動過沒有」是拿現值跟原值比，不是記使用者按過幾次鍵 ——
     // 改完又改回來的話，那就是沒動過
-    val tagsPatch = normalizeTags(tags).takeIf { it != normalizeTags(details.tags) }
     val patch = DetailsPatch(
         eventDate = eventDate.takeIf { it != details.eventDate },
         place = place.takeIf { it != details.place.orEmpty() },
         description = description.takeIf { it != details.description.orEmpty() },
-        tags = tagsPatch,
-        newTagKinds = if (tagsPatch == null) emptyMap() else newKinds.filterKeys { it in tagsPatch },
+        tags = normalizeTags(tags).takeIf { it != normalizeTags(details.tags) },
     )
 
-    // 鍵盤開著時，輸入框下面的候選與種類選擇會被擋住：聚焦、打字、出現種類選擇時把整塊捲進可見範圍
+    // 鍵盤開著時，輸入框下面的候選會被擋住：聚焦、打字時把整塊捲進可見範圍
     val placeReveal = remember { BringIntoViewRequester() }
     val tagReveal = remember { BringIntoViewRequester() }
     var tagFocused by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(kindFor, typing) {
-        if (tagFocused || kindFor != null) {
+    LaunchedEffect(typing) {
+        if (tagFocused) {
             delay(KEYBOARD_SETTLE_MS / 3)
             tagReveal.bringIntoView()
         }
@@ -118,16 +102,6 @@ fun ShotEditSheet(
     fun addTag(raw: String) {
         val name = normalizeTags(listOf(raw)).firstOrNull() ?: return
         tags = normalizeTags(tags + name)
-        if (name !in knownKinds && name !in details.tags && name !in newKinds) {
-            newKinds = newKinds + (name to NEW_TAG_DEFAULT_KIND)
-            kindFor = name
-        }
-    }
-
-    fun removeTag(name: String) {
-        tags = tags - name
-        newKinds = newKinds - name
-        if (kindFor == name) kindFor = null
     }
 
     VsBottomSheet(onDismissRequest = onDismiss) {
@@ -162,7 +136,7 @@ fun ShotEditSheet(
                     }
                     VsChipPager(
                         names = places,
-                        kindOf = { ChipKind.PLACE },
+                        kind = ChipKind.PLACE,
                         onClick = { i -> place = places[i] },
                         resetKey = query,
                     )
@@ -172,10 +146,10 @@ fun ShotEditSheet(
                     FieldLabel("標籤")
                     if (tags.isNotEmpty()) {
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
-                            tags.forEach { tag -> VsRemovableTag(tag, kindOf(tag), onRemove = { removeTag(tag) }) }
+                            tags.forEach { tag -> VsRemovableTag(tag, onRemove = { tags = tags - tag }) }
                         }
                     }
-                    // 輸入框＋種類選擇＋候選是一塊，鍵盤開著時一起捲上來
+                    // 輸入框＋候選是一塊，鍵盤開著時一起捲上來
                     Column(
                         Modifier
                             .bringIntoViewRequester(tagReveal)
@@ -198,21 +172,16 @@ fun ShotEditSheet(
                             )
                             VsButton("加入", onClick = { addTag(typing); typing = "" }, variant = ButtonVariant.Secondary)
                         }
-                        kindFor?.takeIf { it in tags }?.let { name ->
-                            NewTagKindRow(name, newKinds[name] ?: NEW_TAG_DEFAULT_KIND) { kind ->
-                                newKinds = newKinds + (name to kind)
-                            }
-                        }
                         val tagQuery = typing.trim()
                         val tagOptions = remember(tagSuggestions, tags, tagQuery) {
                             tagSuggestions.filter {
-                                it.name !in tags && (tagQuery.isEmpty() || it.name.contains(tagQuery, ignoreCase = true))
+                                it !in tags && (tagQuery.isEmpty() || it.contains(tagQuery, ignoreCase = true))
                             }
                         }
                         VsChipPager(
-                            names = remember(tagOptions) { tagOptions.map { it.name } },
-                            kindOf = { i -> ChipKind.ofTagKind(tagOptions[i].kind) },
-                            onClick = { i -> addTag(tagOptions[i].name); typing = "" },
+                            names = tagOptions,
+                            kind = ChipKind.TAG,
+                            onClick = { i -> addTag(tagOptions[i]); typing = "" },
                             resetKey = tagQuery,
                         )
                     }
@@ -247,26 +216,4 @@ private fun FieldLabel(text: String) {
         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
         color = AppTheme.colors.textDim,
     )
-}
-
-/** 新標籤的種類選擇：「「名字」是：人物 動物 主題 其他」，單選。 */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun NewTagKindRow(name: String, kind: String, onPick: (String) -> Unit) {
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
-        verticalArrangement = Arrangement.Center,
-        itemVerticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text("「$name」是：", style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.textDim)
-        TagKind.entries.forEach { k ->
-            VsTagChip(
-                name = k.label,
-                kind = ChipKind.ofTagKind(k.id),
-                selected = k.id == kind,
-                isToggle = true,
-                onClick = { onPick(k.id) },
-            )
-        }
-    }
 }

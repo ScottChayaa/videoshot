@@ -34,7 +34,7 @@ const shots = M.CLIPS.map(c => ({
   eventDate: c.eventDate,
   place: c.place || null,
   description: c.note ? `${c.summary}\n${c.note}` : c.summary,
-  tags: c.tags.map(t => ({ name: t.name, kind: t.kind })),
+  tags: c.tags.map(t => t.name),
 }));
 const folders = M.FOLDERS.filter(f => !f.parent).map(f => ({
   key: f.id, name: f.name, shotKeys: [...(M.FOLDER_SHOTS[f.id] || [])].sort(),

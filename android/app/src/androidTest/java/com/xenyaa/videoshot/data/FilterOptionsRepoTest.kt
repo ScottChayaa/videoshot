@@ -55,7 +55,6 @@ class FilterOptionsRepoTest {
         assertEquals(listOf("台北", "美食", "露營", "宜蘭", "花蓮"), all.map { it.name })
         assertEquals(listOf(true, false, false, true, true), all.map { it.isPlace })
         assertEquals(listOf("噶瑪蘭"), all.first { it.name == "宜蘭" }.aliases)
-        assertEquals("other", all.first { it.name == "美食" }.tagKind)
     }
 
     @Test fun 候選依時間範圍過濾_排序不變() = runTest {

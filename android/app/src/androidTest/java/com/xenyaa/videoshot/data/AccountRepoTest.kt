@@ -57,8 +57,8 @@ class AccountRepoTest {
     @Test
     fun 全部標籤附使用張數依名稱排序() = runTest {
         val ids = repo.commitPicks(video("v1"), listOf(pick("2026-02-01", 0), pick("2026-02-01", 1)))
-        db.tagDao().insert(com.xenyaa.videoshot.data.library.entity.TagEntity(0, "露營", "topic", "[\"野營\"]"))
-        val petId = db.tagDao().insert(com.xenyaa.videoshot.data.library.entity.TagEntity(0, "阿橘", "pet", "[]"))
+        db.tagDao().insert(com.xenyaa.videoshot.data.library.entity.TagEntity(0, "露營", "[\"野營\"]"))
+        val petId = db.tagDao().insert(com.xenyaa.videoshot.data.library.entity.TagEntity(0, "阿橘", "[]"))
         db.tagDao().link(com.xenyaa.videoshot.data.library.entity.ShotTagEntity(ids[0], petId, "human"))
         db.tagDao().link(com.xenyaa.videoshot.data.library.entity.ShotTagEntity(ids[1], petId, "human"))
 
@@ -66,7 +66,6 @@ class AccountRepoTest {
 
         assertEquals(listOf("阿橘", "露營"), tags.map { it.name })
         val camp = tags.first { it.name == "露營" }
-        assertEquals("topic", camp.kind)
         assertEquals(listOf("野營"), camp.aliases)
         assertEquals(0, camp.shotCount)
         val pet = tags.first { it.name == "阿橘" }
@@ -75,35 +74,33 @@ class AccountRepoTest {
 
     @Test
     fun 改名成沒有人用過的名字直接更新() = runTest {
-        val id = db.tagDao().insert(com.xenyaa.videoshot.data.library.entity.TagEntity(0, "舊名", "other", "[]"))
+        val id = db.tagDao().insert(com.xenyaa.videoshot.data.library.entity.TagEntity(0, "舊名", "[]"))
 
-        repo.renameTag(id, "新名", "topic", listOf("別名一"))
+        repo.renameTag(id, "新名", listOf("別名一"))
 
         val tag = repo.allTagsWithUsage().single()
         assertEquals("新名", tag.name)
-        assertEquals("topic", tag.kind)
         assertEquals(listOf("別名一"), tag.aliases)
     }
 
     @Test
-    fun 改名成既有名稱會合併並刪掉舊標籤且既有標籤的kind與別名不被草稿覆蓋() = runTest {
+    fun 改名成既有名稱會合併並刪掉舊標籤且既有標籤的別名不被草稿覆蓋() = runTest {
         val ids = repo.commitPicks(video("v1"), listOf(pick("2026-02-01", 0), pick("2026-02-01", 1)))
-        // keep 的 kind／aliases 刻意跟下面的改名草稿不同——如果合併時誤把草稿的值蓋到 keep 上，
-        // 這裡會抓到（規格「既有那個標籤的 kind／別名不會被這次編輯的值覆蓋」）
+        // keep 的 aliases 刻意跟下面的改名草稿不同——如果合併時誤把草稿的值蓋到 keep 上，
+        // 這裡會抓到（規格「既有那個標籤的別名不會被這次編輯的值覆蓋」）
         val keep = db.tagDao()
-            .insert(com.xenyaa.videoshot.data.library.entity.TagEntity(0, "阿明", "person", "[\"小明\"]"))
-        val dup = db.tagDao().insert(com.xenyaa.videoshot.data.library.entity.TagEntity(0, "阿明哥", "person", "[]"))
+            .insert(com.xenyaa.videoshot.data.library.entity.TagEntity(0, "阿明", "[\"小明\"]"))
+        val dup = db.tagDao().insert(com.xenyaa.videoshot.data.library.entity.TagEntity(0, "阿明哥", "[]"))
         db.tagDao().link(com.xenyaa.videoshot.data.library.entity.ShotTagEntity(ids[0], keep, "human"))
         db.tagDao().link(com.xenyaa.videoshot.data.library.entity.ShotTagEntity(ids[1], dup, "human"))
 
-        repo.renameTag(dup, "阿明", "topic", listOf("哥哥"))
+        repo.renameTag(dup, "阿明", listOf("哥哥"))
 
         val tags = repo.allTagsWithUsage()
         assertEquals(1, tags.size)
         val merged = tags.single()
         assertEquals("阿明", merged.name)
         assertEquals(2, merged.shotCount)
-        assertEquals("person", merged.kind)
         // 16C 設計決議 3：合併後舊名（阿明哥）留成目標的別名；草稿的別名（哥哥）不會蓋過去
         assertEquals(listOf("小明", "阿明哥"), merged.aliases)
     }
@@ -113,12 +110,12 @@ class AccountRepoTest {
         // 這支圖已經同時關聯 keep 與 dup——合併時 (shot, keep) 已存在，
         // reassignLinks 用 UPDATE OR IGNORE 略過那一列，靠刪除 dup 時的外鍵連動清掉殘餘關聯
         val ids = repo.commitPicks(video("v1"), listOf(pick("2026-02-01", 0)))
-        val keep = db.tagDao().insert(com.xenyaa.videoshot.data.library.entity.TagEntity(0, "阿明", "person", "[]"))
-        val dup = db.tagDao().insert(com.xenyaa.videoshot.data.library.entity.TagEntity(0, "阿明哥", "person", "[]"))
+        val keep = db.tagDao().insert(com.xenyaa.videoshot.data.library.entity.TagEntity(0, "阿明", "[]"))
+        val dup = db.tagDao().insert(com.xenyaa.videoshot.data.library.entity.TagEntity(0, "阿明哥", "[]"))
         db.tagDao().link(com.xenyaa.videoshot.data.library.entity.ShotTagEntity(ids[0], keep, "human"))
         db.tagDao().link(com.xenyaa.videoshot.data.library.entity.ShotTagEntity(ids[0], dup, "human"))
 
-        repo.renameTag(dup, "阿明", "person", emptyList())
+        repo.renameTag(dup, "阿明", emptyList())
 
         assertEquals(1, repo.allTagsWithUsage().size)
         assertEquals(1, db.tagDao().linkCountOfShot(ids[0]))
@@ -127,7 +124,7 @@ class AccountRepoTest {
     @Test
     fun 刪除標籤只解除關聯圖不會被刪() = runTest {
         val ids = repo.commitPicks(video("v1"), listOf(pick("2026-02-01", 0)))
-        val id = db.tagDao().insert(com.xenyaa.videoshot.data.library.entity.TagEntity(0, "露營", "topic", "[]"))
+        val id = db.tagDao().insert(com.xenyaa.videoshot.data.library.entity.TagEntity(0, "露營", "[]"))
         db.tagDao().link(com.xenyaa.videoshot.data.library.entity.ShotTagEntity(ids[0], id, "human"))
 
         repo.deleteTag(id)

@@ -304,24 +304,10 @@ object VsIcons {
         )
     }
 
-    /** 標籤 kind＝主題（原型 `KIND.topic`，四條線畫出一個表格感的符號）。 */
-    val Topic: ImageVector by lazy {
-        strokeIcon("topic", "M4 9 20 9", "M4 15 20 15", "M10 3 8 21", "M16 3 14 21")
+    /** 標籤小膠囊的 `#`（標籤不分種類，一律用這個）。 */
+    val Hash: ImageVector by lazy {
+        strokeIcon("hash", "M4 9 20 9", "M4 15 20 15", "M10 3 8 21", "M16 3 14 21")
     }
-
-    /** 標籤 kind＝動物（原型 `KIND.pet`，三個圓＋一個爪墊形狀）。 */
-    val Pet: ImageVector by lazy {
-        strokeIcon(
-            "pet",
-            "M9.1 4.5a1.9 1.9 0 1 0 3.8 0a1.9 1.9 0 1 0 -3.8 0",
-            "M15.8 8a1.9 1.9 0 1 0 3.8 0a1.9 1.9 0 1 0 -3.8 0",
-            "M17.7 15.4a1.9 1.9 0 1 0 3.8 0a1.9 1.9 0 1 0 -3.8 0",
-            "M9.2 10.2a4.8 4.8 0 0 1 4.8 4.8v3.3a3.3 3.3 0 0 1-6.5 1Q6.5 17.4 4.6 16.8a3.3 3.3 0 0 1 1-6.6z",
-        )
-    }
-
-    /** 標籤 kind＝其他（原型 `KIND.other`，菱形）。命名 `OtherKind` 避免跟 Kotlin 的一般用語混淆。 */
-    val OtherKind: ImageVector by lazy { strokeIcon("other-kind", "M12 3 21 12 12 21 3 12z") }
 
     /** 地點（原型 `KIND.place`）。 */
     val MapPin: ImageVector by lazy {

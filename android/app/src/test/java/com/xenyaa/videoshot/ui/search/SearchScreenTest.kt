@@ -108,7 +108,7 @@ class SearchScreenTest {
 
     @Test
     fun 標籤雲的標籤不顯示張數() {
-        show(SearchState(facets = listOf(MonthFacet("夜潛", "tag", 3, "topic"))))
+        show(SearchState(facets = listOf(MonthFacet("夜潛", "tag", 3))))
         compose.onNodeWithText("夜潛").assertIsDisplayed()
         compose.onNodeWithText("3", substring = true).assertDoesNotExist()
     }
@@ -257,7 +257,7 @@ class SearchScreenTest {
         show(
             SearchState(
                 phase = SearchPhase.RESULTS, mode = SearchMode.TAG,
-                facets = listOf(MonthFacet("加勒比海", "place", 3), MonthFacet("小明", "tag", 2, "person")),
+                facets = listOf(MonthFacet("加勒比海", "place", 3), MonthFacet("小明", "tag", 2)),
                 selected = setOf("place:加勒比海", "tag:小明"),
             ),
         )
@@ -294,10 +294,8 @@ class SearchScreenTest {
 
     @Test
     fun 條件key對應小膠囊種類() {
-        val facets = listOf(MonthFacet("小明", "tag", 2, "person"))
-        assertEquals(ChipKind.PLACE, kindOfFacetKey("place:宜蘭", facets))
-        assertEquals(ChipKind.PERSON, kindOfFacetKey("tag:小明", facets))
-        assertEquals(ChipKind.OTHER, kindOfFacetKey("tag:不在清單", facets))
+        assertEquals(ChipKind.PLACE, kindOfFacetKey("place:宜蘭"))
+        assertEquals(ChipKind.TAG, kindOfFacetKey("tag:小明"))
     }
 
     @Test

@@ -14,7 +14,6 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
-import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import com.xenyaa.videoshot.ui.common.ChipKind
 import com.xenyaa.videoshot.ui.common.chineseDate
 import kotlinx.coroutines.CancellationException
@@ -150,8 +149,8 @@ fun LightboxScreen(
     onIndexChange: (Int) -> Unit,
     actions: LightboxActions,
     modifier: Modifier = Modifier,
-    /** 一張圖的標籤（名稱與種類）。讀不到就回空清單，標籤列留白，不擋看圖。 */
-    tagsOf: suspend (ShotRow) -> List<TagNameKind> = { emptyList() },
+    /** 一張圖的標籤名。讀不到就回空清單，標籤列留白，不擋看圖。 */
+    tagsOf: suspend (ShotRow) -> List<String> = { emptyList() },
     /** 就地編輯存檔後遞增：標籤改了但 [ShotRow] 不含標籤、比不出差異，靠它重讀標籤列。 */
     tagsRefreshKey: Int = 0,
     /** 自動播放片段；null＝不播。 */
@@ -244,7 +243,7 @@ fun LightboxScreen(
     val showingId: Long? = controller?.showing?.collectAsState()?.value
     val userPaused: Boolean = controller?.userPaused?.collectAsState()?.value ?: false
     val iconShape = RoundedCornerShape(AppTheme.radii.sm)
-    val tags by produceState(emptyList<TagNameKind>(), shot.id, tagsRefreshKey) {
+    val tags by produceState(emptyList<String>(), shot.id, tagsRefreshKey) {
         value = emptyList()
         // 輔助資訊：讀不到就沒有標籤列，不擋看圖
         value = try {
@@ -317,7 +316,7 @@ fun LightboxScreen(
                 horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                tags.forEach { OnDarkChip(it.name, ChipKind.ofTagKind(it.kind)) }
+                tags.forEach { OnDarkChip(it, ChipKind.TAG) }
             }
 
             // 大圖跟一次性提示放同一個 Box：提示用 BottomCenter 貼著**這個 Box 的下緣**，

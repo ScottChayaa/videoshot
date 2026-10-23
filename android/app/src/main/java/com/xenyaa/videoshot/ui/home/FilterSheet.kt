@@ -260,7 +260,7 @@ private fun ChipPager(
 ) {
     VsChipPager(
         names = remember(shown) { shown.map { it.name } },
-        kindOf = { i -> if (isPlace) ChipKind.PLACE else ChipKind.ofTagKind(shown[i].tagKind) },
+        kind = if (isPlace) ChipKind.PLACE else ChipKind.TAG,
         onClick = { i -> onToggle(shown[i]) },
         selected = { i -> draft.isSelected(shown[i]) },
         isToggle = true,

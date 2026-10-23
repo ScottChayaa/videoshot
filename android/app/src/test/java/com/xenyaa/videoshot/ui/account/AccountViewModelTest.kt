@@ -6,7 +6,6 @@ import com.xenyaa.videoshot.backfill.BackfillProgress
 import com.xenyaa.videoshot.backup.LinkOutcome
 import com.xenyaa.videoshot.backup.LinkedGoogleAccount
 import com.xenyaa.videoshot.core.similarity.FilterStrength
-import com.xenyaa.videoshot.core.tags.TagKind
 import com.xenyaa.videoshot.data.repo.model.AccountStats
 import com.xenyaa.videoshot.data.repo.model.PlaceUsage
 import com.xenyaa.videoshot.data.repo.model.TagUsage
@@ -57,15 +56,15 @@ class AccountViewModelTest {
         override suspend fun stats(thisMonth: String): AccountStats = stats
 
         var tagList = listOf(
-            TagUsage(1, "阿明", "person", emptyList(), 2),
-            TagUsage(2, "露營", "topic", listOf("野營"), 5),
+            TagUsage(1, "阿明", emptyList(), 2),
+            TagUsage(2, "露營", listOf("野營"), 5),
         )
         override suspend fun tags(): List<TagUsage> = tagList
 
         var renamed: List<Any> = emptyList()
-        override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>) {
-            renamed = listOf(id, name, kind, aliases)
-            tagList = tagList.map { if (it.id == id) it.copy(name = name, kind = kind, aliases = aliases) else it }
+        override suspend fun renameTag(id: Long, name: String, aliases: List<String>) {
+            renamed = listOf(id, name, aliases)
+            tagList = tagList.map { if (it.id == id) it.copy(name = name, aliases = aliases) else it }
         }
 
         var deletedId: Long? = null
@@ -273,7 +272,7 @@ class AccountViewModelTest {
         viewModel.requestSaveTag()
         dispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals(listOf<Any>(1L, "阿明哥", "person", emptyList<String>()), deps.renamed)
+        assertEquals(listOf<Any>(1L, "阿明哥", emptyList<String>()), deps.renamed)
         assertNull(viewModel.state.value.editor)
         assertNull(viewModel.state.value.pendingMerge)
     }

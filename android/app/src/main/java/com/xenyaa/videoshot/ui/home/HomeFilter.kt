@@ -36,7 +36,7 @@ object FilterLists {
         val pool = options.filter { it.isPlace == isPlace }
         val selected = if (isPlace) draft.places else draft.tags
         val missing = (selected - pool.map { it.name }.toSet()).sorted()
-            .map { FilterOption(it, isPlace, "other", emptyList()) }
+            .map { FilterOption(it, isPlace, emptyList()) }
         val query = draft.query[isPlace].orEmpty().trim()
         val all = if (query.isEmpty()) {
             missing + pool
@@ -55,7 +55,7 @@ object FilterLists {
 }
 
 /** 首頁月份小膠囊點下去＝只篩這一個（[HomeViewModel.applySingle]）。別名在這裡用不到，留空。 */
-fun MonthFacet.toFilterOption(): FilterOption = FilterOption(name, isPlace, tagKind, emptyList())
+fun MonthFacet.toFilterOption(): FilterOption = FilterOption(name, isPlace, emptyList())
 
 /**
  * 篩選抽屜候選的讀取狀態。讀取中不能說「這段時間沒有地點」（其實是還沒讀到）；

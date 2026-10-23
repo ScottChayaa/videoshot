@@ -1,6 +1,5 @@
 package com.xenyaa.videoshot.data.repo
 
-import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import com.xenyaa.videoshot.core.paging.FolderCursor
 import com.xenyaa.videoshot.core.paging.SearchCursor
 import com.xenyaa.videoshot.core.paging.ShotCursor
@@ -99,15 +98,8 @@ interface LibraryRepo {
     suspend fun tagsOfShot(shotId: Long): List<String>
 
     /**
-     * 一張圖的標籤名與種類（`person`／`pet`／`topic`／`other`），依名稱排序。Lightbox 的標籤列用。
-     * 預設實作把種類一律當 `other`（測試用的假 repo 不必各自實作）；正式的 [RoomLibraryRepo] 一次查出種類。
-     */
-    suspend fun tagsWithKindOfShot(shotId: Long): List<TagNameKind> =
-        tagsOfShot(shotId).map { TagNameKind(it, "other") }
-
-    /**
      * 取圖精靈完成入庫。整批在同一個交易裡：影片列 upsert、每張 shot、手動圖的 webp、
-     * **以及標籤（名稱查不到就在交易內新建，`kind` 為 `'other'`）**。
+     * **以及標籤（名稱查不到就在交易內新建）**。
      * 任何一張失敗（例如撞到已收藏的格子）就整批回滾，不留半套。回傳新建的 shot id（順序同輸入）。
      */
     suspend fun commitPicks(video: VideoEntity, picks: List<NewShot>): List<Long>
@@ -201,18 +193,18 @@ interface LibraryRepo {
     /** 標籤管理頁：全部標籤 ＋ 使用張數（規格第九節）。 */
     suspend fun allTagsWithUsage(): List<TagUsage>
 
-    /** 編輯圖資時的標籤候選：名稱＋種類（小膠囊依種類畫圖示），用過越多張的排越前面。 */
-    suspend fun tagSuggestions(): List<TagNameKind> =
-        allTagsWithUsage().sortedByDescending { it.shotCount }.map { TagNameKind(it.name, it.kind) }
+    /** 編輯圖資時的標籤候選，用過越多張的排越前面。 */
+    suspend fun tagSuggestions(): List<String> =
+        allTagsWithUsage().sortedByDescending { it.shotCount }.map { it.name }
 
     /**
-     * 標籤改名／改 kind／改別名。**改名成既有的名稱＝合併**：兩者的 `shot_tag` 併到既有標籤，
+     * 標籤改名／改別名。**改名成既有的名稱＝合併**：兩者的 `shot_tag` 併到既有標籤，
      * 這個 `id` 的標籤列被刪除（規格第九節「標籤管理的規則」）。合併發生時，
-     * **既有那個標籤的 kind／別名不會被這次編輯的值覆蓋**——合併保留的是「既有的那個」，
+     * **既有那個標籤的別名不會被這次編輯的值覆蓋**——合併保留的是「既有的那個」，
      * 這次編輯的草稿只在沒有撞名時才會真的寫入。
      * @return 改完之後持有這個名稱的編號：撞名合併時是目標的編號，否則就是 [id]
      */
-    suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>): Long
+    suspend fun renameTag(id: Long, name: String, aliases: List<String>): Long
 
     /** 刪除標籤。只解除關聯（`shot_tag` 由外鍵連動一起刪），圖不動。 */
     suspend fun deleteTag(id: Long)

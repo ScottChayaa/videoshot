@@ -43,25 +43,25 @@ class VsTagChipTest {
 
     /** 選取只換顏色、不打勾；TalkBack 仍靠選取語意唸出已選取。 */
     @Test fun 選取時不打勾但帶選取語意() {
-        compose.setContent { VideoshotTheme { VsTagChip("夜潛", ChipKind.TOPIC, selected = true, isToggle = true, onClick = {}) } }
+        compose.setContent { VideoshotTheme { VsTagChip("夜潛", ChipKind.TAG, selected = true, isToggle = true, onClick = {}) } }
         compose.onNodeWithText("夜潛", substring = true).assertIsSelected()
         compose.onNodeWithContentDescription("已選", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test fun 可點的一般尺寸至少44高() {
-        compose.setContent { VideoshotTheme { VsTagChip("夜潛", ChipKind.TOPIC, Modifier.testTag("c"), onClick = {}) } }
+        compose.setContent { VideoshotTheme { VsTagChip("夜潛", ChipKind.TAG, Modifier.testTag("c"), onClick = {}) } }
         compose.onNodeWithTag("c").assertHeightIsAtLeast(44.dp)
     }
 
     @Test fun 點一下會回呼() {
         var clicked = false
-        compose.setContent { VideoshotTheme { VsTagChip("夜潛", ChipKind.TOPIC, onClick = { clicked = true }) } }
+        compose.setContent { VideoshotTheme { VsTagChip("夜潛", ChipKind.TAG, onClick = { clicked = true }) } }
         compose.onNodeWithText("夜潛", substring = true).performClick()
         assertTrue(clicked)
     }
 
     @Test fun 迷你尺寸不可點() {
-        compose.setContent { VideoshotTheme { VsTagChip("龍蝦", ChipKind.OTHER, Modifier.testTag("m"), size = ChipSize.Mini) } }
+        compose.setContent { VideoshotTheme { VsTagChip("龍蝦", ChipKind.TAG, Modifier.testTag("m"), size = ChipSize.Mini) } }
         compose.onNodeWithTag("m").assertHasNoClickAction()
     }
 
@@ -101,14 +101,14 @@ class VsTagChipTest {
     }
 
     @Test fun 動作型的一般尺寸沒有選取語意() {
-        compose.setContent { VideoshotTheme { VsTagChip("夜潛", ChipKind.TOPIC, Modifier.testTag("c"), onClick = {}) } }
+        compose.setContent { VideoshotTheme { VsTagChip("夜潛", ChipKind.TAG, Modifier.testTag("c"), onClick = {}) } }
         compose.onNodeWithTag("c")
             .assertHasClickAction()
             .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Selected))
     }
 
     @Test fun 切換型未選取時有選取語意且為否() {
-        compose.setContent { VideoshotTheme { VsTagChip("夜潛", ChipKind.TOPIC, Modifier.testTag("c"), isToggle = true, onClick = {}) } }
+        compose.setContent { VideoshotTheme { VsTagChip("夜潛", ChipKind.TAG, Modifier.testTag("c"), isToggle = true, onClick = {}) } }
         compose.onNodeWithTag("c").assertIsNotSelected()
     }
 }

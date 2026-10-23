@@ -35,8 +35,8 @@ class LibrarySchemaTest {
     }
 
     @Test
-    fun schema_版本是_3() {
-        assertEquals(3, LIBRARY_SCHEMA_VERSION)
+    fun schema_版本是_4() {
+        assertEquals(4, LIBRARY_SCHEMA_VERSION)
     }
 
     @Test
@@ -93,7 +93,7 @@ class LibrarySchemaTest {
         seedVideo()
         val shotId = db.shotDao().insert(storyboardShot(frameIndex = 1))
         db.shotDao().putImage(ShotImageEntity(shotId, byteArrayOf(1, 2, 3)))
-        val tagId = db.tagDao().insert(TagEntity(0, "露營", "topic", "[]"))
+        val tagId = db.tagDao().insert(TagEntity(0, "露營", "[]"))
         db.tagDao().link(ShotTagEntity(shotId, tagId, "human"))
         val folderId = db.folderDao().insert(FolderEntity(0, null, "2014 秋", 1L))
         db.folderDao().link(ShotFolderEntity(shotId, folderId, 1L))
@@ -124,8 +124,8 @@ class LibrarySchemaTest {
 
     @Test
     fun 標籤名稱不可重複() = runTest {
-        db.tagDao().insert(TagEntity(0, "露營", "topic", "[]"))
-        val again = runCatching { db.tagDao().insert(TagEntity(0, "露營", "other", "[]")) }
+        db.tagDao().insert(TagEntity(0, "露營", "[]"))
+        val again = runCatching { db.tagDao().insert(TagEntity(0, "露營", "[]")) }
         assertTrue(again.isFailure)
     }
 

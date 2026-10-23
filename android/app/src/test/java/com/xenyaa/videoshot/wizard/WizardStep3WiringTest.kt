@@ -65,7 +65,7 @@ class WizardStep3WiringTest {
         override suspend fun recentVideos(limit: Int): List<RecentVideo> = emptyList()
         override suspend fun takenFrameIndexes(videoId: String, level: Int) = emptySet<Int>()
         override suspend fun distinctPlaces() = listOf("冬山河")
-        override suspend fun tagSuggestions() = listOf(com.xenyaa.videoshot.data.library.dao.TagNameKind("玩水", "topic"))
+        override suspend fun tagSuggestions() = listOf("玩水")
         override suspend fun cropThumbs(
             videoId: String,
             sbSpec: String?,
@@ -187,7 +187,7 @@ class WizardStep3WiringTest {
         val vm = vmWith(RecordingData(pageOf()))
         advanceUntilIdle()
         assertEquals(listOf("冬山河"), vm.suggestions.value.places)
-        assertEquals(listOf("玩水"), vm.suggestions.value.tags.map { it.name })
+        assertEquals(listOf("玩水"), vm.suggestions.value.tags)
     }
 
     @Test

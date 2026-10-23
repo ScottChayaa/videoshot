@@ -26,7 +26,6 @@ interface StatsDao {
         """
         SELECT COALESCE(p.name, t.name) AS name,
                CASE s.kind WHEN 1 THEN 'place' ELSE 'tag' END AS kind,
-               CASE s.kind WHEN 1 THEN 'other' ELSE t.kind END AS tag_kind,
                s.cnt AS cnt
         FROM shot_stat s
         LEFT JOIN place p ON s.kind = 1 AND p.id = s.ref_id
@@ -47,7 +46,6 @@ interface StatsDao {
         """
         SELECT COALESCE(p.name, t.name) AS name,
                CASE g.kind WHEN 1 THEN 'place' ELSE 'tag' END AS kind,
-               CASE g.kind WHEN 1 THEN 'other' ELSE t.kind END AS tag_kind,
                g.cnt AS cnt
         FROM shot_stat_total g
         LEFT JOIN place p ON g.kind = 1 AND p.id = g.ref_id
@@ -71,7 +69,6 @@ interface StatsDao {
         """
         SELECT COALESCE(p.name, t.name) AS name,
                g.kind AS kind,
-               CASE g.kind WHEN 1 THEN 'other' ELSE t.kind END AS tag_kind,
                COALESCE(p.aliases, t.aliases) AS aliases,
                g.ref_id AS ref_id
         FROM shot_stat_total g
@@ -125,7 +122,7 @@ interface StatsDao {
     @SkipQueryVerification
     @Query(
         """
-        SELECT t.id AS id, t.name AS name, t.kind AS kind, t.aliases AS aliases, COALESCE(g.cnt, 0) AS shotCount
+        SELECT t.id AS id, t.name AS name, t.aliases AS aliases, COALESCE(g.cnt, 0) AS shotCount
         FROM tag t LEFT JOIN shot_stat_total g ON g.kind = 2 AND g.ref_id = t.id
         ORDER BY t.name
         """
@@ -150,7 +147,6 @@ interface StatsDao {
 data class FilterOptionProjection(
     @ColumnInfo(name = "name") val name: String,
     @ColumnInfo(name = "kind") val kind: Int,
-    @ColumnInfo(name = "tag_kind") val tagKind: String,
     @ColumnInfo(name = "aliases") val aliases: String,
     @ColumnInfo(name = "ref_id") val refId: Long,
 )

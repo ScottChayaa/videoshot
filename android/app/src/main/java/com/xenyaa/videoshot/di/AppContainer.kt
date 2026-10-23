@@ -318,8 +318,8 @@ class AppContainer(context: Context) : AppRootDeps {
 
             override suspend fun stats(thisMonth: String) = libraryRepo.accountStats(thisMonth)
             override suspend fun tags() = libraryRepo.allTagsWithUsage()
-            override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>) =
-                facetEdits.renameTag(id, name, kind, aliases)
+            override suspend fun renameTag(id: Long, name: String, aliases: List<String>) =
+                facetEdits.renameTag(id, name, aliases)
             override suspend fun deleteTag(id: Long) = facetEdits.deleteTag(id)
             override suspend fun places() = libraryRepo.allPlacesWithUsage()
             override suspend fun renamePlace(id: Long, name: String, aliases: List<String>) =

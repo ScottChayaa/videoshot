@@ -1,6 +1,5 @@
 package com.xenyaa.videoshot.data.repo
 
-import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import androidx.room.Transactor
 import androidx.room.useWriterConnection
 import com.xenyaa.videoshot.core.home.nextMonthStart
@@ -76,16 +75,16 @@ class RoomLibraryRepo(
         }
 
     override suspend fun monthFacets(month: String): List<MonthFacet> = withContext(io) {
-        db.statsDao().monthFacets(month).map { MonthFacet(it.name, it.kind, it.count, it.tagKind) }
+        db.statsDao().monthFacets(month).map { MonthFacet(it.name, it.kind, it.count) }
     }
 
     override suspend fun searchFacets(upToMonth: String?, limit: Int): List<MonthFacet> = withContext(io) {
-        db.statsDao().candidates(upToMonth, limit).map { MonthFacet(it.name, it.kind, it.count, it.tagKind) }
+        db.statsDao().candidates(upToMonth, limit).map { MonthFacet(it.name, it.kind, it.count) }
     }
 
     override suspend fun filterOptions(upToMonth: String?): List<FilterOption> = withContext(io) {
         db.statsDao().filterOptions(upToMonth).map {
-            FilterOption(it.name, it.kind == StatKind.PLACE, it.tagKind, decodeAliases(it.aliases), it.refId)
+            FilterOption(it.name, it.kind == StatKind.PLACE, decodeAliases(it.aliases), it.refId)
         }
     }
 
@@ -205,10 +204,6 @@ class RoomLibraryRepo(
         db.tagDao().namesOfShot(shotId)
     }
 
-    override suspend fun tagsWithKindOfShot(shotId: Long): List<TagNameKind> = withContext(io) {
-        db.tagDao().namesAndKindsOfShot(shotId)
-    }
-
     override suspend fun monthCounts(): List<MonthCount> = withContext(io) {
         db.statsDao().monthCounts().map { MonthCount(it.month, it.count) }
     }
@@ -258,7 +253,7 @@ class RoomLibraryRepo(
             for (name in picks.flatMap { it.tagNames }.distinct()) {
                 tagIds[name] = db.tagDao().byName(name)?.id
                     // 精靈沒有問使用者這是人還是主題，猜一個就是騙人；分類留給階段 11 的標籤管理
-                    ?: db.tagDao().insert(TagEntity(id = 0, name = name, kind = "other", aliases = "[]"))
+                    ?: db.tagDao().insert(TagEntity(id = 0, name = name, aliases = "[]"))
             }
 
             picks.map { pick ->
@@ -334,7 +329,7 @@ class RoomLibraryRepo(
             // 名稱→id 的解析在交易內（理由同 commitPicks：回滾後不留空標籤）
             val tagIds = patch.tagNames?.map { name ->
                 db.tagDao().byName(name)?.id
-                    ?: db.tagDao().insert(TagEntity(id = 0, name = name, kind = patch.newTagKinds[name] ?: "other", aliases = "[]"))
+                    ?: db.tagDao().insert(TagEntity(id = 0, name = name, aliases = "[]"))
             } ?: patch.tagIds
             // 名稱→id 的解析在交易內（理由同標籤）；null＝沒動過，空字串＝清空
             val placeId = patch.place?.let { placeIdForWrite(it) }
@@ -488,10 +483,10 @@ class RoomLibraryRepo(
     }
 
     override suspend fun allTagsWithUsage(): List<TagUsage> = withContext(io) {
-        db.statsDao().tagsWithUsage().map { TagUsage(it.id, it.name, it.kind, decodeAliases(it.aliases), it.shotCount) }
+        db.statsDao().tagsWithUsage().map { TagUsage(it.id, it.name, decodeAliases(it.aliases), it.shotCount) }
     }
 
-    override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>): Long =
+    override suspend fun renameTag(id: Long, name: String, aliases: List<String>): Long =
         withContext(io) {
             val trimmed = name.trim()
             require(trimmed.isNotEmpty()) { "標籤名稱不能是空的" }
@@ -501,7 +496,7 @@ class RoomLibraryRepo(
                     mergeTagInTx(id, existing.id) // 16C 起撞名合併也把舊名留成別名
                     existing.id
                 } else {
-                    db.tagDao().update(id, trimmed, kind, encodeAliases(aliases))
+                    db.tagDao().update(id, trimmed, encodeAliases(aliases))
                     id
                 }
             }
@@ -567,7 +562,7 @@ class RoomLibraryRepo(
         val to = requireNotNull(db.tagDao().byId(toId)) { "標籤 $toId 不存在" }
         db.tagDao().reassignLinks(fromId, toId)
         db.tagDao().update(
-            toId, to.name, to.kind,
+            toId, to.name,
             encodeAliases(mergedAliases(to.name, decodeAliases(to.aliases), from.name, decodeAliases(from.aliases))),
         )
         db.tagDao().deleteById(fromId)

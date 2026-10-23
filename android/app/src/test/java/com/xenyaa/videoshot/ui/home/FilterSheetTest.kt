@@ -42,8 +42,8 @@ class FilterSheetTest {
 
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
-    private fun place(name: String) = FilterOption(name, true, "other", emptyList())
-    private fun tag(name: String) = FilterOption(name, false, "topic", emptyList())
+    private fun place(name: String) = FilterOption(name, true, emptyList())
+    private fun tag(name: String) = FilterOption(name, false, emptyList())
 
     private val toggled = mutableListOf<FilterOption>()
     private val queries = mutableListOf<Pair<Boolean, String>>()

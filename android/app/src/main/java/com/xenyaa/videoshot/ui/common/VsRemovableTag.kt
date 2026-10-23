@@ -25,12 +25,12 @@ import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
 
 /**
- * 已選的標籤：外觀同 [VsTagChip]（中性半透明底、無框、帶種類圖示），尾端多一個關閉圖示，整顆可點＝移除。
+ * 已選的標籤：外觀同 [VsTagChip]（中性半透明底、無框、帶 `#` 圖示），尾端多一個關閉圖示，整顆可點＝移除。
  * 名稱「移除標籤 X」讓輔助技術聽得出點下去會發生什麼事。
  * 照片編輯抽屜與取圖第三步（含批次編輯）共用。
  */
 @Composable
-fun VsRemovableTag(name: String, kind: ChipKind, onRemove: () -> Unit, modifier: Modifier = Modifier) {
+fun VsRemovableTag(name: String, onRemove: () -> Unit, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(AppTheme.radii.sm)
     // 觸控區至少 44dp 高（手冊 §零），看得到的膠囊置中、跟其他小膠囊一樣矮
     Box(
@@ -49,7 +49,7 @@ fun VsRemovableTag(name: String, kind: ChipKind, onRemove: () -> Unit, modifier:
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
         ) {
-            Icon(kind.icon, contentDescription = null, tint = kind.color, modifier = Modifier.size(16.dp))
+            Icon(ChipKind.TAG.icon, contentDescription = null, tint = ChipKind.TAG.color, modifier = Modifier.size(16.dp))
             Text(name, style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.text)
             Icon(VsIcons.Close, contentDescription = null, tint = AppTheme.colors.textDim, modifier = Modifier.size(14.dp))
         }

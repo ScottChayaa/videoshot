@@ -8,7 +8,6 @@ import androidx.lifecycle.viewModelScope
 import com.xenyaa.videoshot.backup.LinkOutcome
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.core.home.monthOf
-import com.xenyaa.videoshot.core.tags.TagKind
 import com.xenyaa.videoshot.core.tags.parseAliases
 import com.xenyaa.videoshot.data.repo.model.PlaceUsage
 import com.xenyaa.videoshot.data.repo.model.TagUsage
@@ -168,7 +167,6 @@ class AccountViewModel(
     fun openTagEditor(tag: TagUsage) { _state.value = AccountStore.openEditor(_state.value, tag) }
     fun dismissTagEditor() { _state.value = AccountStore.closeEditor(_state.value) }
     fun editTagName(name: String) { _state.value = AccountStore.editName(_state.value, name) }
-    fun editTagKind(kind: TagKind) { _state.value = AccountStore.editKind(_state.value, kind) }
     fun editTagAliases(raw: String) { _state.value = AccountStore.editAliases(_state.value, raw) }
 
     /**
@@ -181,19 +179,19 @@ class AccountViewModel(
         if (collision != null) {
             _state.value = _state.value.copy(pendingMerge = collision.name)
         } else {
-            performSaveTag(editor.id, editor.name.trim(), editor.kind.id, parseAliases(editor.aliasesRaw))
+            performSaveTag(editor.id, editor.name.trim(), parseAliases(editor.aliasesRaw))
         }
     }
 
     fun confirmMerge() {
         val editor = _state.value.editor ?: return
-        performSaveTag(editor.id, editor.name.trim(), editor.kind.id, parseAliases(editor.aliasesRaw))
+        performSaveTag(editor.id, editor.name.trim(), parseAliases(editor.aliasesRaw))
     }
 
     fun dismissMergeConfirm() { _state.value = _state.value.copy(pendingMerge = null) }
 
-    private fun performSaveTag(id: Long, name: String, kind: String, aliases: List<String>) = launchGuarded {
-        deps.renameTag(id, name, kind, aliases)
+    private fun performSaveTag(id: Long, name: String, aliases: List<String>) = launchGuarded {
+        deps.renameTag(id, name, aliases)
         _state.value = _state.value.copy(editor = null, pendingMerge = null)
         reload()
         _labelsChanged.emit(Unit)

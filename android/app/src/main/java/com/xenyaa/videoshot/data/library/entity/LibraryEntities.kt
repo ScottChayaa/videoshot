@@ -103,12 +103,11 @@ data class PlaceEntity(
     @ColumnInfo(name = "aliases") val aliases: String,
 )
 
-/** 標籤與暱稱（人／動物／主題）。地點在 [PlaceEntity]。 */
+/** 標籤（不分種類，畫面上一律顯示成 `#`）。地點在 [PlaceEntity]。 */
 @Entity(tableName = "tag", indices = [Index(value = ["name"], unique = true)])
 data class TagEntity(
     @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "id") val id: Long,
     @ColumnInfo(name = "name") val name: String,
-    @ColumnInfo(name = "kind") val kind: String,
     /** 別名的 JSON 陣列字串，如 ["我家的貓","橘貓"]；檢索時視同 name */
     @ColumnInfo(name = "aliases") val aliases: String,
 )

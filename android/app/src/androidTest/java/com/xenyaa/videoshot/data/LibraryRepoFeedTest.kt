@@ -3,7 +3,6 @@ package com.xenyaa.videoshot.data
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.xenyaa.videoshot.data.library.LibraryDatabase
 import com.xenyaa.videoshot.data.library.entity.ShotEntity
-import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import com.xenyaa.videoshot.data.library.entity.ShotTagEntity
 import com.xenyaa.videoshot.data.library.entity.TagEntity
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
@@ -77,14 +76,12 @@ class LibraryRepoFeedTest {
     @Test
     fun 月份標籤列混排地點與標籤並依張數排序() = runTest {
         val ids = seed("v1", "2026-03-10", 3, place = "宜蘭")
-        val tag = db.tagDao().insert(TagEntity(0, "露營", "topic", "[]"))
+        val tag = db.tagDao().insert(TagEntity(0, "露營", "[]"))
         db.tagDao().link(ShotTagEntity(ids[0], tag, "human"))
         db.tagDao().link(ShotTagEntity(ids[1], tag, "human"))
         val facets = repo.monthFacets("2026-03")
         assertEquals(listOf("宜蘭" to 3, "露營" to 2), facets.map { it.name to it.count })
         assertEquals(listOf("place", "tag"), facets.map { it.kind })
-        // 標籤列要帶標籤本身的種類，首頁小膠囊才挑得到對的圖示（階段 15C 實機對照時發現原本全部是「其他」）
-        assertEquals("topic", facets[1].tagKind)
     }
 
     @Test
@@ -97,27 +94,12 @@ class LibraryRepoFeedTest {
     @Test
     fun 讀得出一張圖的標籤名() = runTest {
         val ids = seed("v1", "2026-03-10", 1)
-        val a = db.tagDao().insert(TagEntity(0, "露營", "topic", "[]"))
-        val b = db.tagDao().insert(TagEntity(0, "阿明", "person", "[]"))
+        val a = db.tagDao().insert(TagEntity(0, "露營", "[]"))
+        val b = db.tagDao().insert(TagEntity(0, "阿明", "[]"))
         db.tagDao().link(ShotTagEntity(ids[0], a, "human"))
         db.tagDao().link(ShotTagEntity(ids[0], b, "human"))
         assertEquals(listOf("阿明", "露營"), repo.tagsOfShot(ids[0]).sorted())
         assertEquals(emptyList<String>(), repo.tagsOfShot(9999L))
-    }
-
-    /** Lightbox 的標籤列：名稱帶種類，依名稱排序。 */
-    @Test
-    fun 讀得出一張圖的標籤名與種類() = runTest {
-        val ids = seed("v1", "2026-03-10", 1)
-        val a = db.tagDao().insert(TagEntity(0, "露營", "topic", "[]"))
-        val b = db.tagDao().insert(TagEntity(0, "阿明", "person", "[]"))
-        db.tagDao().link(ShotTagEntity(ids[0], a, "human"))
-        db.tagDao().link(ShotTagEntity(ids[0], b, "human"))
-        assertEquals(
-            listOf(TagNameKind("阿明", "person"), TagNameKind("露營", "topic")).sortedBy { it.name },
-            repo.tagsWithKindOfShot(ids[0]),
-        )
-        assertEquals(emptyList<TagNameKind>(), repo.tagsWithKindOfShot(9999L))
     }
 
     /** 就地編輯只有標籤「名稱」，repo 要在同一個交易內解析成 id，不存在就建。 */
@@ -129,24 +111,6 @@ class LibraryRepoFeedTest {
         // 再套一次同名不會建出第二個
         repo.patchShots(ids, ShotPatch(null, null, null, tagIds = null, tagNames = listOf("新標籤")))
         assertEquals(1, db.tagDao().count())
-    }
-
-    /** 詳細資料抽屜新打的標籤帶著使用者選的種類建立；既有標籤的種類不被改掉。 */
-    @Test
-    fun 新建的標籤用指定的種類_既有標籤不變() = runTest {
-        val ids = seed("v1", "2026-03-10", 1)
-        db.tagDao().insert(TagEntity(0, "露營", "topic", "[]"))
-        repo.patchShots(
-            ids,
-            ShotPatch(
-                null, null, null, tagIds = null, tagNames = listOf("海龜", "露營"),
-                newTagKinds = mapOf("海龜" to "pet", "露營" to "person"),
-            ),
-        )
-        assertEquals(
-            listOf(TagNameKind("海龜", "pet"), TagNameKind("露營", "topic")),
-            repo.tagsWithKindOfShot(ids[0]),
-        )
     }
 
     @Test

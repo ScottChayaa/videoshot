@@ -11,8 +11,8 @@ import org.junit.Test
 
 class FacetUsageTest {
 
-    private fun place(name: String, id: Long) = FilterOption(name, true, "other", emptyList(), id)
-    private fun tag(name: String, id: Long) = FilterOption(name, false, "topic", emptyList(), id)
+    private fun place(name: String, id: Long) = FilterOption(name, true, emptyList(), id)
+    private fun tag(name: String, id: Long) = FilterOption(name, false, emptyList(), id)
 
     // repo 給的順序＝全部時間張數多到少
     private val byCount = listOf(place("廣西", 1), tag("貓", 1), place("宜蘭", 2), tag("狗", 2), place("花蓮", 3))
@@ -37,7 +37,7 @@ class FacetUsageTest {
     }
 
     @Test fun 編號是0的補位項目當成沒用過() {
-        val missing = FilterOption("不在範圍內", true, "other", emptyList())
+        val missing = FilterOption("不在範圍內", true, emptyList())
         val recent = mapOf(FacetRef(1, 0) to 999L, FacetRef(1, 3) to 100L)
         assertEquals(
             listOf("花蓮", "不在範圍內", "廣西"),

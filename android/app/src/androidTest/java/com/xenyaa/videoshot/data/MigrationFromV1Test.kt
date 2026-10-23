@@ -47,6 +47,11 @@ class MigrationFromV1Test {
         assertTrue(db.readSingleLong("SELECT COUNT(*) FROM folder") > 0)
     }
 
+    @Test fun 標籤不再有種類欄位_標籤一個不少() = runTest {
+        assertEquals(listOf("id", "name", "aliases"), db.readAllText("SELECT name FROM pragma_table_info('tag') ORDER BY cid"))
+        assertTrue(db.readSingleLong("SELECT COUNT(*) FROM tag") > 0)
+    }
+
     @Test fun 升到現行版本_完整性與外鍵都沒問題() = runTest {
         assertEquals(LIBRARY_SCHEMA_VERSION.toLong(), db.readSingleLong("PRAGMA user_version"))
         assertEquals("ok", db.readSingleText("PRAGMA integrity_check"))

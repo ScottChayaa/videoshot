@@ -32,7 +32,7 @@ interface AccountDeps {
     /** @param thisMonth `YYYY-MM` */
     suspend fun stats(thisMonth: String): AccountStats
     suspend fun tags(): List<TagUsage>
-    suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>)
+    suspend fun renameTag(id: Long, name: String, aliases: List<String>)
     suspend fun deleteTag(id: Long)
     suspend fun places(): List<PlaceUsage>
     /** 名稱撞到別的地點＝合併，舊名留成別名（`LibraryRepo.renamePlace`）。 */

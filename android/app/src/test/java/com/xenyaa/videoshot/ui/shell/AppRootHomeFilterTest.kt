@@ -88,7 +88,7 @@ class AppRootHomeFilterTest {
         override suspend fun monthFacets(month: String) = facets
         override suspend fun searchFacets(upToMonth: String?, limit: Int) = facets
         override suspend fun filterOptions(upToMonth: String?) =
-            listOf(FilterOption("礁溪", true, "other", emptyList()))
+            listOf(FilterOption("礁溪", true, emptyList()))
         override suspend fun monthsMatching(places: Set<String>, tagNames: Set<String>) = listOf("2026-03")
         override suspend fun searchByFacets(places: Set<String>, tagNames: Set<String>, upToMonth: String?, after: ShotCursor?, limit: Int): Page<ShotRow> {
             searchByFacetsCalls += places
@@ -182,7 +182,7 @@ class AppRootHomeFilterTest {
             override suspend fun recentVideos(limit: Int): List<RecentVideo> = emptyList()
             override suspend fun takenFrameIndexes(videoId: String, level: Int) = emptySet<Int>()
             override suspend fun distinctPlaces() = emptyList<String>()
-            override suspend fun tagSuggestions() = emptyList<com.xenyaa.videoshot.data.library.dao.TagNameKind>()
+            override suspend fun tagSuggestions() = emptyList<String>()
             override suspend fun cropThumbs(videoId: String, sbSpec: String?, frameIndexes: List<Int>, onProgress: (Int, Int) -> Unit) =
                 CropOutcome(emptyList(), emptyList())
             override suspend fun commit(video: VideoEntity, picks: List<NewShot>) = emptyList<Long>()

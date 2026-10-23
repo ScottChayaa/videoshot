@@ -155,13 +155,13 @@ class HomeScreenTest {
 
     /** 原型 .month-tags：地點與一般標籤的小膠囊都可以點，並回報完整的 MonthFacet（含 kind）。 */
     @Test
-    fun 月份地點與人物標籤都能點且回報種類() {
+    fun 月份地點與標籤都能點且回報種類() {
         val picked = mutableListOf<MonthFacet>()
         show(
             stateOf(
                 row(1, "2026-03-05"),
                 facets = mapOf(
-                    "2026-03" to listOf(MonthFacet("加勒比海", "place", 3), MonthFacet("小明", "tag", 2, "person")),
+                    "2026-03" to listOf(MonthFacet("加勒比海", "place", 3), MonthFacet("小明", "tag", 2)),
                 ),
             ),
             onFacet = { picked += it },
@@ -169,7 +169,6 @@ class HomeScreenTest {
         compose.onNodeWithText("加勒比海").assertHasClickAction().performClick()
         compose.onNodeWithText("小明").assertHasClickAction().performClick()
         assertEquals(listOf("place", "tag"), picked.map { it.kind })
-        assertEquals("person", picked[1].tagKind)
     }
 
     /** 月份標籤是導覽動作、不是切換：不帶選取語意（TalkBack 不唸「未勾選，核取方塊」）。 */

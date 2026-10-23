@@ -30,7 +30,7 @@ open class FakeAccountDeps : AccountDeps {
 
     override suspend fun stats(thisMonth: String): AccountStats = AccountStats(0, 0, 0)
     override suspend fun tags(): List<TagUsage> = emptyList()
-    override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>) = Unit
+    override suspend fun renameTag(id: Long, name: String, aliases: List<String>) = Unit
     override suspend fun deleteTag(id: Long) = Unit
     override suspend fun places(): List<PlaceUsage> = emptyList()
     override suspend fun renamePlace(id: Long, name: String, aliases: List<String>) = Unit

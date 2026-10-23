@@ -63,34 +63,27 @@ data class ShotPatch(
     val tagIds: List<Long>?,
     /**
      * 標籤以**名稱**給定時用這個 —— 就地編輯的畫面只有名稱。
-     * repo 在同一個交易內解析成 id，查不到就新建（種類看 [newTagKinds]，沒給是 `'other'`），
+     * repo 在同一個交易內解析成 id，查不到就新建，
      * 與 `commitPicks` 同樣的理由：在交易外先建好的話，回滾後會留下沒有任何圖引用的空標籤。
      * 與 [tagIds] **互斥**，同時給會丟 IllegalArgumentException。
      */
     val tagNames: List<String>? = null,
-    /** [tagNames] 裡要新建的標籤用什麼種類（名稱 → `tag.kind`）；沒列到的新標籤是 `other`，既有標籤不受影響。 */
-    val newTagKinds: Map<String, String> = emptyMap(),
 )
 
-/**
- * 首頁月份標籤列的一個項目。kind 是 `'place'` 或 `'tag'`（規格第四節：tag.kind 不再有 place）；
- * [tagKind] 是標籤本身的 `tag.kind`（`person`／`pet`／`topic`／`other`），畫面用它挑種類圖示與顏色，
- * 地點列不看它。
- */
-data class MonthFacet(val name: String, val kind: String, val count: Int, val tagKind: String = "other")
+/** 首頁月份標籤列的一個項目。kind 是 `'place'` 或 `'tag'`。 */
+data class MonthFacet(val name: String, val kind: String, val count: Int)
 
 /** 一個地點或標籤在統計表裡的鍵（`kind` 同 `StatKind`：1＝地點、2＝標籤；`id` 是 place.id 或 tag.id）。 */
 data class FacetRef(val kind: Int, val id: Long)
 
 /**
- * 首頁篩選抽屜的一個候選（階段 17）。`tagKind` 地點固定 `"other"`；`aliases` 給搜尋框比對。
+ * 首頁篩選抽屜的一個候選（階段 17）。`aliases` 給搜尋框比對。
  * @param id place.id 或 tag.id（依 [isPlace]）；`0`＝不知道（已勾選但不在候選裡的補位項目、月份小膠囊），
  *        最近使用排序（`FacetUsage`）把它當成沒用過
  */
 data class FilterOption(
     val name: String,
     val isPlace: Boolean,
-    val tagKind: String,
     val aliases: List<String>,
     val id: Long = 0L,
 )

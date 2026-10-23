@@ -16,11 +16,10 @@ class SeedImporterTest {
     private class Recorder : FakeLibraryRepo() {
         val deletedFolders = mutableListOf<Long>()
         val committed = mutableListOf<Pair<VideoEntity, List<NewShot>>>()
-        val kindChanges = mutableMapOf<String, String>()
         val folders = mutableMapOf<Long, String>()
         val links = mutableListOf<Pair<Long, Long>>()
-        /** 圖庫裡現有的標籤：一開始是兩個舊標籤，deleteTag 會移除，commitPicks 會依 tagNames 重建（kind 預設 other，同真 repo） */
-        val tags = mutableListOf(TagUsage(1L, "夜潛", "other", emptyList(), 1), TagUsage(2L, "舊標籤", "other", emptyList(), 1))
+        /** 圖庫裡現有的標籤：一開始是兩個舊標籤，deleteTag 會移除，commitPicks 會依 tagNames 重建 */
+        val tags = mutableListOf(TagUsage(1L, "夜潛", emptyList(), 1), TagUsage(2L, "舊標籤", emptyList(), 1))
         val deletedTagIds = mutableListOf<Long>()
         private var nextTag = 1000L
         private var nextShot = 100L
@@ -30,12 +29,11 @@ class SeedImporterTest {
         override suspend fun deleteFolder(id: Long) { deletedFolders += id }
         override suspend fun commitPicks(video: VideoEntity, picks: List<NewShot>): List<Long> {
             committed += video to picks
-            for (name in picks.flatMap { it.tagNames }) if (tags.none { it.name == name }) tags += TagUsage(nextTag++, name, "other", emptyList(), 1)
+            for (name in picks.flatMap { it.tagNames }) if (tags.none { it.name == name }) tags += TagUsage(nextTag++, name, emptyList(), 1)
             return picks.map { nextShot++ }
         }
         override suspend fun allTagsWithUsage() = tags.toList()
         override suspend fun deleteTag(id: Long) { deletedTagIds += id; tags.removeAll { it.id == id } }
-        override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>): Long { kindChanges[name] = kind; return id }
         override suspend fun createFolder(parentId: Long?, name: String): Long = nextFolder++.also { folders[it] = name }
         override suspend fun addShotToFolder(shotId: Long, folderId: Long, atSec: Long) { links += shotId to folderId }
     }
@@ -57,14 +55,6 @@ class SeedImporterTest {
         SeedImporter(repo) {}.import(plan)
         assertEquals(listOf(1L, 2L), repo.deletedTagIds)
         assertEquals(false, repo.tags.any { it.name == "舊標籤" })
-    }
-
-    @Test fun 標籤kind改成原型的種類() = runBlocking {
-        val repo = Recorder()
-        SeedImporter(repo) {}.import(plan)
-        assertEquals("topic", repo.kindChanges["夜潛"])
-        // 龍蝦在原型是 other，跟現值一樣就不必改
-        assertEquals(null, repo.kindChanges["龍蝦"])
     }
 
     @Test fun 資料夾連到對應的shot() = runBlocking {

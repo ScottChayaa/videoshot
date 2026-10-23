@@ -37,7 +37,7 @@ class SearchRepoTest {
         )
         for (name in tagNames) {
             val tagId = libraryDb.tagDao().byName(name)?.id
-                ?: libraryDb.tagDao().insert(TagEntity(0, name, "topic", "[]"))
+                ?: libraryDb.tagDao().insert(TagEntity(0, name, "[]"))
             libraryDb.tagDao().link(ShotTagEntity(id, tagId, "human"))
         }
         return id
@@ -55,21 +55,6 @@ class SearchRepoTest {
         assertEquals(1, facets.count { it.name == "台北" })
     }
 
-    /** 15C 最終審查 Minor：標籤列帶標籤自己的 kind，地點列固定 "other"（畫面端先看 kind=="place"）。 */
-    @Test
-    fun searchFacets_標籤列帶tagKind地點列為other() = runTest {
-        libraryDb.tagDao().insert(TagEntity(0, "小明", "person", "[]"))
-        seedShot("v1", 0.0, "2026-03-01", place = "宜蘭", tagNames = listOf("小明", "露營"))
-
-        val facets = repo.searchFacets(upToMonth = null, limit = 10)
-
-        assertEquals("person", facets.single { it.name == "小明" }.tagKind)
-        assertEquals("topic", facets.single { it.name == "露營" }.tagKind)
-        val place = facets.single { it.name == "宜蘭" }
-        assertEquals("place", place.kind)
-        assertEquals("other", place.tagKind)
-    }
-
     /** 16B：時間範圍拿掉範圍內沒有圖的項目（排序另見 `StatsReadTest`）。 */
     @Test
     fun searchFacets_時間篩選只看該月以前() = runTest {
@@ -84,7 +69,7 @@ class SearchRepoTest {
     @Test
     fun queryVocabulary_地點與標籤含別名() = runTest {
         seedShot("v1", 0.0, "2026-03-01", place = "宜蘭")
-        libraryDb.tagDao().insert(TagEntity(0, "小橘", "pet", """["我家的貓","橘貓"]"""))
+        libraryDb.tagDao().insert(TagEntity(0, "小橘", """["我家的貓","橘貓"]"""))
 
         val vocab = repo.queryVocabulary()
 

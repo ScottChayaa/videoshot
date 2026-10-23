@@ -432,7 +432,7 @@ private fun MonthHeader(label: String, places: List<MonthFacet>, stuck: Boolean,
 
 /**
  * 該月地點以外的標籤（原型 `.month-tags`），在月份標題列下方，不吸頂。單行橫向捲動。
- * 小膠囊帶種類圖示與顏色，種類看 [MonthFacet.tagKind]。
+ * 小膠囊一律是標籤的 `#`。
  */
 @Composable
 private fun MonthFacetRow(facets: List<MonthFacet>, onClick: (MonthFacet) -> Unit) {

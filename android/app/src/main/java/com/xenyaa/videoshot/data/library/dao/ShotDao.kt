@@ -208,7 +208,5 @@ data class MonthCountProjection(
 data class MonthFacetProjection(
     @ColumnInfo(name = "name") val name: String,
     @ColumnInfo(name = "kind") val kind: String,
-    /** 標籤本身的 `tag.kind`（人物／動物／主題／其他）；地點列固定 `'other'`，畫面端以 [kind] 先判斷地點。 */
-    @ColumnInfo(name = "tag_kind") val tagKind: String,
     @ColumnInfo(name = "cnt") val count: Int,
 )

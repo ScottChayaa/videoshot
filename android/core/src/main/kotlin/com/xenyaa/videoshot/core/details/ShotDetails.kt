@@ -30,12 +30,6 @@ data class DetailsPatch(
     val place: String? = null,
     val description: String? = null,
     val tags: List<String>? = null,
-    /**
-     * 這次**新建**的標籤要用的種類（`person`／`pet`／`topic`／`other`），名稱 → 種類。
-     * 只對資料庫裡還沒有的標籤有作用；既有標籤的種類不在這裡改（那是標籤管理的事）。
-     * 不算「動過的欄位」：它只是 [tags] 的附帶資訊。
-     */
-    val newTagKinds: Map<String, String> = emptyMap(),
 ) {
     val isEmpty: Boolean
         get() = eventDate == null && place == null && description == null && tags == null

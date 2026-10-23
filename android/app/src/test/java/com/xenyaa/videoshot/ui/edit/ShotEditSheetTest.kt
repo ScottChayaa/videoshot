@@ -16,7 +16,6 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import com.xenyaa.videoshot.core.details.DetailsPatch
 import com.xenyaa.videoshot.core.details.ShotDetails
-import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -50,8 +49,8 @@ class ShotEditSheetTest {
                     details = value,
                     placeSuggestions = listOf("花蓮", "宜蘭", "花東縱谷"),
                     tagSuggestions = listOf(
-                        TagNameKind("玩水", "topic"), TagNameKind("露營", "topic"),
-                        TagNameKind("阿明", "person"), TagNameKind("夜潛", "other"),
+                        "玩水", "露營",
+                        "阿明", "夜潛",
                     ),
                     onDismiss = { dismissed++ },
                     onSave = { saved = it },
@@ -183,43 +182,23 @@ class ShotEditSheetTest {
         compose.onNodeWithText("玩水").assertDoesNotExist()
     }
 
+    /** 標籤不分種類：新打的標籤加入後直接成為已選標籤，不再跳出種類選擇。 */
     @Test
-    fun 新標籤加入後出現種類選擇_預設主題() {
+    fun 新標籤加入後不出現種類選擇() {
         show()
         compose.onNodeWithContentDescription("新增標籤").performTextInput("海龜")
         compose.onNodeWithText("加入").performClick()
-        compose.onNodeWithText("「海龜」是：").assertIsDisplayed()
+        compose.onNodeWithText("「海龜」是：").assertDoesNotExist()
         compose.onNodeWithText("儲存").performClick()
-        assertEquals(mapOf("海龜" to "topic"), saved?.newTagKinds)
-    }
-
-    @Test
-    fun 新標籤可以改選種類() {
-        show()
-        compose.onNodeWithContentDescription("新增標籤").performTextInput("海龜")
-        compose.onNodeWithText("加入").performClick()
-        compose.onNodeWithText("動物").performClick()
-        compose.onNodeWithText("儲存").performClick()
-        assertEquals(mapOf("海龜" to "pet"), saved?.newTagKinds)
         assertEquals(listOf("海龜", "露營", "阿明").sorted(), saved?.tags)
     }
 
     @Test
-    fun 挑既有標籤不會出現種類選擇() {
-        show()
-        compose.onNodeWithText("玩水").performClick()
-        compose.onNodeWithText("「玩水」是：").assertDoesNotExist()
-        compose.onNodeWithText("儲存").performClick()
-        assertEquals(emptyMap<String, String>(), saved?.newTagKinds)
-    }
-
-    @Test
-    fun 移除新標籤就不送它的種類() {
+    fun 移除剛加入的新標籤等於沒動過() {
         show()
         compose.onNodeWithContentDescription("新增標籤").performTextInput("海龜")
         compose.onNodeWithText("加入").performClick()
         compose.onNodeWithContentDescription("移除標籤 海龜").performClick()
-        compose.onNodeWithText("「海龜」是：").assertDoesNotExist()
         compose.onNodeWithText("儲存").assertIsNotEnabled()
     }
 }

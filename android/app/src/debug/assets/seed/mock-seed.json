@@ -94,14 +94,8 @@
       "place": "加勒比海",
       "description": "夜潛第一次見到巨型犀牛蝦，藏在礁石縫裡\n犀牛蝦好大",
       "tags": [
-        {
-          "name": "夜潛",
-          "kind": "topic"
-        },
-        {
-          "name": "龍蝦",
-          "kind": "other"
-        }
+        "夜潛",
+        "龍蝦"
       ]
     },
     {
@@ -112,10 +106,7 @@
       "place": "加勒比海無人島",
       "description": "在無人島沙灘生火煮海鮮，畫面超療癒",
       "tags": [
-        {
-          "name": "露營",
-          "kind": "topic"
-        }
+        "露營"
       ]
     },
     {
@@ -126,14 +117,8 @@
       "place": "加勒比海",
       "description": "海底遇到一群魚群，能見度極佳\n這段風景最美",
       "tags": [
-        {
-          "name": "潛水",
-          "kind": "topic"
-        },
-        {
-          "name": "魚群",
-          "kind": "other"
-        }
+        "潛水",
+        "魚群"
       ]
     },
     {
@@ -144,14 +129,8 @@
       "place": "加勒比海",
       "description": "與2米長大鯊魚近距離對峙，超緊張\n差點掉線",
       "tags": [
-        {
-          "name": "鯊魚",
-          "kind": "other"
-        },
-        {
-          "name": "粉色螺珠",
-          "kind": "topic"
-        }
+        "鯊魚",
+        "粉色螺珠"
       ]
     },
     {
@@ -162,14 +141,8 @@
       "place": "佛羅里達",
       "description": "在河床挖到史前巨齒鯊的大牙齒",
       "tags": [
-        {
-          "name": "化石",
-          "kind": "topic"
-        },
-        {
-          "name": "巨齒鯊",
-          "kind": "other"
-        }
+        "化石",
+        "巨齒鯊"
       ]
     },
     {
@@ -180,14 +153,8 @@
       "place": "柳州",
       "description": "108元的第一螺螄鴨腳煲，湯頭濃郁\n鴨腳很入味",
       "tags": [
-        {
-          "name": "螺螄粉",
-          "kind": "topic"
-        },
-        {
-          "name": "宵夜",
-          "kind": "topic"
-        }
+        "螺螄粉",
+        "宵夜"
       ]
     },
     {
@@ -198,10 +165,7 @@
       "place": "廣西",
       "description": "3.5元的卷筒粉，CP值爆表",
       "tags": [
-        {
-          "name": "米粉",
-          "kind": "topic"
-        }
+        "米粉"
       ]
     },
     {
@@ -212,14 +176,8 @@
       "place": "南寧",
       "description": "南寧大排檔的15元海鮮粉，料多實在\n老闆超豪邁",
       "tags": [
-        {
-          "name": "大排檔",
-          "kind": "topic"
-        },
-        {
-          "name": "海鮮",
-          "kind": "topic"
-        }
+        "大排檔",
+        "海鮮"
       ]
     },
     {
@@ -230,10 +188,7 @@
       "place": "博白",
       "description": "博白白切，55元一斤肉質鮮嫩",
       "tags": [
-        {
-          "name": "白切",
-          "kind": "topic"
-        }
+        "白切"
       ]
     },
     {
@@ -244,10 +199,7 @@
       "place": "雲南",
       "description": "即將消失的縣城，老街依然熱鬧\n很有時代感",
       "tags": [
-        {
-          "name": "老街",
-          "kind": "topic"
-        }
+        "老街"
       ]
     },
     {
@@ -258,10 +210,7 @@
       "place": "青藏高原",
       "description": "斷崖式交界帶，一邊盆地一邊高原\n地形超震撼",
       "tags": [
-        {
-          "name": "地理",
-          "kind": "topic"
-        }
+        "地理"
       ]
     },
     {
@@ -272,10 +221,7 @@
       "place": "女兒國縣城",
       "description": "西遊記「女兒國」原型縣城，人口密度驚人",
       "tags": [
-        {
-          "name": "西遊記",
-          "kind": "topic"
-        }
+        "西遊記"
       ]
     },
     {
@@ -286,14 +232,8 @@
       "place": "秦嶺",
       "description": "橫穿秦嶺鰲太線，雲海壯闊\n走了4小時",
       "tags": [
-        {
-          "name": "登山",
-          "kind": "topic"
-        },
-        {
-          "name": "雲海",
-          "kind": "other"
-        }
+        "登山",
+        "雲海"
       ]
     },
     {
@@ -304,14 +244,8 @@
       "place": null,
       "description": "挑戰做一下伏地挺身",
       "tags": [
-        {
-          "name": "Emiru",
-          "kind": "person"
-        },
-        {
-          "name": "伏地挺身",
-          "kind": "topic"
-        }
+        "Emiru",
+        "伏地挺身"
       ]
     }
   ],

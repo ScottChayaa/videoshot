@@ -1,18 +1,14 @@
 package com.xenyaa.videoshot.ui.account
 
 import androidx.activity.ComponentActivity
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertIsNotSelected
-import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
-import com.xenyaa.videoshot.core.tags.TagKind
 import com.xenyaa.videoshot.data.repo.model.TagUsage
 import com.xenyaa.videoshot.ui.testing.near
 import com.xenyaa.videoshot.ui.testing.pixelsAround
@@ -34,8 +30,8 @@ class TagManagementScreenTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
     private val tags = listOf(
-        TagUsage(1, "阿明", "person", emptyList(), 3),
-        TagUsage(2, "露營", "topic", listOf("野營"), 5),
+        TagUsage(1, "阿明", emptyList(), 3),
+        TagUsage(2, "露營", listOf("野營"), 5),
     )
 
     @Test
@@ -45,7 +41,7 @@ class TagManagementScreenTest {
                 TagManagementScreen(
                     state = AccountState(tags = tags),
                     onBack = {}, onOpenEditor = {}, onDismissEditor = {},
-                    onEditName = {}, onEditKind = {}, onEditAliases = {},
+                    onEditName = {}, onEditAliases = {},
                     onRequestSave = {}, onConfirmMerge = {}, onDismissMerge = {},
                     onAskDelete = {}, onDismissDelete = {}, onConfirmDelete = {},
                 )
@@ -63,7 +59,7 @@ class TagManagementScreenTest {
                 TagManagementScreen(
                     state = AccountState(tags = tags),
                     onBack = {}, onOpenEditor = { opened = it }, onDismissEditor = {},
-                    onEditName = {}, onEditKind = {}, onEditAliases = {},
+                    onEditName = {}, onEditAliases = {},
                     onRequestSave = {}, onConfirmMerge = {}, onDismissMerge = {},
                     onAskDelete = {}, onDismissDelete = {}, onConfirmDelete = {},
                 )
@@ -78,9 +74,9 @@ class TagManagementScreenTest {
         compose.setContent {
             VideoshotTheme {
                 TagManagementScreen(
-                    state = AccountState(tags = tags, editor = TagEditor(2, "露營", com.xenyaa.videoshot.core.tags.TagKind.TOPIC, "野營")),
+                    state = AccountState(tags = tags, editor = TagEditor(2, "露營", "野營")),
                     onBack = {}, onOpenEditor = {}, onDismissEditor = {},
-                    onEditName = {}, onEditKind = {}, onEditAliases = {},
+                    onEditName = {}, onEditAliases = {},
                     onRequestSave = {}, onConfirmMerge = {}, onDismissMerge = {},
                     onAskDelete = {}, onDismissDelete = {}, onConfirmDelete = {},
                 )
@@ -99,11 +95,11 @@ class TagManagementScreenTest {
                 TagManagementScreen(
                     state = AccountState(
                         tags = tags,
-                        editor = TagEditor(1, "露營", com.xenyaa.videoshot.core.tags.TagKind.PERSON, ""),
+                        editor = TagEditor(1, "露營", ""),
                         pendingMerge = "露營",
                     ),
                     onBack = {}, onOpenEditor = {}, onDismissEditor = {},
-                    onEditName = {}, onEditKind = {}, onEditAliases = {},
+                    onEditName = {}, onEditAliases = {},
                     onRequestSave = {}, onConfirmMerge = { confirmed = true }, onDismissMerge = {},
                     onAskDelete = {}, onDismissDelete = {}, onConfirmDelete = {},
                 )
@@ -122,7 +118,7 @@ class TagManagementScreenTest {
                 TagManagementScreen(
                     state = AccountState(tags = tags, deleting = tags[0]),
                     onBack = {}, onOpenEditor = {}, onDismissEditor = {},
-                    onEditName = {}, onEditKind = {}, onEditAliases = {},
+                    onEditName = {}, onEditAliases = {},
                     onRequestSave = {}, onConfirmMerge = {}, onDismissMerge = {},
                     onAskDelete = {}, onDismissDelete = {}, onConfirmDelete = { confirmed = true },
                 )
@@ -143,7 +139,7 @@ class TagManagementScreenTest {
                 TagManagementScreen(
                     state = AccountState(tags = tags, error = "操作失敗，請再試一次"),
                     onBack = {}, onOpenEditor = {}, onDismissEditor = {},
-                    onEditName = {}, onEditKind = {}, onEditAliases = {},
+                    onEditName = {}, onEditAliases = {},
                     onRequestSave = {}, onConfirmMerge = {}, onDismissMerge = {},
                     onAskDelete = {}, onDismissDelete = {}, onConfirmDelete = {},
                     onRetry = { retried = true },
@@ -159,7 +155,6 @@ class TagManagementScreenTest {
         state: AccountState,
         onOpenEditor: (TagUsage) -> Unit = {},
         onEditName: (String) -> Unit = {},
-        onEditKind: (TagKind) -> Unit = {},
         onRequestSave: () -> Unit = {},
         onDismissMerge: () -> Unit = {},
         onAskDelete: (TagUsage) -> Unit = {},
@@ -171,7 +166,7 @@ class TagManagementScreenTest {
                 TagManagementScreen(
                     state = state,
                     onBack = {}, onOpenEditor = onOpenEditor, onDismissEditor = {},
-                    onEditName = onEditName, onEditKind = onEditKind, onEditAliases = {},
+                    onEditName = onEditName, onEditAliases = {},
                     onRequestSave = onRequestSave, onConfirmMerge = {}, onDismissMerge = onDismissMerge,
                     onAskDelete = onAskDelete, onDismissDelete = onDismissDelete, onConfirmDelete = {},
                     onStartMerge = onStartMerge,
@@ -186,42 +181,26 @@ class TagManagementScreenTest {
         showScreen(AccountState(tags = tags))
         compose.onNodeWithText("全部標籤（2）").assertIsDisplayed()
         compose.onNodeWithText("點一個標籤可以改名、編輯別名或刪除；刪除只解除關聯，圖不會被刪。").assertIsDisplayed()
-        // 副標原有內容：種類 ・ 張數
-        compose.onNodeWithText("人物 ・ 3 張").assertIsDisplayed()
+        // 副標只有張數（標籤不分種類）
+        compose.onNodeWithText("3 張").assertIsDisplayed()
     }
 
-    /** 清單列圖示用「種類色」著色（人物＝person 色），不是一律的 textDim。 */
+    /** 清單列圖示一律是標籤色的 `#`，不是 textDim。 */
     @Test
-    fun 標籤列圖示套種類色() {
+    fun 標籤列圖示套標籤色() {
         showScreen(AccountState(tags = tags))
-        val personRow = compose.pixelsAround(compose.onNodeWithText("阿明"), margin = 0)
-        val topicRow = compose.pixelsAround(compose.onNodeWithText("露營"), margin = 0)
-        // person（靛）與 topic（紫）色差只有約 0.16，容差要夠緊才分得開
-        fun count(grid: com.xenyaa.videoshot.ui.testing.Grid, c: Color): Int {
-            var n = 0
-            for (y in 0 until grid.height) for (x in 0 until grid.width) if (near(grid[x, y], c, 0.05f)) n++
-            return n
-        }
-        assert(count(personRow, KindColors.person) > 0) { "人物列應畫出 person 色的圖示" }
-        assert(count(personRow, KindColors.topic) == 0) { "人物列不該出現 topic 色" }
-        assert(count(topicRow, KindColors.topic) > 0) { "主題列應畫出 topic 色的圖示" }
-        assert(count(topicRow, KindColors.person) == 0) { "主題列不該出現 person 色" }
+        val row = compose.pixelsAround(compose.onNodeWithText("阿明"), margin = 0)
+        var n = 0
+        for (y in 0 until row.height) for (x in 0 until row.width) if (near(row[x, y], KindColors.tag, 0.05f)) n++
+        assert(n > 0) { "標籤列應畫出標籤色的圖示" }
     }
 
-    /** kind 選擇是切換型：四顆、目前的 kind 選中，其餘不選；點另一顆回報該 kind。 */
+    /** 標籤不分種類：編輯抽屜沒有種類選擇。 */
     @Test
-    fun 編輯抽屜kind是切換型且選中目前的種類() {
-        var picked: TagKind? = null
-        showScreen(
-            AccountState(tags = tags, editor = TagEditor(2, "露營", TagKind.TOPIC, "野營")),
-            onEditKind = { picked = it },
-        )
-        compose.onNodeWithText("主題").assertIsSelected()
-        compose.onNodeWithText("人物").assertIsNotSelected()
-        compose.onNodeWithText("動物").assertIsNotSelected()
-        compose.onNodeWithText("其他").assertIsNotSelected()
-        compose.onNodeWithText("動物").performClick()
-        assert(picked == TagKind.PET)
+    fun 編輯抽屜沒有種類選擇() {
+        showScreen(AccountState(tags = tags, editor = TagEditor(2, "露營", "野營")))
+        compose.onNodeWithText("顯示圖示").assertDoesNotExist()
+        compose.onNodeWithText("人物").assertDoesNotExist()
     }
 
     @Test
@@ -229,7 +208,7 @@ class TagManagementScreenTest {
         var saved = false
         var asked: TagUsage? = null
         showScreen(
-            AccountState(tags = tags, editor = TagEditor(2, "露營", TagKind.TOPIC, "")),
+            AccountState(tags = tags, editor = TagEditor(2, "露營", "")),
             onRequestSave = { saved = true },
             onAskDelete = { asked = it },
         )
@@ -241,7 +220,7 @@ class TagManagementScreenTest {
 
     @Test
     fun 編輯抽屜名稱空白時儲存停用() {
-        showScreen(AccountState(tags = tags, editor = TagEditor(2, "", TagKind.TOPIC, "")))
+        showScreen(AccountState(tags = tags, editor = TagEditor(2, "", "")))
         compose.onNodeWithText("儲存").assertIsNotEnabled()
     }
 
@@ -249,7 +228,7 @@ class TagManagementScreenTest {
     fun 編輯抽屜名稱欄輸入會回報() {
         var typed = ""
         showScreen(
-            AccountState(tags = tags, editor = TagEditor(2, "", TagKind.TOPIC, "")),
+            AccountState(tags = tags, editor = TagEditor(2, "", "")),
             onEditName = { typed = it },
         )
         compose.onNodeWithContentDescription("名稱").performTextInput("新名")
@@ -260,7 +239,7 @@ class TagManagementScreenTest {
     fun 合併確認按取消會呼叫onDismissMerge() {
         var dismissed = false
         showScreen(
-            AccountState(tags = tags, editor = TagEditor(1, "露營", TagKind.PERSON, ""), pendingMerge = "露營"),
+            AccountState(tags = tags, editor = TagEditor(1, "露營", ""), pendingMerge = "露營"),
             onDismissMerge = { dismissed = true },
         )
         compose.onNodeWithText("取消").performClick()
@@ -278,7 +257,7 @@ class TagManagementScreenTest {
     @Test
     fun 編輯抽屜的合併到按鈕會呼叫onStartMerge() {
         var started = false
-        showScreen(AccountState(tags = tags, editor = TagEditor(1, "阿明", TagKind.PERSON, "")), onStartMerge = { started = true })
+        showScreen(AccountState(tags = tags, editor = TagEditor(1, "阿明", "")), onStartMerge = { started = true })
         compose.onNodeWithText("合併到…").performClick()
         assert(started)
     }

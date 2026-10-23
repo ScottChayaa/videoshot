@@ -28,7 +28,6 @@ import androidx.compose.ui.text.input.ImeAction
 import com.xenyaa.videoshot.core.details.Common
 import com.xenyaa.videoshot.core.details.DetailsPatch
 import com.xenyaa.videoshot.core.details.normalizeTags
-import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.ChipKind
 import com.xenyaa.videoshot.ui.common.VsBottomSheet
@@ -82,7 +81,7 @@ internal fun PlacePickerSheet(
             val filtering = query.isNotEmpty() && query !in suggestions
             suggestions.filter { it != query && (!filtering || it.contains(query, ignoreCase = true)) }
         }
-        VsChipPager(names = places, kindOf = { ChipKind.PLACE }, onClick = { i -> input = places[i] }, resetKey = query)
+        VsChipPager(names = places, kind = ChipKind.PLACE, onClick = { i -> input = places[i] }, resetKey = query)
     }
 }
 
@@ -96,15 +95,13 @@ internal fun PlacePickerSheet(
 internal fun TagPickerSheet(
     field: Common<List<String>>,
     count: Int,
-    suggestions: List<TagNameKind>,
+    suggestions: List<String>,
     onConfirm: (DetailsPatch) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val initial = (field as? Common.One<List<String>>)?.value.orEmpty()
     var tags by remember { mutableStateOf(initial) }
     var typing by remember { mutableStateOf("") }
-    val kinds = remember(suggestions) { suggestions.associate { it.name to it.kind } }
-    fun kindOf(tag: String) = ChipKind.ofTagKind(kinds[tag] ?: "other")
     fun add(raw: String) {
         normalizeTags(listOf(raw)).firstOrNull()?.let { tags = normalizeTags(tags + it) }
         typing = ""
@@ -123,7 +120,7 @@ internal fun TagPickerSheet(
     ) {
         if (tags.isNotEmpty()) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
-                tags.forEach { tag -> VsRemovableTag(tag, kindOf(tag), onRemove = { tags = tags - tag }) }
+                tags.forEach { tag -> VsRemovableTag(tag, onRemove = { tags = tags - tag }) }
             }
         } else if (field is Common.Mixed) {
             Text(MIXED, style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic), color = AppTheme.colors.textDim)
@@ -142,12 +139,12 @@ internal fun TagPickerSheet(
         }
         val q = typing.trim()
         val options = remember(suggestions, tags, q) {
-            suggestions.filter { it.name !in tags && (q.isEmpty() || it.name.contains(q, ignoreCase = true)) }
+            suggestions.filter { it !in tags && (q.isEmpty() || it.contains(q, ignoreCase = true)) }
         }
         VsChipPager(
-            names = remember(options) { options.map { it.name } },
-            kindOf = { i -> ChipKind.ofTagKind(options[i].kind) },
-            onClick = { i -> add(options[i].name) },
+            names = options,
+            kind = ChipKind.TAG,
+            onClick = { i -> add(options[i]) },
             resetKey = q,
         )
     }

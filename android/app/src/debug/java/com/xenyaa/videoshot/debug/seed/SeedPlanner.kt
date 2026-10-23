@@ -27,13 +27,11 @@ object SeedPlanner {
                         frameIndex = level?.let { Storyboard.frameIndexAt(it, s.atSec.toDouble()) },
                         sbLevel = level?.level,
                         eventDate = s.eventDate, place = s.place, description = s.description,
-                        webp = null, tagNames = s.tags.map { it.name },
+                        webp = null, tagNames = s.tags,
                     )
                 },
             )
         }
-        val kinds = linkedMapOf<String, String>()
-        for (s in file.shots) for (t in s.tags) kinds.putIfAbsent(t.name, t.kind)
-        return SeedPlan(batches, kinds, file.folders)
+        return SeedPlan(batches, file.folders)
     }
 }

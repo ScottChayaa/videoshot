@@ -142,29 +142,23 @@ private fun ChipSection() = Section("標籤小膠囊") {
     val s2 = AppTheme.spacing.s2
     FlowRow(horizontalArrangement = Arrangement.spacedBy(s2), verticalArrangement = Arrangement.spacedBy(s2)) {
         VsTagChip("加勒比海", ChipKind.PLACE)
-        VsTagChip("阿明", ChipKind.PERSON)
-        VsTagChip("海龜", ChipKind.PET)
-        VsTagChip("夜潛", ChipKind.TOPIC)
-        VsTagChip("龍蝦", ChipKind.OTHER)
+        VsTagChip("夜潛", ChipKind.TAG)
     }
     var picked by remember { mutableStateOf(true) }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(s2), verticalArrangement = Arrangement.spacedBy(s2)) {
-        VsTagChip("夜潛", ChipKind.TOPIC, selected = picked, isToggle = true, onClick = { picked = !picked })
+        VsTagChip("夜潛", ChipKind.TAG, selected = picked, isToggle = true, onClick = { picked = !picked })
         VsTagChip("加勒比海", ChipKind.PLACE, count = 12)
-        VsTagChip("阿明", ChipKind.PERSON, selected = true, count = 3)
+        VsTagChip("阿明", ChipKind.TAG, selected = true, count = 3)
     }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(s2), verticalArrangement = Arrangement.spacedBy(s2)) {
         VsTagChip("加勒比海", ChipKind.PLACE, size = ChipSize.Mini)
-        VsTagChip("阿明", ChipKind.PERSON, size = ChipSize.Mini)
-        VsTagChip("海龜", ChipKind.PET, size = ChipSize.Mini)
-        VsTagChip("夜潛", ChipKind.TOPIC, size = ChipSize.Mini)
-        VsTagChip("龍蝦", ChipKind.OTHER, size = ChipSize.Mini)
+        VsTagChip("夜潛", ChipKind.TAG, size = ChipSize.Mini)
     }
     // 可點的迷你小膠囊（首頁月份標籤）：外觀維持迷你，觸控區 44dp
     var miniPicked by remember { mutableStateOf(false) }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(s2), verticalArrangement = Arrangement.spacedBy(s2)) {
         VsTagChip("加勒比海", ChipKind.PLACE, size = ChipSize.Mini, selected = miniPicked, isToggle = true, onClick = { miniPicked = !miniPicked })
-        VsTagChip("夜潛", ChipKind.TOPIC, size = ChipSize.Mini, onClick = {})
+        VsTagChip("夜潛", ChipKind.TAG, size = ChipSize.Mini, onClick = {})
     }
     // 骨架屏（資料還沒畫上去之前，例如首頁篩選抽屜剛打開、候選讀取中）
     VsChipSkeleton(6)

@@ -2,7 +2,6 @@ package com.xenyaa.videoshot.wizard
 
 import com.xenyaa.videoshot.core.youtube.VideoMeta
 import com.xenyaa.videoshot.core.youtube.WatchPage
-import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.model.NewShot
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
@@ -58,7 +57,7 @@ interface WizardData {
 
     suspend fun distinctPlaces(): List<String>
     /** 標籤候選（名稱＋種類），用過越多張的排越前面。 */
-    suspend fun tagSuggestions(): List<TagNameKind>
+    suspend fun tagSuggestions(): List<String>
 
     /**
      * 第三步進場時把勾選的 storyboard 格從**本機 sheet** 裁進 `thumbs/`（規格第七節）。
@@ -108,7 +107,7 @@ interface WizardData {
 data class CropOutcome(val written: List<Int>, val missing: List<Int>)
 
 /** 抽屜的既有值建議（規格第五節欄位表）。 */
-data class Suggestions(val places: List<String> = emptyList(), val tags: List<TagNameKind> = emptyList())
+data class Suggestions(val places: List<String> = emptyList(), val tags: List<String> = emptyList())
 
 /** 完成之後要告訴外殼的兩件事：捲到哪個月份、加了幾張。 */
 data class Finished(val eventDate: String, val count: Int)

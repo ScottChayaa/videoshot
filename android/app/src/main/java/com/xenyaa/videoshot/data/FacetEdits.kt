@@ -12,8 +12,8 @@ class FacetEdits(
     private val usage: FacetUsage,
 ) {
     /** 撞名＝合併（`renameTag` 回傳目標的編號）。 */
-    suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>) {
-        val kept = library.renameTag(id, name, kind, aliases)
+    suspend fun renameTag(id: Long, name: String, aliases: List<String>) {
+        val kept = library.renameTag(id, name, aliases)
         if (kept != id) usage.merged(StatKind.TAG, id, kept)
     }
 

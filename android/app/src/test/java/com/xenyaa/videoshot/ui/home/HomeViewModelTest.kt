@@ -248,8 +248,8 @@ class HomeViewModelTest {
 
     // ---- 階段 17：首頁篩選 ----
 
-    private fun place(name: String) = FilterOption(name, true, "other", emptyList())
-    private fun tag(name: String) = FilterOption(name, false, "topic", emptyList())
+    private fun place(name: String) = FilterOption(name, true, emptyList())
+    private fun tag(name: String) = FilterOption(name, false, emptyList())
 
     private fun TestScope.newVm(configure: FakeLibraryRepo.() -> Unit = {}): Pair<HomeViewModel, FakeLibraryRepo> {
         val repo = FakeLibraryRepo().apply {

@@ -46,8 +46,6 @@ class SeedPlannerTest {
         val pick = plan.batches.first { it.video.id == "Ea8ICLXTDaU" }.picks.first { it.atSec == 132.0 }
         assertEquals("加勒比海", pick.place)
         assertEquals(listOf("夜潛", "龍蝦"), pick.tagNames)
-        assertEquals("topic", plan.tagKinds["夜潛"])
-        assertNull(plan.tagKinds["加勒比海"])
     }
 
     @Test fun 資料夾帶著shot的key() {

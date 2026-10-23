@@ -12,7 +12,7 @@ class FacetEditsTest {
     /** 改名時：名稱是「宜蘭」就當成撞名合併到 2 號，其他名稱不撞名。 */
     private class Library : FakeLibraryRepo() {
         override suspend fun renamePlace(id: Long, name: String, aliases: List<String>): Long = if (name == "宜蘭") 2L else id
-        override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>): Long = if (name == "貓") 2L else id
+        override suspend fun renameTag(id: Long, name: String, aliases: List<String>): Long = if (name == "貓") 2L else id
     }
 
     private suspend fun setUp(): Pair<FacetEdits, FakeCacheRepo> {
@@ -41,7 +41,7 @@ class FacetEditsTest {
     @Test fun 改名撞名_當成合併() = runTest {
         val (edits, cache) = setUp()
         edits.renamePlace(id = 1, name = "宜蘭", aliases = emptyList())
-        edits.renameTag(id = 1, name = "貓", kind = "animal", aliases = emptyList())
+        edits.renameTag(id = 1, name = "貓", aliases = emptyList())
         assertEquals(setOf(FacetRef(1, 2), FacetRef(2, 2)), cache.facetRecent().keys)
         assertEquals(500L, cache.facetRecent()[FacetRef(1, 2)])
     }

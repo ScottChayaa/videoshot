@@ -13,9 +13,6 @@ data class SeedFile(val videos: List<SeedVideo>, val shots: List<SeedShot>, val 
 data class SeedVideo(val id: String, val title: String, val channelTitle: String, val durationSec: Int, val sbSpec: String?)
 
 @Serializable
-data class SeedTag(val name: String, val kind: String)
-
-@Serializable
 data class SeedShot(
     val key: String,
     val videoId: String,
@@ -23,7 +20,7 @@ data class SeedShot(
     val eventDate: String,
     val place: String?,
     val description: String,
-    val tags: List<SeedTag>,
+    val tags: List<String>,
 )
 
 @Serializable
@@ -34,4 +31,4 @@ data class SeedFolder(val key: String, val name: String, val shotKeys: List<Stri
 /** 一支影片與它底下要寫入的格子；[shotKeys] 與 [picks] 一一對應，供資料夾用 key 找回 shot。 */
 data class SeedBatch(val video: VideoEntity, val shotKeys: List<String>, val picks: List<NewShot>)
 
-data class SeedPlan(val batches: List<SeedBatch>, val tagKinds: Map<String, String>, val folders: List<SeedFolder>)
+data class SeedPlan(val batches: List<SeedBatch>, val folders: List<SeedFolder>)

@@ -80,7 +80,7 @@ fun paginateChips(widths: List<Int>, maxWidth: Int, gap: Int, rowsPerPage: Int):
 @Composable
 fun VsChipPager(
     names: List<String>,
-    kindOf: (Int) -> ChipKind,
+    kind: ChipKind,
     onClick: (Int) -> Unit,
     modifier: Modifier = Modifier,
     selected: (Int) -> Boolean = { false },
@@ -127,7 +127,7 @@ fun VsChipPager(
                             for (i in row) {
                                 VsTagChip(
                                     name = names[i],
-                                    kind = kindOf(i),
+                                    kind = kind,
                                     selected = selected(i),
                                     isToggle = isToggle,
                                     textLayout = layouts[i],

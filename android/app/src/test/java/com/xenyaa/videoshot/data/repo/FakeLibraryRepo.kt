@@ -55,7 +55,7 @@ open class FakeLibraryRepo : LibraryRepo {
     override suspend fun deletePlace(id: Long) = Unit
     override suspend fun mergeTag(fromId: Long, toId: Long) = Unit
     override suspend fun allTagsWithUsage(): List<TagUsage> = emptyList()
-    override suspend fun renameTag(id: Long, name: String, kind: String, aliases: List<String>) = id
+    override suspend fun renameTag(id: Long, name: String, aliases: List<String>) = id
     override suspend fun deleteTag(id: Long) = Unit
     override suspend fun queryVocabulary() = com.xenyaa.videoshot.core.query.QueryVocabulary(emptyList(), emptyList())
     override suspend fun accountStats(thisMonth: String): AccountStats = AccountStats(0, 0, 0)

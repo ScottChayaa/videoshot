@@ -44,7 +44,6 @@ import com.xenyaa.videoshot.core.details.Common
 import com.xenyaa.videoshot.core.details.DetailsPatch
 import com.xenyaa.videoshot.core.details.ShotDetails
 import com.xenyaa.videoshot.core.time.formatClock
-import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import com.xenyaa.videoshot.ui.common.VsActionDock
 import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsDatePickerDialog
@@ -94,7 +93,7 @@ fun Step3DetailsScreen(
     onFinish: () -> Unit,
     modifier: Modifier = Modifier,
     placeSuggestions: List<String> = emptyList(),
-    tagSuggestions: List<TagNameKind> = emptyList(),
+    tagSuggestions: List<String> = emptyList(),
 ) {
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()

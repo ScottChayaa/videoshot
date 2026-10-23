@@ -12,7 +12,6 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import com.xenyaa.videoshot.core.details.Common
 import com.xenyaa.videoshot.core.details.DetailsPatch
-import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -36,7 +35,7 @@ class Step3PickersTest {
         VideoshotTheme { PlacePickerSheet(field, 2, suggestions, { confirmed += it }, { dismissed++ }) }
     }
 
-    private fun tags(field: Common<List<String>>, suggestions: List<TagNameKind> = emptyList()) = compose.setContent {
+    private fun tags(field: Common<List<String>>, suggestions: List<String> = emptyList()) = compose.setContent {
         VideoshotTheme { TagPickerSheet(field, 2, suggestions, { confirmed += it }, { dismissed++ }) }
     }
 
@@ -126,7 +125,7 @@ class Step3PickersTest {
     }
 
     @Test fun 標籤_點用過的標籤會加進去() {
-        tags(Common.One(emptyList()), suggestions = listOf(TagNameKind("阿明", "person")))
+        tags(Common.One(emptyList()), suggestions = listOf("阿明"))
         compose.onNodeWithText("阿明").performClick()
         compose.onNodeWithText("確定").performClick()
         assertEquals(listOf(DetailsPatch(tags = listOf("阿明"))), confirmed)

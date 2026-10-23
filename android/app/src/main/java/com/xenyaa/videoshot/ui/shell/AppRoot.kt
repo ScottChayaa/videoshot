@@ -35,7 +35,6 @@ import com.xenyaa.videoshot.core.details.ShotDetails
 import com.xenyaa.videoshot.core.home.monthOf
 import com.xenyaa.videoshot.core.player.isLandscapeVideo
 import com.xenyaa.videoshot.data.repo.model.FolderNode
-import com.xenyaa.videoshot.data.library.dao.TagNameKind
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.ui.account.AccountScreen
@@ -402,7 +401,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                 onHintSeen = { scope.launch { container.settings.markLightboxHintSeen() } },
                 onClose = { nav.pop()?.let { nav = it } },
                 onLoadMore = loadMore,
-                tagsOf = { shot -> container.libraryRepo.tagsWithKindOfShot(shot.id) },
+                tagsOf = { shot -> container.libraryRepo.tagsOfShot(shot.id) },
                 tagsRefreshKey = shotEdits,
                 clip = lightboxClip,
                 // 【加入相簿】與【詳細資料】抽屜是 AppRoot 畫的，蓋在 Lightbox 上時片段要停
@@ -903,7 +902,6 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                                 onOpenEditor = accountVm::openTagEditor,
                                 onDismissEditor = accountVm::dismissTagEditor,
                                 onEditName = accountVm::editTagName,
-                                onEditKind = accountVm::editTagKind,
                                 onEditAliases = accountVm::editTagAliases,
                                 onRequestSave = accountVm::requestSaveTag,
                                 onConfirmMerge = accountVm::confirmMerge,
@@ -1096,8 +1094,8 @@ private fun EditingSheet(
     val places by produceState(emptyList<String>()) {
         value = runCatching { container.libraryRepo.distinctPlaces() }.getOrDefault(emptyList())
     }
-    // 標籤要帶種類（小膠囊依種類畫圖示），用過越多張的排越前面
-    val allTags by produceState(emptyList<TagNameKind>()) {
+    // 用過越多張的排越前面
+    val allTags by produceState(emptyList<String>()) {
         value = runCatching { container.libraryRepo.tagSuggestions() }.getOrDefault(emptyList())
     }
     ShotEditSheet(
@@ -1116,7 +1114,6 @@ private fun EditingSheet(
                         description = patch.description,
                         tagIds = null,
                         tagNames = patch.tags,
-                        newTagKinds = patch.newTagKinds,
                     ),
                 )
                 // 存檔後把這張圖寫回首頁快取 —— 不然使用者回到首頁還會看到編輯前的舊圖資。

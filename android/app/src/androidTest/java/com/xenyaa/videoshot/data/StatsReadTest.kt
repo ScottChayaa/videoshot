@@ -72,8 +72,6 @@ class StatsReadTest {
             listOf("宜蘭|place|2", "阿明|tag|2", "露營|tag|2", "台北|place|1"),
             facets.map { "${it.name}|${it.kind}|${it.count}" },
         )
-        assertEquals("other", facets.first { it.name == "宜蘭" }.tagKind)
-        assertEquals("other", facets.first { it.name == "露營" }.tagKind) // 入庫的新標籤 kind 是 other
     }
 
     @Test fun 候選清單_沒有時間範圍時依全部時間張數排序() = runTest {
@@ -108,7 +106,7 @@ class StatsReadTest {
 
     @Test fun 標籤管理_沒有圖的標籤是零() = runTest {
         seed()
-        db.tagDao().insert(com.xenyaa.videoshot.data.library.entity.TagEntity(0, "沒用到", "topic", "[]"))
+        db.tagDao().insert(com.xenyaa.videoshot.data.library.entity.TagEntity(0, "沒用到", "[]"))
         assertEquals(
             listOf("沒用到|0", "美食|3", "阿明|2", "露營|3"),
             repo.allTagsWithUsage().map { "${it.name}|${it.shotCount}" },
