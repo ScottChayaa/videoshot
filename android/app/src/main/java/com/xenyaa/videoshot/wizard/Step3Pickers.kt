@@ -87,8 +87,8 @@ internal fun PlacePickerSheet(
 
 /**
  * 標籤選擇器。由上到下：已選的標籤（可點 ✕ 移除）→ 輸入框＋【加入】（鍵盤 Enter 同【加入】）→ 用過的標籤。
- * 【確定】＝**整組取代**勾選那幾張的標籤；全部移除再確定＝清除。新打的標籤當成「其他」（不另外問種類）。
- * 多個值時起始是空的、顯示〈多個值〉；沒加任何標籤就按確定＝沒動過。
+ * 【確定】＝**整組取代**勾選那幾張的標籤。新打的標籤當成「其他」（不另外問種類）。
+ * 抽屜裡沒有任何標籤時【確定】不能按（多個值時起始是空的、顯示〈多個值〉）；要清掉標籤按【清除】。
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -110,7 +110,7 @@ internal fun TagPickerSheet(
         title = "標籤",
         count = count,
         canClear = field.hasAnyTag(),
-        canConfirm = true,
+        canConfirm = tags.isNotEmpty(),
         onClear = { onConfirm(DetailsPatch(tags = emptyList())) },
         onConfirm = {
             // 「動過」是拿現值跟起始值比：加了又拿掉＝沒動過
@@ -151,7 +151,7 @@ internal fun TagPickerSheet(
 }
 
 /**
- * 描述選擇器：多行輸入框。改過才送（清空也算改過＝清除）；多個值時起始是空的、顯示〈多個值〉，沒打字就按確定＝沒動過。
+ * 描述選擇器：多行輸入框。改過才送；輸入框沒有字時【確定】不能按（多個值時起始是空的、顯示〈多個值〉），要清掉描述按【清除】。
  */
 @Composable
 internal fun DescriptionPickerSheet(
@@ -166,9 +166,8 @@ internal fun DescriptionPickerSheet(
         title = "描述",
         count = count,
         canClear = field.hasAnyValue(),
-        canConfirm = true,
+        canConfirm = input.isNotBlank(),
         onClear = { onConfirm(DetailsPatch(description = "")) },
-        // 比對 trim 後的：多個值時只打空白會被當成清除，但「沒動它就不會變」，所以視同沒動過
         onConfirm = { if (input.trim() == initial.trim()) onDismiss() else onConfirm(DetailsPatch(description = input)) },
         onDismiss = onDismiss,
     ) {

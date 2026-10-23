@@ -109,16 +109,21 @@ class Step3PickersTest {
         assertEquals(listOf(DetailsPatch(tags = listOf("玩水"))), confirmed)
     }
 
-    @Test fun 標籤_全部移除再確定是清除() {
+    @Test fun 標籤_全部移除後確定不能按() {
         tags(Common.One(listOf("露營")))
+        compose.onNodeWithText("確定").assertIsEnabled()
         compose.onNodeWithContentDescription("移除標籤 露營", substring = true).performClick()
-        compose.onNodeWithText("確定").performClick()
-        assertEquals(listOf(DetailsPatch(tags = emptyList())), confirmed)
+        compose.onNodeWithText("確定").assertIsNotEnabled()
     }
 
-    @Test fun 標籤_多個值時沒動過按確定什麼都不送() {
+    @Test fun 標籤_多個值時沒加標籤_確定不能按() {
         tags(Common.Mixed)
         compose.onNodeWithText("〈多個值〉").assertIsDisplayed()
+        compose.onNodeWithText("確定").assertIsNotEnabled()
+    }
+
+    @Test fun 標籤_沒動過按確定什麼都不送() {
+        tags(Common.One(listOf("露營")))
         compose.onNodeWithText("確定").performClick()
         assertTrue(confirmed.isEmpty())
         assertEquals(1, dismissed)
@@ -146,25 +151,23 @@ class Step3PickersTest {
         assertEquals(listOf(DetailsPatch(description = "第一次下水")), confirmed)
     }
 
-    @Test fun 描述_清空再確定是清除() {
+    @Test fun 描述_清空後確定不能按() {
         description(Common.One("舊的"))
+        compose.onNodeWithText("確定").assertIsEnabled()
         compose.onNodeWithContentDescription("描述").performTextReplacement("")
-        compose.onNodeWithText("確定").performClick()
-        assertEquals(listOf(DetailsPatch(description = "")), confirmed)
+        compose.onNodeWithText("確定").assertIsNotEnabled()
     }
 
-    @Test fun 描述_多個值時沒動過按確定什麼都不送() {
+    @Test fun 描述_沒打字或只打空白時確定不能按() {
         description(Common.Mixed)
-        compose.onNodeWithText("確定").performClick()
-        assertTrue(confirmed.isEmpty())
-        assertEquals(1, dismissed)
-    }
-
-    @Test fun 描述_多個值時只打空白按確定什麼都不送() {
-        description(Common.Mixed)
+        compose.onNodeWithText("確定").assertIsNotEnabled()
         compose.onNodeWithContentDescription("描述").performTextInput("  ")
+        compose.onNodeWithText("確定").assertIsNotEnabled()
+    }
+
+    @Test fun 描述_沒動過按確定什麼都不送() {
+        description(Common.One("舊的"))
         compose.onNodeWithText("確定").performClick()
-        // 空白會被當成清除；多個值不動它就不會變，所以不能送出
         assertTrue(confirmed.isEmpty())
         assertEquals(1, dismissed)
     }
