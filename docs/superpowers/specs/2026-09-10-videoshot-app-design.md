@@ -316,7 +316,7 @@ videoshot/
 | `VsButton`、`VsIconButton`、`VsToolbarPill` | 按鈕（主要／次要／純文字／破壞性）、只有圖示的方形按鈕（跟文字按鈕同高，例如取圖第二步的【全選】【截圖】）與工具列小按鈕；紅色只給破壞性 |
 | `VsListRow`、`VsSettingGroup`、`VsSettingNote`、`VsRadioRow`、`VsStepper`、`VsSelectField` | 清單列與設定頁元件組（帳號頁與其子畫面一律用它們；群組內列與列之間的分隔線是一個實體像素） |
 | `VsSearchTopBar`、`VsClearQueryButton` | 頂欄的搜尋模式（整條頂欄換成 Dense 搜尋框＋【取消】，同高、分隔線跟著頂欄（相簿不畫））與搜尋框裡的【✕】；相簿清單與首頁篩選抽屜共用同一種搜尋框 |
-| `VsTextField`、`VsEmptyState`、`VsHintCard`、`VsActionDock`、`VsStepIndicator`、`VsUnderlineTabs` | 輸入欄、空狀態、可關閉提示卡、底部動作列（自動避開系統導覽列與鍵盤；跟底部導覽同高）、步驟條（2026-10-13 起取圖精靈不再使用，元件留在元件總覽頁）、底線分頁 |
+| `VsTextField`、`VsEmptyState`、`VsActionDock`、`VsStepIndicator`、`VsUnderlineTabs` | 輸入欄、空狀態、底部動作列（自動避開系統導覽列與鍵盤；跟底部導覽同高）、步驟條（2026-10-13 起取圖精靈不再使用，元件留在元件總覽頁）、底線分頁 |
 | `VsBottomSheet` | **全 app 的底部抽屜一律用它**（不直接用 Material 的 `ModalBottomSheet`）：底色與拖曳把手統一。抽屜頂部的距離（把手上 12、下 4dp，Material 預設上下各 22dp）只在 `VsBottomSheet.kt` 的 `SheetDragHandleTop`／`SheetDragHandleBottom` 調 |
 | `VsSheetHeader`、`VsTextAction` | 底部抽屜的標題列（固定 48dp，右邊有沒有按鈕都一樣高，下面一條一個實體像素的分隔線）、文字樣式的動作鈕（能按時主色＋底線，不能按時灰字） |
 | `VsChipSkeleton` | 小膠囊的骨架屏（資料還沒畫上去前的灰色色塊，一道亮光由左往右連續掃過整區（shimmer）；TalkBack 唸「載入中…」） |
@@ -721,7 +721,7 @@ row = floor(posInSheet / cols),  col = posInSheet % cols
 挑圖是主要動作，必須拿到最順、不需要瞄準的手勢。「點＝播放、小圓圈＝勾選」曾評估並否決：
 96px 寬的格子上小圓圈只有約 20px，選 30 張要精準點 30 次。跳播是次要動作，交給長按。
 
-首次進入第二步時，在縮圖牆最上面顯示一次性提示：「點一下收藏・長按看看那一段」，點任意處消失，記在本機不再出現。
+縮圖牆上面不放操作提示（2026-10-23 scott 嫌突兀，拿掉原本的一次性提示「點一下收藏・長按看看那一段」）。
 
 #### 收斂：進場時就已經過濾過
 
