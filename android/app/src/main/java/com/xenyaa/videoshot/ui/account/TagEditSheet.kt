@@ -59,7 +59,7 @@ fun TagEditSheet(
             Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
                 // 刪除標籤是破壞性動作（只解除關聯）：DangerQuiet；真正刪除前還有確認框
                 VsButton("刪除", onDelete, variant = ButtonVariant.DangerQuiet, icon = VsIcons.Trash)
-                VsButton("合併到…", onStartMerge, variant = ButtonVariant.Quiet)
+                VsButton("合併到…", onStartMerge, variant = ButtonVariant.Secondary, icon = VsIcons.Merge)
                 VsButton(
                     "儲存",
                     onSave,

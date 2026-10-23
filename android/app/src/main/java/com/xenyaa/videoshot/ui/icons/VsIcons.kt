@@ -234,6 +234,11 @@ object VsIcons {
         strokeIcon("rotate-ccw", "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8", "M3 3v5h5")
     }
 
+    /** 合併（標籤／地點編輯抽屜的【合併到…】）。Lucide `merge`，原型 `ICONS` 沒有這個 key。 */
+    val Merge: ImageVector by lazy {
+        strokeIcon("merge", "m8 6 4-4 4 4", "M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22", "m20 22-5-5")
+    }
+
     /** 下拉欄位的箭頭（原型 `chevronDown`）。 */
     val ChevronDown: ImageVector by lazy { strokeIcon("chevron-down", "m6 9 6 6 6-6") }
 
