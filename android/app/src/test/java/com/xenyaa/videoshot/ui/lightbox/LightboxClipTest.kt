@@ -85,7 +85,7 @@ class LightboxClipTest {
                 VideoshotTheme {
                     LightboxScreen(
                         items = items, hasMore = false, startIndex = 0, loader = loader,
-                        hintSeen = true, onHintSeen = {}, onClose = { closed++ }, onLoadMore = {}, onIndexChange = {},
+                        onClose = { closed++ }, onLoadMore = {}, onIndexChange = {},
                         actions = LightboxActions(), clip = deps, covered = covered,
                         muted = muted, onMutedChange = { muted = it },
                     )
@@ -294,7 +294,7 @@ class LightboxClipTest {
                 VideoshotTheme {
                     if (open) LightboxScreen(
                         items = items, hasMore = false, startIndex = 0, loader = loader,
-                        hintSeen = true, onHintSeen = {}, onClose = {}, onLoadMore = {}, onIndexChange = {},
+                        onClose = {}, onLoadMore = {}, onIndexChange = {},
                         actions = LightboxActions(), clip = deps,
                     )
                 }

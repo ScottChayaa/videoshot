@@ -38,15 +38,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.foundation.clickable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.flow.drop
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.ui.icons.VsIcons
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -142,8 +139,6 @@ fun LightboxScreen(
     hasMore: Boolean,
     startIndex: Int,
     loader: ThumbLoader,
-    hintSeen: Boolean,
-    onHintSeen: () -> Unit,
     onClose: () -> Unit,
     onLoadMore: () -> Unit,
     onIndexChange: (Int) -> Unit,
@@ -214,19 +209,6 @@ fun LightboxScreen(
             onIndexChange(page)
             // 剩不到 5 張就先去要下一頁，滑動才不會停在「已載入的最後一張」
             if (page >= items.size - 5 && hasMore) onLoadMore()
-        }
-    }
-
-    // 提示在**使用者做過一次滑動**之後才算看過。一開啟就記成看過的話，
-    // 它會在使用者讀到之前就消失，等於這個一次性提示從來沒出現過。
-    // drop(1)：snapshotFlow 一開始就會送出目前這一頁，那不是一次滑動
-    var hintDone by remember(hintSeen) { mutableStateOf(hintSeen) }
-    LaunchedEffect(pager) {
-        snapshotFlow { pager.currentPage }.drop(1).collect {
-            if (!hintDone) {
-                hintDone = true
-                onHintSeen()
-            }
         }
     }
 
@@ -409,23 +391,6 @@ fun LightboxScreen(
                             }
                         }
                     }
-                }
-
-                if (!hintDone && !fullscreen) {
-                    Text(
-                        "上下滑動看上一張／下一張",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = OnDarkColors.primary,
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = AppTheme.spacing.s3)
-                            // 膠囊(原型 .lb-swipe)：半透明黑底、全圓角、上下 4 左右 12
-                            .clip(CircleShape)
-                            .background(OnDarkColors.hint)
-                            // 點它也可以關掉 —— 擋到畫面的東西一定要有辦法立刻收掉
-                            .clickable { hintDone = true; onHintSeen() }
-                            .padding(horizontal = AppTheme.spacing.s3, vertical = AppTheme.spacing.s1),
-                    )
                 }
             }
 

@@ -62,7 +62,7 @@ class LightboxInfoTest {
             VideoshotTheme {
                 LightboxScreen(
                     items = items, hasMore = false, startIndex = 0, loader = loader,
-                    hintSeen = true, onHintSeen = {}, onClose = { closed++ }, onLoadMore = {}, onIndexChange = {},
+                    onClose = { closed++ }, onLoadMore = {}, onIndexChange = {},
                     actions = LightboxActions(),
                     tagsOf = tagsOf,
                     tagsRefreshKey = refreshKey(),

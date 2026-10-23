@@ -86,13 +86,6 @@ class AppSettingsTest {
     }
 
     @Test
-    fun Lightbox_的一次性提示記得住() = runTest {
-        assertFalse(settings.lightboxHintSeen.first())
-        settings.markLightboxHintSeen()
-        assertTrue(settings.lightboxHintSeen.first())
-    }
-
-    @Test
     fun 片段的聲音預設開著_關掉存得住() = runTest {
         assertFalse(settings.clipMuted.first())
         settings.setClipMuted(true)

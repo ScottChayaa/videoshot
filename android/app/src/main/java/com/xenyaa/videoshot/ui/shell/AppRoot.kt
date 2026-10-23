@@ -267,7 +267,6 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var scrollToMonth by rememberSaveable { mutableStateOf<String?>(null) }
-    val lightboxHintSeen by container.settings.lightboxHintSeen.collectAsStateWithLifecycle(initialValue = true)
     val clipMuted by container.settings.clipMuted.collectAsStateWithLifecycle(initialValue = false)
     // 【編輯圖資】掛在 Lightbox 外層，不是 LightboxActions 裡直接開 —— sheet 需要自己的
     // produceState（地點／標籤建議、既有圖資），Lightbox 本身不該知道這些
@@ -397,8 +396,6 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                 hasMore = hasMore,
                 startIndex = dest.startIndex,
                 loader = container.thumbLoader,
-                hintSeen = lightboxHintSeen,
-                onHintSeen = { scope.launch { container.settings.markLightboxHintSeen() } },
                 onClose = { nav.pop()?.let { nav = it } },
                 onLoadMore = loadMore,
                 tagsOf = { shot -> container.libraryRepo.tagsOfShot(shot.id) },
@@ -553,6 +550,15 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                 onPlayerReady = vm::attachPlayer,
                 onPlayerReleased = vm::detachPlayer,
                 onRetryPlayer = vm::loadPlayerInfo,
+                // 不刪舊收藏，直接開精靈第二步（已收藏的格子鎖定，行為同第一步點最近影片）；
+                // 原片播放與 Lightbox 一樣收掉，離開精靈回到照片清單、看得到新加的圖
+                onContinueCapture = {
+                    var popped = nav
+                    if (popped.current is Dest.Play) popped = popped.pop() ?: popped
+                    if (popped.current is Dest.Lightbox) popped = popped.pop() ?: popped
+                    wizardVm.openRecent(dest.videoId)
+                    nav = popped.select(Tab.CAPTURE)
+                },
                 onRecapture = {
                     scope.launch {
                         try {

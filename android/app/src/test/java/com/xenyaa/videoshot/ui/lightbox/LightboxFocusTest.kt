@@ -64,8 +64,6 @@ class LightboxFocusTest {
                     hasMore = false,
                     startIndex = 0,
                     loader = loader,
-                    hintSeen = true,
-                    onHintSeen = {},
                     onClose = {},
                     onLoadMore = {},
                     onIndexChange = {},

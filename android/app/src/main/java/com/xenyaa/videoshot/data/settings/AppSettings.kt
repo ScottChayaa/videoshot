@@ -70,13 +70,6 @@ class AppSettings(context: Context) : ShellSettings {
         store.edit { it[GRID_HINT_SEEN] = true }
     }
 
-    /** Lightbox「上下滑動看上一張／下一張」這個一次性提示看過了沒（手冊 §三第三條）。 */
-    override val lightboxHintSeen: Flow<Boolean> = store.data.map { it[LIGHTBOX_HINT_SEEN] ?: false }
-
-    override suspend fun markLightboxHintSeen() {
-        store.edit { it[LIGHTBOX_HINT_SEEN] = true }
-    }
-
     override val clipMuted: Flow<Boolean> = store.data.map { it[CLIP_MUTED] ?: false }
 
     override suspend fun setClipMuted(value: Boolean) {
@@ -247,8 +240,6 @@ class AppSettings(context: Context) : ShellSettings {
         val LAST_BACKUP_AT = longPreferencesKey("last_backup_at")
         val FILTER_STRENGTH = stringPreferencesKey("filter_strength")
         val GRID_HINT_SEEN = booleanPreferencesKey("grid_hint_seen")
-        // 2026-10-15 改成上下滑換張時換了鍵名：看過舊「左右滑動」提示的人也要再看一次新的
-        val LIGHTBOX_HINT_SEEN = booleanPreferencesKey("lightbox_vertical_hint_seen")
         val CLIP_MUTED = booleanPreferencesKey("clip_muted")
         val PLAYER_MUTED = booleanPreferencesKey("player_muted")
         val FOLDER_SORT = stringPreferencesKey("folder_sort")

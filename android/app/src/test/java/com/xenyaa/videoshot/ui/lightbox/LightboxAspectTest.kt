@@ -49,7 +49,7 @@ class LightboxAspectTest {
             VideoshotTheme {
                 LightboxScreen(
                     items = listOf(shot), hasMore = false, startIndex = 0, loader = loaderOf(bitmap),
-                    hintSeen = true, onHintSeen = {}, onClose = {}, onLoadMore = {}, onIndexChange = {},
+                    onClose = {}, onLoadMore = {}, onIndexChange = {},
                     actions = LightboxActions({}, {}, {}, {}, {}),
                 )
             }

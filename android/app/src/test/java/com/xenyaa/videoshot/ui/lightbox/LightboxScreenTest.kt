@@ -59,8 +59,6 @@ class LightboxScreenTest {
         items: List<ShotRow> = rows(3),
         hasMore: Boolean = false,
         startIndex: Int = 0,
-        hintSeen: Boolean = true,
-        onHintSeen: () -> Unit = {},
     ) {
         compose.setContent {
             VideoshotTheme {
@@ -69,8 +67,6 @@ class LightboxScreenTest {
                     hasMore = hasMore,
                     startIndex = startIndex,
                     loader = loader,
-                    hintSeen = hintSeen,
-                    onHintSeen = onHintSeen,
                     onClose = { closed++ },
                     onLoadMore = { loadMores++ },
                     onIndexChange = { lastIndex = it },
@@ -105,41 +101,6 @@ class LightboxScreenTest {
         compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeUp() }
         compose.waitForIdle()
         assertEquals(1, lastIndex)
-    }
-
-    /** 手冊 §三第三條：第一次開啟才出現。 */
-    @Test
-    fun 第一次開啟會出現滑動提示() {
-        var seen = 0
-        show(hintSeen = false, onHintSeen = { seen++ })
-        compose.onNodeWithText("上下滑動看上一張／下一張").assertIsDisplayed()
-        // **還沒消失也還沒記下來** —— 一開啟就記成看過的話，提示會在使用者讀到之前就沒了
-        assertEquals(0, seen)
-    }
-
-    @Test
-    fun 滑一次之後提示消失並記成看過() {
-        var seen = 0
-        show(hintSeen = false, onHintSeen = { seen++ })
-        compose.onNodeWithContentDescription("收藏的大圖").performTouchInput { swipeUp() }
-        compose.waitForIdle()
-        compose.onNodeWithText("上下滑動看上一張／下一張").assertDoesNotExist()
-        assertEquals(1, seen)
-    }
-
-    @Test
-    fun 點提示本身也可以關掉它() {
-        var seen = 0
-        show(hintSeen = false, onHintSeen = { seen++ })
-        compose.onNodeWithText("上下滑動看上一張／下一張").performClick()
-        compose.onNodeWithText("上下滑動看上一張／下一張").assertDoesNotExist()
-        assertEquals(1, seen)
-    }
-
-    @Test
-    fun 看過之後不再出現() {
-        show(hintSeen = true)
-        compose.onNodeWithText("上下滑動看上一張／下一張").assertDoesNotExist()
     }
 
     @Test

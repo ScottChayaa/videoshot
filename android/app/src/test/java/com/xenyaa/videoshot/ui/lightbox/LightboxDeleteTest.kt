@@ -59,7 +59,6 @@ class LightboxDeleteTest {
                     hasMore = false,
                     startIndex = 1,
                     loader = loader,
-                    hintSeen = true, onHintSeen = {},
                     onClose = { closed++ }, onLoadMore = {}, onIndexChange = {},
                     actions = LightboxActions(onDelete = { shot -> items = items.filterNot { it.id == shot.id } }),
                 )
@@ -84,7 +83,6 @@ class LightboxDeleteTest {
                     hasMore = false,
                     startIndex = 0,
                     loader = loader,
-                    hintSeen = true, onHintSeen = {},
                     onClose = { closed++ }, onLoadMore = {}, onIndexChange = {},
                     actions = LightboxActions(onDelete = { items = emptyList() }),
                 )

@@ -18,8 +18,6 @@ interface ShellSettings {
     val filterStrength: Flow<FilterStrength>
     val gridHintSeen: Flow<Boolean>
     suspend fun markGridHintSeen()
-    val lightboxHintSeen: Flow<Boolean>
-    suspend fun markLightboxHintSeen()
 
     /** Lightbox 片段的【聲音】關掉了沒；換張、關掉 Lightbox、重開 app 都記得（規格第六節「自動播放片段」）。 */
     val clipMuted: Flow<Boolean>

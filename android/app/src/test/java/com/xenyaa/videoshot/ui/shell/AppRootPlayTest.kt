@@ -91,8 +91,6 @@ class AppRootPlayTest {
         override val filterStrength = flowOf(FilterStrength.MEDIUM)
         override val gridHintSeen = flowOf(true)
         override suspend fun markGridHintSeen() = Unit
-        override val lightboxHintSeen = flowOf(true)
-        override suspend fun markLightboxHintSeen() = Unit
         override val clipMuted = kotlinx.coroutines.flow.flowOf(false)
         override suspend fun setClipMuted(value: Boolean) = Unit
         override val playerMuted = kotlinx.coroutines.flow.flowOf(false)
@@ -222,6 +220,22 @@ class AppRootPlayTest {
 
         assertEquals(listOf("v1"), repo.deletedVideoIds)
         // 原片播放收掉、到了取圖分頁
+        compose.onNodeWithContentDescription("這支影片的更多操作").assertDoesNotExist()
+        assertTrue(compose.onAllNodesWithText("旅行影片").fetchSemanticsNodes().isNotEmpty())
+    }
+
+    @Test
+    fun 繼續取圖_不刪收藏直接開精靈() {
+        val repo = Repo()
+        openPlay(repo)
+
+        compose.onNodeWithContentDescription("這支影片的更多操作").performClick()
+        compose.onNodeWithText("繼續取圖").performClick()
+        compose.waitForIdle()
+
+        assertTrue(repo.deletedVideoIds.isEmpty())
+        // 沒有確認框；原片播放收掉、到了取圖分頁
+        compose.onNodeWithText("取消").assertDoesNotExist()
         compose.onNodeWithContentDescription("這支影片的更多操作").assertDoesNotExist()
         assertTrue(compose.onAllNodesWithText("旅行影片").fetchSemanticsNodes().isNotEmpty())
     }

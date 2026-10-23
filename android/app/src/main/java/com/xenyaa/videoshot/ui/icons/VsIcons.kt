@@ -234,6 +234,20 @@ object VsIcons {
         strokeIcon("rotate-ccw", "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8", "M3 3v5h5")
     }
 
+    /**
+     * 再加幾張（原片播放 ⋯【繼續取圖】）。Lucide `copy-plus`，原型 `ICONS` 沒有這個 key；
+     * `<rect x=8 y=8 w=14 h=14 rx=2>` 改寫成 path。跟【重新取圖】的 [RotateCcw] 一方一圓，並排時分得開。
+     */
+    val CopyPlus: ImageVector by lazy {
+        strokeIcon(
+            "copy-plus",
+            "M15 12v6",
+            "M12 15h6",
+            "M10 8h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2Z",
+            "M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2",
+        )
+    }
+
     /** 合併（標籤／地點編輯抽屜的【合併到…】）。Lucide `merge`，原型 `ICONS` 沒有這個 key。 */
     val Merge: ImageVector by lazy {
         strokeIcon("merge", "m8 6 4-4 4 4", "M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22", "m20 22-5-5")

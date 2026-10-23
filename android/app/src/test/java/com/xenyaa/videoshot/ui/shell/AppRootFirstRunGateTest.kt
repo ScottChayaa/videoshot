@@ -114,8 +114,6 @@ class AppRootFirstRunGateTest {
         override val filterStrength = flowOf(FilterStrength.MEDIUM)
         override val gridHintSeen = flowOf(true)
         override suspend fun markGridHintSeen() = Unit
-        override val lightboxHintSeen = flowOf(true)
-        override suspend fun markLightboxHintSeen() = Unit
         override val clipMuted = kotlinx.coroutines.flow.flowOf(false)
         override suspend fun setClipMuted(value: Boolean) = Unit
         override val playerMuted = kotlinx.coroutines.flow.flowOf(false)

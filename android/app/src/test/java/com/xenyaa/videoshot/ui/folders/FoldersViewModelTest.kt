@@ -66,8 +66,6 @@ class FoldersViewModelTest {
         override val filterStrength: Flow<FilterStrength> = flowOf(FilterStrength.MEDIUM)
         override val gridHintSeen: Flow<Boolean> = flowOf(true)
         override suspend fun markGridHintSeen() = Unit
-        override val lightboxHintSeen: Flow<Boolean> = flowOf(true)
-        override suspend fun markLightboxHintSeen() = Unit
         override val clipMuted = kotlinx.coroutines.flow.flowOf(false)
         override suspend fun setClipMuted(value: Boolean) = Unit
         override val playerMuted = kotlinx.coroutines.flow.flowOf(false)

@@ -41,7 +41,7 @@ import com.xenyaa.videoshot.ui.theme.OnDarkColors
 
 /**
  * 原片播放（規格第六節）：一進來就是全螢幕，直式影片鎖直立、橫式鎖橫向。
- * 上緣是【←】＋影片標題＋⋯（只有【重新取圖】），跟控制層一起出現、一起收起；沒有全螢幕鈕。
+ * 上緣是【←】＋影片標題＋⋯（【繼續取圖】、【重新取圖】），跟控制層一起出現、一起收起；沒有全螢幕鈕。
  * 返回（【←】或系統返回）回到 Lightbox，由呼叫端處理。
  */
 @Composable
@@ -51,6 +51,7 @@ fun PlayScreen(
     onPlayerReady: (Player) -> Unit,
     onPlayerReleased: () -> Unit,
     onRetryPlayer: () -> Unit,
+    onContinueCapture: () -> Unit,
     onRecapture: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -69,6 +70,7 @@ fun PlayScreen(
             menuOpen = menuOpen,
             onMenuOpenChange = { menuOpen = it },
             onBack = onBack,
+            onContinueCapture = { menuOpen = false; onContinueCapture() },
             onRecapture = { menuOpen = false; confirming = true },
         )
     }
@@ -129,6 +131,7 @@ private fun PlayTopBar(
     menuOpen: Boolean,
     onMenuOpenChange: (Boolean) -> Unit,
     onBack: () -> Unit,
+    onContinueCapture: () -> Unit,
     onRecapture: () -> Unit,
 ) {
     Row(
@@ -154,6 +157,11 @@ private fun PlayTopBar(
                 Icon(VsIcons.More, contentDescription = "這支影片的更多操作", tint = OnDarkColors.primary)
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { onMenuOpenChange(false) }) {
+                DropdownMenuItem(
+                    text = { Text("繼續取圖") },
+                    leadingIcon = { Icon(VsIcons.CopyPlus, contentDescription = null) },
+                    onClick = onContinueCapture,
+                )
                 DropdownMenuItem(
                     text = { Text("重新取圖") },
                     leadingIcon = { Icon(VsIcons.RotateCcw, contentDescription = null) },
