@@ -252,8 +252,6 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                     data = container.wizardData,
                     frameSourceFactory = { container.frameSourceFor(it) },
                     strength = container.settings.filterStrength,
-                    hintSeen = container.settings.gridHintSeen,
-                    onHintSeen = { container.settings.markGridHintSeen() },
                     manualImages = { container.manualImagesFor(it) },
                     captureFor = { container.captureFor(it) },
                     today = { LocalDate.now().toString() },

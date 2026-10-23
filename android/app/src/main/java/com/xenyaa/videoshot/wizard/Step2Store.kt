@@ -61,7 +61,6 @@ data class Step2State(
     val degradedToCover: Boolean = false,
     /** 載入中途整條 flow 掛掉（磁碟滿、OOM…）。**畫得出來**才叫降級，不然使用者只看到卡住的進度文案。 */
     val loadFailed: Boolean = false,
-    val hintSeen: Boolean = true,
     /** 手動補圖，依加入順序。牆上的位置由 [atSecOf] 決定，不是這個順序。 */
     val manual: List<ManualCell> = emptyList(),
 ) {
@@ -222,10 +221,6 @@ class Step2Store(
                 hiddenCount = result.hiddenCount,
             )
         }
-    }
-
-    fun setHintSeen(seen: Boolean) {
-        _state.value = _state.value.copy(hintSeen = seen)
     }
 
     fun setShowAll(value: Boolean) {

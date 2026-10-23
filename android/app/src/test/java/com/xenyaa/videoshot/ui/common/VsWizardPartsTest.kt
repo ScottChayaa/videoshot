@@ -119,13 +119,6 @@ class VsWizardPartsTest {
         assertEquals(1, n)
     }
 
-    @Test fun 提示卡可以關閉() {
-        var closed = false
-        compose.setContent { VideoshotTheme { VsHintCard("點一下就收藏", onDismiss = { closed = true }) } }
-        compose.onNodeWithContentDescription("關閉提示").performClick()
-        assertTrue(closed)
-    }
-
     @Test fun 動作列顯示狀態文字與按鈕() {
         compose.setContent {
             VideoshotTheme {

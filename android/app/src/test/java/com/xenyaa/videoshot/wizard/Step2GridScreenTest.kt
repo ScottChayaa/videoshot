@@ -54,7 +54,6 @@ class Step2GridScreenTest {
                 onSelectAll = onSelectAll,
                 onTakeShot = onTakeShot,
                 onShowAll = onShowAll,
-                onDismissHint = {},
                 onNext = onNext,
             )
         }
@@ -77,7 +76,6 @@ class Step2GridScreenTest {
         selected = selected,
         taken = taken,
         showAll = showAll,
-        hintSeen = true,
     )
 
     /** 全選與截圖在底部列：捲到縮圖牆最後面也還按得到（原本在牆的第一列，會跟著捲走）。 */
@@ -213,7 +211,6 @@ class Step2GridScreenTest {
             Step2State(
                 plan = FramePlan("v", 3, emptyList(), false),
                 converging = false,
-                hintSeen = true,
             )
         )
         compose.onNodeWithText("無法取得逐段縮圖，可以截圖補上").assertIsDisplayed()
@@ -227,7 +224,6 @@ class Step2GridScreenTest {
                 plan = FramePlan("v", 3, List(3) { it * 10.0 }, false),
                 ready = setOf(0, 1, 2),
                 converging = true,
-                hintSeen = true,
             )
         )
         compose.onNodeWithText("正在過濾相似畫面…").assertIsDisplayed()
@@ -281,7 +277,7 @@ class Step2GridScreenTest {
                     ),
                     bitmapFor = { null }, haptics = FakeHaptics(),
                     onToggle = {}, onPlayFrame = {}, onTakenTap = {}, onSelectAll = {}, onTakeShot = {},
-                    onShowAll = {}, onDismissHint = {}, onNext = {},
+                    onShowAll = {}, onNext = {},
                     onRemoveManual = { removed = it },
                 )
             }
@@ -347,7 +343,7 @@ class Step2GridScreenTest {
 
     @Test
     fun 手動格的時間標籤前面有截圖二字() {
-        val base = Step2State(plan = source.plan, converging = false, hintSeen = true)
+        val base = Step2State(plan = source.plan, converging = false)
         show(
             base.copy(
                 manual = listOf(ManualCell(base.plan.frameCount, 15.0, java.io.File("/tmp/a.webp"), fromGallery = false)),
@@ -355,14 +351,6 @@ class Step2GridScreenTest {
             ),
         )
         compose.onNodeWithText("截圖 00:15", useUnmergedTree = true).assertExists()
-    }
-
-    @Test
-    fun 沒看過提示時顯示新版提示卡() {
-        val s = loaded().copy(hintSeen = false)
-        show(s)
-        compose.onNodeWithText("點一下收藏・長按看看那一段").assertIsDisplayed()
-        compose.onNodeWithContentDescription("一次性提示").assertExists()
     }
 
     /** 縮圖還在載入時畫骨架塊，跟照片頁一致（2026-10-22 scott）。 */

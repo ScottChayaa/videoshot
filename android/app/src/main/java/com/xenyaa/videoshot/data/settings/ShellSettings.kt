@@ -5,7 +5,7 @@ import com.xenyaa.videoshot.core.similarity.FilterStrength
 import kotlinx.coroutines.flow.Flow
 
 /**
- * `AppRoot` 用得到的設定子集 —— 精靈的過濾強度，跟 Lightbox／第二步各自的一次性提示。
+ * `AppRoot` 用得到的設定子集 —— 精靈的過濾強度、播放器與片段的靜音、相簿排序等。
  *
  * 窄介面的理由跟 `WizardData`／`LibraryRepo` 一樣（見它們的 KDoc）：讓 `AppRoot` 不必依賴
  * 整個 [AppSettings]（背後是 DataStore／`Context`），測試才能不牽動真的 DataStore 檔案
@@ -16,8 +16,6 @@ import kotlinx.coroutines.flow.Flow
  */
 interface ShellSettings {
     val filterStrength: Flow<FilterStrength>
-    val gridHintSeen: Flow<Boolean>
-    suspend fun markGridHintSeen()
 
     /** Lightbox 片段的【聲音】關掉了沒；換張、關掉 Lightbox、重開 app 都記得（規格第六節「自動播放片段」）。 */
     val clipMuted: Flow<Boolean>

@@ -86,8 +86,6 @@ class WizardCaptureTest {
             data = FakeData(),
             frameSourceFactory = { FakeFrameSource.of(frameCount = frameCount) },
             strength = flowOf(FilterStrength.MEDIUM),
-            hintSeen = flowOf(true),
-            onHintSeen = {},
             manualImages = { ManualImageStore(manualDir) },
             captureFor = { capture },
         )

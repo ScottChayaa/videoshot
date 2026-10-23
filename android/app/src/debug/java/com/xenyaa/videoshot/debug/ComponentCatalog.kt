@@ -46,7 +46,6 @@ import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsIconButton
 import com.xenyaa.videoshot.ui.common.VsEmptyState
 import com.xenyaa.videoshot.ui.common.VsFieldButton
-import com.xenyaa.videoshot.ui.common.VsHintCard
 import com.xenyaa.videoshot.ui.common.VsListRow
 import com.xenyaa.videoshot.ui.common.VsRadioRow
 import com.xenyaa.videoshot.ui.common.VsSelectField
@@ -276,15 +275,6 @@ private fun TabsPillsHintSection() {
             VsToolbarPill("清除", onClick = {}, style = PillStyle.Quiet)
             VsToolbarPill("停用", onClick = {}, enabled = false)
         }
-    }
-    Section("提示卡") {
-        var shown by remember { mutableStateOf(true) }
-        if (shown) {
-            VsHintCard("點一下縮圖就能選取，長按可以預覽大圖", onDismiss = { shown = false })
-        } else {
-            VsButton("再顯示提示卡", onClick = { shown = true }, variant = ButtonVariant.Quiet)
-        }
-        VsHintCard("沒有關閉鈕的提示卡", icon = VsIcons.Sparkles)
     }
 }
 

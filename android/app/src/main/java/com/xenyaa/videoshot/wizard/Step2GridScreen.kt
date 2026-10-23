@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -55,7 +54,6 @@ import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.VsActionDock
 import com.xenyaa.videoshot.ui.common.VsFieldButton
 import com.xenyaa.videoshot.ui.common.VsButton
-import com.xenyaa.videoshot.ui.common.VsHintCard
 import com.xenyaa.videoshot.ui.common.VsSkeletonBlock
 import com.xenyaa.videoshot.ui.thumb.ThumbGridGap
 import com.xenyaa.videoshot.ui.common.VsSelectedBadge
@@ -88,7 +86,6 @@ fun Step2GridScreen(
     onSelectAll: () -> Unit,
     onTakeShot: () -> Unit,
     onShowAll: (Boolean) -> Unit,
-    onDismissHint: () -> Unit,
     onNext: () -> Unit,
     /** 上一次【截圖】的失敗原因；null 代表沒有要說的。 */
     captureError: CaptureError? = null,
@@ -118,15 +115,6 @@ fun Step2GridScreen(
             horizontalArrangement = Arrangement.spacedBy(ThumbGridGap),
             verticalArrangement = Arrangement.spacedBy(ThumbGridGap),
         ) {
-            if (!state.hintSeen) {
-                item(key = "hint", span = { GridItemSpan(maxLineSpan) }) {
-                    VsHintCard(
-                        "點一下收藏・長按看看那一段",
-                        Modifier.semantics { contentDescription = "一次性提示" },
-                        onDismiss = onDismissHint,
-                    )
-                }
-            }
             items(state.visible, key = { it }) { frameIndex ->
                 FrameCell(
                     frameIndex = frameIndex,
@@ -143,7 +131,6 @@ fun Step2GridScreen(
                     onToggle = { onToggle(frameIndex) },
                     onTakenTap = { onTakenTap(frameIndex) },
                     onPlay = { onPlayFrame(frameIndex) },
-                    onHintDismiss = onDismissHint,
                 )
             }
         }
@@ -296,7 +283,6 @@ private fun FrameCell(
     onToggle: () -> Unit,
     onTakenTap: () -> Unit,
     onPlay: () -> Unit,
-    onHintDismiss: () -> Unit,
 ) {
     val clock = formatClock(atSec)
     val accent = AppTheme.colors.accent
@@ -322,14 +308,12 @@ private fun FrameCell(
                 .focusRing(cellShape)
                 .combinedClickable(
                     onClick = {
-                        onHintDismiss()
                         // 已收藏的格子點下去**明確提示**，不是靜靜沒反應（規格第五節）
                         if (taken) onTakenTap() else onToggle()
                     },
                     // 長按是跳播的唯一手勢；有了這個標籤，TalkBack 的動作選單也找得到
                     onLongClickLabel = "跳到這一段",
                     onLongClick = {
-                        onHintDismiss()
                         haptics.tick()
                         onPlay()
                     },

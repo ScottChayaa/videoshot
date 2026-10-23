@@ -38,7 +38,7 @@ class Step2CaptureUiTest {
     ) {
         compose.setContent {
             Step2GridScreen(
-                state = Step2State(plan = source.plan, converging = false, hintSeen = true),
+                state = Step2State(plan = source.plan, converging = false),
                 bitmapFor = { source.bitmapOf(it) },
                 haptics = FakeHaptics(),
                 onToggle = {},
@@ -47,7 +47,6 @@ class Step2CaptureUiTest {
                 onSelectAll = {},
                 onTakeShot = {},
                 onShowAll = {},
-                onDismissHint = {},
                 onNext = {},
                 captureError = error,
                 onPickFromGallery = onPickFromGallery,
@@ -68,7 +67,6 @@ class Step2CaptureUiTest {
                 state = Step2State(
                     plan = plan,
                     converging = false,
-                    hintSeen = true,
                     ready = setOf(cell),
                     manual = listOf(ManualCell(cell, 20.0, java.io.File("/tmp/a.webp"), fromGallery)),
                 ),
@@ -80,7 +78,6 @@ class Step2CaptureUiTest {
                 onSelectAll = {},
                 onTakeShot = {},
                 onShowAll = {},
-                onDismissHint = {},
                 onNext = {},
                 onNudgeManual = onNudge,
             )

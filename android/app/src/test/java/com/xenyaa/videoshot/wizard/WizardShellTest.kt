@@ -52,8 +52,6 @@ class WizardShellTest {
         data = FakeData(),
         frameSourceFactory = { com.xenyaa.videoshot.wizard.frames.FakeFrameSource.of(frameCount = 0) },
         strength = kotlinx.coroutines.flow.flowOf(com.xenyaa.videoshot.core.similarity.FilterStrength.MEDIUM),
-        hintSeen = kotlinx.coroutines.flow.flowOf(true),
-        onHintSeen = {},
         manualImages = { com.xenyaa.videoshot.capture.ManualImageStore(java.io.File("/tmp/unused")) },
         captureFor = { null },
     )

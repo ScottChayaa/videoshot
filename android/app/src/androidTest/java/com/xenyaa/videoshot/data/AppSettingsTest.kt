@@ -80,12 +80,6 @@ class AppSettingsTest {
     }
 
     @Test
-    fun 一次性提示標記過就不會再回到未看過() = runBlocking {
-        settings.markGridHintSeen()
-        assertEquals(true, settings.gridHintSeen.first())
-    }
-
-    @Test
     fun 片段的聲音預設開著_關掉存得住() = runTest {
         assertFalse(settings.clipMuted.first())
         settings.setClipMuted(true)

@@ -108,8 +108,6 @@ class WizardDraftTest {
         data = data,
         frameSourceFactory = { frameSource() },
         strength = flowOf(FilterStrength.MEDIUM),
-        hintSeen = flowOf(true),
-        onHintSeen = {},
         // 每支影片各自一個子目錄，與正式作 `drafts/{videoId}/manual/` 的切法一致；
         // 用 File(...) 而不是 tmp.newFolder(...) —— 還原多張手動圖時同一個 videoId 會被問好幾次，
         // newFolder 對已存在的目錄會丟例外

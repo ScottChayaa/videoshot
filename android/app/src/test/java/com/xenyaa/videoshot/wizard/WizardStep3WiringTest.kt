@@ -99,8 +99,6 @@ class WizardStep3WiringTest {
         data = data,
         frameSourceFactory = { FakeFrameSource.of(frameCount = 4, intervalSec = 10.0) },
         strength = flowOf(FilterStrength.MEDIUM),
-        hintSeen = flowOf(true),
-        onHintSeen = {},
         manualImages = { error("這個測試不碰手動圖") },
         captureFor = { null },
         today = { "2026-09-15" },

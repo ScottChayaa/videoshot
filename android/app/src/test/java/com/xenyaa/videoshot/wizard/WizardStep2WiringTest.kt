@@ -78,8 +78,6 @@ class WizardStep2WiringTest {
         data = FakeData(mapOf(3 to taken)),
         frameSourceFactory = { source },
         strength = flowOf(FilterStrength.MEDIUM),
-        hintSeen = flowOf(true),
-        onHintSeen = {},
         manualImages = { com.xenyaa.videoshot.capture.ManualImageStore(java.io.File("/tmp/unused")) },
         captureFor = { null },
     )
@@ -195,7 +193,7 @@ class WizardStep2WiringTest {
     }
 
     /**
-     * 「回第一步再進第二步」不只要換掉 `step2.value`，還要把舊 store 綁的 `strength`／`hintSeen`
+     * 「回第一步再進第二步」不只要換掉 `step2.value`，還要把舊 store 綁的 `strength`
      * 收集器一起取消 —— 否則它們會一路累積，而且舊 store 明明已經 close 了卻還在被更新。
      *
      * 驗法：兩格的指紋漢明距離設成 8，MEDIUM(6) 不收斂、HIGH(10) 會收斂成 1 張。
@@ -213,8 +211,6 @@ class WizardStep2WiringTest {
             data = FakeData(),
             frameSourceFactory = { if (calls++ == 0) firstSource else secondSource },
             strength = strengthFlow,
-            hintSeen = flowOf(true),
-            onHintSeen = {},
             manualImages = { com.xenyaa.videoshot.capture.ManualImageStore(java.io.File("/tmp/unused")) },
             captureFor = { null },
         )
@@ -250,8 +246,6 @@ class WizardStep2WiringTest {
             data = data,
             frameSourceFactory = { FakeFrameSource.of(frameCount = 3) },   // L3
             strength = flowOf(FilterStrength.MEDIUM),
-            hintSeen = flowOf(true),
-            onHintSeen = {},
             manualImages = { com.xenyaa.videoshot.capture.ManualImageStore(java.io.File("/tmp/unused")) },
             captureFor = { null },
         )

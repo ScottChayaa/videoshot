@@ -49,8 +49,6 @@ class WizardViewModel(
     private val data: WizardData,
     private val frameSourceFactory: (LoadedVideo) -> FrameSource,
     private val strength: Flow<FilterStrength>,
-    private val hintSeen: Flow<Boolean>,
-    private val onHintSeen: suspend () -> Unit,
     /** 這支影片的手動圖存放處（`drafts/{videoId}/manual/`）。 */
     private val manualImages: (String) -> ManualImageStore,
     /**
@@ -511,7 +509,6 @@ class WizardViewModel(
         _step2.value = store
         step2Jobs = listOf(
             viewModelScope.launch { strength.collect { store.setStrength(it) } },
-            viewModelScope.launch { hintSeen.collect { store.setHintSeen(it) } },
         )
     }
 
@@ -671,11 +668,6 @@ class WizardViewModel(
      */
     fun nudgeManual(cell: Int, deltaSec: Double) {
         _step2.value?.nudgeManual(cell, deltaSec)
-    }
-
-    fun dismissHint() {
-        _step2.value?.setHintSeen(true)
-        viewModelScope.launch { onHintSeen() }
     }
 
     // ---- 第三步 ----

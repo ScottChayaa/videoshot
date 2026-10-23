@@ -33,13 +33,11 @@ class Step2InteractionTest {
     private val toggled = mutableListOf<Int>()
     private val played = mutableListOf<Int>()
     private val takenTaps = mutableListOf<Int>()
-    private var hintDismissed = 0
 
     private fun show(
         selected: Set<Int> = emptySet(),
         taken: Set<Int> = emptySet(),
         playingFrame: Int? = null,
-        hintSeen: Boolean = true,
     ) {
         val state = Step2State(
             plan = FramePlan("v", 3, List(3) { it * 10.0 }, false),
@@ -49,7 +47,6 @@ class Step2InteractionTest {
             selected = selected,
             taken = taken,
             playingFrame = playingFrame,
-            hintSeen = hintSeen,
         )
         compose.setContent {
             Step2GridScreen(
@@ -62,7 +59,6 @@ class Step2InteractionTest {
                 onSelectAll = {},
                 onTakeShot = {},
                 onShowAll = {},
-                onDismissHint = { hintDismissed++ },
                 onNext = {},
             )
         }
@@ -125,27 +121,6 @@ class Step2InteractionTest {
         show(taken = setOf(0))
         compose.onNodeWithContentDescription("第 1 格 00:00").performTouchInput { longClick() }
         assertEquals(listOf(0), played)
-    }
-
-    // 提示卡文案：階段 15B 跟著原型換成「點一下就收藏；每格右上角的 ▶ …」，2026-10-13 拿掉 ▶ 之後
-    // 回到規格的「點一下收藏・長按看看那一段」（2026-10-17）。斷言的行為（出現／不出現／點格子即消失）不變。
-    @Test
-    fun 一次性提示沒看過時會出現() {
-        show(hintSeen = false)
-        compose.onNodeWithText("點一下收藏・長按看看那一段").assertIsDisplayed()
-    }
-
-    @Test
-    fun 一次性提示看過就不出現() {
-        show(hintSeen = true)
-        compose.onNodeWithText("點一下收藏・長按看看那一段").assertDoesNotExist()
-    }
-
-    @Test
-    fun 點任意處一次性提示會消失() {
-        show(hintSeen = false)
-        compose.onNodeWithContentDescription("第 1 格 00:00").performClick()
-        assertEquals(1, hintDismissed)
     }
 
     @Test

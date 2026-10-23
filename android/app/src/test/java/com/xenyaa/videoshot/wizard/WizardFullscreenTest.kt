@@ -65,8 +65,6 @@ class WizardFullscreenTest {
             data = FakeData(),
             frameSourceFactory = { FakeFrameSource.of(frameCount = frameCount, intervalSec = 10.0) },
             strength = flowOf(FilterStrength.MEDIUM),
-            hintSeen = flowOf(true),
-            onHintSeen = {},
             manualImages = { com.xenyaa.videoshot.capture.ManualImageStore(java.io.File(tmp.root, "manual")) },
             captureFor = { null },
         )

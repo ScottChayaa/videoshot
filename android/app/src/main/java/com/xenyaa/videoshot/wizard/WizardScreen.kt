@@ -179,7 +179,6 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                                     onSelectAll = { current.selectAll() },
                                     onTakeShot = { vm.takeShot() },
                                     onShowAll = { current.setShowAll(it) },
-                                    onDismissHint = { vm.dismissHint() },
                                     onNext = { vm.goTo(WizardStep.DETAILS) },
                                     captureError = captureError,
                                     onPickFromGallery = { pickImage.launch(

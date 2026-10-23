@@ -63,13 +63,6 @@ class AppSettings(context: Context) : ShellSettings {
         store.edit { it[FILTER_STRENGTH] = value.name }
     }
 
-    /** 第二步「點一下收藏・長按看看那一段」這個一次性提示看過了沒（規格第五節）。 */
-    override val gridHintSeen: Flow<Boolean> = store.data.map { it[GRID_HINT_SEEN] ?: false }
-
-    override suspend fun markGridHintSeen() {
-        store.edit { it[GRID_HINT_SEEN] = true }
-    }
-
     override val clipMuted: Flow<Boolean> = store.data.map { it[CLIP_MUTED] ?: false }
 
     override suspend fun setClipMuted(value: Boolean) {
@@ -239,7 +232,6 @@ class AppSettings(context: Context) : ShellSettings {
         val LAST_CHANGED_AT = longPreferencesKey("last_changed_at")
         val LAST_BACKUP_AT = longPreferencesKey("last_backup_at")
         val FILTER_STRENGTH = stringPreferencesKey("filter_strength")
-        val GRID_HINT_SEEN = booleanPreferencesKey("grid_hint_seen")
         val CLIP_MUTED = booleanPreferencesKey("clip_muted")
         val PLAYER_MUTED = booleanPreferencesKey("player_muted")
         val FOLDER_SORT = stringPreferencesKey("folder_sort")
