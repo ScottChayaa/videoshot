@@ -28,6 +28,7 @@ import com.xenyaa.videoshot.ui.theme.focusRing
  * 清單列（原型 `styles.css`「設定／清單列」的 `.set-row`）。可點時尾端自動畫 › 。
  *
  * [iconTint] 預設 `textDim`；標籤清單列用種類色（[ChipKind.color]）。
+ * [value]：同一行右側、› 前面的淡色文字（標籤／地點管理的「N 張」），讓每列只佔一行高。
  *
  * 預設把整列的語意合併成一個節點（TalkBack 一次唸完標題與副標）。尾端放 `clickable`／`IconButton`／
  * `Switch`／`toggleable` 這類自己就是語意合併邊界的元件沒有問題——它們在合併後仍是獨立的可點節點，
@@ -40,6 +41,7 @@ fun VsListRow(
     title: String,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    value: String? = null,
     icon: ImageVector? = null,
     iconTint: Color? = null,
     danger: Boolean = false,
@@ -71,6 +73,7 @@ fun VsListRow(
                 )
             }
         }
+        if (value != null) Text(value, style = MaterialTheme.typography.bodyMedium, color = AppTheme.colors.textDim)
         when {
             trailing != null -> trailing()
             onClick != null -> Icon(VsIcons.ChevronRight, null, tint = AppTheme.colors.textFaint, modifier = Modifier.size(18.dp))

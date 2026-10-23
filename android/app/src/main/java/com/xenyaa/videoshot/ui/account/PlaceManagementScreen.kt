@@ -53,7 +53,7 @@ fun PlaceManagementScreen(
                     if (index > 0) VsSettingDivider()
                     VsListRow(
                         title = place.name,
-                        subtitle = "${place.shotCount} 張",
+                        value = "${place.shotCount} 張",
                         icon = VsIcons.MapPin,
                         iconTint = ChipKind.PLACE.color,
                         onClick = { onOpenEditor(place) },

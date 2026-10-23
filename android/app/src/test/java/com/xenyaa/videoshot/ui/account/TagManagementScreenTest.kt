@@ -181,7 +181,7 @@ class TagManagementScreenTest {
         showScreen(AccountState(tags = tags))
         compose.onNodeWithText("全部標籤（2）").assertIsDisplayed()
         compose.onNodeWithText("點一個標籤可以改名、編輯別名或刪除；刪除只解除關聯，圖不會被刪。").assertIsDisplayed()
-        // 副標只有張數（標籤不分種類）
+        // 張數在同一行右側（標籤不分種類）
         compose.onNodeWithText("3 張").assertIsDisplayed()
     }
 

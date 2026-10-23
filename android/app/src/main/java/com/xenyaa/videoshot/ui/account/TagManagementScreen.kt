@@ -134,12 +134,12 @@ fun TagManagementScreen(
     }
 }
 
-/** 標籤清單列：圖示＝`#`（同首頁的小膠囊），副標＝張數。 */
+/** 標籤清單列：圖示＝`#`（同首頁的小膠囊），張數在同一行右側。 */
 @Composable
 private fun TagRow(tag: TagUsage, onClick: () -> Unit) {
     VsListRow(
         title = tag.name,
-        subtitle = "${tag.shotCount} 張",
+        value = "${tag.shotCount} 張",
         icon = ChipKind.TAG.icon,
         iconTint = ChipKind.TAG.color,
         onClick = onClick,

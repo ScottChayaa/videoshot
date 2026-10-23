@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
@@ -75,10 +76,10 @@ fun VsSettingGroup(
     }
 }
 
-/** 群組裡兩列之間的 1dp 分隔線（原型 `.set-group.split .set-row + .set-row`）。 */
+/** 群組裡兩列之間的分隔線（原型 `.set-group.split .set-row + .set-row`）。用最細的一個實體像素（2026-10-23 scott）。 */
 @Composable
 fun VsSettingDivider(modifier: Modifier = Modifier) {
-    if (LocalSettingDivided.current) HorizontalDivider(modifier, thickness = 1.dp, color = AppTheme.colors.border)
+    if (LocalSettingDivided.current) HorizontalDivider(modifier, thickness = Dp.Hairline, color = AppTheme.colors.border)
 }
 
 /** 設定群組下方的說明文字（原型 `.set-note`）：15 `textDim`、內距 0/16/16。 */
