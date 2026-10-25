@@ -1,11 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application android:networkSecurityConfig="@xml/network_security_config">
-        <!-- 開發測試版專用：元件總覽頁（計畫 15A Task 8）。exported 才能用 adb am start 開 -->
+        <!-- 開發測試版專用：元件總覽頁（計畫 15A Task 8）。exported 才能用 adb am start 開；
+             桌面另有一個「元件總覽」圖示。taskAffinity 跟主程式分開，點圖示才不會只把照片頁叫回前景 -->
         <activity
             android:name=".debug.ComponentCatalogActivity"
             android:exported="true"
-            android:theme="@style/Theme.Videoshot" />
+            android:label="元件總覽"
+            android:taskAffinity="com.xenyaa.videoshot.catalog"
+            android:theme="@style/Theme.Videoshot">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
         <!-- 開發測試版專用：匯入原型假資料（計畫 15A Task 10），會取代現有圖庫。
              要求 DUMP 權限：只有 adb shell（以及系統）持有，裝置上其他 app 不能觸發。
              adb shell am broadcast -a com.xenyaa.videoshot.debug.SEED -n com.xenyaa.videoshot/.debug.seed.SeedReceiver -->

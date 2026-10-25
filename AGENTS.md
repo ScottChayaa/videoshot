@@ -130,7 +130,7 @@ adb shell am instrument -w -e package com.xenyaa.videoshot \
 開發測試版專用的實機工具（正式版不含）：
 
 ```bash
-# 元件總覽頁（所有共用元件）
+# 元件總覽頁（所有共用元件）；手機桌面也有「元件總覽」圖示可以直接點
 adb shell am start -n com.xenyaa.videoshot/.debug.ComponentCatalogActivity
 # 匯入假資料：會「取代」裝置上的整個圖庫（13 張／11 支影片／5 個資料夾／20 個標籤），匯入後自動排縮圖回填
 adb shell am broadcast -a com.xenyaa.videoshot.debug.SEED -n com.xenyaa.videoshot/.debug.seed.SeedReceiver
