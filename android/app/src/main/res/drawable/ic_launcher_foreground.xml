@@ -3,17 +3,82 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- 四格大小不一的照片牆，主體縮在中央 48 單位內（安全區直徑 66），被裁成圓形也不會切到。 -->
-    <!-- 左上大格：被挑中的畫面（芥末黃） -->
-    <path android:fillColor="#CA8A04" android:pathData="M34.571,30H54A4.571,4.571 0,0 1 58.571,34.571V54A4.571,4.571 0,0 1 54,58.571H34.571A4.571,4.571 0,0 1 30,54V34.571A4.571,4.571 0,0 1 34.571,30Z" />
-    <path android:fillColor="#6366F1" android:pathData="M65.429,30H73.429A4.571,4.571 0,0 1 78,34.571V54A4.571,4.571 0,0 1 73.429,58.571H65.429A4.571,4.571 0,0 1 60.857,54V34.571A4.571,4.571 0,0 1 65.429,30Z" />
-    <path android:fillColor="#A5B4FC" android:pathData="M34.571,60.857H54A4.571,4.571 0,0 1 58.571,65.429V73.429A4.571,4.571 0,0 1 54,78H34.571A4.571,4.571 0,0 1 30,73.429V65.429A4.571,4.571 0,0 1 34.571,60.857Z" />
-    <path android:fillColor="#4338CA" android:pathData="M65.429,60.857H73.429A4.571,4.571 0,0 1 78,65.429V73.429A4.571,4.571 0,0 1 73.429,78H65.429A4.571,4.571 0,0 1 60.857,73.429V65.429A4.571,4.571 0,0 1 65.429,60.857Z" />
-    <!-- 播放鍵：同色描邊讓三個角變圓 -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M42.057,39.657L42.057,48.914L49.771,44.286Z"
-        android:strokeColor="#FFFFFF"
-        android:strokeLineJoin="round"
-        android:strokeWidth="1.582" />
+    <!-- 六瓣雞蛋花：六片橢圓花瓣繞中心一圈（夕陽到海的六色），花瓣尖端離中心 28.8，整朵花都在安全區（半徑 33）內、四周留白，被裁成圓形也不會切到。 -->
+    <!-- 向量圖示不支援混色模式，重疊處的「相乘」顏色事先算好：先畫六片花瓣，再用 clip-path 把重疊區塊一塊塊蓋上去。 -->
+    <path android:fillColor="#F38177" android:pathData="M54,25.2A9,14.4 0 1,1 54,54A9,14.4 0 1,1 54,25.2Z" /> <!-- 珊瑚 -->
+    <path android:fillColor="#F59874" android:pathData="M78.942,39.6A9,14.4 60 1,1 54,54A9,14.4 60 1,1 78.942,39.6Z" /> <!-- 蜜桃 -->
+    <path android:fillColor="#F8B873" android:pathData="M78.942,68.4A9,14.4 120 1,1 54,54A9,14.4 120 1,1 78.942,68.4Z" /> <!-- 芒果 -->
+    <path android:fillColor="#EBC976" android:pathData="M54,82.8A9,14.4 180 1,1 54,54A9,14.4 180 1,1 54,82.8Z" /> <!-- 金沙 -->
+    <path android:fillColor="#3BA598" android:pathData="M29.058,68.4A9,14.4 240 1,1 54,54A9,14.4 240 1,1 29.058,68.4Z" /> <!-- 綠松 -->
+    <path android:fillColor="#1F6C93" android:pathData="M29.058,39.6A9,14.4 300 1,1 54,54A9,14.4 300 1,1 29.058,39.6Z" /> <!-- 深海 -->
+    <!-- 相鄰兩瓣的重疊 -->
+    <group>
+        <clip-path android:pathData="M54,25.2A9,14.4 0 1,1 54,54A9,14.4 0 1,1 54,25.2Z" />
+        <path android:fillColor="#E94D36" android:pathData="M78.942,39.6A9,14.4 60 1,1 54,54A9,14.4 60 1,1 78.942,39.6Z" />
+    </group>
+    <group>
+        <clip-path android:pathData="M78.942,39.6A9,14.4 60 1,1 54,54A9,14.4 60 1,1 78.942,39.6Z" />
+        <path android:fillColor="#EE6E34" android:pathData="M78.942,68.4A9,14.4 120 1,1 54,54A9,14.4 120 1,1 78.942,68.4Z" />
+    </group>
+    <group>
+        <clip-path android:pathData="M78.942,68.4A9,14.4 120 1,1 54,54A9,14.4 120 1,1 78.942,68.4Z" />
+        <path android:fillColor="#E49135" android:pathData="M54,82.8A9,14.4 180 1,1 54,54A9,14.4 180 1,1 54,82.8Z" />
+    </group>
+    <group>
+        <clip-path android:pathData="M54,82.8A9,14.4 180 1,1 54,54A9,14.4 180 1,1 54,82.8Z" />
+        <path android:fillColor="#368246" android:pathData="M29.058,68.4A9,14.4 240 1,1 54,54A9,14.4 240 1,1 29.058,68.4Z" />
+    </group>
+    <group>
+        <clip-path android:pathData="M29.058,68.4A9,14.4 240 1,1 54,54A9,14.4 240 1,1 29.058,68.4Z" />
+        <path android:fillColor="#074658" android:pathData="M29.058,39.6A9,14.4 300 1,1 54,54A9,14.4 300 1,1 29.058,39.6Z" />
+    </group>
+    <group>
+        <clip-path android:pathData="M54,25.2A9,14.4 0 1,1 54,54A9,14.4 0 1,1 54,25.2Z" />
+        <path android:fillColor="#1D3745" android:pathData="M29.058,39.6A9,14.4 300 1,1 54,54A9,14.4 300 1,1 29.058,39.6Z" />
+    </group>
+    <!-- 靠近花心、三瓣重疊的小塊 -->
+    <group>
+        <clip-path android:pathData="M54,25.2A9,14.4 0 1,1 54,54A9,14.4 0 1,1 54,25.2Z" />
+        <group>
+            <clip-path android:pathData="M78.942,39.6A9,14.4 60 1,1 54,54A9,14.4 60 1,1 78.942,39.6Z" />
+            <path android:fillColor="#1C201F" android:pathData="M29.058,39.6A9,14.4 300 1,1 54,54A9,14.4 300 1,1 29.058,39.6Z" />
+        </group>
+    </group>
+    <group>
+        <clip-path android:pathData="M54,25.2A9,14.4 0 1,1 54,54A9,14.4 0 1,1 54,25.2Z" />
+        <group>
+            <clip-path android:pathData="M78.942,39.6A9,14.4 60 1,1 54,54A9,14.4 60 1,1 78.942,39.6Z" />
+            <path android:fillColor="#E33818" android:pathData="M78.942,68.4A9,14.4 120 1,1 54,54A9,14.4 120 1,1 78.942,68.4Z" />
+        </group>
+    </group>
+    <group>
+        <clip-path android:pathData="M78.942,39.6A9,14.4 60 1,1 54,54A9,14.4 60 1,1 78.942,39.6Z" />
+        <group>
+            <clip-path android:pathData="M78.942,68.4A9,14.4 120 1,1 54,54A9,14.4 120 1,1 78.942,68.4Z" />
+            <path android:fillColor="#DB5618" android:pathData="M54,82.8A9,14.4 180 1,1 54,54A9,14.4 180 1,1 54,82.8Z" />
+        </group>
+    </group>
+    <group>
+        <clip-path android:pathData="M78.942,68.4A9,14.4 120 1,1 54,54A9,14.4 120 1,1 78.942,68.4Z" />
+        <group>
+            <clip-path android:pathData="M54,82.8A9,14.4 180 1,1 54,54A9,14.4 180 1,1 54,82.8Z" />
+            <path android:fillColor="#355E20" android:pathData="M29.058,68.4A9,14.4 240 1,1 54,54A9,14.4 240 1,1 29.058,68.4Z" />
+        </group>
+    </group>
+    <group>
+        <clip-path android:pathData="M54,82.8A9,14.4 180 1,1 54,54A9,14.4 180 1,1 54,82.8Z" />
+        <group>
+            <clip-path android:pathData="M29.058,68.4A9,14.4 240 1,1 54,54A9,14.4 240 1,1 29.058,68.4Z" />
+            <path android:fillColor="#073729" android:pathData="M29.058,39.6A9,14.4 300 1,1 54,54A9,14.4 300 1,1 29.058,39.6Z" />
+        </group>
+    </group>
+    <group>
+        <clip-path android:pathData="M54,25.2A9,14.4 0 1,1 54,54A9,14.4 0 1,1 54,25.2Z" />
+        <group>
+            <clip-path android:pathData="M29.058,68.4A9,14.4 240 1,1 54,54A9,14.4 240 1,1 29.058,68.4Z" />
+            <path android:fillColor="#072329" android:pathData="M29.058,39.6A9,14.4 300 1,1 54,54A9,14.4 300 1,1 29.058,39.6Z" />
+        </group>
+    </group>
+    <!-- 花心：白色圓點 -->
+    <path android:fillColor="#FFFFFF" android:pathData="M54,49.5a4.5,4.5 0 1,1 0,9a4.5,4.5 0 1,1 0,-9Z" />
 </vector>
