@@ -66,8 +66,8 @@ import kotlin.math.min
  * 語意色（紅／橙／綠）不動 —— 「紅色只用在破壞性動作」要在換色之後仍然成立。
  */
 enum class BaseTone(val label: String) {
-    /** 預設色系的冷灰藍底（#EEF0F6）。 */
-    COOL("冷灰（現在）"),
+    /** 預設色系的底（白沙 #FBF4EC）。 */
+    COOL("白沙（現在）"),
 
     /** 不帶色相的中性灰：不會把照片的顏色「染」偏。 */
     NEUTRAL("中性灰"),
@@ -148,9 +148,9 @@ private fun Color.hex(): String = "#%06X".format(toArgb() and 0xFFFFFF)
  * 綠、琥珀跟「完成」（綠）、「警示」（橙褐）是近親，選了要注意並排時分不分得開。
  */
 private val Presets = listOf(
-    "藍（現在）" to Color(0xFF196AD6),
-    "靛藍（舊）" to Color(0xFF4F46E5),
-    "深海藍" to Color(0xFF1D4ED8),
+    "深海藍（現在）" to Color(0xFF0B5F8A),
+    "藍（上一版）" to Color(0xFF196AD6),
+    "寶藍" to Color(0xFF1D4ED8),
     "深青" to Color(0xFF0E7490),
     "青綠" to Color(0xFF0F766E),
     "石墨" to Color(0xFF3F3F46),

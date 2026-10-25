@@ -9,8 +9,8 @@ import org.junit.Test
 
 class ChipKindTest {
     @Test fun 種類色() {
-        assertEquals(Color(0xFF0EA5E9), KindColors.place)
-        assertEquals(Color(0xFF64748B), KindColors.tag)
+        assertEquals(Color(0xFF0EA5B7), KindColors.place)
+        assertEquals(Color(0xFF8C6D46), KindColors.tag)
     }
 
     @Test fun 地點用地圖針圖示() {

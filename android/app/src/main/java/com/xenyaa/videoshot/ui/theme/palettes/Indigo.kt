@@ -5,30 +5,33 @@ import com.xenyaa.videoshot.ui.theme.Palette
 import com.xenyaa.videoshot.ui.theme.ThemeSpec
 
 /**
- * 預設色系。色值原本逐一對應 `mockups/uiux-v2/styles.css` 的 CSS 變數；2026-10-25 主色系從靛藍換成藍，其餘照舊。
+ * 預設色系「夕陽海灘」（2026-10-25 起；之前是靛藍、短暫用過藍）：白沙底＋深海藍主色，帳號頁漸層是夕陽。
  * 檔名與 `id` 沿用靛藍時代的 `indigo`（`id` 存在 DataStore，不可改）。
  *
  * **要新增別的色系就複製這個檔案改色值**，然後在 `Palettes.ALL` 裡多列一行 —— 其他地方都不必動。
  */
 private val Colors = Palette(
-    bg = Color(0xFFEEF0F6),
+    // 暖白沙底：比冷灰更不會把照片染偏
+    bg = Color(0xFFFBF4EC),
     surface = Color(0xFFFFFFFF),
-    surface2 = Color(0xFFF3F5FB),
-    border = Color(0xFFDCE0EC),
-    borderStrong = Color(0xFFC3C9DC),
+    surface2 = Color(0xFFFDF9F4),
+    border = Color(0xFFECE1D3),
+    borderStrong = Color(0xFFD8C8B3),
 
-    text = Color(0xFF1B1B33),
-    textDim = Color(0xFF4B5563),
-    textFaint = Color(0xFF6B7280),
+    text = Color(0xFF1F2A35),
+    textDim = Color(0xFF4A5562),
+    textFaint = Color(0xFF6B7480),
 
-    // 主色＝藍（scott 在元件總覽調色盤挑的 #1A6DDB，壓暗一點讓它當文字放在 bg 上也過 AA）
-    accent = Color(0xFF196AD6),
+    // 主色＝深海藍（白字 7.0:1、當文字在白沙底上 6.4:1）
+    accent = Color(0xFF0B5F8A),
     accentInk = Color(0xFFFFFFFF),
-    accentWeak = Color(0xFFE8F1FC),
-    accentLine = Color(0xFFB8D1F6),
+    accentWeak = Color(0xFFE7EEF3),
+    accentLine = Color(0xFFB4CADA),
 
-    hero1 = Color(0xFF196AD6),
-    hero2 = Color(0xFF31BCE7),
+    // 帳號頁 hero 漸層＝夕陽。上面是白字，所以用深一階的陶土 → 焦糖橘（左側放字處白字 5.3:1）；
+    // 提案時的珊瑚 → 芒果太亮，白字只有 2～3:1
+    hero1 = Color(0xFFB5482A),
+    hero2 = Color(0xFFC96F22),
 
     danger = Color(0xFFC62B48),
     dangerInk = Color(0xFFFFFFFF),
@@ -38,10 +41,10 @@ private val Colors = Palette(
     ok = Color(0xFF0F7B55),
     okWeak = Color(0xFFE2F2EC),
 
-    overlay = Color(0x6B14142B),
+    overlay = Color(0x6B1F2A35),
     scrim = Color(0x9E000000),
     lightboxBg = Color(0xFF0B0B12),
-    focusRing = Color(0x8C196AD6),
+    focusRing = Color(0x8C0B5F8A),
 )
 
-val Indigo = ThemeSpec(id = "indigo", label = "藍（預設）", palette = Colors)
+val Indigo = ThemeSpec(id = "indigo", label = "夕陽海灘（預設）", palette = Colors)
