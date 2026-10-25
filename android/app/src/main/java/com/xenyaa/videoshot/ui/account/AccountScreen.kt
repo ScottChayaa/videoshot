@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.Role
@@ -49,7 +50,7 @@ import com.xenyaa.videoshot.ui.theme.OnDarkColors
 import com.xenyaa.videoshot.ui.theme.focusRing
 
 /**
- * 帳號頁首畫面：漸層 hero ＋ 跨在下緣的三格統計卡 ＋ 六格選單（規格第九節「版面」）。
+ * 帳號頁首畫面：淡色 hero ＋ 跨在下緣的三格統計卡 ＋ 六格選單（規格第九節「版面」）。
  *
  * hero 依 `state.linkedAccount` 分支：未連結時顯示「尚未設定備份」，已連結時顯示帳號
  * 名稱與 Email（階段 12）。未連結時整塊內容列可點、已連結時 Email 那行可點，開的都是同一個 `AccountSection.BACKUP`。
@@ -118,7 +119,9 @@ fun AccountScreen(
 }
 
 /**
- * 漸層 hero（原型 `.account-hero`／`.account`）：上內距 8、下 32，內容列內距 12/16、間距 12。
+ * 淡色 hero（原型 `.account-hero`／`.account`）：上內距 8、下 32，內容列內距 12/16、間距 12。
+ * 底是 `hero1` 混進底色的淡杏色、往下淡回底色（下緣跟頁面底色接得無縫）；夕陽漸層只留在頭像圓圈上，字用一般深色字
+ * （2026-10-25：原本整塊夕陽漸層太搶眼）。
  * 沒連結時整塊內容列可點（進備份子畫面）；已連結時維持只有 Email 那行可點。不做登出（app 沒有登入）。
  */
 @Composable
@@ -128,7 +131,7 @@ private fun AccountHero(state: AccountState, onOpenSection: (AccountSection) -> 
     Box(
         Modifier
             .fillMaxWidth()
-            .background(Brush.linearGradient(listOf(AppTheme.colors.hero1, AppTheme.colors.hero2)))
+            .background(Brush.verticalGradient(listOf(lerp(AppTheme.colors.bg, AppTheme.colors.hero1, 0.14f), AppTheme.colors.bg)))
             .padding(top = AppTheme.spacing.s2, bottom = AppTheme.spacing.s6),
     ) {
         val rowModifier = Modifier.fillMaxWidth().let {
@@ -143,8 +146,7 @@ private fun AccountHero(state: AccountState, onOpenSection: (AccountSection) -> 
                 Modifier
                     .size(52.dp)
                     .clip(CircleShape)
-                    .background(OnDarkColors.avatarFill)
-                    .border(2.dp, OnDarkColors.avatarRing, CircleShape),
+                    .background(Brush.linearGradient(listOf(AppTheme.colors.hero1, AppTheme.colors.hero2))),
                 contentAlignment = Alignment.Center,
             ) {
                 // 已連結就把帳號名稱的第一個字（大寫）當頭像，沒連結才用通用人形圖示
@@ -164,15 +166,14 @@ private fun AccountHero(state: AccountState, onOpenSection: (AccountSection) -> 
                 Text(
                     linked?.displayName ?: "尚未設定備份",
                     style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                    color = OnDarkColors.primary,
+                    color = AppTheme.colors.text,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     linked?.email ?: "連結 Google 帳號以啟用備份",
                     style = MaterialTheme.typography.bodyMedium,
-                    // 原型 86% 白；OnDarkColors.secondary 是 80%，差一階可接受
-                    color = OnDarkColors.secondary,
+                    color = AppTheme.colors.textDim,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = if (linked != null) {

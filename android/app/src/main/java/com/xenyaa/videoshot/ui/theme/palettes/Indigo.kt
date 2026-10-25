@@ -5,7 +5,7 @@ import com.xenyaa.videoshot.ui.theme.Palette
 import com.xenyaa.videoshot.ui.theme.ThemeSpec
 
 /**
- * 預設色系「夕陽海灘」（2026-10-25 起；之前是靛藍、短暫用過藍）：白沙底＋深海藍主色，帳號頁漸層是夕陽。
+ * 預設色系「夕陽海灘」（2026-10-25 起；之前是靛藍、短暫用過藍）：白沙底＋深海藍主色，帳號頁頭像是夕陽漸層。
  * 檔名與 `id` 沿用靛藍時代的 `indigo`（`id` 存在 DataStore，不可改）。
  *
  * **要新增別的色系就複製這個檔案改色值**，然後在 `Palettes.ALL` 裡多列一行 —— 其他地方都不必動。
@@ -28,7 +28,7 @@ private val Colors = Palette(
     accentWeak = Color(0xFFE7EEF3),
     accentLine = Color(0xFFB4CADA),
 
-    // 帳號頁 hero 漸層＝夕陽。上面是白字，所以用深一階的陶土 → 焦糖橘（左側放字處白字 5.3:1）；
+    // 夕陽＝帳號頁頭像的漸層（hero 底是 hero1 混進底色的淡杏色）。頭像上是白色字母，所以用深一階的陶土 → 焦糖橘；
     // 提案時的珊瑚 → 芒果太亮，白字只有 2～3:1
     hero1 = Color(0xFFB5482A),
     hero2 = Color(0xFFC96F22),
