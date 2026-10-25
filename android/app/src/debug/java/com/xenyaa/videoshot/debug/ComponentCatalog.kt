@@ -126,6 +126,15 @@ private fun TopBarSection() = Section("頂欄") {
         },
     )
     VsTopBar("貼網址", nav = TopBarNav.Close(onClick = {}), titleStyle = TopBarTitle.Small)
+    VsTopBar("照片", divider = false) {
+        TopBarIconButton(VsIcons.Filter, "依地點與標籤篩選", onClick = {})
+        TopBarIconButton(VsIcons.Calendar, "依時間篩選", onClick = {})
+    }
+    VsTopBar("照片（篩選中）", divider = false) {
+        TopBarIconButton(VsIcons.Filter, "依地點與標籤篩選", onClick = {}, active = true, badgeCount = 3)
+        TopBarIconButton(VsIcons.Filter, "依地點與標籤篩選", onClick = {}, active = true, badgeCount = 12)
+        TopBarIconButton(VsIcons.Calendar, "依時間篩選", onClick = {}, active = true)
+    }
 }
 
 @Composable

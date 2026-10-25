@@ -320,7 +320,8 @@ private fun filterScrollKey(upToMonth: String?, filter: HomeFilter): String =
     ).joinToString("\u0000")
 
 /**
- * 右上角兩顆鈕：〔依地點與標籤篩選〕〔依時間篩選〕。有篩選時那一顆變成主色淺底圓形＋主色圖示，
+ * 右上角兩顆鈕：〔依地點與標籤篩選〕〔依時間篩選〕。有篩選時那一顆變成主色圖示＋右上角主色徽章
+ * （篩選鈕是條件數、日曆鈕是小圓點），
  * 不另外佔一列狀態列；清除時間篩選在月份選擇器的【清除】，清除地點與標籤篩選在抽屜的【清除篩選】。
  * TalkBack 用 stateDescription 唸出目前的篩選。
  */
@@ -337,6 +338,7 @@ private fun HomeTopBar(upToMonth: String?, filter: HomeFilter, onOpenMonths: () 
                 Modifier
             },
             active = !filter.isEmpty,
+            badgeCount = filter.size,
         )
         TopBarIconButton(
             VsIcons.Calendar,

@@ -1,25 +1,20 @@
 package com.xenyaa.videoshot.ui.common
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,11 +25,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
@@ -105,8 +103,9 @@ fun VsTopBar(
 /**
  * 頂欄上的 44×44 圖示鈕。
  *
- * [active]＝這顆鈕代表的條件正在生效（例如首頁的時間篩選）：主色圖示＋主色圓底，
- * 圓底外圈有慢慢呼吸的光暈，提醒畫面目前是篩選過的；這時 [tint] 不使用。
+ * [active]＝這顆鈕代表的條件正在生效（例如首頁的時間篩選）：圖示變主色，右上角掛一個主色徽章，
+ * 提醒畫面目前是篩選過的；這時 [tint] 不使用。[badgeCount] > 0 時徽章是數字（超過 9 寫 9+），否則是小圓點。
+ * 徽章不另外唸，呼叫端用 stateDescription 唸出目前的篩選。
  */
 @Composable
 fun TopBarIconButton(
@@ -116,53 +115,52 @@ fun TopBarIconButton(
     modifier: Modifier = Modifier,
     tint: Color = AppTheme.colors.textDim,
     active: Boolean = false,
+    badgeCount: Int = 0,
 ) {
-    val shape = if (active) CircleShape else RoundedCornerShape(AppTheme.radii.sm)
+    val shape = RoundedCornerShape(AppTheme.radii.sm)
     IconButton(
         onClick = onClick,
-        modifier = modifier
-            .size(AppTheme.spacing.tap)
-            .focusRing(shape)
-            .then(if (active) Modifier.breathingHalo() else Modifier),
+        modifier = modifier.size(AppTheme.spacing.tap).focusRing(shape),
     ) {
-        Icon(icon, contentDescription = contentDescription, tint = if (active) AppTheme.colors.accent else tint)
+        Box {
+            Icon(icon, contentDescription = contentDescription, tint = if (active) AppTheme.colors.accent else tint)
+            if (active) TopBarBadge(badgeCount, Modifier.align(Alignment.TopEnd))
+        }
     }
 }
 
-/** 外圈呼吸一次漸亮（或漸暗）的時間；一亮一暗合計 3.2 秒，慢慢的、不像警示在閃。 */
-private const val HaloHalfMillis = 1600
+/** 徽章外圈用頂欄底色描一圈，跟圖示的線條分開。 */
+private val BadgeRing = 1.5.dp
 
-/** 圓底半徑：比 44dp 觸控區小一圈（觸控區不變），圖示外面留一點邊就好。 */
-private val HaloBaseRadius = 18.dp
-
-/** 外圈光暈在圓底外面的寬度範圍。 */
-private val HaloMinSpread = 1.dp
-private val HaloMaxSpread = 4.dp
-/** 光暈最亮時也比圓底淡，只是柔柔地亮起來，不要像一圈深色外框。 */
-private const val HaloMaxAlpha = 0.18f
-
-/**
- * 固定的主色圓底（`accentWeak` 與 `accentLine` 的中間色）＋圓底外面一圈慢慢呼吸的主色光暈（變亮時稍微往外撐、變暗時收回）。
- * 進度只在繪製階段讀取，動畫期間不會觸發重組。系統關閉動畫時光暈停在最暗（透明），只剩圓底。
- */
+/** 數字徽章：高 16dp 的主色膠囊，疊在圖示右上角外面一點；沒有數字時是 8dp 的主色圓點。 */
 @Composable
-private fun Modifier.breathingHalo(): Modifier {
-    val base = lerp(AppTheme.colors.accentWeak, AppTheme.colors.accentLine, 0.5f)
-    val halo = AppTheme.colors.accent
-    val breath by rememberInfiniteTransition(label = "halo").animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            tween(HaloHalfMillis, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "haloBreath",
-    )
-    return drawBehind {
-        val r = HaloBaseRadius.toPx()
-        val spread = HaloMinSpread.toPx() + (HaloMaxSpread - HaloMinSpread).toPx() * breath
-        // 光暈先畫、圓底蓋在上面，露出來的只有圓底外面那一圈
-        drawCircle(halo.copy(alpha = HaloMaxAlpha * breath), radius = r + spread)
-        drawCircle(base, radius = r)
+private fun TopBarBadge(count: Int, modifier: Modifier) {
+    val colors = AppTheme.colors
+    if (count > 0) {
+        Text(
+            if (count > 9) "9+" else count.toString(),
+            color = colors.accentInk,
+            fontSize = 11.sp,
+            lineHeight = 13.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            modifier = modifier
+                .offset(x = 8.dp, y = (-6).dp)
+                .clearAndSetSemantics {}
+                .border(BadgeRing, colors.bg, CircleShape)
+                .padding(BadgeRing)
+                .background(colors.accent, CircleShape)
+                .defaultMinSize(minWidth = 13.dp)
+                .padding(horizontal = 3.dp),
+        )
+    } else {
+        Box(
+            modifier
+                .offset(x = 3.dp, y = (-3).dp)
+                .size(8.dp + BadgeRing * 2)
+                .border(BadgeRing, colors.bg, CircleShape)
+                .padding(BadgeRing)
+                .background(colors.accent, CircleShape),
+        )
     }
 }

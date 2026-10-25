@@ -277,11 +277,11 @@ object VsIcons {
     }
 
     /**
-     * 篩選（首頁篩選鈕、取圖第二步【隱藏相似】）。原型 `filter` 是 `<polygon>`，改寫成封閉路徑（隱式 lineto）。
+     * 篩選（首頁篩選鈕）。Lucide `list-filter`：置中、由長到短的三條橫線（2026-10-25 起，原本是漏斗 `filter`）。
      * 帳號頁「取圖」那一列 2026-10-09 起改用 [Sliders]，避免跟首頁篩選鈕同圖示不同語意。
      */
     val Filter: ImageVector by lazy {
-        strokeIcon("filter", "M22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3Z")
+        strokeIcon("list-filter", "M3 6h18", "M7 12h10", "M10 18h4")
     }
 
     /** 取圖設定（帳號頁「取圖」列：調整過濾相似強度）。Lucide `sliders-horizontal`，`<line>` 改寫成 path。 */
