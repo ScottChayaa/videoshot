@@ -148,8 +148,8 @@ private fun Color.hex(): String = "#%06X".format(toArgb() and 0xFFFFFF)
  * 綠、琥珀跟「完成」（綠）、「警示」（橙褐）是近親，選了要注意並排時分不分得開。
  */
 private val Presets = listOf(
-    "靛藍（現在）" to Color(0xFF4F46E5),
-    "相簿藍" to Color(0xFF1A73E8),
+    "藍（現在）" to Color(0xFF196AD6),
+    "靛藍（舊）" to Color(0xFF4F46E5),
     "深海藍" to Color(0xFF1D4ED8),
     "深青" to Color(0xFF0E7490),
     "青綠" to Color(0xFF0F766E),

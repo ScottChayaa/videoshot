@@ -9,5 +9,6 @@ import androidx.compose.ui.graphics.Color
  */
 object KindColors {
     val place = Color(0xFF0EA5E9)
-    val tag = Color(0xFF8B5CF6)
+    /** 石板藍灰：標籤是輔助資訊，要比主色安靜；跟地點的天藍靠鮮豔度分開。 */
+    val tag = Color(0xFF64748B)
 }
