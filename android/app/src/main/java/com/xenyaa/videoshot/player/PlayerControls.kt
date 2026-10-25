@@ -73,6 +73,10 @@ import kotlinx.coroutines.delay
 /** 播放中控制層沒人碰多久自己收起（規格第六節「播放器」）。 */
 const val CONTROLS_AUTO_HIDE_MS = 3_000L
 
+/** 全螢幕時進度條離下緣、左右多遠（像 YouTube，不貼著螢幕邊）。 */
+private val FULLSCREEN_BAR_BOTTOM = 24.dp
+private val FULLSCREEN_BAR_SIDE = 16.dp
+
 /** TalkBack 與實體鍵盤（←／→）一次前後跳幾秒。 */
 private const val A11Y_STEP_SEC = 10.0
 
@@ -153,6 +157,9 @@ fun PlayerControls(
 
     val position = dragSec ?: status.currentSec
     val fraction = if (duration > 0) (position / duration).toFloat().coerceIn(0f, 1f) else 0f
+    // 全螢幕時進度條跟控制層一起出現、一起收起，離邊緣留一段距離；時間與右下按鈕跟著往上移
+    val barBottom = if (fullscreen && showTimeline) FULLSCREEN_BAR_BOTTOM else 0.dp
+    val barSide = if (fullscreen && showTimeline) FULLSCREEN_BAR_SIDE else 0.dp
 
     BoxWithConstraints(modifier.onFocusChanged { focused = it.hasFocus }) {
         Box(
@@ -244,7 +251,13 @@ fun PlayerControls(
         AnimatedVisibility(visible && enabled, enter = fadeIn(), exit = fadeOut()) {
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f))) {
                 // 有進度條時讓開它（進度條打開時 16dp 高）
-                Row(Modifier.align(Alignment.BottomEnd).padding(bottom = if (showTimeline) 12.dp else 0.dp)) {
+                // 全螢幕時往內縮：IconButton 自己四周有 12dp 空白，再加 4dp 圖示右緣就對齊進度條右端
+                Row(
+                    Modifier.align(Alignment.BottomEnd).padding(
+                        end = if (barSide > 0.dp) barSide - 12.dp else 0.dp,
+                        bottom = (if (showTimeline) 12.dp else 0.dp) + barBottom,
+                    ),
+                ) {
                     if (muted != null) {
                         IconButton(onClick = { onToggleMute(); touches++ }) {
                             Icon(
@@ -269,7 +282,8 @@ fun PlayerControls(
                         "${formatClock(position)} / ${formatClock(duration)}",
                         style = MaterialTheme.typography.labelSmall,
                         color = OnDarkColors.primary,
-                        modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 22.dp),
+                        modifier = Modifier.align(Alignment.BottomStart)
+                            .padding(start = maxOf(12.dp, barSide), bottom = 22.dp + barBottom),
                     )
                 }
             }
@@ -307,19 +321,32 @@ fun PlayerControls(
         dragSec?.let { sec ->
             val bubbleWidth = 160.dp
             val maxOffset = maxWidth - bubbleWidth
-            val x = (maxWidth * fraction - bubbleWidth / 2).coerceIn(0.dp, maxOffset.coerceAtLeast(0.dp))
-            PreviewBubble(sec, preview, Modifier.align(Alignment.BottomStart).offset(x = x, y = (-28).dp).width(bubbleWidth))
+            val x = (barSide + (maxWidth - barSide * 2) * fraction - bubbleWidth / 2)
+                .coerceIn(0.dp, maxOffset.coerceAtLeast(0.dp))
+            PreviewBubble(
+                sec, preview,
+                Modifier.align(Alignment.BottomStart).offset(x = x, y = (-28).dp - barBottom).width(bubbleWidth),
+            )
         }
 
         if (showTimeline) {
-            ProgressBar(
-                fraction = fraction,
-                thick = visible && enabled,
-                duration = duration,
-                position = position,
-                onSeek = { onSeek(it); touches++ },
-                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
-            )
+            // 非全螢幕一直有細線；全螢幕只在控制層開著時出現
+            AnimatedVisibility(
+                !fullscreen || (visible && enabled),
+                modifier = Modifier.align(Alignment.BottomCenter)
+                    .padding(start = barSide, end = barSide, bottom = barBottom)
+                    .fillMaxWidth(),
+                enter = fadeIn(), exit = fadeOut(),
+            ) {
+                ProgressBar(
+                    fraction = fraction,
+                    thick = visible && enabled,
+                    duration = duration,
+                    position = position,
+                    onSeek = { onSeek(it); touches++ },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
     }
 }

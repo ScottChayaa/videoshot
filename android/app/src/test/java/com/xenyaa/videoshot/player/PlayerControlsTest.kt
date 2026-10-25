@@ -223,6 +223,22 @@ class PlayerControlsTest {
     }
 
     @Test
+    fun 非全螢幕時控制層收著也有進度條() {
+        show()
+        compose.onNodeWithContentDescription("播放進度").assertExists()
+    }
+
+    @Test
+    fun 全螢幕時進度條跟控制層一起出現與收起() {
+        show(fullscreen = true)
+        compose.onNodeWithContentDescription("播放進度").assertDoesNotExist()
+        tapCenter(); compose.mainClock.advanceTimeBy(400)
+        compose.onNodeWithContentDescription("播放進度").assertIsDisplayed()
+        compose.mainClock.advanceTimeBy(CONTROLS_AUTO_HIDE_MS + 500)
+        compose.onNodeWithContentDescription("播放進度").assertDoesNotExist()
+    }
+
+    @Test
     fun 還沒準備好時手勢不作用() {
         show(enabled = false)
         tapCenter(); compose.mainClock.advanceTimeBy(400)
