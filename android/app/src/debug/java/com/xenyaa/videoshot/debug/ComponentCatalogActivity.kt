@@ -6,6 +6,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.xenyaa.videoshot.ui.common.TopBarIconButton
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
 
 /**
@@ -20,6 +25,16 @@ class ComponentCatalogActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
         )
-        setContent { VideoshotTheme { ComponentCatalog() } }
+        setContent {
+            // 右上角調色盤調的主色只活在這一頁，不存檔
+            var tuning by remember { mutableStateOf(AccentTuning.DEFAULT) }
+            var tunerOpen by remember { mutableStateOf(false) }
+            VideoshotTheme(tuning.toSpec()) {
+                ComponentCatalog(topBarActions = {
+                    TopBarIconButton(PaletteIcon, "調整主色", onClick = { tunerOpen = true })
+                })
+                if (tunerOpen) AccentTunerSheet(tuning, onChange = { tuning = it }, onDismiss = { tunerOpen = false })
+            }
+        }
     }
 }

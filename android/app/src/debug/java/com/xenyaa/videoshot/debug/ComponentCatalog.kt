@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -70,9 +71,9 @@ import com.xenyaa.videoshot.ui.theme.AppTheme
  * 互動範例各自帶本機狀態，可以在實機上點點看。
  */
 @Composable
-fun ComponentCatalog(modifier: Modifier = Modifier) {
+fun ComponentCatalog(modifier: Modifier = Modifier, topBarActions: @Composable RowScope.() -> Unit = {}) {
     Column(modifier.fillMaxSize().background(AppTheme.colors.bg).statusBarsPadding()) {
-        VsTopBar("元件總覽")
+        VsTopBar("元件總覽", actions = topBarActions)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             Column(
                 Modifier.fillMaxWidth().padding(AppTheme.spacing.s4),
