@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.data.repo
 
+import com.xenyaa.videoshot.core.timeline.ClipDraft
 import com.xenyaa.videoshot.data.cache.entity.DraftEntity
 import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
 import com.xenyaa.videoshot.data.repo.model.FacetRef
@@ -11,6 +12,11 @@ import com.xenyaa.videoshot.data.repo.model.FacetRef
 open class FakeCacheRepo : CacheRepo {
     private val states = mutableMapOf<Triple<String, Int, Int>, ThumbStateEntity>()
     private var draft: DraftEntity? = null
+    private var clipDraft: ClipDraft? = null
+
+    /** `saveClipDraft` 被叫過幾次（測試用）。 */
+    var clipDraftSaveCount: Int = 0
+        private set
     private val recent = mutableMapOf<FacetRef, Long>()
 
     private fun key(videoId: String, sbLevel: Int, frameIndex: Int) = Triple(videoId, sbLevel, frameIndex)
@@ -49,6 +55,13 @@ open class FakeCacheRepo : CacheRepo {
     override suspend fun saveDraft(draft: DraftEntity) { this.draft = draft }
     override suspend fun currentDraft(): DraftEntity? = draft
     override suspend fun clearDraft() { draft = null }
+
+    override suspend fun saveClipDraft(draft: ClipDraft, now: Long) {
+        clipDraft = draft
+        clipDraftSaveCount++
+    }
+    override suspend fun currentClipDraft(): ClipDraft? = clipDraft
+    override suspend fun clearClipDraft() { clipDraft = null }
 
     override suspend fun touchFacets(refs: Collection<FacetRef>, usedAt: Long) {
         refs.forEach { recent[it] = usedAt }

@@ -151,6 +151,9 @@ class AppRootClipTest {
                 override suspend fun facetRecent(): Map<com.xenyaa.videoshot.data.repo.model.FacetRef, Long> = emptyMap()
                 override suspend fun mergeFacetRecent(kind: Int, fromId: Long, toId: Long) = Unit
                 override suspend fun forgetFacetRecent(kind: Int, id: Long) = Unit
+                override suspend fun saveClipDraft(draft: com.xenyaa.videoshot.core.timeline.ClipDraft, now: Long) = Unit
+                override suspend fun currentClipDraft(): com.xenyaa.videoshot.core.timeline.ClipDraft? = null
+                override suspend fun clearClipDraft() = Unit
                 override suspend fun clearAll() = Unit
             },
             io = Dispatchers.Unconfined,

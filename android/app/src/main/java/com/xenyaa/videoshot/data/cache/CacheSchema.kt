@@ -14,5 +14,15 @@ val CACHE_MIGRATION_1_2: Migration = object : Migration(1, 2) {
     }
 }
 
+/** v2→v3：新增 `edit_draft`（剪輯草稿，永遠一列）。其餘三張表不動。SQL 要跟 Room 依 [com.xenyaa.videoshot.data.cache.entity.EditDraftEntity] 產生的一字不差，原因同上。 */
+val CACHE_MIGRATION_2_3: Migration = object : Migration(2, 3) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL(
+            "CREATE TABLE IF NOT EXISTS `edit_draft` (`orientation` TEXT NOT NULL, `payload` TEXT NOT NULL, " +
+                "`updated_at` INTEGER NOT NULL, `id` INTEGER NOT NULL, PRIMARY KEY(`id`))"
+        )
+    }
+}
+
 /** cache.db 的遷移清單。它不進備份，沒有備份相容性的問題（規格第四節）。 */
-val CACHE_MIGRATIONS: Array<Migration> = arrayOf(CACHE_MIGRATION_1_2)
+val CACHE_MIGRATIONS: Array<Migration> = arrayOf(CACHE_MIGRATION_1_2, CACHE_MIGRATION_2_3)

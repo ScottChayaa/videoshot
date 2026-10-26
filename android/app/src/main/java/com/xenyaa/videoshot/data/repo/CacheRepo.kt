@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.data.repo
 
+import com.xenyaa.videoshot.core.timeline.ClipDraft
 import com.xenyaa.videoshot.data.cache.entity.DraftEntity
 import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
 import com.xenyaa.videoshot.data.repo.model.FacetRef
@@ -29,6 +30,13 @@ interface CacheRepo {
     suspend fun saveDraft(draft: DraftEntity)
     suspend fun currentDraft(): DraftEntity?
     suspend fun clearDraft()
+
+    /** 存剪輯草稿（永遠一列，覆蓋舊的）。@param now Unix 毫秒。 */
+    suspend fun saveClipDraft(draft: ClipDraft, now: Long)
+
+    /** 目前的剪輯草稿；沒有、或存的內容解不開（此時順手把那一列刪掉）都回 null。 */
+    suspend fun currentClipDraft(): ClipDraft?
+    suspend fun clearClipDraft()
 
     /** 把這幾個地點或標籤的最近使用時間記成 [usedAt]（Unix 秒）；已有的覆蓋（規格第六節「首頁」）。 */
     suspend fun touchFacets(refs: Collection<FacetRef>, usedAt: Long)

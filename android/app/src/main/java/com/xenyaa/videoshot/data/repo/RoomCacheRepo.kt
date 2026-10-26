@@ -2,8 +2,11 @@ package com.xenyaa.videoshot.data.repo
 
 import androidx.room.Transactor
 import androidx.room.useWriterConnection
+import com.xenyaa.videoshot.core.timeline.ClipDraft
+import com.xenyaa.videoshot.core.timeline.ClipDraftCodec
 import com.xenyaa.videoshot.data.cache.CacheDatabase
 import com.xenyaa.videoshot.data.cache.entity.DraftEntity
+import com.xenyaa.videoshot.data.cache.entity.EditDraftEntity
 import com.xenyaa.videoshot.data.cache.entity.FacetRecentEntity
 import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
 import com.xenyaa.videoshot.data.repo.model.FacetRef
@@ -48,6 +51,21 @@ class RoomCacheRepo(
     override suspend fun currentDraft(): DraftEntity? = withContext(io) { db.draftDao().current() }
 
     override suspend fun clearDraft() = withContext(io) { db.draftDao().clear() }
+
+    override suspend fun saveClipDraft(draft: ClipDraft, now: Long) = withContext(io) {
+        db.editDraftDao().put(EditDraftEntity(draft.orientation.name, ClipDraftCodec.encode(draft), now))
+    }
+
+    override suspend fun currentClipDraft(): ClipDraft? = withContext(io) {
+        val row = db.editDraftDao().current() ?: return@withContext null
+        ClipDraftCodec.decode(row.payload) ?: run {
+            // 解不開的草稿留著只會每次都失敗，直接丟掉
+            db.editDraftDao().clear()
+            null
+        }
+    }
+
+    override suspend fun clearClipDraft() = withContext(io) { db.editDraftDao().clear() }
 
     override suspend fun touchFacets(refs: Collection<FacetRef>, usedAt: Long) = withContext(io) {
         db.facetRecentDao().upsertAll(refs.distinct().map { FacetRecentEntity(it.kind, it.id, usedAt) })

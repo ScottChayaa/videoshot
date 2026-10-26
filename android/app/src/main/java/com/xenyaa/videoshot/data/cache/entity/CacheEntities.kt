@@ -54,3 +54,22 @@ data class FacetRecentEntity(
     /** 最後一次使用的時間，Unix 秒 */
     @ColumnInfo(name = "used_at") val usedAt: Long,
 )
+
+/**
+ * 剪輯（階段 19）進行中的草稿。**永遠只有一列**，寫法同 [DraftEntity]。
+ * `payload` 是 `ClipDraftCodec` 編的 JSON（輸出方向、素材、時間軸與復原重做紀錄）；
+ * 裡面引用手機媒體庫的素材編號，是這台裝置的狀態，所以放 cache.db、不進備份。
+ */
+@Entity(tableName = "edit_draft")
+data class EditDraftEntity(
+    /** 輸出方向的列舉名稱：'PORTRAIT' | 'LANDSCAPE'。草稿列要顯示方向時不必解整份 payload。 */
+    @ColumnInfo(name = "orientation") val orientation: String,
+    @ColumnInfo(name = "payload") val payload: String,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long,
+) {
+    @PrimaryKey
+    @ColumnInfo(name = "id")
+    var id: Int = ONLY_ROW
+
+    companion object { const val ONLY_ROW = 1 }
+}
