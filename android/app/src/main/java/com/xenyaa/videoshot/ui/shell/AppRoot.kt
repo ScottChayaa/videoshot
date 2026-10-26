@@ -619,6 +619,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
         Dest.Root, is Dest.Folder, Dest.ArchivedFolders, is Dest.AccountSetting -> AppShell(nav = nav,
             onSelectTab = { foldersVm.clearSelection(); nav = nav.select(it) },
             snackbarHostState = snackbarHostState, accountInitial = avatarInitialOf(accountState.linkedAccount?.displayName),
+            accountAvatar = accountState.avatar,
             // 照片頁、相簿畫面、封存相簿畫面多選時藏起底部導覽，由各自畫面的動作列取代
             fullscreen = fullscreen.active,
             showBottomNav = !fullscreen.active && !(

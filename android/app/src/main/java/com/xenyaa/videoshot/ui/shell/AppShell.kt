@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.xenyaa.videoshot.ui.common.VsBottomNav
 import com.xenyaa.videoshot.ui.theme.AppTheme
+import androidx.compose.ui.graphics.ImageBitmap
 
 /**
  * App 外殼：底部五格 ＋ 目前分頁的內容。
@@ -25,7 +26,7 @@ import com.xenyaa.videoshot.ui.theme.AppTheme
  * **取圖是全螢幕、沒有底部導覽**（手冊 §四第一條）—— 它是一條有進有出的流程，
  * 中途切到別的分頁會讓「草稿還在不在」變得說不清楚。
  *
- * 導覽列外觀見 [VsBottomNav]；[accountInitial] 是已連結帳號的頭像字母（沒連結傳 null）。
+ * 導覽列外觀見 [VsBottomNav]；[accountInitial] 是已連結帳號的頭像字母（沒連結傳 null），[accountAvatar] 是它的 Google 頭像。
  */
 @Composable
 fun AppShell(
@@ -34,6 +35,7 @@ fun AppShell(
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     accountInitial: Char? = null,
+    accountAvatar: ImageBitmap? = null,
     /**
      * false＝藏起底部導覽（照片頁多選時，換成頁面自己的動作列，不然兩列疊在一起很怪）。
      * 藏起來時內容不墊系統導覽列的高度，由頁面自己的動作列 `navigationBarsPadding()` 鋪到螢幕底。
@@ -59,7 +61,7 @@ fun AppShell(
         modifier = modifier,
         containerColor = if (fullscreen) Color.Black else AppTheme.colors.bg,
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        bottomBar = { if (showBottomNav) VsBottomNav(current = nav.tab, onSelect = onSelectTab, accountInitial = accountInitial) },
+        bottomBar = { if (showBottomNav) VsBottomNav(current = nav.tab, onSelect = onSelectTab, accountInitial = accountInitial, accountAvatar = accountAvatar) },
         contentWindowInsets = if (fullscreen) {
             WindowInsets(0)
         } else if (showBottomNav) {

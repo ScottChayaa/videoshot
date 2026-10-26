@@ -48,6 +48,9 @@ import com.xenyaa.videoshot.ui.shell.AccountSection
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.OnDarkColors
 import com.xenyaa.videoshot.ui.theme.focusRing
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.layout.ContentScale
 
 /**
  * 帳號頁首畫面：淡色 hero ＋ 跨在下緣的三格統計卡 ＋ 六格選單（規格第九節「版面」）。
@@ -149,10 +152,12 @@ private fun AccountHero(state: AccountState, onOpenSection: (AccountSection) -> 
                     .background(Brush.linearGradient(listOf(AppTheme.colors.hero1, AppTheme.colors.hero2))),
                 contentAlignment = Alignment.Center,
             ) {
-                // 已連結就把帳號名稱的第一個字（大寫）當頭像，沒連結才用通用人形圖示
-                // （手冊 §八）。名稱理論上不會是空字串，但 Drive 的顯示名稱不是我們
-                // 產生的資料，取不到字就退回「?」，不讓一個空字串把圓圈畫成空白。
-                if (linked != null) {
+                // 已連結就用 Google 頭像；還沒抓到（或帳號沒設頭像）時把帳號名稱的第一個字（大寫）
+                // 當頭像，沒連結才用通用人形圖示（手冊 §八）。名稱理論上不會是空字串，但 Drive 的
+                // 顯示名稱不是我們產生的資料，取不到字就退回「?」，不讓一個空字串把圓圈畫成空白。
+                if (linked != null && state.avatar != null) {
+                    Image(state.avatar, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                } else if (linked != null) {
                     Text(
                         avatarInitialOf(linked.displayName)?.toString() ?: "?",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),

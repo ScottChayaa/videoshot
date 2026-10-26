@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -53,7 +55,18 @@ class AccountViewModel(
         viewModelScope.launch { deps.aiRangeAfterSec.collect { v -> _state.value = _state.value.copy(aiRangeAfterSec = v) } }
         viewModelScope.launch { deps.thumbColumns.collect { v -> _state.update { it.copy(thumbColumns = v) } } }
         viewModelScope.launch { deps.geminiKeySet.collect { v -> _state.value = _state.value.copy(geminiKeySet = v) } }
-        viewModelScope.launch { deps.linkedAccount.collect { v -> _state.value = _state.value.copy(linkedAccount = v) } }
+        viewModelScope.launch {
+            // DataStore 任何一個設定改了都會再發一次，帳號沒變就不重抓頭像
+            deps.linkedAccount.distinctUntilChanged().collectLatest { account ->
+                _state.update { it.copy(linkedAccount = account, avatar = if (account == null) null else it.avatar) }
+                if (account == null) return@collectLatest
+                val cached = runCatching { deps.cachedAvatar() }.getOrNull()
+                if (cached != null) _state.update { it.copy(avatar = cached) }
+                // 離線或授權失效就沿用存著的圖、不報錯——頭像只是外觀，備份頁自己會顯示授權問題
+                val fresh = runCatching { deps.refreshAvatar() }
+                if (fresh.isSuccess) _state.update { it.copy(avatar = fresh.getOrNull()) }
+            }
+        }
         viewModelScope.launch { deps.lastBackupAtEpochSec.collect { v -> _state.value = _state.value.copy(lastBackupAtEpochSec = v) } }
         reload()
     }

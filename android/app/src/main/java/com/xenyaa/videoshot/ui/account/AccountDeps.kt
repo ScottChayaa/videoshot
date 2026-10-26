@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.ui.account
 
 import android.app.Activity
 import android.content.Intent
+import androidx.compose.ui.graphics.ImageBitmap
 import com.xenyaa.videoshot.backup.LinkOutcome
 import com.xenyaa.videoshot.backup.LinkedGoogleAccount
 import com.xenyaa.videoshot.core.similarity.FilterStrength
@@ -55,6 +56,11 @@ interface AccountDeps {
     suspend fun finishLink(data: Intent): LinkedGoogleAccount
     /** 未連結時是無害的 no-op——沒有帳號可斷。 */
     suspend fun unlink()
+
+    /** 上次存下來的 Google 頭像（離線也看得到）；沒有就 null，畫名稱字母。 */
+    suspend fun cachedAvatar(): ImageBitmap?
+    /** 從 Google 重新抓頭像並存起來。帳號沒設頭像回 null；網路失敗丟例外。 */
+    suspend fun refreshAvatar(): ImageBitmap?
 
     val lastBackupAtEpochSec: Flow<Long>
     /** @return true 代表真的執行了一次上傳；false 代表（理論上不會發生，因為帳號頁的呼叫永遠是 force=true）什麼都沒做。 */

@@ -2,6 +2,9 @@ package com.xenyaa.videoshot.ui.account
 
 import android.app.Activity
 import android.content.Intent
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.ImageBitmapConfig
+import androidx.compose.ui.graphics.colorspace.ColorSpaces
 import com.xenyaa.videoshot.backfill.BackfillProgress
 import com.xenyaa.videoshot.backup.LinkOutcome
 import com.xenyaa.videoshot.backup.LinkedGoogleAccount
@@ -136,6 +139,15 @@ class AccountViewModelTest {
             unlinkCalled = true
             if (failNextUnlink) throw RuntimeException("中斷連結失敗")
             linkedAccountFlow.value = null
+        }
+
+        var cachedAvatar: ImageBitmap? = null
+        var freshAvatar: ImageBitmap? = null
+        var failRefreshAvatar = false
+        override suspend fun cachedAvatar(): ImageBitmap? = cachedAvatar
+        override suspend fun refreshAvatar(): ImageBitmap? {
+            if (failRefreshAvatar) throw RuntimeException("沒有網路")
+            return freshAvatar
         }
 
         val lastBackupAtFlow = MutableStateFlow(0L)
@@ -448,6 +460,57 @@ class AccountViewModelTest {
 
         assertEquals("中斷連結失敗，請確認網路後再試一次", viewModel.state.value.backupError)
         assertNull("不能污染標籤管理畫面才會顯示的泛用 error", viewModel.state.value.error)
+    }
+
+    /** 純 JVM 造不出真的 Bitmap；頭像只比對是不是同一個物件，這樣就夠。 */
+    private class FakeBitmap : ImageBitmap {
+        override val width = 1
+        override val height = 1
+        override val config = ImageBitmapConfig.Argb8888
+        override val hasAlpha = false
+        override val colorSpace = ColorSpaces.Srgb
+        override fun readPixels(buffer: IntArray, startX: Int, startY: Int, width: Int, height: Int, bufferOffset: Int, stride: Int) = Unit
+        override fun prepareToDraw() = Unit
+    }
+
+    @Test
+    fun 已連結時頭像換成剛從Google抓到的() = runTest {
+        val deps = FakeDeps()
+        val fresh = FakeBitmap()
+        deps.cachedAvatar = FakeBitmap()
+        deps.freshAvatar = fresh
+        deps.linkedAccountFlow.value = LinkedGoogleAccount("阿明", "ming@example.com")
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.avatar === fresh)
+    }
+
+    @Test
+    fun 抓頭像失敗時沿用存著的頭像() = runTest {
+        val deps = FakeDeps()
+        val cached = FakeBitmap()
+        deps.cachedAvatar = cached
+        deps.failRefreshAvatar = true
+        deps.linkedAccountFlow.value = LinkedGoogleAccount("阿明", "ming@example.com")
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.avatar === cached)
+    }
+
+    @Test
+    fun 中斷連結後頭像清掉() = runTest {
+        val deps = FakeDeps()
+        deps.freshAvatar = FakeBitmap()
+        deps.linkedAccountFlow.value = LinkedGoogleAccount("阿明", "ming@example.com")
+        val viewModel = vm(deps)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.unlink()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(viewModel.state.value.avatar)
     }
 
     // `beginLink`／`finishLink` 的失敗路徑沒有單獨的案例：它們的參數是真的 `Activity`／

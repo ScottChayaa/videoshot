@@ -9,6 +9,7 @@ import com.xenyaa.videoshot.R
 import com.xenyaa.videoshot.backup.BackupManager
 import com.xenyaa.videoshot.backup.BackupSnapshotter
 import com.xenyaa.videoshot.backup.BackupStore
+import com.xenyaa.videoshot.backup.DriveAvatar
 import com.xenyaa.videoshot.backup.DriveBackupStore
 import com.xenyaa.videoshot.backup.GisGoogleAuth
 import com.xenyaa.videoshot.backup.GoogleAuth
@@ -365,6 +366,23 @@ class AppContainer(context: Context) : AppRootDeps {
                 val email = settings.linkedAccount.first()?.email ?: return
                 googleAuth.unlink(email)
                 settings.clearLinkedAccount()
+                withContext(Dispatchers.IO) { avatarFile.delete() }
+            }
+
+            override suspend fun cachedAvatar(): ImageBitmap? = withContext(Dispatchers.IO) {
+                BitmapFactory.decodeFile(avatarFile.path)?.asImageBitmap()
+            }
+            override suspend fun refreshAvatar(): ImageBitmap? {
+                val bytes = driveAvatar.fetch()
+                return withContext(Dispatchers.IO) {
+                    if (bytes == null) {
+                        avatarFile.delete()
+                        null
+                    } else {
+                        avatarFile.writeBytes(bytes)
+                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+                    }
+                }
             }
 
             override val lastBackupAtEpochSec = settings.lastBackupAt
@@ -404,6 +422,13 @@ class AppContainer(context: Context) : AppRootDeps {
             io = Dispatchers.IO,
         )
     }
+
+    private val driveAvatar: DriveAvatar by lazy {
+        DriveAvatar(http = httpClient, accessToken = { googleAuth.accessToken() }, io = Dispatchers.IO)
+    }
+
+    /** 帳號頭像存在 cacheDir：掉了下次開 app 會再抓，不必備份。 */
+    private val avatarFile: File by lazy { File(appContext.cacheDir, "account_avatar") }
 
     val backupManager: BackupManager by lazy {
         BackupManager(

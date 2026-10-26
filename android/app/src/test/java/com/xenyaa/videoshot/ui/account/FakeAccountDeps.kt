@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.ui.account
 
 import android.app.Activity
 import android.content.Intent
+import androidx.compose.ui.graphics.ImageBitmap
 import com.xenyaa.videoshot.backfill.BackfillProgress
 import com.xenyaa.videoshot.backup.LinkOutcome
 import com.xenyaa.videoshot.backup.LinkedGoogleAccount
@@ -48,6 +49,8 @@ open class FakeAccountDeps : AccountDeps {
         LinkOutcome.Linked(LinkedGoogleAccount("", ""))
     override suspend fun finishLink(data: Intent): LinkedGoogleAccount = LinkedGoogleAccount("", "")
     override suspend fun unlink() = Unit
+    override suspend fun cachedAvatar(): ImageBitmap? = null
+    override suspend fun refreshAvatar(): ImageBitmap? = null
 
     override val lastBackupAtEpochSec = MutableStateFlow(0L)
     override suspend fun backupNow(): Boolean = true

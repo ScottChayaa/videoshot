@@ -33,6 +33,9 @@ import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.shell.Tab
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
 
 /** 帳號名稱 → 導覽列／帳號頁頭像的字母。取不到字就回 null，畫人像圖示。 */
 fun avatarInitialOf(displayName: String?): Char? = displayName?.trim()?.firstOrNull()?.uppercaseChar()
@@ -48,10 +51,16 @@ private fun iconOf(tab: Tab): ImageVector = when (tab) {
  * 底部導覽（原型 `styles.css`「底部導覽」）。
  *
  * 取圖格用實心主色方塊——它是主要動作，但**不是紅色**（手冊 §零，紅色只留給刪除）。
- * 帳號格連結 Google 帳號後換成頭像字母（設計文件決定 4），文字一律「帳號」。
+ * 帳號格連結 Google 帳號後換成 Google 頭像（[accountAvatar]），還沒抓到就用頭像字母（設計文件決定 4），文字一律「帳號」。
  */
 @Composable
-fun VsBottomNav(current: Tab, onSelect: (Tab) -> Unit, accountInitial: Char?, modifier: Modifier = Modifier) {
+fun VsBottomNav(
+    current: Tab,
+    onSelect: (Tab) -> Unit,
+    accountInitial: Char?,
+    modifier: Modifier = Modifier,
+    accountAvatar: ImageBitmap? = null,
+) {
     Column(modifier.fillMaxWidth().background(AppTheme.colors.surface).navigationBarsPadding()) {
         // 上緣分隔線用一個實體像素（最細）；Dp.Hairline 會讓分隔線的版面高度是 0，改成明確換算
         HorizontalDivider(thickness = (1f / LocalDensity.current.density).dp, color = AppTheme.colors.border)
@@ -61,6 +70,7 @@ fun VsBottomNav(current: Tab, onSelect: (Tab) -> Unit, accountInitial: Char?, mo
                     tab = tab,
                     selected = tab == current,
                     accountInitial = accountInitial,
+                    accountAvatar = accountAvatar,
                     onClick = { onSelect(tab) },
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                 )
@@ -70,7 +80,14 @@ fun VsBottomNav(current: Tab, onSelect: (Tab) -> Unit, accountInitial: Char?, mo
 }
 
 @Composable
-private fun NavItem(tab: Tab, selected: Boolean, accountInitial: Char?, onClick: () -> Unit, modifier: Modifier) {
+private fun NavItem(
+    tab: Tab,
+    selected: Boolean,
+    accountInitial: Char?,
+    accountAvatar: ImageBitmap?,
+    onClick: () -> Unit,
+    modifier: Modifier,
+) {
     val isCapture = tab == Tab.CAPTURE
     val color = when {
         isCapture || selected -> AppTheme.colors.accent
@@ -92,6 +109,13 @@ private fun NavItem(tab: Tab, selected: Boolean, accountInitial: Char?, onClick:
                         .background(AppTheme.colors.accent),
                     contentAlignment = Alignment.Center,
                 ) { Icon(iconOf(tab), null, tint = AppTheme.colors.accentInk, modifier = Modifier.size(20.dp)) }
+
+                tab == Tab.ACCOUNT && accountAvatar != null -> Image(
+                    accountAvatar,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(24.dp).clip(CircleShape),
+                )
 
                 tab == Tab.ACCOUNT && accountInitial != null -> Box(
                     Modifier.size(24.dp).clip(CircleShape).background(AppTheme.colors.accent),

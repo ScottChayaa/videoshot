@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.account
 
+import androidx.compose.ui.graphics.ImageBitmap
 import com.xenyaa.videoshot.backfill.BackfillProgress
 import com.xenyaa.videoshot.backup.LinkedGoogleAccount
 import com.xenyaa.videoshot.core.home.DEFAULT_THUMB_COLUMNS
@@ -50,6 +51,8 @@ data class AccountState(
     /** 合併進行中（圖很多時要幾秒），畫面顯示不可關閉的「合併中…」。 */
     val merging: Boolean = false,
     val linkedAccount: LinkedGoogleAccount? = null,
+    /** 已連結帳號的 Google 頭像；沒連結、帳號沒頭像、或還沒抓到時是 null（畫名稱字母）。 */
+    val avatar: ImageBitmap? = null,
     val lastBackupAtEpochSec: Long = 0L,
     val backingUp: Boolean = false,
     val backupError: String? = null,
