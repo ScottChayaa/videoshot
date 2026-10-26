@@ -53,7 +53,7 @@ import com.xenyaa.videoshot.ui.thumb.ThumbLoader
  * 張數是圖片區右下角的膠囊，名稱列不再顯示張數。
  *
  * 改名、封存、刪除都在**長按多選**裡（同照片頁）：長按選取這一本，畫面底部換成動作列。
- * [selected] 不是 null＝多選中：點一下切換選取，卡片當核取方塊；已選畫主色框＋左上打勾，沒選畫空心圈
+ * [selected] 不是 null＝多選中：點一下切換選取，卡片當核取方塊；已選左上打勾（不畫框，2026-10-27 scott），沒選畫空心圈
  * （外觀照 `ThumbTile`）。卡片上不再有 `⋯`。
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -139,10 +139,7 @@ fun FolderCardTile(
             }
         }
         when (selected) {
-            true -> {
-                Box(Modifier.matchParentSize().border(3.dp, AppTheme.colors.accent, shape))
-                VsSelectedBadge(Modifier.align(Alignment.TopStart).padding(4.dp), semanticLabel = null)
-            }
+            true -> VsSelectedBadge(Modifier.align(Alignment.TopStart).padding(4.dp), semanticLabel = null)
             false -> VsUnselectedBadge(Modifier.align(Alignment.TopStart).padding(4.dp))
             null -> Unit
         }
