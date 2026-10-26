@@ -2,8 +2,6 @@ package com.xenyaa.videoshot.ui.clip
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -193,41 +191,32 @@ private fun MediaCell(item: MediaItem, order: Int?, loader: MediaThumbLoader, on
                     .padding(horizontal = 4.dp, vertical = 1.dp),
             )
         }
-        if (order != null) {
-            // 已選：畫面蓋一層淡白、四周陶土色框，左上序號圓也用陶土色——主色深海藍疊在照片上看不清楚（scott，2026-10-27）
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .background(Color.White.copy(alpha = 0.3f))
-                    .border(3.dp, AppTheme.colors.hero1),
-            )
-            OrderBadge(order, Modifier.align(Alignment.TopStart))
-        }
+        if (order != null) OrderBadge(order, Modifier.align(Alignment.TopStart))
     }
 }
 
 /**
- * 左上的序號圓：白邊、陶土色底、白色粗體數字（不用主色，理由見 [MediaCell]）。
+ * 左上的序號圓。外觀比照 `VsSelectedBadge`（白邊、主色底），裡面的打勾換成數字。
  * 純裝飾：語意由整格的「已選第 N 個」負責，這裡清掉才不會唸兩次。
  */
 @Composable
 private fun OrderBadge(order: Int, modifier: Modifier = Modifier) {
     Box(
         modifier
-            .padding(4.dp)
-            .size(28.dp)
+            .padding(2.dp)
+            .size(24.dp)
             .clip(CircleShape)
-            .background(Color.White)
+            .background(Color.White.copy(alpha = 0.92f))
             .padding(2.dp)
             .clip(CircleShape)
-            .background(AppTheme.colors.hero1)
+            .background(AppTheme.colors.accent)
             .clearAndSetSemantics {},
         contentAlignment = Alignment.Center,
     ) {
         Text(
             order.toString(),
-            color = Color.White,
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 13.sp, lineHeight = 13.sp, fontWeight = FontWeight.Bold),
+            color = AppTheme.colors.accentInk,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, lineHeight = 11.sp),
         )
     }
 }

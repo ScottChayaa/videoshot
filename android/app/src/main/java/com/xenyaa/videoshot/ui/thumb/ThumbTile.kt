@@ -2,7 +2,6 @@ package com.xenyaa.videoshot.ui.thumb
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
@@ -32,7 +31,7 @@ val ThumbGridGap = 1.dp
  * 首頁、查詢結果、資料夾內容共用（三處都是左右貼齊螢幕邊緣、格線 [ThumbGridGap]）。
  * 名稱預設走 [labelOf]（有描述唸描述，沒有就唸「片段縮圖 MM:SS」）。
  *
- * [selected] 不是 null＝多選模式（照片頁）：點一下切換選取，格子當核取方塊；已選畫主色框＋左上打勾，
+ * [selected] 不是 null＝多選模式（照片頁）：點一下切換選取，格子當核取方塊；已選左上打勾（不畫框，2026-10-27 scott），
  * 沒選畫空心圈。[onLongClick] 給了才有長按（照片頁用來進入多選）。
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -69,10 +68,7 @@ fun ThumbTile(
     ) {
         ThumbImage(shot, loader, Modifier.fillMaxSize(), contentDescription)
         when (selected) {
-            true -> {
-                Box(Modifier.fillMaxSize().border(3.dp, AppTheme.colors.accent, shape))
-                VsSelectedBadge(Modifier.align(Alignment.TopStart).padding(4.dp), semanticLabel = null)
-            }
+            true -> VsSelectedBadge(Modifier.align(Alignment.TopStart).padding(4.dp), semanticLabel = null)
             false -> VsUnselectedBadge(Modifier.align(Alignment.TopStart).padding(4.dp))
             null -> Unit
         }
