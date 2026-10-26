@@ -3,6 +3,14 @@ package com.xenyaa.videoshot.di
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import com.xenyaa.videoshot.media.MediaLibrary
+import com.xenyaa.videoshot.media.MediaStoreLibrary
+import com.xenyaa.videoshot.media.MediaThumbLoader
+import com.xenyaa.videoshot.media.mediaPermissionsFor
+import com.xenyaa.videoshot.media.mediaStoreThumbDecoder
+import com.xenyaa.videoshot.ui.clip.ClipDeps
 import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.xenyaa.videoshot.R
@@ -474,6 +482,23 @@ class AppContainer(context: Context) : AppRootDeps {
      */
     private fun sheetsDirFor(videoId: String, level: Int): File =
         File(appContext.filesDir, "drafts/$videoId/sheets/L$level")
+
+    /**
+     * 剪輯的選素材：只讀手機的 MediaStore。權限每次都現問（使用者可能剛從系統設定回來），
+     * 所以 [ClipDeps.grantedMediaPermissions] 是函式，不是建構時就固定的集合。
+     */
+    override val clipDeps: ClipDeps by lazy {
+        val resolver = appContext.contentResolver
+        object : ClipDeps {
+            override val mediaLibrary: MediaLibrary = MediaStoreLibrary(resolver, Dispatchers.IO)
+            override val mediaThumbLoader = MediaThumbLoader(decode = mediaStoreThumbDecoder(resolver, Dispatchers.IO))
+            override fun sdkInt(): Int = Build.VERSION.SDK_INT
+            override fun grantedMediaPermissions(): Set<String> =
+                mediaPermissionsFor(Build.VERSION.SDK_INT)
+                    .filter { appContext.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
+                    .toSet()
+        }
+    }
 
     override val haptics: Haptics by lazy { SystemHaptics(appContext) }
 
