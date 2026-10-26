@@ -3,9 +3,13 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Android 13 主題圖示：系統只看形狀、自己上色。六片花瓣合成一個剪影，花心用 clip-path 挖空。 -->
-    <group>
-        <clip-path android:pathData="M0,0h108v108h-108zM54,49.5a4.5,4.5 0 1,0 0,9a4.5,4.5 0 1,0 0,-9Z" />
-        <path android:fillColor="#FFFFFF" android:pathData="M54,25.2A9,14.4 0 1,1 54,54A9,14.4 0 1,1 54,25.2ZM78.942,39.6A9,14.4 60 1,1 54,54A9,14.4 60 1,1 78.942,39.6ZM78.942,68.4A9,14.4 120 1,1 54,54A9,14.4 120 1,1 78.942,68.4ZM54,82.8A9,14.4 180 1,1 54,54A9,14.4 180 1,1 54,82.8ZM29.058,68.4A9,14.4 240 1,1 54,54A9,14.4 240 1,1 29.058,68.4ZM29.058,39.6A9,14.4 300 1,1 54,54A9,14.4 300 1,1 29.058,39.6Z" />
+    <!-- Android 13 主題圖示：系統只看形狀、自己上色。同前景，但橘點沒有底色外圈（單色時分不出來）。 -->
+    <group android:pivotX="54" android:pivotY="54" android:scaleX="0.8" android:scaleY="0.8" android:translateX="5.6" android:translateY="3.2">
+        <path android:pathData="M25,50A25,25 0 1,1 66.07,69.15" android:strokeColor="#FFFFFF" android:strokeWidth="7" />
+        <path android:pathData="M66.07,69.15A25,25 0 0,1 53.48,74.76" android:strokeColor="#FFFFFF" android:strokeWidth="7" android:strokeAlpha="0.75" />
+        <path android:pathData="M53.48,74.76A25,25 0 0,1 40.63,73.18" android:strokeColor="#FFFFFF" android:strokeWidth="7" android:strokeAlpha="0.5" />
+        <path android:pathData="M40.63,73.18A25,25 0 0,1 30.85,66.07" android:strokeColor="#FFFFFF" android:strokeWidth="7" android:strokeAlpha="0.28" />
+        <path android:pathData="M25,63.79L17.09,52.4L32.91,52.4Z" android:fillColor="#FFFFFF" android:strokeColor="#FFFFFF" android:strokeWidth="4.8" android:strokeLineJoin="round" />
+        <path android:pathData="M57.42,30.85a8.65,8.65 0 1,0 17.3,0a8.65,8.65 0 1,0 -17.3,0Z" android:fillColor="#FFFFFF" />
     </group>
 </vector>
