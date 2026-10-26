@@ -13,6 +13,8 @@ import com.xenyaa.videoshot.data.settings.ShellSettings
 import com.xenyaa.videoshot.player.Player
 import com.xenyaa.videoshot.query.QueryResolver
 import com.xenyaa.videoshot.ui.account.AccountDeps
+import com.xenyaa.videoshot.ui.clip.ClipDeps
+import com.xenyaa.videoshot.ui.clip.NoClipDeps
 import com.xenyaa.videoshot.ui.thumb.ThumbLoader
 import com.xenyaa.videoshot.wizard.Haptics
 import com.xenyaa.videoshot.wizard.LoadedVideo
@@ -75,4 +77,10 @@ interface AppRootDeps {
      * 預設回 null：只有 `AppContainer` 握著 `Youtube` 與快取目錄，各測試的假實作不必管這件事。
      */
     fun previewFramesFor(videoId: String, page: WatchPage): (suspend (Double) -> ImageBitmap?)? = null
+
+    /**
+     * 剪輯功能（選素材）的組裝點。預設是什麼都沒有的替身：只有 `AppContainer` 握著
+     * `ContentResolver`，各測試的假實作不必管這件事。
+     */
+    val clipDeps: ClipDeps get() = NoClipDeps
 }
