@@ -36,3 +36,5 @@ playwright-report/
 .playwright/
 
 tmp/
+# wrangler 本機開發與部署的暫存（site/）
+.wrangler/

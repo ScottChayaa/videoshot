@@ -1,0 +1,12 @@
+{
+  // videoshot 的首頁與隱私權政策（Google OAuth 審核要求），純靜態，沒有 Worker 程式
+  "name": "videoshot-site",
+  "account_id": "1e895a6ee85e57b2f01556190ab9f1cb",  // scottchayaa.com 所在的 Cloudflare 帳戶
+  "compatibility_date": "2026-10-06",
+  "assets": {
+    "directory": "./public"
+  },
+  "routes": [
+    { "pattern": "videoshot.scottchayaa.com", "custom_domain": true }
+  ]
+}

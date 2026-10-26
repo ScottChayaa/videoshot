@@ -8,6 +8,12 @@
         "mock"
       ],
       "port": 8231
+    },
+    {
+      "name": "site",
+      "runtimeExecutable": "wrangler",
+      "runtimeArgs": ["dev", "-c", "site/wrangler.jsonc", "--port", "8787"],
+      "port": 8787
     }
   ]
 }
