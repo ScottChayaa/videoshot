@@ -513,6 +513,8 @@ class AppContainer(context: Context) : AppRootDeps {
                 mediaPermissionsFor(Build.VERSION.SDK_INT)
                     .filter { appContext.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
                     .toSet()
+            override val cacheRepo: CacheRepo get() = this@AppContainer.cacheRepo
+            override fun now(): Long = System.currentTimeMillis()
         }
     }
 

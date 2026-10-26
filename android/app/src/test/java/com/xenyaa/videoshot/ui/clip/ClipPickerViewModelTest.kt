@@ -1,5 +1,7 @@
 package com.xenyaa.videoshot.ui.clip
 
+import com.xenyaa.videoshot.data.repo.CacheRepo
+import com.xenyaa.videoshot.data.repo.FakeCacheRepo
 import com.xenyaa.videoshot.media.MediaAccess
 import com.xenyaa.videoshot.media.MediaFilter
 import com.xenyaa.videoshot.media.MediaItem
@@ -57,6 +59,8 @@ class ClipPickerViewModelTest {
         override val mediaThumbLoader = MediaThumbLoader(decode = { null })
         override fun sdkInt() = 34
         override fun grantedMediaPermissions() = granted
+        override val cacheRepo: CacheRepo = FakeCacheRepo()
+        override fun now() = 0L
     }
 
     private val library = FakeMediaLibrary(

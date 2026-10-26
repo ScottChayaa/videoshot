@@ -91,6 +91,8 @@ class AppRootClipTest {
         override val mediaThumbLoader = MediaThumbLoader(decode = { null })
         override fun sdkInt() = 34
         override fun grantedMediaPermissions() = granted
+        override val cacheRepo: CacheRepo = com.xenyaa.videoshot.data.repo.FakeCacheRepo()
+        override fun now() = 0L
     }
 
     private val full = mediaPermissionsFor(34).toSet()

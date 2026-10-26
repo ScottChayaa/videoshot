@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.clip
 
+import com.xenyaa.videoshot.data.repo.CacheRepo
 import com.xenyaa.videoshot.media.MediaFilter
 import com.xenyaa.videoshot.media.MediaItem
 import com.xenyaa.videoshot.media.MediaLibrary
@@ -18,6 +19,12 @@ interface ClipDeps {
 
     /** 目前已授權的相片／影片相關權限名稱。 */
     fun grantedMediaPermissions(): Set<String>
+
+    /** 剪輯草稿存在 `cache.db`（`edit_draft`），只走 [CacheRepo]。 */
+    val cacheRepo: CacheRepo
+
+    /** 現在的時間（毫秒）；存草稿時蓋更新時間用，測試可以換掉。 */
+    fun now(): Long
 }
 
 /** 沒有接上手機的替身：清單空、權限空。既有的 `AppRootDeps` 測試替身靠它不必改。 */
@@ -28,4 +35,8 @@ object NoClipDeps : ClipDeps {
     override val mediaThumbLoader: MediaThumbLoader = MediaThumbLoader(decode = { null })
     override fun sdkInt(): Int = 34
     override fun grantedMediaPermissions(): Set<String> = emptySet()
+
+    /** 沒有資料庫可用：這個替身只給不會開編輯畫面的測試，真的去讀會直接丟例外，不默默吞掉。 */
+    override val cacheRepo: CacheRepo get() = error("NoClipDeps 沒有接上資料庫")
+    override fun now(): Long = 0L
 }
