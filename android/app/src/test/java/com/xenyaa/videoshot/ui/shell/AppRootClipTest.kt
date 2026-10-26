@@ -264,4 +264,20 @@ class AppRootClipTest {
         openPicker(FakeClipDeps(full))
         assertEquals(0, permissionRequests())
     }
+
+    @Test
+    fun 回到前景會重查權限_從系統設定給了權限後格子出現() {
+        val clip = FakeClipDeps(emptySet())
+        openPicker(clip)
+        compose.onNodeWithText("需要相片和影片的存取權").assertIsDisplayed()
+
+        // 使用者在系統設定裡開了完整存取，回到 app
+        clip.granted = full
+        compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.STARTED)
+        compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+        compose.waitForIdle()
+
+        compose.onNodeWithText("需要相片和影片的存取權").assertDoesNotExist()
+        assertEquals(3, compose.onAllNodesWithContentDescription("照片").fetchSemanticsNodes().size)
+    }
 }

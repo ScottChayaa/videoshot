@@ -1058,7 +1058,7 @@ private fun ClipPickerRoute(
         if (!entryPending) return@LaunchedEffect
         onEntryHandled()
         vm.reset()
-        vm.refreshAccess()
+        // 不在這裡重判權限：ON_RESUME 的重判（下面）在進入畫面時已經跑過，access 是新的
         if (vm.state.value.access != MediaAccess.FULL) launcher.launch(permissions)
     }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refreshAccess() }

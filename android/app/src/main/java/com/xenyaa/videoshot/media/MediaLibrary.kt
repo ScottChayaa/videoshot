@@ -3,7 +3,10 @@ package com.xenyaa.videoshot.media
 import android.content.ContentResolver
 import android.content.ContentUris
 import android.provider.MediaStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
 /** 手機裡的照片與影片清單。畫面與 ViewModel 只碰這個介面，不直接碰 `ContentResolver`。 */
@@ -32,7 +35,8 @@ class MediaStoreLibrary(
         sortNewestFirst(photos + videos)
     }
 
-    private fun query(kind: MediaKind): List<MediaItem> {
+    /** 掃描途中每隔這麼多列檢查一次是否被取消；大圖庫的掃描在使用者離開畫面後不必跑到底。 */
+    private suspend fun query(kind: MediaKind): List<MediaItem> {
         val isVideo = kind == MediaKind.VIDEO
         val table = if (isVideo) MediaStore.Video.Media.EXTERNAL_CONTENT_URI else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
         // DATE_TAKEN 在 MediaColumns 上是 API 29 才有；兩張表各自的 ImageColumns／VideoColumns 一直都有
@@ -59,6 +63,7 @@ class MediaStoreLibrary(
                 val orientationCol = if (isVideo) -1 else c.getColumnIndexOrThrow(MediaStore.Images.ImageColumns.ORIENTATION)
                 val durationCol = if (isVideo) c.getColumnIndexOrThrow(MediaStore.Video.VideoColumns.DURATION) else -1
                 while (c.moveToNext()) {
+                    if (items.size % CANCEL_CHECK_EVERY == 0) currentCoroutineContext().ensureActive()
                     val id = c.getLong(idCol)
                     items += MediaItem(
                         id = id,
@@ -75,10 +80,17 @@ class MediaStoreLibrary(
                     )
                 }
             }
-        } catch (_: SecurityException) {
-            // 沒有權限：回空清單，由畫面顯示「需要相片和影片的存取權」
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // 沒有權限（SecurityException），或內容提供者暫時出錯（例如游標視窗的 IllegalStateException）：
+            // 回空清單，不讓例外穿出去弄垮呼叫的協程；畫面會顯示空狀態或權限提示
             return emptyList()
         }
         return items
+    }
+
+    private companion object {
+        const val CANCEL_CHECK_EVERY = 200
     }
 }

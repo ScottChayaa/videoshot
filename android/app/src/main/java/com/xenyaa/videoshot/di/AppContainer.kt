@@ -489,9 +489,16 @@ class AppContainer(context: Context) : AppRootDeps {
      */
     override val clipDeps: ClipDeps by lazy {
         val resolver = appContext.contentResolver
+        // 容量跟 thumbLoader 一樣依裝置記憶體等級抓：預算 1/8，每張約 256×256×4 bytes
+        val am = appContext.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        val mediaBudgetBytes = am.memoryClass.toLong() * 1024 * 1024 / 8
+        val mediaEntries = (mediaBudgetBytes / (256L * 256 * 4)).toInt().coerceIn(60, 200)
         object : ClipDeps {
             override val mediaLibrary: MediaLibrary = MediaStoreLibrary(resolver, Dispatchers.IO)
-            override val mediaThumbLoader = MediaThumbLoader(decode = mediaStoreThumbDecoder(resolver, Dispatchers.IO))
+            override val mediaThumbLoader = MediaThumbLoader(
+                decode = mediaStoreThumbDecoder(resolver, Dispatchers.IO),
+                maxEntries = mediaEntries,
+            )
             override fun sdkInt(): Int = Build.VERSION.SDK_INT
             override fun grantedMediaPermissions(): Set<String> =
                 mediaPermissionsFor(Build.VERSION.SDK_INT)
