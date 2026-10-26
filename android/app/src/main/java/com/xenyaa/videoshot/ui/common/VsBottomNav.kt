@@ -43,6 +43,7 @@ fun avatarInitialOf(displayName: String?): Char? = displayName?.trim()?.firstOrN
 private fun iconOf(tab: Tab): ImageVector = when (tab) {
     Tab.HOME -> VsIcons.Image
     Tab.CAPTURE -> VsIcons.Plus
+    Tab.CLIP -> VsIcons.Clapperboard
     Tab.FOLDERS -> VsIcons.Folder
     Tab.ACCOUNT -> VsIcons.Person
 }

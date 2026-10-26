@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.shell
 
+import com.xenyaa.videoshot.core.timeline.ClipOrientation
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -159,8 +160,30 @@ class NavStateTest {
     }
 
     @Test
-    fun 分頁只有四格() {
-        assertEquals(listOf("照片", "取圖", "相簿", "帳號"), Tab.entries.map { it.label })
+    fun 分頁有五格() {
+        assertEquals(listOf("照片", "取圖", "剪輯", "相簿", "帳號"), Tab.entries.map { it.label })
+    }
+
+    @Test fun 剪輯的兩層畫面可以編碼再解回來() {
+        val nav = NavState().select(Tab.CLIP).push(Dest.ClipPicker(ClipOrientation.PORTRAIT)).push(Dest.ClipEditor(ClipOrientation.PORTRAIT))
+        assertEquals(nav, NavCodec.decode(NavCodec.encode(nav)))
+    }
+
+    @Test fun 橫式的剪輯畫面也解得回來() {
+        val nav = NavState().select(Tab.CLIP).push(Dest.ClipPicker(ClipOrientation.LANDSCAPE)).push(Dest.ClipEditor(ClipOrientation.LANDSCAPE))
+        assertEquals(nav, NavCodec.decode(NavCodec.encode(nav)))
+    }
+
+    @Test fun 舊版沒有剪輯格的字串只補上剪輯的根畫面() {
+        val old = "FOLDERS|HOME|HOME=R;CAPTURE=R;FOLDERS=R,F7;ACCOUNT=R"
+        val nav = NavCodec.decode(old)
+        assertEquals(Tab.FOLDERS, nav.tab)
+        assertEquals(listOf(Dest.Root, Dest.Folder(7)), nav.stacks.getValue(Tab.FOLDERS))
+        assertEquals(listOf(Dest.Root), nav.stacks.getValue(Tab.CLIP))
+    }
+
+    @Test fun 剪輯格按返回回到照片() {
+        assertEquals(Tab.HOME, NavState().select(Tab.CLIP).pop()?.tab)
     }
 
     @Test

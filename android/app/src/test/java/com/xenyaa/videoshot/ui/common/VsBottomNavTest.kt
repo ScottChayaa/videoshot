@@ -28,10 +28,17 @@ class VsBottomNavTest {
         compose.setContent { VideoshotTheme { VsBottomNav(current, onSelect, initial) } }
     }
 
-    @Test fun 四格都有文字且沒有查詢() {
+    @Test fun 五格依序是照片取圖剪輯相簿帳號() {
         show()
-        for (label in listOf("照片", "取圖", "相簿", "帳號")) compose.onNodeWithText(label).assertIsDisplayed()
+        for (label in listOf("照片", "取圖", "剪輯", "相簿", "帳號")) compose.onNodeWithText(label).assertIsDisplayed()
         compose.onNodeWithText("查詢").assertDoesNotExist()
+    }
+
+    @Test fun 點剪輯回報剪輯分頁() {
+        var picked: Tab? = null
+        show(onSelect = { picked = it })
+        compose.onNodeWithText("剪輯").performClick()
+        assertEquals(Tab.CLIP, picked)
     }
 
     @Test fun 目前分頁標成已選() {

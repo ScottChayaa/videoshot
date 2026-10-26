@@ -1,11 +1,13 @@
 package com.xenyaa.videoshot.ui.shell
 
 import androidx.compose.runtime.Immutable
+import com.xenyaa.videoshot.core.timeline.ClipOrientation
 
-/** 底部導覽的四格（手冊 §零：每個項目都是圖示＋文字；階段 17 拿掉了「查詢」）。 */
+/** 底部導覽的五格（手冊 §零：每個項目都是圖示＋文字；階段 17 拿掉了「查詢」，階段 18 加上「剪輯」）。 */
 enum class Tab(val label: String) {
     HOME("照片"),
     CAPTURE("取圖"),
+    CLIP("剪輯"),
     FOLDERS("相簿"),
     ACCOUNT("帳號"),
 }
@@ -64,6 +66,15 @@ sealed interface Dest {
      * 全螢幕、有終點的流程；還原成功會整個重啟 app，不會走到「回上一層」這條路。
      */
     data object RestoreFlow : Dest
+
+    /**
+     * 剪輯分頁的選素材畫面（階段 18）：全螢幕、**沒有底部導覽**——有進有出的流程。
+     * @param orientation 使用者在「影片方向」抽屜選的方向，往後的編輯與輸出都照它
+     */
+    data class ClipPicker(val orientation: ClipOrientation) : Dest
+
+    /** 剪輯分頁的編輯畫面（階段 18 先是佔位）：疊在 [ClipPicker] 上面，同樣沒有底部導覽。 */
+    data class ClipEditor(val orientation: ClipOrientation) : Dest
 }
 
 /**
@@ -135,6 +146,8 @@ object NavCodec {
                     is Dest.AccountSetting -> "A${dest.section.id}"
                     is Dest.RestoreFlow -> "V"
                     is Dest.ArchivedFolders -> "X"
+                    is Dest.ClipPicker -> "C${orientationCode(dest.orientation)}"
+                    is Dest.ClipEditor -> "E${orientationCode(dest.orientation)}"
                 }
             }
             "${tab.name}=$items"
@@ -165,6 +178,8 @@ object NavCodec {
                         val shotId = body.substring(sep + 1).toLongOrNull() ?: return NavState()
                         Dest.Play(body.substring(0, sep), shotId)
                     }
+                    item.startsWith("C") -> Dest.ClipPicker(orientationOf(item.drop(1)) ?: return NavState())
+                    item.startsWith("E") -> Dest.ClipEditor(orientationOf(item.drop(1)) ?: return NavState())
                     item.startsWith("A") -> {
                         val section = AccountSection.entries.firstOrNull { it.id == item.drop(1) }
                             ?: return NavState()
@@ -176,7 +191,20 @@ object NavCodec {
             if (stack.isEmpty()) return NavState()
             stacks[owner] = stack
         }
-        if (stacks.keys != Tab.entries.toSet()) return NavState()
+        // 舊版存檔沒有後來新增的格子（例如剪輯）：缺的補根畫面；有不認識的格子名稱在上面就已重設
+        for (t in Tab.entries) stacks.getOrPut(t) { listOf(Dest.Root) }
         return NavState(tab, stacks, returnTo)
+    }
+
+    /** 方向的存檔碼：`p`＝直式、`l`＝橫式；其他字元解碼失敗，整個回預設。 */
+    private fun orientationCode(o: ClipOrientation): Char = when (o) {
+        ClipOrientation.PORTRAIT -> 'p'
+        ClipOrientation.LANDSCAPE -> 'l'
+    }
+
+    private fun orientationOf(code: String): ClipOrientation? = when (code) {
+        "p" -> ClipOrientation.PORTRAIT
+        "l" -> ClipOrientation.LANDSCAPE
+        else -> null
     }
 }

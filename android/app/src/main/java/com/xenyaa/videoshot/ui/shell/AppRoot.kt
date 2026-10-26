@@ -66,6 +66,7 @@ import com.xenyaa.videoshot.ui.lightbox.LightboxClipDeps
 import com.xenyaa.videoshot.ui.lightbox.LightboxScreen
 import com.xenyaa.videoshot.ui.lightbox.shareTextOf
 import com.xenyaa.videoshot.ui.onboarding.FirstRunChooserScreen
+import com.xenyaa.videoshot.ui.common.ComingSoonScreen
 import com.xenyaa.videoshot.ui.common.avatarInitialOf
 import com.xenyaa.videoshot.player.ClipSource
 import com.xenyaa.videoshot.player.LocalPlayerFullscreen
@@ -616,6 +617,9 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             )
         }
 
+        // 剪輯的選素材與編輯畫面：全螢幕、沒有底部導覽。先放佔位，之後換成真的畫面（階段 18）
+        is Dest.ClipPicker, is Dest.ClipEditor -> ComingSoonScreen("剪輯", "")
+
         Dest.Root, is Dest.Folder, Dest.ArchivedFolders, is Dest.AccountSetting -> AppShell(nav = nav,
             onSelectTab = { foldersVm.clearSelection(); nav = nav.select(it) },
             snackbarHostState = snackbarHostState, accountInitial = avatarInitialOf(accountState.linkedAccount?.displayName),
@@ -928,6 +932,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                             onOpenStat = { nav = nav.select(Tab.HOME) },
                         )
                     }
+                    Tab.CLIP -> ComingSoonScreen("剪輯", "")
                     Tab.CAPTURE -> WizardScreen(
                         vm = wizardVm,
                         haptics = container.haptics,
