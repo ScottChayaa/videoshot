@@ -151,7 +151,8 @@ pnpm compare [--seed] [--only 首頁,查詢]   # 原型與實機對照截圖（�
 
 ## 慣例
 
-- **commit message 用繁體中文**，格式 `類型(範圍): 描述`，不加 AI 生成標記。
+- **commit message 照 `/git-commit` 技能的格式**（`~/.claude/skills/git-commit/SKILL.md`）：第一行 `類型: 描述`（繁體中文、不加範圍括號、不加句號），
+  空一行後用 2～5 條 `- ` 條列重點，不加 AI 生成標記（Co-Authored-By 等）。2026-10-26 前的 commit 與舊計畫用的是 `類型(範圍): 描述`，不必照舊。
 - **模組邊界**（規格第三節）：
   - 所有 DB 存取只走 **repo**。
   - 縮圖讀寫只走 **`thumbs`**，畫面只呼叫 `thumbFor(shot)`。
