@@ -50,6 +50,8 @@ import com.xenyaa.videoshot.ui.account.TagManagementScreen
 import com.xenyaa.videoshot.ui.account.ThumbsUsageScreen
 import com.xenyaa.videoshot.backup.LinkOutcome
 import com.xenyaa.videoshot.backup.restartApp
+import com.xenyaa.videoshot.ui.clip.ClipHomeScreen
+import com.xenyaa.videoshot.ui.clip.OrientationSheet
 import com.xenyaa.videoshot.ui.edit.ShotEditSheet
 import com.xenyaa.videoshot.ui.folders.AddToFolderSheet
 import com.xenyaa.videoshot.ui.folders.FolderScreen
@@ -270,6 +272,8 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
     // 【編輯圖資】掛在 Lightbox 外層，不是 LightboxActions 裡直接開 —— sheet 需要自己的
     // produceState（地點／標籤建議、既有圖資），Lightbox 本身不該知道這些
     var editing by remember { mutableStateOf<ShotRow?>(null) }
+    // 剪輯頁【新增剪輯】的「選影片方向」抽屜：true＝開著
+    var choosingOrientation by remember { mutableStateOf(false) }
     // 就地編輯存檔完成的次數：Lightbox 的標籤列靠它重讀（標籤不在 ShotRow 裡，比不出差異）
     var shotEdits by remember { mutableIntStateOf(0) }
 
@@ -469,6 +473,16 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                 snackbarHostState,
                 Modifier.align(Alignment.BottomCenter).navigationBarsPadding(),
             )
+
+            if (choosingOrientation) {
+                OrientationSheet(
+                    onPick = { orientation ->
+                        choosingOrientation = false
+                        nav = nav.push(Dest.ClipPicker(orientation))
+                    },
+                    onDismiss = { choosingOrientation = false },
+                )
+            }
 
             // 【加入分類】：勾一下寫一次（本階段決定 3）。這張 sheet 不碰 repo（見它的 KDoc），
             // 接線是呼叫端的事——先更新畫面再寫 DB，寫失敗就把勾勾改回去並 snackbar 提示，
@@ -932,7 +946,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                             onOpenStat = { nav = nav.select(Tab.HOME) },
                         )
                     }
-                    Tab.CLIP -> ComingSoonScreen("剪輯", "")
+                    Tab.CLIP -> ClipHomeScreen(onNewClip = { choosingOrientation = true })
                     Tab.CAPTURE -> WizardScreen(
                         vm = wizardVm,
                         haptics = container.haptics,

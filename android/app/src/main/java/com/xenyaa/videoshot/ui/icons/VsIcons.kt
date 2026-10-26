@@ -356,4 +356,22 @@ object VsIcons {
             "M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z",
         )
     }
+
+    /** Lucide `smartphone`：選影片方向抽屜的「直式」。 */
+    val Smartphone: ImageVector by lazy {
+        strokeIcon(
+            "smartphone",
+            "M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z",
+            "M12 18h.01",
+        )
+    }
+
+    /** [Smartphone] 順時針轉 90 度（座標 (x,y) → (24-y, x)）：選影片方向抽屜的「橫式」。 */
+    val SmartphoneLandscape: ImageVector by lazy {
+        strokeIcon(
+            "smartphone-landscape",
+            "M22 7v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2Z",
+            "M6 12v.01",
+        )
+    }
 }
