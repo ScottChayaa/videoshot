@@ -83,6 +83,11 @@ dependencies {
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)
     implementation(libs.androidx.work.runtime.ktx)
+    // 剪輯的時間軸合成與預覽（規格第十九節）；只有 ui/clip 的 ClipComposition、Media3ClipPreview 可以 import
+    implementation(libs.media3.transformer)
+    implementation(libs.media3.effect)
+    implementation(libs.media3.common)
+    implementation(libs.media3.ui.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
