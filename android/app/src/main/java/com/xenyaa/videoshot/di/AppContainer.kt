@@ -372,7 +372,16 @@ class AppContainer(context: Context) : AppRootDeps {
              */
             override suspend fun unlink() {
                 val email = settings.linkedAccount.first()?.email ?: return
-                googleAuth.unlink(email)
+                // 撤銷授權失敗（沒網路、授權當初是別的 Cloud 專案給的）也照樣在本機中斷連結：
+                // 使用者要的是「這台不再用這個帳號備份」，Google 那邊殘留的授權可以在 Google 帳戶裡自己移除。
+                // 2026-10-27 換了 Cloud 專案後，舊授權撤不掉，【中斷連結】永遠失敗、也無法重新連結。
+                try {
+                    googleAuth.unlink(email)
+                } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    android.util.Log.w("VsGoogleAuth", "撤銷 Google 授權失敗，仍在本機中斷連結", e)
+                }
                 settings.clearLinkedAccount()
                 withContext(Dispatchers.IO) { avatarFile.delete() }
             }
