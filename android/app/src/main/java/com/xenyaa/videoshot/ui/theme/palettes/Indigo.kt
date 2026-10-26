@@ -5,30 +5,30 @@ import com.xenyaa.videoshot.ui.theme.Palette
 import com.xenyaa.videoshot.ui.theme.ThemeSpec
 
 /**
- * 預設色系「夕陽海灘」（2026-10-25 起；之前是靛藍、短暫用過藍）：白沙底＋深海藍主色，帳號頁頭像是夕陽漸層。
+ * 預設色系「夕陽海灘」（2026-10-25 起；之前是靛藍、短暫用過藍）：中性灰白底＋深海藍主色，帳號頁頭像是夕陽漸層。
  * 檔名與 `id` 沿用靛藍時代的 `indigo`（`id` 存在 DataStore，不可改）。
  *
  * **要新增別的色系就複製這個檔案改色值**，然後在 `Palettes.ALL` 裡多列一行 —— 其他地方都不必動。
  */
 private val Colors = Palette(
-    // 暖白沙底：比冷灰更不會把照片染偏
-    bg = Color(0xFFFBF4EC),
+    // 中性灰白底：只比純灰暖一點點，膠囊的淡灰底疊上去不會變髒（2026-10-26 前是暖白沙 #FBF4EC）
+    bg = Color(0xFFF5F4F1),
     surface = Color(0xFFFFFFFF),
-    surface2 = Color(0xFFFDF9F4),
-    border = Color(0xFFECE1D3),
-    borderStrong = Color(0xFFD8C8B3),
+    surface2 = Color(0xFFFAF9F7),
+    border = Color(0xFFE6E3DE),
+    borderStrong = Color(0xFFCFCBC4),
 
     text = Color(0xFF1F2A35),
     textDim = Color(0xFF4A5562),
     textFaint = Color(0xFF6B7480),
 
-    // 主色＝深海藍（白字 7.0:1、當文字在白沙底上 6.4:1）
+    // 主色＝深海藍（白字 7.0:1、當文字在灰白底上 6.3:1）
     accent = Color(0xFF0B5F8A),
     accentInk = Color(0xFFFFFFFF),
     accentWeak = Color(0xFFE7EEF3),
     accentLine = Color(0xFFB4CADA),
 
-    // 夕陽＝帳號頁頭像的漸層（hero 底是 hero1 混進底色的淡杏色）。頭像上是白色字母，所以用深一階的陶土 → 焦糖橘；
+    // 夕陽＝帳號頁頭像的漸層（hero 底不染色，就是頁面底色）。頭像上是白色字母，所以用深一階的陶土 → 焦糖橘；
     // 提案時的珊瑚 → 芒果太亮，白字只有 2～3:1
     hero1 = Color(0xFFB5482A),
     hero2 = Color(0xFFC96F22),

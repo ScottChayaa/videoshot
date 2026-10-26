@@ -66,8 +66,8 @@ import kotlin.math.min
  * 語意色（紅／橙／綠）不動 —— 「紅色只用在破壞性動作」要在換色之後仍然成立。
  */
 enum class BaseTone(val label: String) {
-    /** 預設色系的底（白沙 #FBF4EC）。 */
-    COOL("白沙（現在）"),
+    /** 預設色系的底（灰白 #F5F4F1）。 */
+    COOL("灰白（現在）"),
 
     /** 不帶色相的中性灰：不會把照片的顏色「染」偏。 */
     NEUTRAL("中性灰"),

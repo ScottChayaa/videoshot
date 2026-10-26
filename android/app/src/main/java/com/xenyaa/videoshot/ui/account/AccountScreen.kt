@@ -26,7 +26,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.Role
@@ -122,9 +121,9 @@ fun AccountScreen(
 }
 
 /**
- * 淡色 hero（原型 `.account-hero`／`.account`）：上內距 8、下 32，內容列內距 12/16、間距 12。
- * 底是 `hero1` 混進底色的淡杏色、往下淡回底色（下緣跟頁面底色接得無縫）；夕陽漸層只留在頭像圓圈上，字用一般深色字
- * （2026-10-25：原本整塊夕陽漸層太搶眼）。
+ * hero（原型 `.account-hero`／`.account`）：上內距 8、下 32，內容列內距 12/16、間距 12。
+ * 底不染色，就是頁面底色；夕陽漸層只留在頭像圓圈上，字用一般深色字
+ * （2026-10-25：原本整塊夕陽漸層太搶眼；2026-10-26：淡杏底跟中性色的膠囊不搭，拿掉）。
  * 沒連結時整塊內容列可點（進備份子畫面）；已連結時維持只有 Email 那行可點。不做登出（app 沒有登入）。
  */
 @Composable
@@ -134,7 +133,6 @@ private fun AccountHero(state: AccountState, onOpenSection: (AccountSection) -> 
     Box(
         Modifier
             .fillMaxWidth()
-            .background(Brush.verticalGradient(listOf(lerp(AppTheme.colors.bg, AppTheme.colors.hero1, 0.14f), AppTheme.colors.bg)))
             .padding(top = AppTheme.spacing.s2, bottom = AppTheme.spacing.s6),
     ) {
         val rowModifier = Modifier.fillMaxWidth().let {
