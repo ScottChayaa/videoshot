@@ -58,4 +58,41 @@ class MediaThumbLoaderTest {
         fail = false
         assertNotNull(loader.load(item(9)))
     }
+
+    @Test
+    fun 第一個呼叫者在解碼中被取消後等待者不會卡住而且之後能重新解碼() = runTest {
+        var calls = 0
+        val gate = CompletableDeferred<Unit>()
+        val loader = MediaThumbLoader(decode = {
+            calls++
+            if (calls == 1) gate.await()
+            ImageBitmap(1, 1)
+        })
+        val first = async { loader.load(item(5)) }
+        val waiter = async { loader.load(item(5)) }
+        runCurrent()
+        first.cancel()
+        runCurrent()
+        // 等待者拿到 null（預留色塊）就返回，不是永遠 await
+        assertNull(waiter.await())
+        assertNull(loader.peek(5))
+        // 同一個 id 再要一次會重新解碼成功，不會拿到孤兒的 deferred
+        assertNotNull(loader.load(item(5)))
+        assertEquals(2, calls)
+        assertNotNull(loader.peek(5))
+    }
+
+    @Test
+    fun decode丟例外時不寫進快取而且下次會重試() = runTest {
+        var calls = 0
+        val loader = MediaThumbLoader(decode = {
+            calls++
+            if (calls == 1) throw IllegalStateException("壞圖")
+            ImageBitmap(1, 1)
+        })
+        assertNull(loader.load(item(7)))
+        assertNull(loader.peek(7))
+        assertNotNull(loader.load(item(7)))
+        assertEquals(2, calls)
+    }
 }

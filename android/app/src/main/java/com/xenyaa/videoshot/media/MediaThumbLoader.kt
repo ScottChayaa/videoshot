@@ -52,25 +52,30 @@ class MediaThumbLoader(
         }
         if (!mine) return pending.await()
 
-        val bitmap = try {
-            decode(item)
-        } catch (c: CancellationException) {
-            // 捲動離開畫面是常態，不是解碼失敗。清理用 NonCancellable 包住，
-            // 否則鎖剛好被占用時會留下孤兒的 inFlight 紀錄。
-            // 對其他等待者用 complete(null) 而不是 cancel：別人的取消不該傳染給我，
-            // 他們這一輪先看到預留色塊，下一次 load() 會重新解碼。
-            withContext(NonCancellable) { lock.withLock { inFlight.remove(item.id) } }
-            pending.complete(null)
-            throw c
-        } catch (t: Throwable) {
-            // 壞掉的一張圖不該讓整面縮圖牆掛掉
-            null
+        var bitmap: ImageBitmap? = null
+        try {
+            bitmap = try {
+                decode(item)
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                // 壞掉的一張圖不該讓整面縮圖牆掛掉
+                null
+            }
+        } finally {
+            // 成功、失敗、取消三條路都要收尾，而且收尾本身不能被取消：
+            // 捲動離開畫面是常態，若在這裡等鎖時被取消，會留下孤兒的 inFlight 紀錄，
+            // 同一格的等待者永遠卡住。取消時 bitmap 是 null：其他等待者這一輪先看到
+            // 預留色塊（用 complete(null) 而不是 cancel，別人的取消不該傳染給我），
+            // 下一次 load() 會重新解碼。
+            withContext(NonCancellable) {
+                lock.withLock {
+                    bitmap?.let { synchronized(cache) { cache[item.id] = it } }
+                    inFlight.remove(item.id)
+                }
+                pending.complete(bitmap)
+            }
         }
-        lock.withLock {
-            if (bitmap != null) synchronized(cache) { cache[item.id] = bitmap }
-            inFlight.remove(item.id)
-        }
-        pending.complete(bitmap)
         return bitmap
     }
 
