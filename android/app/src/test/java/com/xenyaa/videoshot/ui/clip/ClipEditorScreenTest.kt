@@ -169,6 +169,16 @@ class ClipEditorScreenTest {
         compose.onNodeWithText("0:30 / 1:48").assertIsDisplayed()
     }
 
+    @Test fun 停下的那一刻時間停在預覽的位置_不先跳回按播放時的位置() {
+        // 播放頭還停在按播放那一刻（0:00），預覽播到 0:30 停下。寫回播放頭之前不能先顯示 0:00，否則時間軸會閃一下
+        val preview = FakePreview(playing = true, position = 30_000)
+        val calls = Calls()
+        show(state(playheadMs = 0, durationMs = 108_000), preview, calls)
+        preview.isPlaying.value = false
+        compose.onNodeWithText("0:30 / 1:48").assertIsDisplayed()
+        assertEquals(listOf(30_000L), calls.seeks)
+    }
+
     @Test fun 沒在播放時播放鈕唸播放() {
         show(state())
         compose.onNodeWithContentDescription("播放").assertIsDisplayed()

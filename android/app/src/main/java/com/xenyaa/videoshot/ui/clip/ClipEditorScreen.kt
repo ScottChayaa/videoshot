@@ -113,10 +113,11 @@ private fun ColumnScope.EditorBody(
     val playing by preview.isPlaying.collectAsState()
     val failed by preview.failed.collectAsState()
     val durationMs = draft.timeline.durationMs
-    val shownMs = (if (playing) previewPosition else state.playheadMs).coerceIn(0L, durationMs)
+    // 停下（暫停、播完）的那一次組合，播放頭還沒寫回、停在按播放那一刻：沿用預覽的位置，時間軸才不會先跳回去再跳回來
+    val sync = remember { PlaybackSync(playing) }
+    val shownMs = (if (playing || sync.wasPlaying) previewPosition else state.playheadMs).coerceIn(0L, durationMs)
 
     // 停下時把位置寫回播放頭。拖曳開始時的暫停已經先寫過了，不再重複（否則可能蓋掉拖到的新位置）
-    val sync = remember { PlaybackSync(playing) }
     val latestSeek by rememberUpdatedState(onSeek)
     LaunchedEffect(playing) {
         if (sync.wasPlaying && !playing) {
