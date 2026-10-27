@@ -88,7 +88,10 @@ class AppRootClipTest {
         override suspend fun monthCounts() = emptyList<com.xenyaa.videoshot.data.repo.model.MonthCount>()
     }
 
-    private class FakeClipDeps(var granted: Set<String>) : ClipDeps {
+    private class FakeClipDeps(
+        var granted: Set<String>,
+        override val cacheRepo: com.xenyaa.videoshot.data.repo.FakeCacheRepo = com.xenyaa.videoshot.data.repo.FakeCacheRepo(),
+    ) : ClipDeps {
         val all = (1L..3L).map { MediaItem(it, "content://media/$it", MediaKind.PHOTO, it * 1000, null, 1080, 1920, 0) }
         var listCalls = 0
         override val mediaLibrary = object : MediaLibrary {
@@ -97,7 +100,6 @@ class AppRootClipTest {
         override val mediaThumbLoader = MediaThumbLoader(decode = { null })
         override fun sdkInt() = 34
         override fun grantedMediaPermissions() = granted
-        override val cacheRepo = com.xenyaa.videoshot.data.repo.FakeCacheRepo()
         override fun now() = 0L
         override fun newPreview(context: android.content.Context): ClipPreview = NoOpPreview()
     }
@@ -342,6 +344,90 @@ class AppRootClipTest {
         compose.waitForIdle()
         compose.onNodeWithText("新增剪輯").assertIsDisplayed()
         compose.onNodeWithText("編輯中").assertDoesNotExist()
+    }
+
+    @Test
+    fun 沒有草稿退回之後再走一次正常流程_編輯畫面不會被立刻退回() {
+        val clip = FakeClipDeps(full)
+        openPicker(clip)
+        compose.onAllNodesWithContentDescription("照片")[0].performClick()
+        compose.onNodeWithText("下一步（1）").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("返回").performClick()
+        compose.waitForIdle()
+        kotlinx.coroutines.runBlocking { clip.cacheRepo.clearClipDraft() }
+        // 點「編輯中」進去 → 讀不到草稿 → 退回剪輯頁（這一次的編輯 ViewModel 留下「沒有草稿」的狀態）
+        compose.onNodeWithText("編輯中").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("編輯中").assertDoesNotExist()
+
+        // 再走一次：新增 → 直式 → 選素材 → 下一步
+        compose.onNodeWithText("新增剪輯").performClick()
+        compose.onNodeWithText("直式").performClick()
+        compose.waitForIdle()
+        compose.onAllNodesWithContentDescription("照片")[0].performClick()
+        compose.onAllNodesWithContentDescription("照片")[1].performClick()
+        compose.onNodeWithText("下一步（2）").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("總長 0:06").assertIsDisplayed()
+        compose.onNodeWithText("新增剪輯").assertDoesNotExist()
+    }
+
+    @Test
+    fun 存檔期間按返回_不換頁而且剪輯頁還回得去() {
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val repo = object : com.xenyaa.videoshot.data.repo.FakeCacheRepo() {
+            override suspend fun saveClipDraft(draft: ClipDraft, now: Long) {
+                gate.await()
+                super.saveClipDraft(draft, now)
+            }
+        }
+        val clip = FakeClipDeps(full, repo)
+        openPicker(clip)
+        compose.onAllNodesWithContentDescription("照片")[0].performClick()
+        compose.onNodeWithText("下一步（1）").performClick()
+        compose.waitForIdle()
+
+        // 存檔還沒完成，使用者按返回回到剪輯頁
+        compose.onNodeWithContentDescription("返回").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+
+        gate.complete(Unit)
+        compose.waitForIdle()
+
+        // 沒有被換頁：仍在剪輯頁，有底部導覽，也沒有編輯畫面
+        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+        compose.onNodeWithText("相簿").assertIsDisplayed()
+        compose.onNodeWithText("總長 0:03").assertDoesNotExist()
+        // 再按一次系統返回是回照片分頁，不是卡在剪輯頁；草稿已存，回剪輯分頁看得到「編輯中」
+        compose.onNodeWithText("照片").performClick()
+        compose.onNodeWithText("剪輯").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("編輯中").assertIsDisplayed()
+    }
+
+    @Test
+    fun 存檔失敗留在選素材_選取還在可以再按() {
+        var failures = 1
+        val repo = object : com.xenyaa.videoshot.data.repo.FakeCacheRepo() {
+            override suspend fun saveClipDraft(draft: ClipDraft, now: Long) {
+                if (failures-- > 0) throw IllegalStateException("磁碟滿了")
+                super.saveClipDraft(draft, now)
+            }
+        }
+        openPicker(FakeClipDeps(full, repo))
+        compose.onAllNodesWithContentDescription("照片")[0].performClick()
+        compose.onNodeWithText("下一步（1）").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("選素材").assertIsDisplayed()
+        compose.onNodeWithText("下一步（1）").assertIsDisplayed()
+
+        compose.onNodeWithText("下一步（1）").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("總長 0:03").assertIsDisplayed()
     }
 
     @Test

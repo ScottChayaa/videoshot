@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.ui.shell
 
 import android.app.Activity
 import android.content.Intent
+import android.util.Log
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.ContextWrapper
@@ -704,9 +705,19 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                             val draft = clipVm!!.buildDraft(dest.orientation)
                             if (draft != null && nav.current is Dest.ClipPicker) {
                                 container.clipDeps.cacheRepo.saveClipDraft(draft, container.clipDeps.now())
-                                clipEditorRun++
-                                nav = nav.replaceTop(Dest.ClipEditor(dest.orientation))
+                                // 存檔期間使用者可能已經按了返回：堆疊最上層不是選素材就不換頁
+                                // （否則 replaceTop 會把剪輯頁的根畫面換掉）。草稿已存，剪輯頁會顯示「編輯中」
+                                if (nav.current is Dest.ClipPicker) {
+                                    clipEditorRun++
+                                    nav = nav.replaceTop(Dest.ClipEditor(dest.orientation))
+                                }
                             }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            // 存檔失敗：留在選素材、不換頁。這個畫面沒有 SnackbarHost，只記 log；
+                            // 選取還在，使用者可以再按一次【下一步】
+                            Log.w("VsClip", "建立剪輯草稿失敗", e)
                         } finally {
                             clipBuilding = false
                         }
