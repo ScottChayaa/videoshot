@@ -234,6 +234,16 @@ object VsIcons {
         strokeIcon("rotate-ccw", "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8", "M3 3v5h5")
     }
 
+    /** 剪輯編輯的【復原】。Lucide `undo-2`，原型 `ICONS` 沒有這個 key。 */
+    val Undo: ImageVector by lazy {
+        strokeIcon("undo-2", "M9 14 4 9l5-5", "M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11")
+    }
+
+    /** 剪輯編輯的【重做】。Lucide `redo-2`，原型 `ICONS` 沒有這個 key。 */
+    val Redo: ImageVector by lazy {
+        strokeIcon("redo-2", "m15 14 5-5-5-5", "M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13")
+    }
+
     /**
      * 再加幾張（原片播放 ⋯【繼續取圖】）。Lucide `copy-plus`，原型 `ICONS` 沒有這個 key；
      * `<rect x=8 y=8 w=14 h=14 rx=2>` 改寫成 path。跟【重新取圖】的 [RotateCcw] 一方一圓，並排時分得開。

@@ -80,13 +80,7 @@ fun ClipPickerScreen(
         VsTopBar("選素材", nav = TopBarNav.Back(onBack), divider = state.access == MediaAccess.DENIED)
 
         if (state.access == MediaAccess.DENIED) {
-            VsEmptyState(
-                message = "需要相片和影片的存取權",
-                modifier = Modifier.padding(top = AppTheme.spacing.s6),
-                secondary = "videoshot 只會讀取你選的素材；上傳完成後，也可以選擇刪除它們",
-                actionText = if (canAskAgain) "允許存取" else "前往設定",
-                onAction = if (canAskAgain) onRequestAccess else onOpenSettings,
-            )
+            MediaAccessDenied(canAskAgain, onRequestAccess, onOpenSettings)
             return@Column
         }
 
@@ -130,6 +124,26 @@ fun ClipPickerScreen(
             )
         }
     }
+}
+
+/**
+ * 沒有相片和影片存取權時的空狀態：選素材與編輯畫面共用。
+ * [canAskAgain] 為 false（被永久拒絕）時，按鈕改成【前往設定】。
+ */
+@Composable
+internal fun MediaAccessDenied(
+    canAskAgain: Boolean,
+    onRequestAccess: () -> Unit,
+    onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    VsEmptyState(
+        message = "需要相片和影片的存取權",
+        modifier = modifier.padding(top = AppTheme.spacing.s6),
+        secondary = "videoshot 只會讀取你選的素材；上傳完成後，也可以選擇刪除它們",
+        actionText = if (canAskAgain) "允許存取" else "前往設定",
+        onAction = if (canAskAgain) onRequestAccess else onOpenSettings,
+    )
 }
 
 @Composable
