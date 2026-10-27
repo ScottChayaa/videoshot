@@ -34,6 +34,8 @@ class MediaAccessTest {
     }
 
     @Test fun 各版本請求的權限() {
+        assertEquals(listOf(EXTERNAL, "android.permission.WRITE_EXTERNAL_STORAGE"), mediaPermissionsFor(28))
+        assertEquals(listOf(EXTERNAL), mediaPermissionsFor(29))
         assertEquals(listOf(EXTERNAL), mediaPermissionsFor(32))
         assertEquals(listOf(IMAGES, VIDEO), mediaPermissionsFor(33))
         assertEquals(listOf(IMAGES, VIDEO, USER_SELECTED), mediaPermissionsFor(34))

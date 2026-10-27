@@ -15,6 +15,9 @@ private const val READ_MEDIA_VIDEO = "android.permission.READ_MEDIA_VIDEO"
 private const val READ_MEDIA_VISUAL_USER_SELECTED = "android.permission.READ_MEDIA_VISUAL_USER_SELECTED"
 private const val READ_EXTERNAL_STORAGE = "android.permission.READ_EXTERNAL_STORAGE"
 
+private const val WRITE_EXTERNAL_STORAGE = "android.permission.WRITE_EXTERNAL_STORAGE"
+
+private const val SDK_PIE = 28
 private const val SDK_TIRAMISU = 33
 private const val SDK_UPSIDE_DOWN_CAKE = 34
 
@@ -44,5 +47,7 @@ fun mediaPermissionsFor(sdkInt: Int): List<String> = when {
     sdkInt >= SDK_UPSIDE_DOWN_CAKE ->
         listOf(READ_MEDIA_IMAGES, READ_MEDIA_VIDEO, READ_MEDIA_VISUAL_USER_SELECTED)
     sdkInt >= SDK_TIRAMISU -> listOf(READ_MEDIA_IMAGES, READ_MEDIA_VIDEO)
+    // Android 9 以下：存剪輯成品進相簿要寫入權限，跟讀取一起要（判定存取程度只看讀取，見 [mediaAccessOf]）
+    sdkInt <= SDK_PIE -> listOf(READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE)
     else -> listOf(READ_EXTERNAL_STORAGE)
 }
