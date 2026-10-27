@@ -33,6 +33,12 @@ interface ClipDeps {
      */
     fun enqueueExport(taskId: Long) = Unit
 
+    /** 取消這個任務的輸出工作，等取消真的套用才回來（見 `cancelClipExport`）。預設什麼都不做，`AppContainer` 覆寫。 */
+    suspend fun cancelExport(taskId: Long) = Unit
+
+    /** 把沒有輸出工作的未完成任務補排（見 `resumeClipExports`）；取消一個任務後，排在它後面被連帶取消的要靠這個補回來。 */
+    suspend fun resumeExports() = Unit
+
     /** 還需要向使用者要「通知」權限嗎（Android 13 起、尚未授權才是 true）；輸出進度與結果都靠通知。 */
     fun notificationPermissionMissing(): Boolean = false
 

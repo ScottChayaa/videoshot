@@ -9,7 +9,9 @@ import android.os.StatFs
 import com.xenyaa.videoshot.edit.AndroidClipExportNotifier
 import com.xenyaa.videoshot.edit.ClipExportRunner
 import com.xenyaa.videoshot.edit.Media3ClipExporter
+import com.xenyaa.videoshot.edit.cancelClipExport
 import com.xenyaa.videoshot.edit.enqueueClipExport
+import com.xenyaa.videoshot.edit.resumeClipExports
 import com.xenyaa.videoshot.media.MediaLibrary
 import com.xenyaa.videoshot.media.MediaStoreSaver
 import com.xenyaa.videoshot.media.MediaStoreLibrary
@@ -522,6 +524,8 @@ class AppContainer(context: Context) : AppRootDeps {
             override val cacheRepo: CacheRepo get() = this@AppContainer.cacheRepo
             override fun now(): Long = System.currentTimeMillis()
             override fun enqueueExport(taskId: Long) = enqueueClipExport(appContext, taskId)
+            override suspend fun cancelExport(taskId: Long) = cancelClipExport(appContext, taskId)
+            override suspend fun resumeExports() = resumeClipExports(appContext, cacheRepo, now())
             override fun notificationPermissionMissing(): Boolean =
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                     appContext.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED

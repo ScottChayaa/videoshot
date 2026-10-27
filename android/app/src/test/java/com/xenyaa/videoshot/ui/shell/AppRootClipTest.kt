@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.xenyaa.videoshot.core.folders.FolderSort
@@ -108,6 +109,10 @@ class AppRootClipTest {
         /** 【導出】【開始】排的輸出工作（編號）。 */
         val enqueued = mutableListOf<Long>()
         override fun enqueueExport(taskId: Long) { enqueued += taskId }
+        /** 取消流程呼叫到的順序（取消工作、補排）。 */
+        val exportCalls = mutableListOf<String>()
+        override suspend fun cancelExport(taskId: Long) { exportCalls += "cancel$taskId" }
+        override suspend fun resumeExports() { exportCalls += "resume" }
         var notificationMissing = false
         override fun notificationPermissionMissing() = notificationMissing
         val preview = NoOpPreview()
@@ -696,6 +701,34 @@ class AppRootClipTest {
         // 返回直接回剪輯頁（不再經過編輯畫面）
         compose.onNodeWithContentDescription("返回").performClick()
         compose.waitForIdle()
+        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+    }
+
+    @Test
+    fun 導出中取消確認後刪任務補排並退回剪輯頁() {
+        val clip = FakeClipDeps(full).withDraft()
+        openExportSheet(clip)
+        compose.onNodeWithText("開始").performClick()
+        compose.waitForIdle()
+        val taskId = tasksOf(clip.cacheRepo).single().id
+        compose.onNodeWithText("等待中…").assertIsDisplayed()
+
+        compose.onNodeWithText("取消導出").performClick()
+        compose.onNodeWithText("取消導出？").assertIsDisplayed()
+        // 先不取消
+        compose.onNodeWithText("繼續導出").performClick()
+        compose.waitForIdle()
+        assertTrue(clip.exportCalls.isEmpty())
+        assertEquals(1, tasksOf(clip.cacheRepo).size)
+
+        compose.onNodeWithText("取消導出").performClick()
+        compose.onAllNodes(androidx.compose.ui.test.hasText("取消導出") and androidx.compose.ui.test.hasAnyAncestor(androidx.compose.ui.test.isDialog()))
+            .onFirst().performClick()
+        compose.waitForIdle()
+
+        // 取消工作 → 刪任務 → 補排；任務不在了就退回剪輯頁（只退一層）
+        assertEquals(listOf("cancel$taskId", "resume"), clip.exportCalls)
+        assertTrue(tasksOf(clip.cacheRepo).isEmpty())
         compose.onNodeWithText("新增剪輯").assertIsDisplayed()
     }
 

@@ -69,6 +69,7 @@ import com.xenyaa.videoshot.backup.LinkOutcome
 import com.xenyaa.videoshot.backup.restartApp
 import com.xenyaa.videoshot.ui.clip.ClipDraftSummary
 import com.xenyaa.videoshot.ui.clip.ClipEditorScreen
+import com.xenyaa.videoshot.ui.clip.ClipExportRoute
 import com.xenyaa.videoshot.ui.clip.ClipEditorViewModel
 import com.xenyaa.videoshot.ui.clip.ClipHomeScreen
 import com.xenyaa.videoshot.ui.clip.ClipResultRoute
@@ -822,10 +823,15 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             }
         }
 
-        // 導出中畫面（階段 20 Task 8 才做）：現在只有頂欄與返回，先讓【開始】之後有地方去。
-        is Dest.ClipExport -> Column(Modifier.fillMaxSize()) {
-            VsTopBar("導出", nav = TopBarNav.Back({ nav.pop()?.let { nav = it } }))
-        }
+        // 導出中畫面：全螢幕、沒有底部導覽；任務被取消（刪掉）就退回剪輯頁，播放成品進 Dest.ClipResult
+        is Dest.ClipExport -> ClipExportRoute(
+            taskId = dest.taskId,
+            deps = container.clipDeps,
+            scope = scope,
+            onBack = { nav.pop()?.let { nav = it } },
+            onGone = { if (nav.current is Dest.ClipExport) nav.pop()?.let { nav = it } },
+            onPlay = { nav = nav.push(Dest.ClipResult(dest.taskId)) },
+        )
 
         // 成品播放：全螢幕、沒有底部導覽（同 Dest.Play）；返回回到導出中畫面
         is Dest.ClipResult -> ClipResultRoute(
