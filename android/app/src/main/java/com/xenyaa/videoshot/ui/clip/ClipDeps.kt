@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.clip
 
+import android.content.Context
 import com.xenyaa.videoshot.data.repo.CacheRepo
 import com.xenyaa.videoshot.media.MediaFilter
 import com.xenyaa.videoshot.media.MediaItem
@@ -25,6 +26,9 @@ interface ClipDeps {
 
     /** 現在的時間（毫秒）；存草稿時蓋更新時間用，測試可以換掉。 */
     fun now(): Long
+
+    /** 建一個編輯畫面用的預覽播放器；測試換成不碰 Media3 的假實作。 */
+    fun newPreview(context: Context): ClipPreview = Media3ClipPreview(context)
 }
 
 /** 沒有接上手機的替身：清單空、權限空。既有的 `AppRootDeps` 測試替身靠它不必改。 */

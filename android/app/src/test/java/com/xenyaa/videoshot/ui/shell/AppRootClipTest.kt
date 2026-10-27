@@ -33,6 +33,12 @@ import com.xenyaa.videoshot.data.settings.ShellSettings
 import com.xenyaa.videoshot.query.FakeGeminiClient
 import com.xenyaa.videoshot.ui.account.AccountDeps
 import com.xenyaa.videoshot.ui.clip.ClipDeps
+import com.xenyaa.videoshot.ui.clip.ClipPreview
+import com.xenyaa.videoshot.core.timeline.ClipDraft
+import com.xenyaa.videoshot.core.timeline.ClipOrientation
+import com.xenyaa.videoshot.core.timeline.ClipSource
+import com.xenyaa.videoshot.core.timeline.SourceKind
+import com.xenyaa.videoshot.core.timeline.newClipDraft
 import com.xenyaa.videoshot.media.MediaFilter
 import com.xenyaa.videoshot.media.MediaItem
 import com.xenyaa.videoshot.media.MediaKind
@@ -91,11 +97,36 @@ class AppRootClipTest {
         override val mediaThumbLoader = MediaThumbLoader(decode = { null })
         override fun sdkInt() = 34
         override fun grantedMediaPermissions() = granted
-        override val cacheRepo: CacheRepo = com.xenyaa.videoshot.data.repo.FakeCacheRepo()
+        override val cacheRepo = com.xenyaa.videoshot.data.repo.FakeCacheRepo()
         override fun now() = 0L
+        override fun newPreview(context: android.content.Context): ClipPreview = NoOpPreview()
+    }
+
+    /** 不碰 Media3 的假預覽（Robolectric 裡不建真的 CompositionPlayer）。 */
+    private class NoOpPreview : ClipPreview {
+        override val positionMs = kotlinx.coroutines.flow.MutableStateFlow(0L)
+        override val isPlaying = kotlinx.coroutines.flow.MutableStateFlow(false)
+        override fun show(draft: ClipDraft, positionMs: Long) = Unit
+        override fun seekTo(positionMs: Long) = Unit
+        override fun play() = Unit
+        override fun pause() = Unit
+        override fun release() = Unit
     }
 
     private val full = mediaPermissionsFor(34).toSet()
+
+    private fun clipSource(id: Long) = ClipSource(id, "content://media/$id", SourceKind.PHOTO, id * 1000, null, 1080, 1920, 0)
+
+    /** 預先存好一份三張照片（總長 0:09）的草稿，模擬上次沒編完。 */
+    private fun FakeClipDeps.withDraft(): FakeClipDeps {
+        kotlinx.coroutines.runBlocking {
+            cacheRepo.saveClipDraft(newClipDraft(ClipOrientation.PORTRAIT, listOf(clipSource(1), clipSource(2), clipSource(3))), 0)
+        }
+        return this
+    }
+
+    private fun com.xenyaa.videoshot.data.repo.FakeCacheRepo.currentClipDraftBlocking(): ClipDraft? =
+        kotlinx.coroutines.runBlocking { currentClipDraft() }
 
     /** 跟 `AppRootFoldersTest.kt`／`AppRootLightboxTest.kt` 一樣，各檔案各自私有一份（沒有共用的測試替身）。 */
     private class FakeShellSettings : ShellSettings {
@@ -211,22 +242,156 @@ class AppRootClipTest {
     }
 
     @Test
-    fun 選了素材才能下一步_進編輯佔位再返回選取還在() {
-        openPicker(FakeClipDeps(full))
+    fun 選完素材下一步進編輯_返回回剪輯頁_草稿還在() {
+        val clip = FakeClipDeps(full)
+        openPicker(clip)
         compose.onNodeWithText("下一步").assertIsNotEnabled()
 
         compose.onAllNodesWithContentDescription("照片")[0].performClick()
-        compose.onAllNodesWithContentDescription("照片")[0].performClick()
+        compose.onAllNodesWithContentDescription("照片")[1].performClick()
         compose.onNodeWithText("下一步（2）").performClick()
+        compose.waitForIdle()
+
+        // 編輯畫面：沒有底部導覽，草稿已存
+        compose.onNodeWithText("編輯").assertIsDisplayed()
+        compose.onNodeWithText("總長 0:06").assertIsDisplayed()
+        compose.onNodeWithText("相簿").assertDoesNotExist()
+        assertEquals(2, clip.cacheRepo.currentClipDraftBlocking()!!.sources.size)
+
+        // 返回直接回剪輯頁（選素材不在堆疊裡），「編輯中」在最上面
+        compose.onNodeWithContentDescription("返回").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("選素材").assertDoesNotExist()
+        compose.onNodeWithText("編輯中").assertIsDisplayed()
+        compose.onNodeWithText("直式・2 個素材・0:06").assertIsDisplayed()
+        compose.onNodeWithText("相簿").assertIsDisplayed()
+    }
+
+    @Test
+    fun 系統返回鍵從編輯回剪輯頁() {
+        val clip = FakeClipDeps(full)
+        openPicker(clip)
+        compose.onAllNodesWithContentDescription("照片")[0].performClick()
+        compose.onNodeWithText("下一步（1）").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("編輯").assertIsDisplayed()
+
+        compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+        compose.waitForIdle()
+
+        compose.onNodeWithText("編輯中").assertIsDisplayed()
+        compose.onNodeWithText("選素材").assertDoesNotExist()
+    }
+
+    @Test
+    fun 點編輯中接著編輯() {
+        val clip = FakeClipDeps(full).withDraft()
+        compose.setContent { VideoshotTheme { AppRoot(deps(clip)) {} } }
+        compose.onNodeWithText("剪輯").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("編輯中").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("總長 0:09").assertIsDisplayed()
+        compose.onNodeWithText("相簿").assertDoesNotExist()
+    }
+
+    @Test
+    fun 第二次進編輯不會被上一次的狀態影響() {
+        val clip = FakeClipDeps(full)
+        openPicker(clip)
+        compose.onAllNodesWithContentDescription("照片")[0].performClick()
+        compose.onNodeWithText("下一步（1）").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("總長 0:03").assertIsDisplayed()
+        compose.onNodeWithContentDescription("返回").performClick()
+        compose.waitForIdle()
+
+        // 放棄後再新增一份不同的草稿：編輯畫面要是新的一份，不能沿用上一次的 ViewModel
+        compose.onNodeWithContentDescription("編輯中的更多操作").performClick()
+        compose.onNodeWithText("放棄").performClick()
+        compose.onNodeWithText("放棄").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("編輯中").assertDoesNotExist()
+        compose.onNodeWithText("新增剪輯").performClick()
+        compose.onNodeWithText("橫式").performClick()
+        compose.waitForIdle()
+        compose.onAllNodesWithContentDescription("照片")[0].performClick()
+        compose.onAllNodesWithContentDescription("照片")[1].performClick()
+        compose.onNodeWithText("下一步（2）").performClick()
+        compose.waitForIdle()
 
         compose.onNodeWithText("編輯").assertIsDisplayed()
-        compose.onNodeWithText("已選 2 個素材，時間軸編輯在下一個階段加入").assertIsDisplayed()
-        compose.onNodeWithText("相簿").assertDoesNotExist()
+        compose.onNodeWithText("總長 0:06").assertIsDisplayed()
+    }
 
+    @Test
+    fun 沒有草稿時進編輯會退回剪輯頁() {
+        // 水位：草稿在進入前被別處清掉（例如放棄）時，編輯畫面讀完發現沒有就退回
+        val clip = FakeClipDeps(full)
+        openPicker(clip)
+        compose.onAllNodesWithContentDescription("照片")[0].performClick()
+        compose.onNodeWithText("下一步（1）").performClick()
+        compose.waitForIdle()
         compose.onNodeWithContentDescription("返回").performClick()
-        compose.onNodeWithText("下一步（2）").assertIsDisplayed()
-        compose.onNodeWithContentDescription("已選第 1 個").assertExists()
-        compose.onNodeWithContentDescription("已選第 2 個").assertExists()
+        compose.waitForIdle()
+        kotlinx.coroutines.runBlocking { clip.cacheRepo.clearClipDraft() }
+
+        // 「編輯中」仍留在畫面上（摘要是進剪輯頁時讀的）；點了續做 → 讀不到草稿 → 退回
+        compose.onNodeWithText("編輯中").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+        compose.onNodeWithText("編輯中").assertDoesNotExist()
+    }
+
+    @Test
+    fun 有草稿時新增剪輯先問放棄_取消後草稿還在() {
+        val clip = FakeClipDeps(full).withDraft()
+        compose.setContent { VideoshotTheme { AppRoot(deps(clip)) {} } }
+        compose.onNodeWithText("剪輯").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("新增剪輯").performClick()
+        compose.onNodeWithText("放棄目前編輯中的剪輯？").assertIsDisplayed()
+        compose.onNodeWithText("取消").performClick()
+
+        compose.onNodeWithText("放棄目前編輯中的剪輯？").assertDoesNotExist()
+        compose.onNodeWithText("影片方向").assertDoesNotExist()
+        compose.onNodeWithText("編輯中").assertIsDisplayed()
+        assertTrue(clip.cacheRepo.currentClipDraftBlocking() != null)
+    }
+
+    @Test
+    fun 有草稿時新增剪輯確認放棄後清掉草稿並開選方向() {
+        val clip = FakeClipDeps(full).withDraft()
+        compose.setContent { VideoshotTheme { AppRoot(deps(clip)) {} } }
+        compose.onNodeWithText("剪輯").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("新增剪輯").performClick()
+        compose.onNodeWithText("放棄").performClick()
+        compose.waitForIdle()
+
+        assertEquals(null, clip.cacheRepo.currentClipDraftBlocking())
+        compose.onNodeWithText("影片方向").assertIsDisplayed()
+        compose.onNodeWithText("編輯中").assertDoesNotExist()
+    }
+
+    @Test
+    fun 從編輯中列放棄會清掉草稿() {
+        val clip = FakeClipDeps(full).withDraft()
+        compose.setContent { VideoshotTheme { AppRoot(deps(clip)) {} } }
+        compose.onNodeWithText("剪輯").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("編輯中的更多操作").performClick()
+        compose.onNodeWithText("放棄").performClick()
+        compose.onNodeWithText("放棄").performClick()
+        compose.waitForIdle()
+
+        assertEquals(null, clip.cacheRepo.currentClipDraftBlocking())
+        compose.onNodeWithText("編輯中").assertDoesNotExist()
+        compose.onNodeWithText("把手機裡的照片和影片剪成一支片").assertIsDisplayed()
     }
 
     @Test
@@ -262,6 +427,13 @@ class AppRootClipTest {
     fun 沒權限進選素材會自動請求一次() {
         openPicker(FakeClipDeps(emptySet()))
         assertEquals(1, permissionRequests())
+    }
+
+    @Test
+    fun 部分允許進選素材不自動請求權限() {
+        openPicker(FakeClipDeps(setOf("android.permission.READ_MEDIA_VISUAL_USER_SELECTED")))
+        assertEquals(0, permissionRequests())
+        compose.onNodeWithText("選素材").assertIsDisplayed()
     }
 
     @Test

@@ -1,5 +1,7 @@
 package com.xenyaa.videoshot.ui.clip
 
+import com.xenyaa.videoshot.core.timeline.ClipOrientation
+import com.xenyaa.videoshot.core.timeline.SourceKind
 import com.xenyaa.videoshot.data.repo.CacheRepo
 import com.xenyaa.videoshot.data.repo.FakeCacheRepo
 import com.xenyaa.videoshot.media.MediaAccess
@@ -173,5 +175,40 @@ class ClipPickerViewModelTest {
         vm.toggle(1); vm.setFilter(MediaFilter.VIDEO); vm.reset()
         assertEquals(emptyList<Long>(), vm.state.value.selected)
         assertEquals(MediaFilter.ALL, vm.state.value.filter)
+    }
+
+    @Test fun 建立草稿時拿掉已經不存在的選取() = runTest {
+        val vm = vm()
+        advanceUntilIdle()
+        vm.toggle(1); vm.toggle(2)
+        library.remove(2)
+        val d = vm.buildDraft(ClipOrientation.PORTRAIT)!!
+        assertEquals(listOf(1L), d.sources.map { it.id })
+        assertEquals(ClipOrientation.PORTRAIT, d.orientation)
+        assertEquals(listOf(1L), d.timeline.segments.map { it.sourceId })
+    }
+
+    @Test fun 選取全都不存在時不建立草稿_並清掉選取重讀() = runTest {
+        val vm = vm()
+        advanceUntilIdle()
+        vm.toggle(1)
+        library.remove(1)
+        assertNull(vm.buildDraft(ClipOrientation.PORTRAIT))
+        advanceUntilIdle()
+        assertEquals(emptyList<Long>(), vm.state.value.selected)
+        assertEquals(library.list(MediaFilter.ALL), vm.state.value.items)
+    }
+
+    @Test fun 建立草稿帶著素材的欄位而且依拍攝時間由舊到新() = runTest {
+        val vm = vm()
+        advanceUntilIdle()
+        vm.toggle(10); vm.toggle(3)   // 影片 10（takenAt 10000）、照片 3（takenAt 3000）
+        val d = vm.buildDraft(ClipOrientation.LANDSCAPE)!!
+        assertEquals(listOf(3L, 10L), d.timeline.segments.map { it.sourceId })
+        val video = d.sources.first { it.id == 10L }
+        assertEquals(SourceKind.VIDEO, video.kind)
+        assertEquals(5_000L, video.durationMs)
+        assertEquals("content://media/10", video.uri)
+        assertEquals(1080, video.width)
     }
 }

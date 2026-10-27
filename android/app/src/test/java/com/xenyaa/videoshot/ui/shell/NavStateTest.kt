@@ -174,6 +174,14 @@ class NavStateTest {
         assertEquals(nav, NavCodec.decode(NavCodec.encode(nav)))
     }
 
+    @Test fun 換掉最上層() {
+        val nav = NavState().select(Tab.CLIP).push(Dest.ClipPicker(ClipOrientation.PORTRAIT))
+            .replaceTop(Dest.ClipEditor(ClipOrientation.PORTRAIT))
+        assertEquals(listOf(Dest.Root, Dest.ClipEditor(ClipOrientation.PORTRAIT)), nav.stacks.getValue(Tab.CLIP))
+        // 返回一層直接回剪輯頁，選素材不在堆疊裡
+        assertEquals(listOf(Dest.Root), nav.pop()!!.stacks.getValue(Tab.CLIP))
+    }
+
     @Test fun 舊版沒有剪輯格的字串只補上剪輯的根畫面() {
         val old = "FOLDERS|HOME|HOME=R;CAPTURE=R;FOLDERS=R,F7;ACCOUNT=R"
         val nav = NavCodec.decode(old)

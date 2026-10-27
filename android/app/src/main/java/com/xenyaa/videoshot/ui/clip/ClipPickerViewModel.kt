@@ -2,6 +2,11 @@ package com.xenyaa.videoshot.ui.clip
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.xenyaa.videoshot.core.timeline.ClipDraft
+import com.xenyaa.videoshot.core.timeline.ClipOrientation
+import com.xenyaa.videoshot.core.timeline.ClipSource
+import com.xenyaa.videoshot.core.timeline.SourceKind
+import com.xenyaa.videoshot.core.timeline.newClipDraft
 import com.xenyaa.videoshot.media.MediaAccess
 import com.xenyaa.videoshot.media.MediaFilter
 import com.xenyaa.videoshot.media.MediaItem
@@ -70,6 +75,34 @@ class ClipPickerViewModel(private val deps: ClipDeps) : ViewModel() {
         _state.update { it.copy(filter = MediaFilter.ALL, items = null, selected = emptyList()) }
         if (_state.value.access != MediaAccess.DENIED) load(prune = false) else readJob?.cancel()
     }
+
+    /**
+     * 把目前選的素材建成剪輯草稿。先重讀全部清單，只留選取裡**現在還存在**的素材
+     * （選素材畫面開著的這段時間，手機裡的素材可能被刪了）。一個都不剩回 null，
+     * 同時清掉選取並重讀清單，讓畫面回到真實的狀態。
+     */
+    suspend fun buildDraft(orientation: ClipOrientation): ClipDraft? {
+        val list = deps.mediaLibrary.list(MediaFilter.ALL)
+        val byId = list.associateBy { it.id }
+        val sources = _state.value.selected.mapNotNull { byId[it] }.map { it.toClipSource() }
+        if (sources.isEmpty()) {
+            _state.update { it.copy(selected = emptyList()) }
+            load(prune = false)
+            return null
+        }
+        return newClipDraft(orientation, sources)
+    }
+
+    private fun MediaItem.toClipSource() = ClipSource(
+        id = id,
+        uri = uri,
+        kind = if (kind == MediaKind.VIDEO) SourceKind.VIDEO else SourceKind.PHOTO,
+        takenAtMs = takenAtMs,
+        durationMs = durationMs,
+        width = width,
+        height = height,
+        rotation = rotation,
+    )
 
     private fun load(prune: Boolean) {
         readJob?.cancel()

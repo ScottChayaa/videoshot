@@ -52,7 +52,7 @@ class ClipEditorViewModel(private val deps: ClipDeps) : ViewModel() {
     /**
      * 讀目前的草稿。沒有權限（不是完整也不是部分）就只記下權限、草稿原樣，不修剪也不存檔——
      * 沒權限時讀不到任何素材，修剪會把整條時間軸清空。有權限就拿手機現有的素材 id 修剪，
-     * 拿掉了素材就存回並提示。
+     * 拿掉了素材就存回並提示。有權限卻讀到空清單（草稿裡有素材）當作讀不到，同樣不修剪。
      */
     fun load() {
         viewModelScope.launch {
@@ -66,7 +66,14 @@ class ClipEditorViewModel(private val deps: ClipDeps) : ViewModel() {
                 _state.update { it.copy(loading = false, access = access, draft = draft, playheadMs = 0, selected = null) }
                 return@launch
             }
-            val existing = deps.mediaLibrary.list(MediaFilter.ALL).mapTo(HashSet()) { it.id }
+            val listed = deps.mediaLibrary.list(MediaFilter.ALL)
+            if (listed.isEmpty() && draft.sources.isNotEmpty()) {
+                // 有權限卻讀到整份空清單：多半是讀取失敗，不是草稿裡的素材同時被刪光。
+                // 這時修剪會把整條時間軸清空還存回去，草稿就救不回來了——原樣保留，不修剪也不存檔
+                _state.update { it.copy(loading = false, access = access, draft = draft, playheadMs = 0, selected = null) }
+                return@launch
+            }
+            val existing = listed.mapTo(HashSet()) { it.id }
             val pruned = draft.pruneMissing(existing)
             val notice = if (pruned.removedSources > 0) "有 ${pruned.removedSources} 個素材已不存在，已從時間軸移除" else null
             _state.update {

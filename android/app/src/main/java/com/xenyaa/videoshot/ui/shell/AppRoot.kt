@@ -16,8 +16,6 @@ import com.xenyaa.videoshot.media.mediaPermissionsFor
 import com.xenyaa.videoshot.ui.clip.ClipDeps
 import com.xenyaa.videoshot.ui.clip.ClipPickerScreen
 import com.xenyaa.videoshot.ui.clip.ClipPickerViewModel
-import com.xenyaa.videoshot.ui.common.TopBarNav
-import com.xenyaa.videoshot.ui.common.VsTopBar
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
@@ -29,6 +27,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -66,7 +65,11 @@ import com.xenyaa.videoshot.ui.account.TagManagementScreen
 import com.xenyaa.videoshot.ui.account.ThumbsUsageScreen
 import com.xenyaa.videoshot.backup.LinkOutcome
 import com.xenyaa.videoshot.backup.restartApp
+import com.xenyaa.videoshot.ui.clip.ClipDraftSummary
+import com.xenyaa.videoshot.ui.clip.ClipEditorScreen
+import com.xenyaa.videoshot.ui.clip.ClipEditorViewModel
 import com.xenyaa.videoshot.ui.clip.ClipHomeScreen
+import com.xenyaa.videoshot.ui.clip.toSummary
 import com.xenyaa.videoshot.ui.clip.OrientationSheet
 import com.xenyaa.videoshot.ui.edit.ShotEditSheet
 import com.xenyaa.videoshot.ui.folders.AddToFolderSheet
@@ -84,7 +87,6 @@ import com.xenyaa.videoshot.ui.lightbox.LightboxClipDeps
 import com.xenyaa.videoshot.ui.lightbox.LightboxScreen
 import com.xenyaa.videoshot.ui.lightbox.shareTextOf
 import com.xenyaa.videoshot.ui.onboarding.FirstRunChooserScreen
-import com.xenyaa.videoshot.ui.common.ComingSoonScreen
 import com.xenyaa.videoshot.ui.common.avatarInitialOf
 import com.xenyaa.videoshot.player.ClipSource
 import com.xenyaa.videoshot.player.LocalPlayerFullscreen
@@ -261,9 +263,9 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
         )
     }
 
-    // 選素材的 VM：只在選素材與編輯佔位畫面存在（建構時就會讀 MediaStore，不必在每次開 app 都讀）。
-    // 同一個實例跨兩個畫面，從編輯返回時選取才還在；key 固定，重新從選方向進來靠 reset() 清掉
-    val clipOpen = nav.current is Dest.ClipPicker || nav.current is Dest.ClipEditor
+    // 選素材的 VM：只在選素材畫面存在（建構時就會讀 MediaStore，不必在每次開 app 都讀）。
+    // 選完【下一步】選素材就從堆疊換掉（replaceTop），所以編輯畫面用不到它；key 固定，重新從選方向進來靠 reset() 清掉
+    val clipOpen = nav.current is Dest.ClipPicker
     val clipVm: ClipPickerViewModel? = if (clipOpen) {
         viewModel(
             factory = object : ViewModelProvider.Factory {
@@ -274,6 +276,35 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             key = "clip-picker",
         )
     } else null
+    // 編輯畫面的 VM：每進一次編輯畫面就換一個新的（key 帶次數）。VM 掛在 Activity 上、離開畫面不會清掉，
+    // 共用同一個實例的話，上一次留下的「沒有草稿」或舊草稿會在新的一次載入完成前被當成現況（甚至直接退回剪輯頁）
+    var clipEditorRun by rememberSaveable { mutableStateOf(0) }
+    val clipEditorVm: ClipEditorViewModel? = if (nav.current is Dest.ClipEditor) {
+        viewModel(
+            factory = object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                    ClipEditorViewModel(container.clipDeps) as T
+            },
+            key = "clip-editor-$clipEditorRun",
+        )
+    } else null
+    // 剪輯頁「編輯中」那一列的摘要；null＝沒有草稿（或還沒讀到）。每次回到剪輯頁根畫面都重讀一次
+    var clipDraftSummary by remember { mutableStateOf<ClipDraftSummary?>(null) }
+    val onClipHome = nav.tab == Tab.CLIP && nav.current == Dest.Root
+    LaunchedEffect(onClipHome) {
+        if (!onClipHome) return@LaunchedEffect
+        clipDraftSummary = try {
+            container.clipDeps.cacheRepo.currentClipDraft()?.toSummary()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // 讀不出來就不顯示「編輯中」：草稿還在資料庫裡，不會因此被動到
+            null
+        }
+    }
+    // 【下一步】建草稿期間為 true：連點只建一次
+    var clipBuilding by remember { mutableStateOf(false) }
     // true＝剛從選方向進來、選素材畫面還沒處理過這一次進入（清選取、必要時自動請求權限各做一次）
     var clipEntryPending by remember { mutableStateOf(false) }
     // 系統的權限視窗問過了沒：判斷「被永久拒絕」要用（沒問過時 shouldShowRationale 也是 false）
@@ -664,14 +695,40 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
             permissionAsked = clipPermissionAsked,
             onPermissionAsked = { clipPermissionAsked = true },
             onBack = { nav.pop()?.let { nav = it } },
-            onNext = { nav = nav.push(Dest.ClipEditor(dest.orientation)) },
+            onNext = {
+                if (!clipBuilding) {
+                    clipBuilding = true
+                    scope.launch {
+                        try {
+                            // 重讀素材庫、拿掉已經不在的，存成草稿再換成編輯畫面（選素材不留在堆疊裡）
+                            val draft = clipVm!!.buildDraft(dest.orientation)
+                            if (draft != null && nav.current is Dest.ClipPicker) {
+                                container.clipDeps.cacheRepo.saveClipDraft(draft, container.clipDeps.now())
+                                clipEditorRun++
+                                nav = nav.replaceTop(Dest.ClipEditor(dest.orientation))
+                            }
+                        } finally {
+                            clipBuilding = false
+                        }
+                    }
+                }
+            },
         )
 
-        // 編輯的時間軸是下一個階段的事：先放佔位，返回回到選素材（選取還在）
-        is Dest.ClipEditor -> Box(Modifier.fillMaxSize().statusBarsPadding()) {
-            val picked by clipVm!!.state.collectAsStateWithLifecycle()
-            ComingSoonScreen("編輯", "已選 ${picked.selected.size} 個素材，時間軸編輯在下一個階段加入")
-            VsTopBar("", nav = TopBarNav.Back({ nav.pop()?.let { nav = it } }), divider = false, modifier = Modifier.align(Alignment.TopStart))
+        is Dest.ClipEditor -> Box(Modifier.fillMaxSize()) {
+            ClipEditorRoute(
+                vm = clipEditorVm!!,
+                clipDeps = container.clipDeps,
+                permissionAsked = clipPermissionAsked,
+                onPermissionAsked = { clipPermissionAsked = true },
+                onBack = { nav.pop()?.let { nav = it } },
+                onExport = { scope.launch { snackbarHostState.showSnackbar("導出在下一個階段加入") } },
+                onNotice = { message -> scope.launch { snackbarHostState.showSnackbar(message) } },
+            )
+            SnackbarHost(
+                snackbarHostState,
+                Modifier.align(Alignment.BottomCenter).navigationBarsPadding(),
+            )
         }
 
         Dest.Root, is Dest.Folder, Dest.ArchivedFolders, is Dest.AccountSetting -> AppShell(nav = nav,
@@ -986,7 +1043,20 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                             onOpenStat = { nav = nav.select(Tab.HOME) },
                         )
                     }
-                    Tab.CLIP -> ClipHomeScreen(onNewClip = { choosingOrientation = true })
+                    Tab.CLIP -> ClipHomeScreen(
+                        onNewClip = { choosingOrientation = true },
+                        draft = clipDraftSummary,
+                        onOpenDraft = {
+                            clipDraftSummary?.let { draft ->
+                                clipEditorRun++
+                                nav = nav.push(Dest.ClipEditor(draft.orientation))
+                            }
+                        },
+                        onDiscardDraft = {
+                            clipDraftSummary = null
+                            scope.launch { container.clipDeps.cacheRepo.clearClipDraft() }
+                        },
+                    )
                     Tab.CAPTURE -> WizardScreen(
                         vm = wizardVm,
                         haptics = container.haptics,
@@ -1030,7 +1100,7 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
  * 選素材畫面的接線：權限請求、系統設定、回到前景重判。畫面本身（[ClipPickerScreen]）只吃狀態與回呼。
  *
  * - [entryPending]＝剛從選方向進來：先 `reset()`（清選取、回「全部」），再重判權限；
- *   不是完整存取就自動請求一次。從編輯返回不是新的進入，選取要留著，也不會再自動請求。
+ *   沒有權限（不是部分允許）就自動請求一次。從編輯返回不是新的進入，選取要留著，也不會再自動請求。
  * - 回到前景（從系統設定回來、或背景時被改權限）一律重判。
  * - 【前往設定】只在「問過、而且系統不再顯示說明」時出現（永久拒絕）；還能再問就是【允許存取】。
  */
@@ -1059,7 +1129,8 @@ private fun ClipPickerRoute(
         onEntryHandled()
         vm.reset()
         // 不在這裡重判權限：ON_RESUME 的重判（下面）在進入畫面時已經跑過，access 是新的
-        if (vm.state.value.access != MediaAccess.FULL) launcher.launch(permissions)
+        // 只有「完全沒權限」才自動跳系統視窗；部分允許的人靠清單上方的【選取更多】擴充，不要每次進來都打擾
+        if (vm.state.value.access == MediaAccess.DENIED) launcher.launch(permissions)
     }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refreshAccess() }
 
@@ -1085,6 +1156,102 @@ private fun ClipPickerRoute(
         },
         canAskAgain = canAskAgain,
         onNext = onNext,
+    )
+}
+
+/**
+ * 編輯畫面的接線：載入草稿、預覽播放器的建立與釋放、權限請求、把畫面的回呼分給 ViewModel 與預覽。
+ * 畫面本身（[ClipEditorScreen]）只吃狀態與回呼。
+ *
+ * - 進入時 `load()` 一次；讀完沒有草稿（被放棄了）就退回剪輯頁。
+ * - 草稿一變（載入完、分割、刪除、復原、重做）就用 `preview.show` 重新載入，並停在目前的播放頭。
+ * - 播放頭要同步給預覽：拖動、停止播放時寫回；按播放前先把預覽跳到播放頭。
+ * - 沒有權限時畫面是權限空狀態；回到前景發現仍沒權限就重讀草稿（使用者可能剛從系統設定回來）。
+ *   這裡不自動請求權限：要不要允許交給使用者按【允許存取】。
+ */
+@Composable
+private fun ClipEditorRoute(
+    vm: ClipEditorViewModel,
+    clipDeps: ClipDeps,
+    permissionAsked: Boolean,
+    onPermissionAsked: () -> Unit,
+    onBack: () -> Unit,
+    onExport: () -> Unit,
+    onNotice: (String) -> Unit,
+) {
+    val state by vm.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val permissions = remember(clipDeps) { mediaPermissionsFor(clipDeps.sdkInt()).toTypedArray() }
+
+    val preview = remember(clipDeps) { clipDeps.newPreview(context) }
+    DisposableEffect(preview) { onDispose { preview.release() } }
+
+    LaunchedEffect(vm) { vm.load() }
+    LaunchedEffect(state.loading, state.draft) {
+        if (!state.loading && state.draft == null) onBack()
+    }
+    val canPreview = state.access == MediaAccess.FULL || state.access == MediaAccess.PARTIAL
+    LaunchedEffect(state.draft, canPreview) {
+        val draft = state.draft
+        if (draft != null && canPreview) preview.show(draft, state.playheadMs)
+    }
+    LaunchedEffect(state.notice) {
+        val message = state.notice ?: return@LaunchedEffect
+        onNotice(message)
+        vm.noticeShown()
+    }
+
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        onPermissionAsked()
+        vm.load()
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (vm.state.value.access == MediaAccess.DENIED) vm.load()
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { preview.pause() }
+
+    val activity = context.findActivity()
+    val canAskAgain = !permissionAsked ||
+        (activity != null && permissions.any { ActivityCompat.shouldShowRequestPermissionRationale(activity, it) })
+
+    ClipEditorScreen(
+        state = state,
+        preview = preview,
+        thumbLoader = clipDeps.mediaThumbLoader,
+        onBack = onBack,
+        onExport = onExport,
+        onPlayPause = {
+            if (preview.isPlaying.value) {
+                preview.pause()
+            } else {
+                val current = vm.state.value
+                val duration = current.draft?.timeline?.durationMs ?: 0L
+                // 停在最尾端再按播放，從頭開始
+                val from = if (current.playheadMs >= duration) 0L else current.playheadMs
+                vm.seekTo(from)
+                preview.seekTo(from)
+                preview.play()
+            }
+        },
+        onSeek = { ms ->
+            vm.seekTo(ms)
+            preview.seekTo(vm.state.value.playheadMs)
+        },
+        onSelect = vm::select,
+        onSplit = vm::split,
+        onDelete = vm::delete,
+        onUndo = vm::undo,
+        onRedo = vm::redo,
+        onRequestAccess = { launcher.launch(permissions) },
+        onOpenSettings = {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+            try {
+                context.startActivity(intent)
+            } catch (e: ActivityNotFoundException) {
+                // 沒有可以開設定頁的 app：沒有別的辦法，維持原畫面
+            }
+        },
+        canAskAgain = canAskAgain,
     )
 }
 

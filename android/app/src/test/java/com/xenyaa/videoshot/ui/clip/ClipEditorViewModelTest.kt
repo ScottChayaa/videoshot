@@ -116,11 +116,35 @@ class ClipEditorViewModelTest {
     }
 
     @Test fun 素材全不見時是空時間軸不當掉() = runTest {
-        val vm = vmWith(two, present = emptyList()).loaded()
+        // 素材庫讀得到別的素材、就是沒有草稿用的那兩個：確實都被刪了
+        val vm = vmWith(two, present = listOf(99L)).loaded()
         assertTrue(vm.s.isEmpty)
         assertFalse(vm.s.canDelete)
         assertFalse(vm.s.canSplit)
         assertEquals("有 2 個素材已不存在，已從時間軸移除", vm.s.notice)
+    }
+
+    @Test fun 素材庫讀到空清單時當作讀不到_草稿原樣保留() = runTest {
+        // 有權限卻整份清單是空的：多半是讀取失敗（或權限剛被收回），不是三個素材同時被刪光
+        val vm = vmWith(three, present = emptyList())
+        val base = repo.clipDraftSaveCount
+        vm.loaded()
+        assertEquals(MediaAccess.FULL, vm.s.access)
+        assertEquals(three, vm.s.draft)
+        assertNull(vm.s.notice)
+        assertFalse(vm.s.loading)
+        assertEquals(base, repo.clipDraftSaveCount)
+        assertEquals(three, repo.currentClipDraft())
+    }
+
+    @Test fun 部分權限讀到空清單也保留草稿() = runTest {
+        val partial = setOf("android.permission.READ_MEDIA_VISUAL_USER_SELECTED")
+        val vm = vmWith(three, present = emptyList(), granted = partial)
+        val base = repo.clipDraftSaveCount
+        vm.loaded()
+        assertEquals(MediaAccess.PARTIAL, vm.s.access)
+        assertEquals(three, vm.s.draft)
+        assertEquals(base, repo.clipDraftSaveCount)
     }
 
     @Test fun 沒權限續做不修剪也不存檔() = runTest {

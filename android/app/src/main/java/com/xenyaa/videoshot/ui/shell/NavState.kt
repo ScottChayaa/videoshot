@@ -73,7 +73,7 @@ sealed interface Dest {
      */
     data class ClipPicker(val orientation: ClipOrientation) : Dest
 
-    /** 剪輯分頁的編輯畫面（階段 18 先是佔位）：疊在 [ClipPicker] 上面，同樣沒有底部導覽。 */
+    /** 剪輯分頁的編輯畫面（階段 19）：選完素材後換掉 [ClipPicker]（`replaceTop`），返回直接回剪輯頁；同樣沒有底部導覽。 */
     data class ClipEditor(val orientation: ClipOrientation) : Dest
 }
 
@@ -97,6 +97,10 @@ data class NavState(
 
     fun push(dest: Dest): NavState =
         copy(stacks = stacks + (tab to stacks.getValue(tab) + dest))
+
+    /** 把目前分頁堆疊最上面那層換成 [dest]（選素材換成編輯：返回時不會再經過選素材）。 */
+    fun replaceTop(dest: Dest): NavState =
+        copy(stacks = stacks + (tab to stacks.getValue(tab).dropLast(1) + dest))
 
     /**
      * 返回一層。**回傳 null 代表「已經在最外層，把返回鍵交還給系統」** ——
