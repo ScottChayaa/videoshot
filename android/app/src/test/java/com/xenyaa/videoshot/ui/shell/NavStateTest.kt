@@ -174,6 +174,16 @@ class NavStateTest {
         assertEquals(nav, NavCodec.decode(NavCodec.encode(nav)))
     }
 
+    @Test fun 導出中畫面存檔碼是X加任務編號_且不會和封存相簿混淆() {
+        val nav = NavState().select(Tab.CLIP).push(Dest.ClipExport(42))
+        assertEquals("X42", NavCodec.encode(nav).substringAfter("CLIP=").substringAfter(",").substringBefore(";"))
+        assertEquals(nav, NavCodec.decode(NavCodec.encode(nav)))
+        val archived = NavState().select(Tab.FOLDERS).push(Dest.ArchivedFolders)
+        assertEquals(archived, NavCodec.decode(NavCodec.encode(archived)))
+        // 「X」後面不是數字：存檔壞掉，整個退回預設
+        assertEquals(NavState(), NavCodec.decode("CLIP|HOME|HOME=R;CLIP=R,Xabc"))
+    }
+
     @Test fun 換掉最上層() {
         val nav = NavState().select(Tab.CLIP).push(Dest.ClipPicker(ClipOrientation.PORTRAIT))
             .replaceTop(Dest.ClipEditor(ClipOrientation.PORTRAIT))

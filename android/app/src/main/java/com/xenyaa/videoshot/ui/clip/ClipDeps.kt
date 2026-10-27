@@ -27,6 +27,15 @@ interface ClipDeps {
     /** 現在的時間（毫秒）；存草稿時蓋更新時間用，測試可以換掉。 */
     fun now(): Long
 
+    /**
+     * 排一個輸出工作（【導出】建好任務之後呼叫）。預設什麼都不做：只有真的接上 WorkManager 的組裝點
+     * （`AppContainer`）會覆寫，測試用這裡記下被排的任務編號。
+     */
+    fun enqueueExport(taskId: Long) = Unit
+
+    /** 還需要向使用者要「通知」權限嗎（Android 13 起、尚未授權才是 true）；輸出進度與結果都靠通知。 */
+    fun notificationPermissionMissing(): Boolean = false
+
     /** 建一個編輯畫面用的預覽播放器；測試換成不碰 Media3 的假實作。 */
     fun newPreview(context: Context): ClipPreview = Media3ClipPreview(context)
 }

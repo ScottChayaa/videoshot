@@ -36,6 +36,9 @@ import com.xenyaa.videoshot.ui.clip.ClipDeps
 import com.xenyaa.videoshot.ui.clip.ClipPreview
 import com.xenyaa.videoshot.core.timeline.ClipDraft
 import com.xenyaa.videoshot.core.timeline.ClipOrientation
+import com.xenyaa.videoshot.core.timeline.defaultClipTitle
+import com.xenyaa.videoshot.core.timeline.usedSources
+import kotlinx.coroutines.flow.first
 import com.xenyaa.videoshot.core.timeline.ClipSource
 import com.xenyaa.videoshot.core.timeline.SourceKind
 import com.xenyaa.videoshot.core.timeline.newClipDraft
@@ -102,6 +105,11 @@ class AppRootClipTest {
         override fun sdkInt() = 34
         override fun grantedMediaPermissions() = granted
         override fun now() = 0L
+        /** 【導出】【開始】排的輸出工作（編號）。 */
+        val enqueued = mutableListOf<Long>()
+        override fun enqueueExport(taskId: Long) { enqueued += taskId }
+        var notificationMissing = false
+        override fun notificationPermissionMissing() = notificationMissing
         val preview = NoOpPreview()
         override fun newPreview(context: android.content.Context): ClipPreview = preview
     }
@@ -639,5 +647,120 @@ class AppRootClipTest {
 
         compose.onNodeWithText("需要相片和影片的存取權").assertDoesNotExist()
         assertEquals(3, compose.onAllNodesWithContentDescription("照片").fetchSemanticsNodes().size)
+    }
+
+    /** 開編輯畫面（預先存好三張照片、總長 0:09 的草稿），按【導出】把確認抽屜打開。 */
+    private fun openExportSheet(clip: FakeClipDeps, content: @androidx.compose.runtime.Composable (@androidx.compose.runtime.Composable () -> Unit) -> Unit = { it() }) {
+        compose.setContent { content { VideoshotTheme { AppRoot(deps(clip)) {} } } }
+        compose.onNodeWithText("剪輯").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("編輯中").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("導出").performClick()
+        compose.waitForIdle()
+    }
+
+    private fun tasksOf(repo: com.xenyaa.videoshot.data.repo.FakeCacheRepo) =
+        kotlinx.coroutines.runBlocking { repo.editTasks().first() }
+
+    @Test
+    fun 按導出開確認抽屜_有預設標題與摘要() {
+        val clip = FakeClipDeps(full).withDraft()
+        openExportSheet(clip)
+
+        val expected = defaultClipTitle(clip.cacheRepo.currentClipDraftBlocking()!!.usedSources(), java.time.ZoneId.systemDefault())
+        compose.onNodeWithText("0:09・直式・會成為 Shorts").assertIsDisplayed()
+        compose.onNodeWithText(expected).assertIsDisplayed()
+        compose.onNodeWithText("開始").assertIsDisplayed()
+    }
+
+    @Test
+    fun 按開始建立任務清掉草稿並進導出中畫面() {
+        val clip = FakeClipDeps(full).withDraft()
+        openExportSheet(clip)
+        val expected = defaultClipTitle(clip.cacheRepo.currentClipDraftBlocking()!!.usedSources(), java.time.ZoneId.systemDefault())
+
+        compose.onNodeWithText("開始").performClick()
+        compose.waitForIdle()
+
+        val tasks = tasksOf(clip.cacheRepo)
+        assertEquals(1, tasks.size)
+        assertEquals(expected, tasks[0].title)
+        assertEquals(null, clip.cacheRepo.currentClipDraftBlocking())
+        assertEquals(listOf(tasks[0].id), clip.enqueued)
+        // 進了導出中畫面：編輯畫面與抽屜都不在了
+        compose.onNodeWithText("編輯").assertDoesNotExist()
+        compose.onNodeWithText("開始").assertDoesNotExist()
+        compose.onNodeWithText("導出").assertIsDisplayed()
+
+        // 返回直接回剪輯頁（不再經過編輯畫面）
+        compose.onNodeWithContentDescription("返回").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+    }
+
+    @Test
+    fun 建立任務失敗留在編輯畫面草稿還在() {
+        val repo = object : com.xenyaa.videoshot.data.repo.FakeCacheRepo() {
+            override suspend fun startEditTask(draft: ClipDraft, title: String, now: Long): Long =
+                throw IllegalStateException("資料庫被鎖住")
+        }
+        val clip = FakeClipDeps(full, repo).withDraft()
+        openExportSheet(clip)
+
+        compose.onNodeWithText("開始").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("導出失敗，請再試一次").assertIsDisplayed()
+        // 抽屜沒關、草稿還在、沒有排工作
+        compose.onNodeWithText("開始").assertIsDisplayed()
+        assertTrue(clip.enqueued.isEmpty())
+        assertTrue(repo.currentClipDraftBlocking() != null)
+        assertTrue(tasksOf(repo).isEmpty())
+    }
+
+    @Test
+    fun 第一次按開始要通知權限_不管結果都繼續_第二次不再要() {
+        val requested = mutableListOf<String>()
+        val registry = object : androidx.activity.result.ActivityResultRegistry() {
+            override fun <I, O> onLaunch(
+                requestCode: Int,
+                contract: androidx.activity.result.contract.ActivityResultContract<I, O>,
+                input: I,
+                options: androidx.core.app.ActivityOptionsCompat?,
+            ) {
+                requested += input as String
+                dispatchResult(requestCode, false) // 使用者拒絕
+            }
+        }
+        val owner = object : androidx.activity.result.ActivityResultRegistryOwner {
+            override val activityResultRegistry = registry
+        }
+        var failFirst = true
+        val repo = object : com.xenyaa.videoshot.data.repo.FakeCacheRepo() {
+            override suspend fun startEditTask(draft: ClipDraft, title: String, now: Long): Long {
+                if (failFirst) { failFirst = false; throw IllegalStateException("資料庫被鎖住") }
+                return super.startEditTask(draft, title, now)
+            }
+        }
+        val clip = FakeClipDeps(full, repo).withDraft().apply { notificationMissing = true }
+        openExportSheet(clip) { inner ->
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.activity.compose.LocalActivityResultRegistryOwner provides owner,
+            ) { inner() }
+        }
+
+        // 第一次：先要通知權限（被拒絕），照樣往下建立任務——這次寫入失敗，抽屜留著
+        compose.onNodeWithText("開始").performClick()
+        compose.waitForIdle()
+        assertEquals(listOf("android.permission.POST_NOTIFICATIONS"), requested)
+        compose.onNodeWithText("導出失敗，請再試一次").assertIsDisplayed()
+
+        // 第二次：問過了就不再問，直接建立
+        compose.onNodeWithText("開始").performClick()
+        compose.waitForIdle()
+        assertEquals(1, requested.size)
+        assertEquals(1, tasksOf(repo).size)
+        assertEquals(1, clip.enqueued.size)
     }
 }

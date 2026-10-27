@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.shell
 
+import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.util.Log
@@ -71,7 +72,14 @@ import com.xenyaa.videoshot.ui.clip.ClipEditorScreen
 import com.xenyaa.videoshot.ui.clip.ClipEditorViewModel
 import com.xenyaa.videoshot.ui.clip.ClipHomeScreen
 import com.xenyaa.videoshot.ui.clip.toSummary
+import com.xenyaa.videoshot.ui.clip.ExportSheet
 import com.xenyaa.videoshot.ui.clip.OrientationSheet
+import com.xenyaa.videoshot.core.timeline.defaultClipTitle
+import com.xenyaa.videoshot.core.timeline.usedSources
+import com.xenyaa.videoshot.ui.common.TopBarNav
+import com.xenyaa.videoshot.ui.common.VsTopBar
+import androidx.compose.foundation.layout.Column
+import java.time.ZoneId
 import com.xenyaa.videoshot.ui.edit.ShotEditSheet
 import com.xenyaa.videoshot.ui.folders.AddToFolderSheet
 import com.xenyaa.videoshot.ui.folders.FolderScreen
@@ -310,6 +318,8 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
     var clipEntryPending by remember { mutableStateOf(false) }
     // 系統的權限視窗問過了沒：判斷「被永久拒絕」要用（沒問過時 shouldShowRationale 也是 false）
     var clipPermissionAsked by rememberSaveable { mutableStateOf(false) }
+    // 通知權限（輸出進度與結果）只在第一次按【開始】問一次；跟 clipPermissionAsked 一樣放 rememberSaveable，不另外落地
+    var notificationAsked by rememberSaveable { mutableStateOf(false) }
 
     // 精靈的 VM 建在這裡（不是 CaptureTab 裡）—— finished 是沒有 replay 的 SharedFlow，
     // 只有切到取圖分頁才組合的地方收集會漏掉事件；同一個 key 仍確保實例不重複
@@ -727,19 +737,93 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
         )
 
         is Dest.ClipEditor -> Box(Modifier.fillMaxSize()) {
+            val editorVm = clipEditorVm!!
+            val editorState by editorVm.state.collectAsStateWithLifecycle()
+            // 導出確認抽屜：開關跟著這個畫面（離開畫面就一起丟掉）；開著的時候失敗訊息要顯示在抽屜裡
+            var exportSheetOpen by rememberSaveable { mutableStateOf(false) }
+            var exportStarting by remember { mutableStateOf(false) }
+            // 等通知權限的對話框回來之後才開始建立任務，標題先放在這裡
+            var pendingExportTitle by remember { mutableStateOf<String?>(null) }
+
+            // 建立輸出任務（同時清掉草稿）→ 排工作 → 換成導出中畫面。建立失敗：留在編輯畫面、抽屜不關、草稿還在
+            fun startExport(title: String) {
+                val draft = editorVm.state.value.draft ?: return
+                if (exportStarting) return
+                exportStarting = true
+                scope.launch {
+                    try {
+                        val taskId = container.clipDeps.cacheRepo.startEditTask(draft, title, container.clipDeps.now())
+                        try {
+                            container.clipDeps.enqueueExport(taskId)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            // 任務已經建好、草稿已清掉：排工作失敗不回頭，app 下次回到前景會把沒排著的任務補排
+                            Log.w("VsClip", "排輸出工作失敗", e)
+                        }
+                        // 寫入期間使用者可能已經按了返回：最上層不是編輯畫面就不換頁（否則會換掉剪輯頁的根畫面）
+                        if (nav.current is Dest.ClipEditor) {
+                            exportSheetOpen = false
+                            nav = nav.replaceTop(Dest.ClipExport(taskId))
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.w("VsClip", "建立輸出任務失敗", e)
+                        // showSnackbar 會等到訊息消失才返回：另開 coroutine，不然 exportStarting 要等幾秒才放開，期間按【開始】沒反應
+                        scope.launch { snackbarHostState.showSnackbar("導出失敗，請再試一次") }
+                    } finally {
+                        exportStarting = false
+                    }
+                }
+            }
+
+            // Android 13 起通知要先要權限：第一次按【開始】問一次，不管結果都繼續（沒有通知只是看不到進度）
+            val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+                pendingExportTitle?.let { title ->
+                    pendingExportTitle = null
+                    startExport(title)
+                }
+            }
+
             ClipEditorRoute(
-                vm = clipEditorVm!!,
+                vm = editorVm,
                 clipDeps = container.clipDeps,
                 permissionAsked = clipPermissionAsked,
                 onPermissionAsked = { clipPermissionAsked = true },
                 onBack = { nav.pop()?.let { nav = it } },
-                onExport = { scope.launch { snackbarHostState.showSnackbar("導出在下一個階段加入") } },
+                onExport = { exportSheetOpen = true },
                 onNotice = { message -> scope.launch { snackbarHostState.showSnackbar(message) } },
             )
-            SnackbarHost(
-                snackbarHostState,
-                Modifier.align(Alignment.BottomCenter).navigationBarsPadding(),
-            )
+            val exportDraft = editorState.draft
+            if (exportSheetOpen && exportDraft != null) {
+                ExportSheet(
+                    orientation = exportDraft.orientation,
+                    durationMs = exportDraft.timeline.durationMs,
+                    defaultTitle = remember { defaultClipTitle(exportDraft.usedSources(), ZoneId.systemDefault()) },
+                    onStart = { title ->
+                        if (container.clipDeps.notificationPermissionMissing() && !notificationAsked) {
+                            notificationAsked = true
+                            pendingExportTitle = title
+                            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            startExport(title)
+                        }
+                    },
+                    onDismiss = { exportSheetOpen = false },
+                    snackbarHostState = snackbarHostState,
+                )
+            } else {
+                SnackbarHost(
+                    snackbarHostState,
+                    Modifier.align(Alignment.BottomCenter).navigationBarsPadding(),
+                )
+            }
+        }
+
+        // 導出中畫面（階段 20 Task 8 才做）：現在只有頂欄與返回，先讓【開始】之後有地方去。
+        is Dest.ClipExport -> Column(Modifier.fillMaxSize()) {
+            VsTopBar("導出", nav = TopBarNav.Back({ nav.pop()?.let { nav = it } }))
         }
 
         Dest.Root, is Dest.Folder, Dest.ArchivedFolders, is Dest.AccountSetting -> AppShell(nav = nav,

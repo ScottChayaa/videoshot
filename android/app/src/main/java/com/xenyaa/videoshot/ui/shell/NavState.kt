@@ -75,6 +75,12 @@ sealed interface Dest {
 
     /** 剪輯分頁的編輯畫面（階段 19）：選完素材後換掉 [ClipPicker]（`replaceTop`），返回直接回剪輯頁；同樣沒有底部導覽。 */
     data class ClipEditor(val orientation: ClipOrientation) : Dest
+
+    /**
+     * 剪輯的「導出中」畫面（階段 20）：按【開始】建好輸出任務之後換掉 [ClipEditor]（`replaceTop`），返回直接回剪輯頁；
+     * 沒有底部導覽。**只存任務編號**——標題與進度每次進來重新查。
+     */
+    data class ClipExport(val taskId: Long) : Dest
 }
 
 /**
@@ -152,6 +158,7 @@ object NavCodec {
                     is Dest.ArchivedFolders -> "X"
                     is Dest.ClipPicker -> "C${orientationCode(dest.orientation)}"
                     is Dest.ClipEditor -> "E${orientationCode(dest.orientation)}"
+                    is Dest.ClipExport -> "X${dest.taskId}"
                 }
             }
             "${tab.name}=$items"
@@ -173,6 +180,8 @@ object NavCodec {
                     item == "R" -> Dest.Root
                     item == "V" -> Dest.RestoreFlow
                     item == "X" -> Dest.ArchivedFolders
+                    // 「X」後面接數字＝導出中畫面（單獨一個「X」是封存相簿，上一行先處理掉）
+                    item.startsWith("X") -> Dest.ClipExport(item.drop(1).toLongOrNull() ?: return NavState())
                     item.startsWith("L") -> Dest.Lightbox(item.drop(1).toIntOrNull() ?: return NavState())
                     item.startsWith("F") -> Dest.Folder(item.drop(1).toLongOrNull() ?: return NavState())
                     item.startsWith("P") -> {
