@@ -3,6 +3,7 @@ package com.xenyaa.videoshot.ui.clip
 import com.xenyaa.videoshot.core.timeline.Segment
 import com.xenyaa.videoshot.core.timeline.Timeline
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 /** 時間軸條的座標換算：1 秒 40dp、段與段之間 2dp。 */
@@ -66,5 +67,28 @@ class ClipTimelineGeometryTest {
         // 第 1000 段起點：1000 秒＝40000dp，加 1000 個間隔
         assertEquals(42_000f, g.xDp(1_000_000), 0.01f)
         assertEquals(1_000_000L, g.msAt(42_000f))
+    }
+
+    @Test fun 整段在畫面內時兩側的段緣都在() {
+        assertEquals(SegmentSlice(50f, 120f, 0f, leftEdge = true, rightEdge = true), sliceOf(50f, 120f, 411f))
+    }
+
+    @Test fun 左側被切掉時只留右緣() {
+        // 段從 -100 到 20：看得到 0..20，離整段左緣 100
+        assertEquals(SegmentSlice(0f, 20f, 100f, leftEdge = false, rightEdge = true), sliceOf(-100f, 120f, 411f))
+    }
+
+    @Test fun 右側被切掉時只留左緣() {
+        assertEquals(SegmentSlice(400f, 11f, 0f, leftEdge = true, rightEdge = false), sliceOf(400f, 120f, 411f))
+    }
+
+    @Test fun 超長的段只取畫面那一截且兩側段緣都不在() {
+        // 一小時＝144000dp，左緣在 -72000：只量 0..411
+        assertEquals(SegmentSlice(0f, 411f, 72_000f, leftEdge = false, rightEdge = false), sliceOf(-72_000f, 144_000f, 411f))
+    }
+
+    @Test fun 完全在畫面外回null() {
+        assertNull(sliceOf(-200f, 120f, 411f))
+        assertNull(sliceOf(411f, 120f, 411f))
     }
 }

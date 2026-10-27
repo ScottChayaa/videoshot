@@ -7,7 +7,11 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
@@ -282,18 +286,59 @@ class ClipEditorScreenTest {
         assertEquals(1, calls.playPause)
     }
 
-    @Test fun 比條寬還長的段完整畫出且播放頭底下點得到() {
+    @Test fun 比條寬還長的段播放頭底下點得到() {
         // 60 秒＝2400dp，遠超過 411dp 的條寬；播放頭在 30 秒，這一段的中點要正好在畫面中央
         val calls = Calls()
         show(state(durationMs = 60_000, playheadMs = 30_000), calls = calls)
         val cell = compose.onNodeWithContentDescription("第 1 段，影片，1:00")
         val bounds = cell.getUnclippedBoundsInRoot()
-        assertEquals(2400f, (bounds.right - bounds.left).value, 1f)
         val center = 411.dp / 2
         assertTrue("段的範圍要涵蓋畫面中央：$bounds", bounds.left <= center && bounds.right >= center)
-        // 測試的觸控座標原點是節點「畫面上看得到的那一塊」的左上角（已被條寬裁切），所以直接給畫面中央
-        val visibleLeft = cell.getBoundsInRoot().left
-        cell.performTouchInput { click(Offset(with(compose.density) { (center - visibleLeft).toPx() }, 10f)) }
+        clickScreenCenter(cell)
         assertEquals(listOf<Int?>(0), calls.selects)
+    }
+
+    @Config(qualifiers = "w411dp-h891dp-xxxhdpi")
+    @Test fun 一小時的單段不會因為寬度太大而當掉() {
+        // 3600 秒＝144000dp，密度 4 時是 57.6 萬 px，超過 Compose 能表示的寬度；只量畫面看得到的那一截
+        val calls = Calls()
+        show(state(durationMs = 3_600_000, playheadMs = 1_800_000), calls = calls)
+        clickScreenCenter(compose.onNodeWithContentDescription("第 1 段，影片，1:00:00"))
+        assertEquals(listOf<Int?>(0), calls.selects)
+    }
+
+    @Test fun 刪掉第一段後剩下的段重新要自己素材的縮圖() {
+        // 第 1 段 60 秒蓋滿畫面，第 2 段在畫面外，所以一開始只會要素材 1 的縮圖
+        val requested = mutableListOf<Long>()
+        val loader = MediaThumbLoader(decode = { item -> requested += item.id; ImageBitmap(2, 2) })
+        val sources = listOf(video(1, 60_000), photo(2))
+        val both = stateOf(
+            ClipOrientation.PORTRAIT, sources,
+            Timeline(listOf(Segment(1, 0, 60_000), Segment(2, 0, 3000))), 0, false, false, null, MediaAccess.FULL,
+        )
+        val onlySecond = stateOf(
+            ClipOrientation.PORTRAIT, sources, Timeline(listOf(Segment(2, 0, 3000))), 0, true, false, null, MediaAccess.FULL,
+        )
+        var current by mutableStateOf(both)
+        compose.setContent {
+            VideoshotTheme {
+                ClipEditorScreen(
+                    state = current, preview = FakePreview(), thumbLoader = loader,
+                    onBack = {}, onExport = {}, onPlayPause = {}, onSeek = {}, onSelect = {}, onSplit = {}, onDelete = {},
+                    onUndo = {}, onRedo = {}, onRequestAccess = {}, onOpenSettings = {}, canAskAgain = true,
+                )
+            }
+        }
+        compose.waitForIdle()
+        assertEquals(listOf(1L), requested)
+        current = onlySecond
+        compose.waitForIdle()
+        assertTrue("刪掉第 1 段後，第 2 個素材的縮圖要被要一次：$requested", 2L in requested)
+    }
+
+    /** 在畫面中央點下去。觸控座標原點是節點「畫面上看得到的那一塊」（被條寬裁切後）的左上角。 */
+    private fun clickScreenCenter(node: androidx.compose.ui.test.SemanticsNodeInteraction) {
+        val visibleLeft = node.getBoundsInRoot().left
+        node.performTouchInput { click(Offset(with(compose.density) { (411.dp / 2 - visibleLeft).toPx() }, 10f)) }
     }
 }

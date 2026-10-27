@@ -2,7 +2,6 @@ package com.xenyaa.videoshot.ui.clip
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
@@ -21,6 +20,9 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
@@ -130,6 +132,30 @@ internal class TimelineGeometry(timeline: Timeline) {
     }
 }
 
+/**
+ * 一段在畫面上「實際要量與畫」的那一截（座標都是 dp）。
+ * [fromDp] 是這一截在條上的左緣，[widthDp] 是它的寬，[offsetDp] 是它的左緣離整段左緣多遠；
+ * [leftEdge]／[rightEdge] 表示整段真正的左右緣是否落在這一截裡（選取外框只畫在真正的段緣）。
+ */
+internal data class SegmentSlice(
+    val fromDp: Float,
+    val widthDp: Float,
+    val offsetDp: Float,
+    val leftEdge: Boolean,
+    val rightEdge: Boolean,
+)
+
+/**
+ * 左緣在 [leftDp]、寬 [widthDp] 的一段，與畫面 `0..windowDp` 相交的那一截；完全在畫面外回 null。
+ * 一段可以長到幾千 dp（一小時＝14 萬 dp），整段量測會超出 Compose 能表示的寬度而當掉，所以只量看得到的部分。
+ */
+internal fun sliceOf(leftDp: Float, widthDp: Float, windowDp: Float): SegmentSlice? {
+    val from = maxOf(leftDp, 0f)
+    val to = minOf(leftDp + widthDp, windowDp)
+    if (to <= from) return null
+    return SegmentSlice(from, to - from, from - leftDp, leftEdge = leftDp >= 0f, rightEdge = leftDp + widthDp <= windowDp)
+}
+
 /** 剪輯用的素材轉成 [MediaThumbLoader] 吃的型別（兩邊欄位相同）。 */
 internal fun ClipSource.toMediaItem(): MediaItem = MediaItem(
     id = id,
@@ -203,19 +229,21 @@ fun ClipTimelineStrip(
         val originDp = widthDp / 2f - scrollDp
         val first = geometry.firstEndingAfter(scrollDp - widthDp / 2f)
         val last = geometry.lastStartingBefore(scrollDp + widthDp / 2f)
+        val cells = (first..last).mapNotNull { index ->
+            sliceOf(originDp + geometry.leftOf(index), geometry.widthOf(index), widthDp)?.let { index to it }
+        }
         Layout(
             content = {
-                for (index in first..last) {
-                    key(index) {
-                        val source = sourceById[timeline.segments[index].sourceId]
-                        val leftDp = originDp + geometry.leftOf(index)
-                        val segWidthDp = geometry.widthOf(index)
+                for ((index, slice) in cells) {
+                    val segment = timeline.segments[index]
+                    // 除了位置，也用素材與起點當 key：刪掉前面的段之後，同一個位置換成別的段，要重新建立才不會留著舊縮圖
+                    key(index, segment.sourceId, segment.startMs) {
                         SegmentCell(
                             index = index,
-                            source = source,
-                            lengthMs = timeline.segments[index].lengthMs,
-                            visibleFromDp = (-leftDp).coerceAtLeast(0f),
-                            visibleToDp = (widthDp - leftDp).coerceAtMost(segWidthDp),
+                            source = sourceById[segment.sourceId],
+                            lengthMs = segment.lengthMs,
+                            segmentWidthDp = geometry.widthOf(index),
+                            slice = slice,
                             isSelected = selected == index,
                             thumbLoader = thumbLoader,
                             onClick = { onSelect(if (selected == index) null else index) },
@@ -228,14 +256,13 @@ fun ClipTimelineStrip(
             modifier = Modifier.fillMaxSize(),
         ) { measurables, constraints ->
             val height = constraints.maxHeight
-            val segmentCount = measurables.size - 1
-            val placed = List(segmentCount) { k ->
-                val index = first + k
-                val wPx = geometry.widthOf(index).dp.roundToPx().coerceAtLeast(1)
-                measurables[k].measure(Constraints.fixed(wPx, height)) to (originDp + geometry.leftOf(index)).dp.roundToPx()
+            val placed = List(cells.size) { k ->
+                val slice = cells[k].second
+                val wPx = slice.widthDp.dp.roundToPx().coerceAtLeast(1)
+                measurables[k].measure(Constraints.fixed(wPx, height)) to slice.fromDp.dp.roundToPx()
             }
             val lineWidth = 2.dp.roundToPx()
-            val line = measurables[segmentCount].measure(Constraints.fixed(lineWidth, height))
+            val line = measurables[cells.size].measure(Constraints.fixed(lineWidth, height))
             layout(constraints.maxWidth, height) {
                 placed.forEach { (placeable, x) -> placeable.place(x, 0) }
                 line.place((constraints.maxWidth - lineWidth) / 2, 0)
@@ -249,13 +276,20 @@ private fun SegmentCell(
     index: Int,
     source: ClipSource?,
     lengthMs: Long,
-    visibleFromDp: Float,
-    visibleToDp: Float,
+    segmentWidthDp: Float,
+    slice: SegmentSlice,
     isSelected: Boolean,
     thumbLoader: MediaThumbLoader,
     onClick: () -> Unit,
 ) {
-    val shape = RoundedCornerShape(AppTheme.radii.sm / 2)
+    // 被畫面邊緣切掉的那一側不做圓角，圓角只留在整段真正的頭尾
+    val corner = AppTheme.radii.sm / 2
+    val shape = RoundedCornerShape(
+        topStart = if (slice.leftEdge) corner else 0.dp,
+        bottomStart = if (slice.leftEdge) corner else 0.dp,
+        topEnd = if (slice.rightEdge) corner else 0.dp,
+        bottomEnd = if (slice.rightEdge) corner else 0.dp,
+    )
     val kindName = when (source?.kind) {
         SourceKind.VIDEO -> "影片"
         SourceKind.PHOTO -> "照片"
@@ -274,19 +308,34 @@ private fun SegmentCell(
                 this.selected = isSelected
             },
     ) {
-        if (source != null) SegmentThumb(source, thumbLoader, visibleFromDp.dp, visibleToDp.dp)
+        // 換了素材就整個重來：produceState 的值不會因為 key 改變而清掉
+        if (source != null) {
+            key(source.id) { SegmentThumb(source, thumbLoader, slice.offsetDp.dp, segmentWidthDp.dp) }
+        }
         if (isSelected) {
-            Box(Modifier.fillMaxSize().border(2.dp, AppTheme.colors.accent, shape))
+            val accent = AppTheme.colors.accent
+            // 外框只畫在整段真正的段緣：上下兩條一直畫，左右兩條只在真正的頭尾落在這一截裡時才畫
+            // （整格已被圓角形狀裁過，四個角自然是圓的）
+            Box(
+                Modifier.fillMaxSize().drawBehind {
+                    val w = 2.dp.toPx()
+                    drawRect(accent, Offset.Zero, Size(size.width, w))
+                    drawRect(accent, Offset(0f, size.height - w), Size(size.width, w))
+                    if (slice.leftEdge) drawRect(accent, Offset.Zero, Size(w, size.height))
+                    if (slice.rightEdge) drawRect(accent, Offset(size.width - w, 0f), Size(w, size.height))
+                },
+            )
         }
     }
 }
 
 /**
  * 一段的縮圖底：把素材縮圖裁成正方形，依段落高度一格一格往右鋪滿（長段落不會把一張圖拉到幾千 dp 寬）。
- * 只畫 [from]..[to]（段內座標）之間的格子，捲到畫面外的部分不畫。
+ * 畫的只是整段的一截：這一截的左緣離整段左緣 [offset]，格子的位置要照整段算，捲動時縮圖才不會滑動。
+ * [segmentWidth] 是整段的寬，最後一格不夠寬時只畫左邊那一部分。
  */
 @Composable
-private fun SegmentThumb(source: ClipSource, loader: MediaThumbLoader, from: Dp, to: Dp) {
+private fun SegmentThumb(source: ClipSource, loader: MediaThumbLoader, offset: Dp, segmentWidth: Dp) {
     val thumb by produceState<ImageBitmap?>(loader.peek(source.id), source.id, loader) {
         if (value == null) value = loader.load(source.toMediaItem())
     }
@@ -296,20 +345,21 @@ private fun SegmentThumb(source: ClipSource, loader: MediaThumbLoader, from: Dp,
         if (tile <= 0f) return@Canvas
         val side = minOf(bitmap.width, bitmap.height)
         val srcOffset = IntOffset((bitmap.width - side) / 2, (bitmap.height - side) / 2)
-        val srcSize = IntSize(side, side)
-        val first = floor(from.toPx() / tile).toInt().coerceAtLeast(0)
-        val last = ceil(to.toPx() / tile).toInt()
+        val offsetPx = offset.toPx()
+        val segmentPx = segmentWidth.toPx()
+        val first = floor(offsetPx / tile).toInt().coerceAtLeast(0)
+        val last = ceil((offsetPx + size.width) / tile).toInt()
         for (i in first until last) {
-            val dstWidth = minOf(tile, size.width - i * tile)
-            if (dstWidth <= 0f) break
-            // 最後一格不夠寬時只畫左邊那一部分，不拉伸
-            val srcWidth = (side * dstWidth / tile).roundToInt().coerceAtLeast(1)
+            val tileLeft = i * tile
+            val tileWidth = minOf(tile, segmentPx - tileLeft)
+            if (tileWidth <= 0f) break
+            val srcWidth = (side * tileWidth / tile).roundToInt().coerceAtLeast(1)
             drawImage(
                 bitmap,
                 srcOffset = srcOffset,
                 srcSize = IntSize(srcWidth, side),
-                dstOffset = IntOffset((i * tile).roundToInt(), 0),
-                dstSize = IntSize(dstWidth.roundToInt().coerceAtLeast(1), tile.roundToInt()),
+                dstOffset = IntOffset((tileLeft - offsetPx).roundToInt(), 0),
+                dstSize = IntSize(tileWidth.roundToInt().coerceAtLeast(1), tile.roundToInt()),
             )
         }
     }
