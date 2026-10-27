@@ -328,6 +328,31 @@ class ClipExportRunnerTest {
         assertTrue(notifier.failed.isEmpty())
     }
 
+    @Test fun `存相簿途中被取消也刪掉app裡的成品並把取消丟出去`() = runTest {
+        val cancellingSaver = object : MediaSaver {
+            override suspend fun saveVideo(file: File, title: String): String? {
+                assertTrue(file.exists()) // 輸出已經完成、成品還在
+                throw CancellationException("取消導出")
+            }
+        }
+        val id = start(autoUpload = false)
+
+        var cancelled = false
+        try {
+            ClipExportRunner(
+                repo = repo, library = library, exporter = exporter, saver = cancellingSaver, notifier = notifier,
+                dirFor = { File(tmp.root, "edits/$it") }, freeBytes = { free }, now = { 123L },
+            ).run(id)
+        } catch (_: CancellationException) {
+            cancelled = true
+        }
+
+        assertTrue(cancelled)
+        assertFalse(outFor(id).exists())
+        assertTrue(notifier.finished.isEmpty())
+        assertTrue(notifier.failed.isEmpty())
+    }
+
     // ---- 進度與其他 ----
 
     @Test fun `進度相同不重複寫`() = runTest {

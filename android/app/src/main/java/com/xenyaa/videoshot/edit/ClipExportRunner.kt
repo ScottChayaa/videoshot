@@ -70,31 +70,34 @@ class ClipExportRunner(
         repo.setEditTaskProgress(taskId, EditTaskState.RENDERING, 0, now())
         notifier.progress(task.copy(state = EditTaskState.RENDERING, progress = 0), 0)
 
-        val exported = try {
-            export(task, draft, out)
+        // 取消時（含輸出完成後、存相簿途中）都要把 app 裡的成品刪掉：取消導出只會刪任務、不會刪 edits/{id}/，
+        // 留著就是一支看不到也永遠清不掉的完整成品。唯一的例外是「停在輸出完成」已經寫進去之後，那份成品是有效的。
+        var kept = false
+        try {
+            if (!export(task, draft, out)) {
+                out.delete()
+                return fail(task, REASON_EXPORT_FAILED)
+            }
+
+            // 輸出途中任務可能被刪掉：重讀，沒了就收掉成品、不通知
+            val current = repo.editTask(taskId).first()
+            if (current == null) {
+                out.delete()
+                return
+            }
+
+            if (current.autoUpload) {
+                repo.setEditTaskRendered(taskId, pruned.removedSources, null, now())
+                kept = true
+            } else {
+                val uri = saver.saveVideo(out, current.title)
+                out.delete() // 存進相簿就不留 app 裡那份；沒存成的重試也是從頭輸出
+                if (uri == null) return fail(task, REASON_EXPORT_FAILED)
+                repo.setEditTaskRendered(taskId, pruned.removedSources, uri, now())
+            }
         } catch (e: CancellationException) {
-            out.delete()
+            if (!kept) out.delete()
             throw e
-        }
-        if (!exported) {
-            out.delete()
-            return fail(task, REASON_EXPORT_FAILED)
-        }
-
-        // 輸出途中任務可能被刪掉：重讀，沒了就收掉成品、不通知
-        val current = repo.editTask(taskId).first()
-        if (current == null) {
-            out.delete()
-            return
-        }
-
-        if (current.autoUpload) {
-            repo.setEditTaskRendered(taskId, pruned.removedSources, null, now())
-        } else {
-            val uri = saver.saveVideo(out, current.title)
-            out.delete() // 存進相簿就不留 app 裡那份；沒存成的重試也是從頭輸出
-            if (uri == null) return fail(task, REASON_EXPORT_FAILED)
-            repo.setEditTaskRendered(taskId, pruned.removedSources, uri, now())
         }
         val done = repo.editTask(taskId).first() ?: return // 存相簿途中又被刪掉
         notifier.finished(done)
