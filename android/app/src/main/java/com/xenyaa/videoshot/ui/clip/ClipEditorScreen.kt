@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.text.InlineTextContent
@@ -41,6 +40,7 @@ import com.xenyaa.videoshot.ui.common.VsIconButton
 import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
+import com.xenyaa.videoshot.ui.theme.OnDarkColors
 
 /**
  * 剪輯的編輯畫面：頂欄（標題、總長、導出）、預覽、播放列、時間軸條、工具列。
@@ -133,14 +133,7 @@ private fun ColumnScope.EditorBody(
             preview.pause()
         }
     }
-    val limitMinutes = draft.orientation.maxDurationMs / 60_000
-    VsTopBar(
-        "編輯",
-        nav = TopBarNav.Back(onBack),
-        subtitle = if (state.overLimit) "總長 ${formatDuration(durationMs)}（超過 $limitMinutes 分鐘上限）" else "總長 ${formatDuration(durationMs)}",
-        subtitleColor = if (state.overLimit) AppTheme.colors.danger else AppTheme.colors.textDim,
-        actions = { VsButton("導出", onExport, enabled = !state.isEmpty) },
-    )
+    VsTopBar("編輯", nav = TopBarNav.Back(onBack), actions = { VsButton("導出", onExport, enabled = !state.isEmpty) })
 
     Box(Modifier.weight(1f).fillMaxWidth().background(Color.Black), contentAlignment = Alignment.Center) {
         ClipPreviewSurface(preview, draft.orientation, showVideo = !state.isEmpty)
@@ -160,14 +153,16 @@ private fun ColumnScope.EditorBody(
         Text(
             "${formatDuration(shownMs)} / ${formatDuration(durationMs)}",
             style = MaterialTheme.typography.bodyMedium,
-            color = AppTheme.colors.textDim,
+            // 總長超過方向的上限（直式 3 分鐘、橫式 10 分鐘）時變紅
+            color = if (state.overLimit) AppTheme.colors.danger else AppTheme.colors.textDim,
             modifier = Modifier.weight(1f),
         )
         VsIconButton(VsIcons.Undo, "復原", { stopPlayback(); onUndo() }, enabled = state.canUndo)
         VsIconButton(VsIcons.Redo, "重做", { stopPlayback(); onRedo() }, enabled = state.canRedo)
     }
 
-    Box(Modifier.fillMaxWidth().heightIn(min = StripHeight).padding(bottom = AppTheme.spacing.s2)) {
+    // 時間軸用深色底（跟一般剪輯軟體一樣）
+    Box(Modifier.fillMaxWidth().background(AppTheme.colors.lightboxBg).padding(vertical = AppTheme.spacing.s2)) {
         if (state.isEmpty) {
             EmptyTimeline(state.canUndo)
         } else {
@@ -198,17 +193,17 @@ private fun ColumnScope.EditorBody(
 }
 
 /**
- * 時間軸空掉時，在時間軸的位置顯示的說明。跟時間軸一樣高，預覽區才不會跟著縮小、版面不跳。
+ * 時間軸空掉時，在時間軸的位置（深色底）顯示的說明。跟時間軸一樣高，預覽區才不會跟著縮小、版面不跳。
  * 復原提示裡畫跟【復原】按鈕一樣的圖示（字元 ↶ 在手機字型裡太小、不像按鈕）。
  */
 @Composable
 private fun EmptyTimeline(canUndo: Boolean) {
     Column(
-        Modifier.fillMaxWidth().height(StripHeight),
+        Modifier.fillMaxWidth().height(RulerHeight + StripHeight),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("時間軸是空的", style = MaterialTheme.typography.bodyLarge, color = AppTheme.colors.textDim)
+        Text("時間軸是空的", style = MaterialTheme.typography.bodyLarge, color = OnDarkColors.secondary)
         // 修剪掉全部素材時復原紀錄已清空，這句提示就不成立了
         if (canUndo) {
             Text(
@@ -219,11 +214,11 @@ private fun EmptyTimeline(canUndo: Boolean) {
                 },
                 inlineContent = mapOf(
                     UNDO_ICON to InlineTextContent(Placeholder(1.2.em, 1.2.em, PlaceholderVerticalAlign.TextCenter)) {
-                        Icon(VsIcons.Undo, null, Modifier.fillMaxSize(), tint = AppTheme.colors.textDim)
+                        Icon(VsIcons.Undo, null, Modifier.fillMaxSize(), tint = OnDarkColors.tertiary)
                     },
                 ),
                 style = MaterialTheme.typography.bodyMedium,
-                color = AppTheme.colors.textDim,
+                color = OnDarkColors.tertiary,
             )
         }
     }

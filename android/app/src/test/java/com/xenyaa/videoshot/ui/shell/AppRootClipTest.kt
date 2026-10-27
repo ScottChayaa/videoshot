@@ -259,7 +259,7 @@ class AppRootClipTest {
 
         // 編輯畫面：沒有底部導覽，草稿已存
         compose.onNodeWithText("編輯").assertIsDisplayed()
-        compose.onNodeWithText("總長 0:06").assertIsDisplayed()
+        compose.onNodeWithText("/ 0:06", substring = true).assertIsDisplayed()
         compose.onNodeWithText("相簿").assertDoesNotExist()
         assertEquals(2, clip.cacheRepo.currentClipDraftBlocking()!!.sources.size)
 
@@ -297,7 +297,7 @@ class AppRootClipTest {
         compose.onNodeWithText("編輯中").performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithText("總長 0:09").assertIsDisplayed()
+        compose.onNodeWithText("/ 0:09", substring = true).assertIsDisplayed()
         compose.onNodeWithText("相簿").assertDoesNotExist()
     }
 
@@ -308,7 +308,7 @@ class AppRootClipTest {
         compose.onAllNodesWithContentDescription("照片")[0].performClick()
         compose.onNodeWithText("下一步（1）").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("總長 0:03").assertIsDisplayed()
+        compose.onNodeWithText("/ 0:03", substring = true).assertIsDisplayed()
         compose.onNodeWithContentDescription("返回").performClick()
         compose.waitForIdle()
 
@@ -327,7 +327,7 @@ class AppRootClipTest {
         compose.waitForIdle()
 
         compose.onNodeWithText("編輯").assertIsDisplayed()
-        compose.onNodeWithText("總長 0:06").assertIsDisplayed()
+        compose.onNodeWithText("/ 0:06", substring = true).assertIsDisplayed()
     }
 
     @Test
@@ -373,7 +373,7 @@ class AppRootClipTest {
         compose.onNodeWithText("下一步（2）").performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithText("總長 0:06").assertIsDisplayed()
+        compose.onNodeWithText("/ 0:06", substring = true).assertIsDisplayed()
         compose.onNodeWithText("新增剪輯").assertDoesNotExist()
     }
 
@@ -403,7 +403,7 @@ class AppRootClipTest {
         // 沒有被換頁：仍在剪輯頁，有底部導覽，也沒有編輯畫面
         compose.onNodeWithText("新增剪輯").assertIsDisplayed()
         compose.onNodeWithText("相簿").assertIsDisplayed()
-        compose.onNodeWithText("總長 0:03").assertDoesNotExist()
+        compose.onNodeWithText("/ 0:03", substring = true).assertDoesNotExist()
         // 再按一次系統返回是回照片分頁，不是卡在剪輯頁；草稿已存，回剪輯分頁看得到「編輯中」
         compose.onNodeWithText("照片").performClick()
         compose.onNodeWithText("剪輯").performClick()
@@ -430,7 +430,7 @@ class AppRootClipTest {
 
         compose.onNodeWithText("下一步（1）").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("總長 0:03").assertIsDisplayed()
+        compose.onNodeWithText("/ 0:03", substring = true).assertIsDisplayed()
     }
 
     /** 開編輯畫面（預先存好的三張照片草稿，每張 3 秒），然後假裝播放到時間軸上的 [positionMs]。 */

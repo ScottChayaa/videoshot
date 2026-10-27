@@ -52,7 +52,6 @@ enum class TopBarTitle { Large, Small }
  * 全 app 共用的頂欄（原型 `styles.css`「頂部列」）。
  *
  * 高度固定 60＋1dp 分隔線，有沒有按鈕都一樣——各頁頂欄同高，切分頁時內容才不會上下跳。
- * [subtitle] 是標題下一行的小字（剪輯編輯的「總長 1:48」），[subtitleColor] 預設次要文字色。
  * [divider] = false 拿掉分隔線（首頁：吸頂的月份標題自己有陰影，再多一條線多餘）。
  * **不處理系統列 inset**：在 `AppShell` 的 `Scaffold` 裡已經拿到了；不在裡面的呼叫端
  * （例如批次編輯、取圖精靈）自己在 [modifier] 上加 `statusBarsPadding()`。
@@ -64,8 +63,6 @@ fun VsTopBar(
     nav: TopBarNav? = null,
     titleStyle: TopBarTitle = TopBarTitle.Large,
     divider: Boolean = true,
-    subtitle: String? = null,
-    subtitleColor: Color = AppTheme.colors.textDim,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     Column(modifier.fillMaxWidth().background(AppTheme.colors.bg)) {
@@ -89,26 +86,14 @@ fun VsTopBar(
                 TopBarTitle.Large -> base.copy(fontWeight = FontWeight.Bold)
                 TopBarTitle.Small -> MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold) // 17
             }
-            Column(Modifier.weight(1f)) {
-                Text(
-                    title,
-                    style = style,
-                    color = AppTheme.colors.text,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.semantics { heading() },
-                )
-                if (subtitle != null) {
-                    Text(
-                        subtitle,
-                        // 標題 26＋副標 16＝42，放得進 60 高減上下 padding 的 44
-                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 16.sp),
-                        color = subtitleColor,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
+            Text(
+                title,
+                style = style,
+                color = AppTheme.colors.text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).semantics { heading() },
+            )
             actions()
         }
         if (divider) HorizontalDivider(thickness = 1.dp, color = AppTheme.colors.border)

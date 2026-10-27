@@ -1,6 +1,7 @@
 package com.xenyaa.videoshot.ui.clip
 
 import android.content.Context
+import android.view.Choreographer
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -16,35 +17,30 @@ import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
 import com.xenyaa.videoshot.core.timeline.ClipDraft
 import com.xenyaa.videoshot.core.timeline.ClipOrientation
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-
-/** 播放中輪詢播放位置的間隔。 */
-private const val POSITION_POLL_MS = 50L
 
 /**
  * 用 Media3 的 `CompositionPlayer` 預覽目前時間軸（規格第十九節）。要在主執行緒建立與呼叫。
  *
  * [show] 把草稿轉成合成（[clipComposition]）交給播放器並停在指定位置，不自動播放；
  * 時間軸變動後要再呼叫一次。時間軸是空的（合成為 null）就只停掉播放器、畫面留黑。
- * 播放位置沒有事件可以聽，所以播放中用 coroutine 每 [POSITION_POLL_MS] 讀一次 `currentPosition`。
+ * 播放位置沒有事件可以聽，所以播放中每一幀（`Choreographer`）讀一次 `currentPosition`，時間軸才會順順地走。
  */
 @OptIn(UnstableApi::class)
 class Media3ClipPreview(context: Context) : ClipPreview {
 
     internal val player: CompositionPlayer = CompositionPlayer.Builder(context.applicationContext).build()
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private var pollJob: Job? = null
+    private var polling = false
+    private val pollFrame = object : Choreographer.FrameCallback {
+        override fun doFrame(frameTimeNanos: Long) {
+            if (!polling) return
+            _positionMs.value = player.currentPosition
+            Choreographer.getInstance().postFrameCallback(this)
+        }
+    }
     private var hasComposition = false
 
     private val _positionMs = MutableStateFlow(0L)
@@ -103,23 +99,18 @@ class Media3ClipPreview(context: Context) : ClipPreview {
 
     override fun release() {
         stopPolling()
-        scope.cancel()
         player.release()
     }
 
     private fun startPolling() {
-        if (pollJob?.isActive == true) return
-        pollJob = scope.launch {
-            while (isActive) {
-                _positionMs.value = player.currentPosition
-                delay(POSITION_POLL_MS)
-            }
-        }
+        if (polling) return
+        polling = true
+        Choreographer.getInstance().postFrameCallback(pollFrame)
     }
 
     private fun stopPolling() {
-        pollJob?.cancel()
-        pollJob = null
+        polling = false
+        Choreographer.getInstance().removeFrameCallback(pollFrame)
     }
 }
 

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -24,6 +25,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
@@ -31,11 +33,16 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.xenyaa.videoshot.core.timeline.ClipSource
 import com.xenyaa.videoshot.core.timeline.SourceKind
 import com.xenyaa.videoshot.core.timeline.Timeline
@@ -43,6 +50,7 @@ import com.xenyaa.videoshot.media.MediaItem
 import com.xenyaa.videoshot.media.MediaKind
 import com.xenyaa.videoshot.media.MediaThumbLoader
 import com.xenyaa.videoshot.ui.theme.AppTheme
+import com.xenyaa.videoshot.ui.theme.OnDarkColors
 import com.xenyaa.videoshot.ui.theme.focusRing
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -55,8 +63,14 @@ internal const val DP_PER_SECOND = 40f
 /** 段與段之間的間隔。 */
 internal const val SEGMENT_GAP_DP = 2f
 
-/** 時間軸條的高度。 */
+/** 段落那一列的高度。 */
 internal val StripHeight = 64.dp
+
+/** 段落上方時間刻度的高度。 */
+internal val RulerHeight = 18.dp
+
+/** 時間刻度每幾秒標一次時間（1 秒 40dp，每 2 秒＝80dp 放得下「10:00」）。 */
+private const val RULER_LABEL_EVERY_S = 2
 
 private fun dpOf(ms: Long): Float = ms * DP_PER_SECOND / 1000f
 
@@ -169,12 +183,13 @@ internal fun ClipSource.toMediaItem(): MediaItem = MediaItem(
 )
 
 /**
- * 時間軸條：水平一排，1 秒 40dp，段與段之間 2dp。
+ * 時間軸條：水平一排，1 秒 40dp，段與段之間 2dp；上方是時間刻度（每秒一刻、每 [RULER_LABEL_EVERY_S] 秒標時間）。
+ * 底色由呼叫端給深色（跟一般剪輯軟體一樣），刻度與播放頭用 [OnDarkColors]。
  *
- * 播放頭是畫面正中間一條固定的主色直線，時間軸在它底下捲動：[playheadMs] 決定捲到哪裡。
+ * 播放頭是畫面正中間一條固定的白色直線，時間軸在它底下捲動：[playheadMs] 決定捲到哪裡。
  * 左右拖整條＝[onSeek]（拖曳距離換回毫秒）；開始拖的時候先呼叫 [onDragStart]（呼叫端用來暫停播放）。
  * 點一段＝[onSelect]（index），點已選的那段＝[onSelect]（null）。已選的段有 2dp 主色外框；
- * 每段用該素材的縮圖鋪滿、裁切；縮圖還沒載好時是灰底。
+ * 每段用該素材的縮圖鋪滿、裁切；縮圖還沒載好時是半透明白底。
  *
  * 只組合畫面上看得到的段落（二分搜尋找範圍），長影片（10 分鐘＝24000dp 寬）不會一次畫出整條。
  * 每段用自訂排版以「段的完整寬度」量測、再放到（可能在畫面外的）位置：
@@ -199,11 +214,13 @@ fun ClipTimelineStrip(
     val latestPlayhead by rememberUpdatedState(playheadMs)
     val latestSeek by rememberUpdatedState(onSeek)
     val latestDragStart by rememberUpdatedState(onDragStart)
+    val textMeasurer = rememberTextMeasurer()
+    val labelStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 14.sp, color = OnDarkColors.tertiary)
 
     BoxWithConstraints(
         modifier
             .fillMaxWidth()
-            .height(StripHeight)
+            .height(RulerHeight + StripHeight)
             .clipToBounds()
             .pointerInput(Unit) {
                 // 以拖曳開始時的內容座標加上累計位移算位置，不靠回頭讀（可能還沒更新的）播放頭
@@ -251,22 +268,49 @@ fun ClipTimelineStrip(
                     }
                 }
                 // 播放頭：固定在正中間，不跟著捲動；純裝飾，位置由時間顯示唸出
-                Box(Modifier.fillMaxHeight().background(AppTheme.colors.accent))
+                Box(Modifier.fillMaxHeight().background(OnDarkColors.primary))
             },
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().drawBehind { drawRuler(geometry, originDp, widthDp, textMeasurer, labelStyle) },
         ) { measurables, constraints ->
             val height = constraints.maxHeight
+            val rulerPx = RulerHeight.roundToPx()
             val placed = List(cells.size) { k ->
                 val slice = cells[k].second
                 val wPx = slice.widthDp.dp.roundToPx().coerceAtLeast(1)
-                measurables[k].measure(Constraints.fixed(wPx, height)) to slice.fromDp.dp.roundToPx()
+                measurables[k].measure(Constraints.fixed(wPx, height - rulerPx)) to slice.fromDp.dp.roundToPx()
             }
             val lineWidth = 2.dp.roundToPx()
             val line = measurables[cells.size].measure(Constraints.fixed(lineWidth, height))
             layout(constraints.maxWidth, height) {
-                placed.forEach { (placeable, x) -> placeable.place(x, 0) }
+                placed.forEach { (placeable, x) -> placeable.place(x, rulerPx) }
                 line.place((constraints.maxWidth - lineWidth) / 2, 0)
             }
+        }
+    }
+}
+
+/**
+ * 時間刻度：每秒一條短刻度，每 [RULER_LABEL_EVERY_S] 秒在刻度正上方標時間。
+ * 只畫畫面上看得到、且在總長以內的；座標照 [TimelineGeometry]（含段間 2dp），刻度才會對準段落。
+ */
+private fun DrawScope.drawRuler(
+    geometry: TimelineGeometry,
+    originDp: Float,
+    widthDp: Float,
+    measurer: TextMeasurer,
+    style: TextStyle,
+) {
+    if (geometry.count == 0) return
+    val fromS = (geometry.msAt(-originDp) / 1000).toInt()
+    val toS = (geometry.msAt(widthDp - originDp) / 1000).toInt()
+    val bottom = RulerHeight.toPx()
+    val tick = 4.dp.toPx()
+    for (s in fromS..toS) {
+        val x = (originDp + geometry.xDp(s * 1000L)).dp.toPx()
+        drawLine(OnDarkColors.tertiary, Offset(x, bottom - tick), Offset(x, bottom), strokeWidth = 1.dp.toPx())
+        if (s % RULER_LABEL_EVERY_S == 0) {
+            val label = measurer.measure(formatDuration(s * 1000L), style)
+            drawText(label, topLeft = Offset(x - label.size.width / 2f, bottom - tick - label.size.height))
         }
     }
 }
@@ -301,7 +345,7 @@ private fun SegmentCell(
             .fillMaxSize()
             .focusRing(shape)
             .clip(shape)
-            .background(AppTheme.colors.surface2)
+            .background(OnDarkColors.fill)
             .clickable(role = Role.Button, onClick = onClick)
             .semantics {
                 contentDescription = description

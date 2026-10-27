@@ -7,6 +7,7 @@ import com.xenyaa.videoshot.core.timeline.EditHistory
 import com.xenyaa.videoshot.core.timeline.Segment
 import com.xenyaa.videoshot.core.timeline.SourceKind
 import com.xenyaa.videoshot.core.timeline.Timeline
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -56,19 +57,23 @@ class ClipCompositionTest {
         assertEquals(1 to 1080, fitSize(fitScale(1, 10_000, 0, 1920, 1080), 1920, 1080))
     }
 
-    @Test fun 模糊背景等比放大到蓋滿_清晰原圖維持完整大小() {
-        // 4:3 放進 1080×1920：完整大小 1080×810，佔高度 810/1920，模糊畫布等比放大到 2560×1920 再裁成 1080×1920
-        val b = blurLayout(fitScale(4000, 3000, 0, 1080, 1920), 1080, 1920)
-        assertEquals(1080 to 810, b.sharpWidth to b.sharpHeight)
-        assertEquals(0.421875f, b.sharpScale, 1e-6f)
-    }
+    @Test fun 清晰原圖夠大時就是完整大小() =
+        // 4:3 放進 1080×1920：完整大小 1080×810，已經超過 1/3 高
+        assertEquals(1080 to 810, sharpSize(fitScale(4000, 3000, 0, 1080, 1920), 1080, 1920))
 
-    @Test fun 全景照片的模糊畫布超過上限時整體縮小() {
-        // 4:1 放進 1080×1920：畫布要 7680×1920，超過 4096，整體縮成 0.533 倍
-        val b = blurLayout(fitScale(8000, 2000, 0, 1080, 1920), 1080, 1920)
-        assertEquals(576 to 144, b.sharpWidth to b.sharpHeight)
-        assertEquals(0.140625f, b.sharpScale, 1e-6f)
-    }
+    @Test fun 太扁的橫圖放大到佔三分之一高_左右裁掉() =
+        // 手機橫向截圖 2400×1080 放進 1080×1920：完整大小只有 1080×486（約 1/4 高），放大到 1080×640
+        assertEquals(1080 to 640, sharpSize(fitScale(2400, 1080, 0, 1080, 1920), 1080, 1920))
+
+    @Test fun 太窄的直圖放進橫式也放大到佔三分之一寬() =
+        assertEquals(640 to 1080, sharpSize(fitScale(1080, 2400, 0, 1920, 1080), 1920, 1080))
+
+    @Test fun 寬的貼圖蓋滿窄的框時左右裁掉() =
+        // 16:9 蓋滿 9:16：只取中間 (9/16)/(16/9) ≈ 0.316 寬
+        assertArrayEquals(floatArrayOf(0.31640625f, 1f, 0.341796875f, 0f), coverCrop(16f / 9, 9f / 16), 1e-5f)
+
+    @Test fun 窄的貼圖蓋滿寬的框時上下裁掉() =
+        assertArrayEquals(floatArrayOf(1f, 0.5f, 0f, 0.25f), coverCrop(1f, 2f), 1e-6f)
 
     private fun photo(id: Long) = ClipSource(id, "content://p/$id", SourceKind.PHOTO, id, null, 4000, 3000, 0)
 

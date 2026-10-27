@@ -142,24 +142,10 @@ class ClipEditorScreenTest {
         }
     }
 
-    @Test fun 頂欄有標題總長與導出() {
+    @Test fun 頂欄只有標題與導出_總長只在播放列() {
         show(state(durationMs = 108_000))
-        listOf("編輯", "總長 1:48", "導出").forEach { compose.onNodeWithText(it).assertIsDisplayed() }
-    }
-
-    @Test fun 超過上限總長變紅並說明() {
-        show(state(ClipOrientation.PORTRAIT, durationMs = 181_000))
-        compose.onNodeWithText("總長 3:01（超過 3 分鐘上限）").assertIsDisplayed()
-    }
-
-    @Test fun 橫式超過上限說明是10分鐘() {
-        show(state(ClipOrientation.LANDSCAPE, durationMs = 601_000))
-        compose.onNodeWithText("總長 10:01（超過 10 分鐘上限）").assertIsDisplayed()
-    }
-
-    @Test fun 剛好等於上限不算超過() {
-        show(state(ClipOrientation.PORTRAIT, durationMs = 180_000))
-        compose.onNodeWithText("總長 3:00").assertIsDisplayed()
+        listOf("編輯", "導出", "0:00 / 1:48").forEach { compose.onNodeWithText(it).assertIsDisplayed() }
+        compose.onNodeWithText("總長", substring = true).assertDoesNotExist()
     }
 
     @Test fun 播放列顯示時間與復原重做() {
