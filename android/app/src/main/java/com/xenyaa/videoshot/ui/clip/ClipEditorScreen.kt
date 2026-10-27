@@ -8,9 +8,13 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,6 +26,10 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.unit.em
 import com.xenyaa.videoshot.core.timeline.ClipDraft
 import com.xenyaa.videoshot.media.MediaAccess
 import com.xenyaa.videoshot.media.MediaThumbLoader
@@ -29,7 +37,6 @@ import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.TopBarNav
 import com.xenyaa.videoshot.ui.common.VsActionDock
 import com.xenyaa.videoshot.ui.common.VsButton
-import com.xenyaa.videoshot.ui.common.VsEmptyState
 import com.xenyaa.videoshot.ui.common.VsIconButton
 import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.ui.icons.VsIcons
@@ -136,7 +143,7 @@ private fun ColumnScope.EditorBody(
     )
 
     Box(Modifier.weight(1f).fillMaxWidth().background(Color.Black), contentAlignment = Alignment.Center) {
-        ClipPreviewSurface(preview, draft.orientation)
+        ClipPreviewSurface(preview, draft.orientation, showVideo = !state.isEmpty)
     }
 
     Row(
@@ -162,11 +169,7 @@ private fun ColumnScope.EditorBody(
 
     Box(Modifier.fillMaxWidth().heightIn(min = StripHeight).padding(bottom = AppTheme.spacing.s2)) {
         if (state.isEmpty) {
-            VsEmptyState(
-                message = "時間軸是空的",
-                // 修剪掉全部素材時復原紀錄已清空，這句提示就不成立了
-                secondary = if (state.canUndo) "按 ↶ 復原可以找回剛刪掉的段落" else null,
-            )
+            EmptyTimeline(state.canUndo)
         } else {
             ClipTimelineStrip(
                 timeline = draft.timeline,
@@ -193,6 +196,40 @@ private fun ColumnScope.EditorBody(
         VsButton("刪除", { stopPlayback(); onDelete() }, Modifier.weight(1f), variant = ButtonVariant.Secondary, enabled = state.canDelete)
     }
 }
+
+/**
+ * 時間軸空掉時，在時間軸的位置顯示的說明。跟時間軸一樣高，預覽區才不會跟著縮小、版面不跳。
+ * 復原提示裡畫跟【復原】按鈕一樣的圖示（字元 ↶ 在手機字型裡太小、不像按鈕）。
+ */
+@Composable
+private fun EmptyTimeline(canUndo: Boolean) {
+    Column(
+        Modifier.fillMaxWidth().height(StripHeight),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("時間軸是空的", style = MaterialTheme.typography.bodyLarge, color = AppTheme.colors.textDim)
+        // 修剪掉全部素材時復原紀錄已清空，這句提示就不成立了
+        if (canUndo) {
+            Text(
+                buildAnnotatedString {
+                    append("按 ")
+                    appendInlineContent(UNDO_ICON, "↶")
+                    append(" 復原可以找回剛刪掉的段落")
+                },
+                inlineContent = mapOf(
+                    UNDO_ICON to InlineTextContent(Placeholder(1.2.em, 1.2.em, PlaceholderVerticalAlign.TextCenter)) {
+                        Icon(VsIcons.Undo, null, Modifier.fillMaxSize(), tint = AppTheme.colors.textDim)
+                    },
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = AppTheme.colors.textDim,
+            )
+        }
+    }
+}
+
+private const val UNDO_ICON = "undo"
 
 /** [ClipEditorScreen] 的播放狀態同步用的小記事本：不需要觸發重組，所以不是 Compose 狀態。 */
 private class PlaybackSync(var wasPlaying: Boolean, var suppress: Boolean = false)

@@ -56,6 +56,20 @@ class ClipCompositionTest {
         assertEquals(1 to 1080, fitSize(fitScale(1, 10_000, 0, 1920, 1080), 1920, 1080))
     }
 
+    @Test fun 模糊背景等比放大到蓋滿_清晰原圖維持完整大小() {
+        // 4:3 放進 1080×1920：完整大小 1080×810，佔高度 810/1920，模糊畫布等比放大到 2560×1920 再裁成 1080×1920
+        val b = blurLayout(fitScale(4000, 3000, 0, 1080, 1920), 1080, 1920)
+        assertEquals(1080 to 810, b.sharpWidth to b.sharpHeight)
+        assertEquals(0.421875f, b.sharpScale, 1e-6f)
+    }
+
+    @Test fun 全景照片的模糊畫布超過上限時整體縮小() {
+        // 4:1 放進 1080×1920：畫布要 7680×1920，超過 4096，整體縮成 0.533 倍
+        val b = blurLayout(fitScale(8000, 2000, 0, 1080, 1920), 1080, 1920)
+        assertEquals(576 to 144, b.sharpWidth to b.sharpHeight)
+        assertEquals(0.140625f, b.sharpScale, 1e-6f)
+    }
+
     private fun photo(id: Long) = ClipSource(id, "content://p/$id", SourceKind.PHOTO, id, null, 4000, 3000, 0)
 
     private fun draft(sources: List<ClipSource>, segments: List<Segment>) =

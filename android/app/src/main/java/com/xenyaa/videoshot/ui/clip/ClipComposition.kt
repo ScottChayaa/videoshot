@@ -48,6 +48,30 @@ fun needsBlurBackground(scale: FitScale): Boolean = scale.x < 0.98f || scale.y <
 fun fitSize(scale: FitScale, outWidth: Int, outHeight: Int): Pair<Int, Int> =
     Pair((outWidth * scale.x).roundToInt().coerceAtLeast(1), (outHeight * scale.y).roundToInt().coerceAtLeast(1))
 
+/** 模糊背景畫布的最長邊上限（像素）：全景照放大到蓋滿會超過 GPU 貼圖上限，也太吃運算。 */
+private const val MAX_BLUR_CANVAS = 4096
+
+/** 模糊背景的版面：清晰原圖先縮到 [sharpWidth]×[sharpHeight]，模糊效果再以 [sharpScale] 等比放大成畫布。 */
+data class BlurLayout(val sharpWidth: Int, val sharpHeight: Int, val sharpScale: Float)
+
+/**
+ * 「放大蓋滿再模糊」（剪映那種）的版面。純計算，不依賴 Media3。
+ *
+ * 模糊畫布 ＝ 清晰原圖 ÷ [BlurLayout.sharpScale]，兩邊同倍率，所以背景是原圖等比放大、不變形；
+ * 畫布長寬比跟原圖一樣，之後再裁成輸出框，背景就蓋滿、清晰原圖剛好是完整大小。
+ * 畫布最長邊超過 [MAX_BLUR_CANVAS] 時整體縮小，裁切那一步會再放大回來（清晰原圖略糊）。
+ */
+fun blurLayout(scale: FitScale, outWidth: Int, outHeight: Int): BlurLayout {
+    val sharpScale = minOf(scale.x, scale.y)
+    val (fitW, fitH) = fitSize(scale, outWidth, outHeight)
+    val shrink = minOf(1f, MAX_BLUR_CANVAS * sharpScale / maxOf(fitW, fitH))
+    return BlurLayout(
+        (fitW * shrink).roundToInt().coerceAtLeast(1),
+        (fitH * shrink).roundToInt().coerceAtLeast(1),
+        sharpScale,
+    )
+}
+
 /** 時間軸上用得到的段落，連同各自的素材；引用到 [ClipDraft.sources] 裡不存在的素材的段落略過。純邏輯。 */
 fun usableSegments(draft: ClipDraft): List<Pair<Segment, ClipSource>> {
     val sources = draft.sources.associateBy { it.id }
@@ -58,10 +82,10 @@ fun usableSegments(draft: ClipDraft): List<Pair<Segment, ClipSource>> {
  * 把目前的時間軸轉成 Media3 的 [Composition]：一條音視訊序列，每段一個 [EditedMediaItem]。
  *
  * - 影片段用 clipping 取 `startMs..endMs`；照片段用 `setImageDurationMs` 撐出長度、30 fps。
- * - 每段的視訊效果：素材放進輸出框有留白時（[needsBlurBackground]），依序
- *   ① 等比縮到完整大小（[fitSize]）；② `GaussianBlurWithFrameOverlaid`——Media3 1.10.1 的做法是
- *   輸出框 ＝ 輸入框 ÷ scaleSharp、清晰原圖以輸入框的原大小疊在模糊背景正中央；
- *   ③ 拉伸到輸出尺寸（只吸收四捨五入造成的 1 px 誤差）。否則等比縮放填滿。
+ * - 每段的視訊效果：素材放進輸出框有留白時（[needsBlurBackground]），照 [blurLayout] 依序
+ *   ① 等比縮到完整大小；② `GaussianBlurWithFrameOverlaid`——Media3 1.10.1 的做法是
+ *   輸出框 ＝ 輸入框 ÷ scaleSharp（輸入整張拉到輸出框再模糊）、清晰原圖以輸入框的原大小疊在正中央，
+ *   兩邊給同一個倍率，背景就是原圖等比放大；③ 裁成輸出尺寸，背景蓋滿。否則等比縮放填滿。
  * - 序列用 [EditedMediaItemSequence.withAudioAndVideoFrom]：沒有聲音的照片段會自動補靜音，
  *   跟有聲音的影片段接得上。
  *
@@ -95,11 +119,11 @@ private fun editedItem(source: ClipSource, seg: Segment, outWidth: Int, outHeigh
     }
     val scale = fitScale(source.width, source.height, source.rotation, outWidth, outHeight)
     val videoEffects = if (needsBlurBackground(scale)) {
-        val (fitW, fitH) = fitSize(scale, outWidth, outHeight)
+        val blur = blurLayout(scale, outWidth, outHeight)
         listOf(
-            Presentation.createForWidthAndHeight(fitW, fitH, Presentation.LAYOUT_SCALE_TO_FIT),
-            GaussianBlurWithFrameOverlaid(BLUR_SIGMA, fitW / outWidth.toFloat(), fitH / outHeight.toFloat()),
-            Presentation.createForWidthAndHeight(outWidth, outHeight, Presentation.LAYOUT_STRETCH_TO_FIT),
+            Presentation.createForWidthAndHeight(blur.sharpWidth, blur.sharpHeight, Presentation.LAYOUT_SCALE_TO_FIT),
+            GaussianBlurWithFrameOverlaid(BLUR_SIGMA, blur.sharpScale, blur.sharpScale),
+            Presentation.createForWidthAndHeight(outWidth, outHeight, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP),
         )
     } else {
         listOf(Presentation.createForWidthAndHeight(outWidth, outHeight, Presentation.LAYOUT_SCALE_TO_FIT))

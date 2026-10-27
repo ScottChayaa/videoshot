@@ -127,17 +127,18 @@ class Media3ClipPreview(context: Context) : ClipPreview {
  * 預覽畫面：外框比例照輸出方向（直式 9:16、橫式 16:9），在可用空間裡盡量放大並置中，底色黑。
  * [preview] 是 [Media3ClipPreview] 時畫 `SurfaceView`（影片走硬體解碼，TextureView 在這條路上較吃力）；
  * 其他實作（測試用的假預覽）只畫黑底。
+ * [showVideo] 為 false（時間軸是空的）時也只畫黑底：播放器停掉後 `SurfaceView` 會留著最後一格。
  */
 @OptIn(UnstableApi::class)
 @Composable
-fun ClipPreviewSurface(preview: ClipPreview, orientation: ClipOrientation, modifier: Modifier = Modifier) {
+fun ClipPreviewSurface(preview: ClipPreview, orientation: ClipOrientation, modifier: Modifier = Modifier, showVideo: Boolean = true) {
     val portrait = orientation == ClipOrientation.PORTRAIT
     Box(
         modifier
             .aspectRatio(orientation.width.toFloat() / orientation.height, matchHeightConstraintsFirst = portrait)
             .background(Color.Black),
     ) {
-        if (preview is Media3ClipPreview) {
+        if (showVideo && preview is Media3ClipPreview) {
             PlayerSurface(preview.player, Modifier.fillMaxSize(), SURFACE_TYPE_SURFACE_VIEW)
         }
     }
