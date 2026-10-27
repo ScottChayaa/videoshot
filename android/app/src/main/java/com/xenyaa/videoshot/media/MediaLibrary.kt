@@ -30,13 +30,16 @@ class MediaStoreLibrary(
 ) : MediaLibrary {
 
     override suspend fun list(filter: MediaFilter): List<MediaItem> = withContext(io) {
-        val photos = if (filter != MediaFilter.VIDEO) query(MediaKind.PHOTO) else emptyList()
-        val videos = if (filter != MediaFilter.PHOTO) query(MediaKind.VIDEO) else emptyList()
+        // 全有或全無：任何一種查詢失敗（null）整份回空清單。只剩另一種的話，呼叫端分不出
+        // 「讀取失敗」和「那一種素材都被刪了」，續做草稿時會把整類素材修剪掉還存回去
+        val photos = if (filter != MediaFilter.VIDEO) query(MediaKind.PHOTO) ?: return@withContext emptyList() else emptyList()
+        val videos = if (filter != MediaFilter.PHOTO) query(MediaKind.VIDEO) ?: return@withContext emptyList() else emptyList()
         sortNewestFirst(photos + videos)
     }
 
     /** 掃描途中每隔這麼多列檢查一次是否被取消；大圖庫的掃描在使用者離開畫面後不必跑到底。 */
-    private suspend fun query(kind: MediaKind): List<MediaItem> {
+    /** 查詢失敗（沒權限或提供者出錯）回 null；取消例外照樣往外丟。 */
+    private suspend fun query(kind: MediaKind): List<MediaItem>? {
         val isVideo = kind == MediaKind.VIDEO
         val table = if (isVideo) MediaStore.Video.Media.EXTERNAL_CONTENT_URI else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
         // DATE_TAKEN 在 MediaColumns 上是 API 29 才有；兩張表各自的 ImageColumns／VideoColumns 一直都有
@@ -84,8 +87,8 @@ class MediaStoreLibrary(
             throw e
         } catch (_: Exception) {
             // 沒有權限（SecurityException），或內容提供者暫時出錯（例如游標視窗的 IllegalStateException）：
-            // 回空清單，不讓例外穿出去弄垮呼叫的協程；畫面會顯示空狀態或權限提示
-            return emptyList()
+            // 回 null，不讓例外穿出去弄垮呼叫的協程；[list] 會整份回空清單，畫面顯示空狀態或權限提示
+            return null
         }
         return items
     }

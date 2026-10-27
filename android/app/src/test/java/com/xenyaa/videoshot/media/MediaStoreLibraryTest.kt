@@ -31,11 +31,13 @@ class MediaStoreLibraryTest {
     private class FakeMediaProvider(
         private val rows: Int,
         private val fail: Boolean = false,
+        /** 只讓網址符合的那張表出錯（例如只有影片表）。 */
+        private val failOn: (Uri) -> Boolean = { false },
         private val onRow: (Int) -> Unit = {},
     ) : ContentProvider() {
         override fun onCreate() = true
         override fun query(uri: Uri, projection: Array<String>?, selection: String?, args: Array<String>?, sort: String?): Cursor {
-            if (fail) throw IllegalStateException("cursor window 暫時出錯")
+            if (fail || failOn(uri)) throw IllegalStateException("cursor window 暫時出錯")
             val cols = projection ?: emptyArray()
             val cursor = MatrixCursor(cols)
             repeat(rows) { i ->
@@ -73,6 +75,26 @@ class MediaStoreLibraryTest {
     fun 內容提供者丟出非權限例外時回空清單而不是丟出去() = runBlocking {
         val lib = library(FakeMediaProvider(rows = 3, fail = true))
         assertEquals(emptyList<MediaItem>(), lib.list(MediaFilter.ALL))
+    }
+
+    @Test
+    fun 全部時只有影片表出錯整份回空清單而不是只剩照片() = runBlocking {
+        val lib = library(FakeMediaProvider(rows = 3, failOn = { "video" in it.toString() }))
+        assertEquals(emptyList<MediaItem>(), lib.list(MediaFilter.ALL))
+    }
+
+    @Test
+    fun 全部時只有照片表出錯整份回空清單而不是只剩影片() = runBlocking {
+        val lib = library(FakeMediaProvider(rows = 3, failOn = { "images" in it.toString() }))
+        assertEquals(emptyList<MediaItem>(), lib.list(MediaFilter.ALL))
+    }
+
+    @Test
+    fun 只讀影片分頁時影片表出錯也回空清單() = runBlocking {
+        val lib = library(FakeMediaProvider(rows = 3, failOn = { "video" in it.toString() }))
+        assertEquals(emptyList<MediaItem>(), lib.list(MediaFilter.VIDEO))
+        // 照片分頁不受影片表影響
+        assertEquals(3, lib.list(MediaFilter.PHOTO).size)
     }
 
     @Test

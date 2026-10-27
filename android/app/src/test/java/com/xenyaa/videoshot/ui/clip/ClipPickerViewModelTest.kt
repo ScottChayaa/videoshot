@@ -199,6 +199,17 @@ class ClipPickerViewModelTest {
         assertEquals(library.list(MediaFilter.ALL), vm.state.value.items)
     }
 
+    @Test fun 重讀到整份空清單時不建立草稿_但保留選取() = runTest {
+        val vm = vm()
+        advanceUntilIdle()
+        vm.toggle(1); vm.toggle(2)
+        // 整份讀到空多半是讀取失敗，不是選的素材剛好全被刪光：選取留著，使用者可以再按一次
+        listOf(30L, 20L, 10L, 7L, 5L, 4L, 3L, 2L, 1L).forEach(library::remove)
+        assertNull(vm.buildDraft(ClipOrientation.PORTRAIT))
+        advanceUntilIdle()
+        assertEquals(listOf(1L, 2L), vm.state.value.selected)
+    }
+
     @Test fun 建立草稿帶著素材的欄位而且依拍攝時間由舊到新() = runTest {
         val vm = vm()
         advanceUntilIdle()

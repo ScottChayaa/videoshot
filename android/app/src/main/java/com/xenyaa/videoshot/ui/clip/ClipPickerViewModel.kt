@@ -80,9 +80,11 @@ class ClipPickerViewModel(private val deps: ClipDeps) : ViewModel() {
      * 把目前選的素材建成剪輯草稿。先重讀全部清單，只留選取裡**現在還存在**的素材
      * （選素材畫面開著的這段時間，手機裡的素材可能被刪了）。一個都不剩回 null，
      * 同時清掉選取並重讀清單，讓畫面回到真實的狀態。
+     * 重讀到整份空清單多半是讀取失敗，不是選的素材剛好全被刪光：回 null 但保留選取，使用者可以再按一次。
      */
     suspend fun buildDraft(orientation: ClipOrientation): ClipDraft? {
         val list = deps.mediaLibrary.list(MediaFilter.ALL)
+        if (list.isEmpty()) return null
         val byId = list.associateBy { it.id }
         val sources = _state.value.selected.mapNotNull { byId[it] }.map { it.toClipSource() }
         if (sources.isEmpty()) {
