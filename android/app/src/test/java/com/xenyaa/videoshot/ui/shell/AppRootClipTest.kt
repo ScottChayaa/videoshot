@@ -45,6 +45,7 @@ import com.xenyaa.videoshot.media.MediaKind
 import com.xenyaa.videoshot.media.MediaLibrary
 import com.xenyaa.videoshot.media.MediaThumbLoader
 import com.xenyaa.videoshot.media.mediaPermissionsFor
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import com.xenyaa.videoshot.ui.account.FakeAccountDeps
@@ -101,7 +102,8 @@ class AppRootClipTest {
         override fun sdkInt() = 34
         override fun grantedMediaPermissions() = granted
         override fun now() = 0L
-        override fun newPreview(context: android.content.Context): ClipPreview = NoOpPreview()
+        val preview = NoOpPreview()
+        override fun newPreview(context: android.content.Context): ClipPreview = preview
     }
 
     /** 不碰 Media3 的假預覽（Robolectric 裡不建真的 CompositionPlayer）。 */
@@ -111,7 +113,8 @@ class AppRootClipTest {
         override fun show(draft: ClipDraft, positionMs: Long) = Unit
         override fun seekTo(positionMs: Long) = Unit
         override fun play() = Unit
-        override fun pause() = Unit
+        var pauseCalls = 0
+        override fun pause() { pauseCalls++; isPlaying.value = false }
         override fun release() = Unit
     }
 
@@ -428,6 +431,69 @@ class AppRootClipTest {
         compose.onNodeWithText("下一步（1）").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("總長 0:03").assertIsDisplayed()
+    }
+
+    /** 開編輯畫面（預先存好的三張照片草稿，每張 3 秒），然後假裝播放到時間軸上的 [positionMs]。 */
+    private fun FakeClipDeps.openEditorPlayingAt(positionMs: Long) {
+        compose.setContent { VideoshotTheme { AppRoot(deps(this@openEditorPlayingAt)) {} } }
+        compose.onNodeWithText("剪輯").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("編輯中").performClick()
+        compose.waitForIdle()
+        preview.positionMs.value = positionMs
+        preview.isPlaying.value = true
+        compose.waitForIdle()
+    }
+
+    private fun com.xenyaa.videoshot.data.repo.FakeCacheRepo.segments() =
+        currentClipDraftBlocking()!!.timeline.segments.map { Triple(it.sourceId, it.startMs, it.endMs) }
+
+    @Test
+    fun 播放中按分割_切在畫面上的播放位置() {
+        val clip = FakeClipDeps(full).withDraft()
+        clip.openEditorPlayingAt(4_500)
+
+        // 播放頭在 VM 裡還停在 0，但畫面顯示的位置在第二張照片中間：分割要能按
+        compose.onNodeWithText("分割").assertIsEnabled()
+        compose.onNodeWithText("分割").performClick()
+        compose.waitForIdle()
+
+        assertEquals(
+            listOf(Triple(1L, 0L, 3000L), Triple(2L, 0L, 1500L), Triple(2L, 1500L, 3000L), Triple(3L, 0L, 3000L)),
+            clip.cacheRepo.segments(),
+        )
+        assertTrue(clip.preview.pauseCalls >= 1)
+    }
+
+    @Test
+    fun 播放中按刪除_刪掉畫面上正在播的那一段() {
+        val clip = FakeClipDeps(full).withDraft()
+        clip.openEditorPlayingAt(4_500)
+
+        compose.onNodeWithText("刪除").performClick()
+        compose.waitForIdle()
+
+        assertEquals(listOf(Triple(1L, 0L, 3000L), Triple(3L, 0L, 3000L)), clip.cacheRepo.segments())
+    }
+
+    @Test
+    fun 播放中按復原_先暫停並把播放位置寫回() {
+        val clip = FakeClipDeps(full).withDraft()
+        clip.openEditorPlayingAt(4_500)
+        compose.onNodeWithText("分割").performClick()
+        compose.waitForIdle()
+        // 分割後預覽暫停了；再從 7_000（第三張照片）播放並按復原：播放頭要先移到 7_000，不是停在舊位置
+        clip.preview.positionMs.value = 7_000
+        clip.preview.isPlaying.value = true
+        compose.waitForIdle()
+        val pausesBefore = clip.preview.pauseCalls
+
+        compose.onNodeWithContentDescription("復原").performClick()
+        compose.waitForIdle()
+
+        assertTrue(clip.preview.pauseCalls > pausesBefore)
+        assertEquals(listOf(Triple(1L, 0L, 3000L), Triple(2L, 0L, 3000L), Triple(3L, 0L, 3000L)), clip.cacheRepo.segments())
+        compose.onNodeWithText("0:07 / 0:09").assertIsDisplayed()
     }
 
     @Test

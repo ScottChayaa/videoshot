@@ -42,7 +42,8 @@ import com.xenyaa.videoshot.ui.theme.AppTheme
  * 由呼叫端決定要不要同時動 [preview]。畫面自己做的只有兩件事：
  * - 播放中，播放列與時間軸跟著 [ClipPreview.positionMs]，不是 [ClipEditorState.playheadMs]；
  *   停下來（暫停或播完）時用 [onSeek] 把停下的位置寫回播放頭。
- * - 使用者開始拖時間軸時先 [ClipPreview.pause]，並先用 [onSeek] 把播放頭接到目前的播放位置。
+ * - 使用者開始拖時間軸、或播放中按【分割】【刪除】復原重做時，先 [ClipPreview.pause]，
+ *   並先用 [onSeek] 把播放頭接到目前的播放位置（編輯才會作用在畫面上看到的位置）。播放中【分割】能不能按，看畫面顯示的位置。
  *
  * 權限（[ClipEditorState.access]）不是完整也不是部分時整片換成選素材同一個權限空狀態；
  * 請求權限與前往設定的接線同選素材（[canAskAgain] 為 false 時按鈕是【前往設定】）。
@@ -115,6 +116,16 @@ private fun ColumnScope.EditorBody(
         sync.wasPlaying = playing
     }
 
+    // 播放中要動手編輯（拖時間軸、分割、刪除、復原、重做）：先停下，並把畫面上的播放位置寫回播放頭。
+    // 播放時 VM 的播放頭還停在按下播放那一刻，不先寫回，編輯會作用在錯的位置。
+    // 暫停造成的「停下寫回」不必再做一次（否則可能蓋掉編輯後的新位置），所以先標記略過
+    val stopPlayback: () -> Unit = {
+        if (preview.isPlaying.value) {
+            sync.suppress = true
+            onSeek(preview.positionMs.value)
+            preview.pause()
+        }
+    }
     val limitMinutes = draft.orientation.maxDurationMs / 60_000
     VsTopBar(
         "編輯",
@@ -145,8 +156,8 @@ private fun ColumnScope.EditorBody(
             color = AppTheme.colors.textDim,
             modifier = Modifier.weight(1f),
         )
-        VsIconButton(VsIcons.Undo, "復原", onUndo, enabled = state.canUndo)
-        VsIconButton(VsIcons.Redo, "重做", onRedo, enabled = state.canRedo)
+        VsIconButton(VsIcons.Undo, "復原", { stopPlayback(); onUndo() }, enabled = state.canUndo)
+        VsIconButton(VsIcons.Redo, "重做", { stopPlayback(); onRedo() }, enabled = state.canRedo)
     }
 
     Box(Modifier.fillMaxWidth().heightIn(min = StripHeight).padding(bottom = AppTheme.spacing.s2)) {
@@ -165,20 +176,21 @@ private fun ColumnScope.EditorBody(
                 thumbLoader = thumbLoader,
                 onSeek = onSeek,
                 onSelect = onSelect,
-                onDragStart = {
-                    if (preview.isPlaying.value) {
-                        sync.suppress = true
-                        onSeek(preview.positionMs.value)
-                        preview.pause()
-                    }
-                },
+                onDragStart = stopPlayback,
             )
         }
     }
 
     VsActionDock {
-        VsButton("分割", onSplit, Modifier.weight(1f), variant = ButtonVariant.Secondary, enabled = state.canSplit)
-        VsButton("刪除", onDelete, Modifier.weight(1f), variant = ButtonVariant.Secondary, enabled = state.canDelete)
+        VsButton(
+            "分割",
+            { stopPlayback(); onSplit() },
+            Modifier.weight(1f),
+            variant = ButtonVariant.Secondary,
+            // 播放中，播放頭停在舊位置：能不能分割要看畫面上顯示的位置
+            enabled = if (playing) draft.timeline.canSplitAt(shownMs) else state.canSplit,
+        )
+        VsButton("刪除", { stopPlayback(); onDelete() }, Modifier.weight(1f), variant = ButtonVariant.Secondary, enabled = state.canDelete)
     }
 }
 
