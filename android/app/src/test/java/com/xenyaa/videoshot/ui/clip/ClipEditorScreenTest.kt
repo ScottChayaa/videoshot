@@ -7,7 +7,13 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.core.timeline.ClipDraft
 import com.xenyaa.videoshot.core.timeline.ClipOrientation
 import com.xenyaa.videoshot.core.timeline.ClipSource
@@ -274,5 +280,20 @@ class ClipEditorScreenTest {
         compose.onNodeWithContentDescription("暫停").performClick()
         assertTrue(preview.calls.isEmpty())
         assertEquals(1, calls.playPause)
+    }
+
+    @Test fun 比條寬還長的段完整畫出且播放頭底下點得到() {
+        // 60 秒＝2400dp，遠超過 411dp 的條寬；播放頭在 30 秒，這一段的中點要正好在畫面中央
+        val calls = Calls()
+        show(state(durationMs = 60_000, playheadMs = 30_000), calls = calls)
+        val cell = compose.onNodeWithContentDescription("第 1 段，影片，1:00")
+        val bounds = cell.getUnclippedBoundsInRoot()
+        assertEquals(2400f, (bounds.right - bounds.left).value, 1f)
+        val center = 411.dp / 2
+        assertTrue("段的範圍要涵蓋畫面中央：$bounds", bounds.left <= center && bounds.right >= center)
+        // 測試的觸控座標原點是節點「畫面上看得到的那一塊」的左上角（已被條寬裁切），所以直接給畫面中央
+        val visibleLeft = cell.getBoundsInRoot().left
+        cell.performTouchInput { click(Offset(with(compose.density) { (center - visibleLeft).toPx() }, 10f)) }
+        assertEquals(listOf<Int?>(0), calls.selects)
     }
 }
