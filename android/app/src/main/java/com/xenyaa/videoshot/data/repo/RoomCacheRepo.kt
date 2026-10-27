@@ -98,5 +98,6 @@ class RoomCacheRepo(
         db.facetRecentDao().clear()
         db.thumbStateDao().clear()
         db.draftDao().clear()
+        // edit_draft（剪輯草稿）刻意不清：引用的是這台手機的媒體，還原圖庫不影響它
     }
 }

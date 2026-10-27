@@ -50,6 +50,12 @@ class ClipCompositionTest {
     @Test fun 方向相同時完整大小就是輸出尺寸() =
         assertEquals(1080 to 1920, fitSize(fitScale(1080, 1920, 0, 1080, 1920), 1080, 1920))
 
+    @Test fun 極端長寬比的完整大小至少一像素() {
+        // 10000×1 放進 1080×1920：高度四捨五入成 0 的話 Presentation 會丟例外
+        assertEquals(1080 to 1, fitSize(fitScale(10_000, 1, 0, 1080, 1920), 1080, 1920))
+        assertEquals(1 to 1080, fitSize(fitScale(1, 10_000, 0, 1920, 1080), 1920, 1080))
+    }
+
     private fun photo(id: Long) = ClipSource(id, "content://p/$id", SourceKind.PHOTO, id, null, 4000, 3000, 0)
 
     private fun draft(sources: List<ClipSource>, segments: List<Segment>) =

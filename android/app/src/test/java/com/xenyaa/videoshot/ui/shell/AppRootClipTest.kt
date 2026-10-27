@@ -547,6 +547,26 @@ class AppRootClipTest {
     }
 
     @Test
+    fun 放棄草稿時資料庫出錯不當掉_草稿還在資料庫裡() {
+        val repo = object : com.xenyaa.videoshot.data.repo.FakeCacheRepo() {
+            override suspend fun clearClipDraft() = throw IllegalStateException("資料庫被鎖住")
+        }
+        val clip = FakeClipDeps(full, repo).withDraft()
+        compose.setContent { VideoshotTheme { AppRoot(deps(clip)) {} } }
+        compose.onNodeWithText("剪輯").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("編輯中的更多操作").performClick()
+        compose.onNodeWithText("放棄").performClick()
+        compose.onNodeWithText("放棄").performClick()
+        compose.waitForIdle()
+
+        // 畫面照常運作（沒有當掉），清不掉的草稿還在資料庫裡
+        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+        assertTrue(repo.currentClipDraftBlocking() != null)
+    }
+
+    @Test
     fun 沒權限時選素材顯示允許存取() {
         openPicker(FakeClipDeps(emptySet()))
 

@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.clip
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xenyaa.videoshot.core.timeline.ClipDraft
@@ -9,6 +10,7 @@ import com.xenyaa.videoshot.core.timeline.pruneMissing
 import com.xenyaa.videoshot.media.MediaAccess
 import com.xenyaa.videoshot.media.MediaFilter
 import com.xenyaa.videoshot.media.mediaAccessOf
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,7 +58,17 @@ class ClipEditorViewModel(private val deps: ClipDeps) : ViewModel() {
      */
     fun load() {
         viewModelScope.launch {
-            val draft = deps.cacheRepo.currentClipDraft()
+            val draft = try {
+                deps.cacheRepo.currentClipDraft()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // 資料庫讀不到：不當機，也絕不能動資料庫裡的草稿。畫面維持原狀（第一次讀就是沒有草稿，
+                // 畫面會退回剪輯頁；那裡的「編輯中」是另外讀的，草稿還在）
+                Log.w("VsClip", "讀取剪輯草稿失敗", e)
+                _state.update { it.copy(loading = false) }
+                return@launch
+            }
             if (draft == null) {
                 _state.update { it.copy(loading = false, draft = null) }
                 return@launch
@@ -151,7 +163,14 @@ class ClipEditorViewModel(private val deps: ClipDeps) : ViewModel() {
             // 離開畫面（ViewModel 清掉）時已經開始的存檔也要寫完，不然最後一步編輯會丟
             withContext(NonCancellable) {
                 previous?.join()
-                deps.cacheRepo.saveClipDraft(draft, deps.now())
+                try {
+                    deps.cacheRepo.saveClipDraft(draft, deps.now())
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // 例如手機空間滿了：不當機。畫面上的編輯照常，下一次編輯會再存一次整份草稿
+                    Log.w("VsClip", "儲存剪輯草稿失敗", e)
+                }
             }
         }
     }

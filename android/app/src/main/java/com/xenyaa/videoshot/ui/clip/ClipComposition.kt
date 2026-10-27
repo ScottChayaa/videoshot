@@ -42,11 +42,11 @@ fun fitScale(srcWidth: Int, srcHeight: Int, rotation: Int, outWidth: Int, outHei
 fun needsBlurBackground(scale: FitScale): Boolean = scale.x < 0.98f || scale.y < 0.98f
 
 /**
- * 素材完整放進 [outWidth]×[outHeight] 時的像素大小（寬, 高），四捨五入。純計算，不依賴 Media3。
+ * 素材完整放進 [outWidth]×[outHeight] 時的像素大小（寬, 高），四捨五入、至少 1（極端長寬比會四捨五入成 0，Presentation 不接受）。純計算，不依賴 Media3。
  * 模糊背景的第一步先把素材縮到這個大小，清晰原圖才不會變形。
  */
 fun fitSize(scale: FitScale, outWidth: Int, outHeight: Int): Pair<Int, Int> =
-    Pair((outWidth * scale.x).roundToInt(), (outHeight * scale.y).roundToInt())
+    Pair((outWidth * scale.x).roundToInt().coerceAtLeast(1), (outHeight * scale.y).roundToInt().coerceAtLeast(1))
 
 /** 時間軸上用得到的段落，連同各自的素材；引用到 [ClipDraft.sources] 裡不存在的素材的段落略過。純邏輯。 */
 fun usableSegments(draft: ClipDraft): List<Pair<Segment, ClipSource>> {

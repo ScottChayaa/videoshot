@@ -31,7 +31,13 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+// Robolectric：資料庫出錯時 ViewModel 會 `Log.w`，純 JVM 的 android.util.Log 會丟「not mocked」
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 @OptIn(ExperimentalCoroutinesApi::class)
 class ClipEditorViewModelTest {
 
@@ -63,7 +69,21 @@ class ClipEditorViewModelTest {
     }
 
     private val full = mediaPermissionsFor(34).filter { !it.endsWith("VISUAL_USER_SELECTED") }.toSet()
-    private val repo = FakeCacheRepo()
+    /** 可以指定讀或寫出錯的資料庫替身（模擬空間滿了、資料庫被鎖）。 */
+    private class FlakyCacheRepo : FakeCacheRepo() {
+        var failSave = false
+        var failRead = false
+        override suspend fun saveClipDraft(draft: ClipDraft, now: Long) {
+            if (failSave) throw IllegalStateException("磁碟滿了")
+            super.saveClipDraft(draft, now)
+        }
+        override suspend fun currentClipDraft(): ClipDraft? {
+            if (failRead) throw IllegalStateException("資料庫讀不到")
+            return super.currentClipDraft()
+        }
+    }
+
+    private val repo = FlakyCacheRepo()
 
     /** 草稿在 [repo] 裡、素材庫有 [present] 個 id；回傳 ViewModel（還沒 load）與存好草稿後的存檔次數基準。 */
     private suspend fun vmWith(
@@ -104,6 +124,50 @@ class ClipEditorViewModelTest {
         assertEquals(vm.s.draft, repo.currentClipDraft())
         vm.noticeShown()
         assertNull(vm.s.notice)
+    }
+
+    @Test fun 存草稿失敗不當掉_記憶體裡的編輯照常_下一次存得進去就補上() = runTest {
+        val vm = vmWith(two).loaded()
+        repo.failSave = true
+        vm.seekTo(1_000)
+        vm.split()
+        dispatcher.scheduler.advanceUntilIdle()
+        // 存檔失敗：沒有例外穿出來，畫面上的編輯還在
+        assertEquals(3, vm.s.draft!!.timeline.segments.size)
+        assertEquals(two, repo.currentClipDraft())
+
+        repo.failSave = false
+        vm.undo()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(2, vm.s.draft!!.timeline.segments.size)
+        assertEquals(vm.s.draft, repo.currentClipDraft())
+    }
+
+    @Test fun 修剪後存草稿失敗也不當掉() = runTest {
+        val vm = vmWith(three, present = listOf(1L, 2L))
+        repo.failSave = true
+        vm.loaded()
+        assertEquals(2, vm.s.draft!!.timeline.segments.size)
+        assertFalse(vm.s.loading)
+    }
+
+    @Test fun 讀草稿失敗不當掉_當作沒有草稿_資料庫裡的草稿不動() = runTest {
+        val vm = vmWith(two)
+        repo.failRead = true
+        vm.loaded()
+        assertFalse(vm.s.loading)
+        assertNull(vm.s.draft)
+        // 沒有清掉也沒有覆蓋：讀取恢復後草稿還在
+        repo.failRead = false
+        assertEquals(two, repo.currentClipDraft())
+    }
+
+    @Test fun 重新讀草稿失敗時維持原本畫面上的草稿() = runTest {
+        val vm = vmWith(two).loaded()
+        repo.failRead = true
+        vm.loaded()
+        assertFalse(vm.s.loading)
+        assertEquals(two, vm.s.draft)
     }
 
     @Test fun 素材都在時不修剪也不存檔() = runTest {

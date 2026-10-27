@@ -1065,7 +1065,16 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                         },
                         onDiscardDraft = {
                             clipDraftSummary = null
-                            scope.launch { container.clipDeps.cacheRepo.clearClipDraft() }
+                            scope.launch {
+                                try {
+                                    container.clipDeps.cacheRepo.clearClipDraft()
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    // 清不掉就不當機；草稿還在資料庫裡，下次進剪輯頁會再看到
+                                    Log.w("VsClip", "放棄剪輯草稿失敗", e)
+                                }
+                            }
                         },
                     )
                     Tab.CAPTURE -> WizardScreen(
