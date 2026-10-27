@@ -4,10 +4,12 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import com.xenyaa.videoshot.data.cache.dao.DraftDao
 import com.xenyaa.videoshot.data.cache.dao.EditDraftDao
+import com.xenyaa.videoshot.data.cache.dao.EditTaskDao
 import com.xenyaa.videoshot.data.cache.dao.FacetRecentDao
 import com.xenyaa.videoshot.data.cache.dao.ThumbStateDao
 import com.xenyaa.videoshot.data.cache.entity.DraftEntity
 import com.xenyaa.videoshot.data.cache.entity.EditDraftEntity
+import com.xenyaa.videoshot.data.cache.entity.EditTaskEntity
 import com.xenyaa.videoshot.data.cache.entity.FacetRecentEntity
 import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
 
@@ -16,8 +18,8 @@ import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
  * 還原備份時整個清空重建（回填作業會重新掃一遍缺哪些圖）。
  */
 @Database(
-    entities = [ThumbStateEntity::class, DraftEntity::class, FacetRecentEntity::class, EditDraftEntity::class],
-    version = 3,
+    entities = [ThumbStateEntity::class, DraftEntity::class, FacetRecentEntity::class, EditDraftEntity::class, EditTaskEntity::class],
+    version = 4,
     exportSchema = true,
 )
 abstract class CacheDatabase : RoomDatabase() {
@@ -25,4 +27,5 @@ abstract class CacheDatabase : RoomDatabase() {
     abstract fun draftDao(): DraftDao
     abstract fun facetRecentDao(): FacetRecentDao
     abstract fun editDraftDao(): EditDraftDao
+    abstract fun editTaskDao(): EditTaskDao
 }

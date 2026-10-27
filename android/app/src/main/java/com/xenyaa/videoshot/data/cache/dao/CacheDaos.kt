@@ -1,12 +1,15 @@
 package com.xenyaa.videoshot.data.cache.dao
 
 import androidx.room.Dao
+import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Upsert
 import com.xenyaa.videoshot.data.cache.entity.DraftEntity
 import com.xenyaa.videoshot.data.cache.entity.EditDraftEntity
+import com.xenyaa.videoshot.data.cache.entity.EditTaskEntity
 import com.xenyaa.videoshot.data.cache.entity.FacetRecentEntity
 import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ThumbStateDao {
@@ -94,4 +97,43 @@ interface EditDraftDao {
 
     @Query("DELETE FROM edit_draft")
     suspend fun clear()
+}
+
+@Dao
+interface EditTaskDao {
+    @Insert suspend fun insert(task: EditTaskEntity): Long
+
+    @Query("SELECT * FROM edit_task ORDER BY id DESC")
+    fun all(): Flow<List<EditTaskEntity>>
+
+    @Query("SELECT * FROM edit_task WHERE id = :id")
+    fun byId(id: Long): Flow<EditTaskEntity?>
+
+    @Query("SELECT id FROM edit_task WHERE state IN ('queued', 'rendering') ORDER BY id")
+    suspend fun pendingIds(): List<Long>
+
+    @Query("UPDATE edit_task SET state = :state, progress = :progress, updated_at = :now WHERE id = :id")
+    suspend fun setProgress(id: Long, state: String, progress: Int, now: Long)
+
+    @Query(
+        """
+        UPDATE edit_task
+        SET state = 'rendered', progress = 100, skipped_sources = :skipped, gallery_uri = :galleryUri,
+            fail_reason = NULL, updated_at = :now
+        WHERE id = :id
+        """
+    )
+    suspend fun setRendered(id: Long, skipped: Int, galleryUri: String?, now: Long)
+
+    @Query("UPDATE edit_task SET state = 'failed', fail_reason = :reason, updated_at = :now WHERE id = :id")
+    suspend fun setFailed(id: Long, reason: String, now: Long)
+
+    @Query("UPDATE edit_task SET auto_upload = :on, updated_at = :now WHERE id = :id")
+    suspend fun setAutoUpload(id: Long, on: Int, now: Long)
+
+    @Query("UPDATE edit_task SET state = 'queued', progress = 0, fail_reason = NULL, updated_at = :now WHERE id = :id")
+    suspend fun requeue(id: Long, now: Long)
+
+    @Query("DELETE FROM edit_task WHERE id = :id")
+    suspend fun delete(id: Long)
 }

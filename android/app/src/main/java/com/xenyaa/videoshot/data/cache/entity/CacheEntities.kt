@@ -73,3 +73,32 @@ data class EditDraftEntity(
 
     companion object { const val ONLY_ROW = 1 }
 }
+
+/**
+ * 剪輯輸出任務（階段 20）。按【開始】時由草稿變來，輸出完成後保留到使用者刪掉。
+ * 跟 [EditDraftEntity] 一樣引用這台手機的媒體，放 cache.db、不進備份。
+ */
+@Entity(tableName = "edit_task")
+data class EditTaskEntity(
+    @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "id") val id: Long,
+    /** 'queued' | 'rendering' | 'rendered' | 'failed'（對應 `EditTaskState`） */
+    @ColumnInfo(name = "state") val state: String,
+    /** 0～100 */
+    @ColumnInfo(name = "progress") val progress: Int,
+    @ColumnInfo(name = "title") val title: String,
+    /** 輸出方向的列舉名稱：'PORTRAIT' | 'LANDSCAPE' */
+    @ColumnInfo(name = "orientation") val orientation: String,
+    @ColumnInfo(name = "duration_ms") val durationMs: Long,
+    /** `ClipDraftCodec` 編的 JSON，復原與重做紀錄已清掉、只留目前的時間軸 */
+    @ColumnInfo(name = "payload") val payload: String,
+    /** 0｜1：輸出完成後是否自動上傳到 YouTube */
+    @ColumnInfo(name = "auto_upload") val autoUpload: Int,
+    @ColumnInfo(name = "fail_reason") val failReason: String?,
+    /** 輸出時已不存在而略過的素材個數 */
+    @ColumnInfo(name = "skipped_sources") val skippedSources: Int,
+    /** 存進相簿的影片 uri；沒存相簿為 null */
+    @ColumnInfo(name = "gallery_uri") val galleryUri: String?,
+    /** Unix 毫秒 */
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long,
+)

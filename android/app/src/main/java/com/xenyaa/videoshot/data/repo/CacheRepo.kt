@@ -3,7 +3,10 @@ package com.xenyaa.videoshot.data.repo
 import com.xenyaa.videoshot.core.timeline.ClipDraft
 import com.xenyaa.videoshot.data.cache.entity.DraftEntity
 import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
+import com.xenyaa.videoshot.data.repo.model.EditTask
+import com.xenyaa.videoshot.data.repo.model.EditTaskState
 import com.xenyaa.videoshot.data.repo.model.FacetRef
+import kotlinx.coroutines.flow.Flow
 
 /**
  * cache.db 的唯一對外入口（規格第三節模組邊界第 1 條）。
@@ -37,6 +40,32 @@ interface CacheRepo {
     /** 目前的剪輯草稿；沒有、或存的內容解不開（此時順手把那一列刪掉）都回 null。 */
     suspend fun currentClipDraft(): ClipDraft?
     suspend fun clearClipDraft()
+
+    /**
+     * 按【開始】：把 [draft] 變成一個輸出任務（`queued`、進度 0、勾選自動上傳）並清掉剪輯草稿，
+     * **同一個交易**——任務寫不進去時草稿原封不動。只留目前的時間軸、不留復原與重做紀錄。
+     * @param now Unix 毫秒。@return 新任務的編號。
+     */
+    suspend fun startEditTask(draft: ClipDraft, title: String, now: Long): Long
+
+    /** 全部任務，新的在前。內容解不開的任務（理論上不會有）不列。 */
+    fun editTasks(): Flow<List<EditTask>>
+
+    /** 單一任務；不存在（或已被刪掉）時發出 null。 */
+    fun editTask(id: Long): Flow<EditTask?>
+
+    /** 還沒輸出完的任務（`queued`／`rendering`）編號，舊的在前。 */
+    suspend fun pendingEditTaskIds(): List<Long>
+
+    /** 以下 `setEditTask…`、[requeueEditTask] 對不存在的編號什麼都不做（不會把已刪的任務寫回來）。 */
+    suspend fun setEditTaskProgress(id: Long, state: EditTaskState, progress: Int, now: Long)
+    suspend fun setEditTaskRendered(id: Long, skipped: Int, galleryUri: String?, now: Long)
+    suspend fun setEditTaskFailed(id: Long, reason: String, now: Long)
+    suspend fun setEditTaskAutoUpload(id: Long, on: Boolean, now: Long)
+
+    /** 【重試】：回到 `queued`、進度 0、清掉失敗原因。 */
+    suspend fun requeueEditTask(id: Long, now: Long)
+    suspend fun deleteEditTask(id: Long)
 
     /** 把這幾個地點或標籤的最近使用時間記成 [usedAt]（Unix 秒）；已有的覆蓋（規格第六節「首頁」）。 */
     suspend fun touchFacets(refs: Collection<FacetRef>, usedAt: Long)

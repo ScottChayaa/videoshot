@@ -24,5 +24,18 @@ val CACHE_MIGRATION_2_3: Migration = object : Migration(2, 3) {
     }
 }
 
+/** v3→v4：新增 `edit_task`（剪輯輸出任務）。其餘表不動。SQL 照抄 `4.json`，原因同上。 */
+val CACHE_MIGRATION_3_4: Migration = object : Migration(3, 4) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL(
+            "CREATE TABLE IF NOT EXISTS `edit_task` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `state` TEXT NOT NULL, " +
+                "`progress` INTEGER NOT NULL, `title` TEXT NOT NULL, `orientation` TEXT NOT NULL, " +
+                "`duration_ms` INTEGER NOT NULL, `payload` TEXT NOT NULL, `auto_upload` INTEGER NOT NULL, " +
+                "`fail_reason` TEXT, `skipped_sources` INTEGER NOT NULL, `gallery_uri` TEXT, " +
+                "`created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL)"
+        )
+    }
+}
+
 /** cache.db 的遷移清單。它不進備份，沒有備份相容性的問題（規格第四節）。 */
-val CACHE_MIGRATIONS: Array<Migration> = arrayOf(CACHE_MIGRATION_1_2, CACHE_MIGRATION_2_3)
+val CACHE_MIGRATIONS: Array<Migration> = arrayOf(CACHE_MIGRATION_1_2, CACHE_MIGRATION_2_3, CACHE_MIGRATION_3_4)

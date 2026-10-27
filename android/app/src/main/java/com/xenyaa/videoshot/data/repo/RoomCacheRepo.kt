@@ -4,13 +4,19 @@ import androidx.room.Transactor
 import androidx.room.useWriterConnection
 import com.xenyaa.videoshot.core.timeline.ClipDraft
 import com.xenyaa.videoshot.core.timeline.ClipDraftCodec
+import com.xenyaa.videoshot.core.timeline.EditHistory
 import com.xenyaa.videoshot.data.cache.CacheDatabase
 import com.xenyaa.videoshot.data.cache.entity.DraftEntity
 import com.xenyaa.videoshot.data.cache.entity.EditDraftEntity
+import com.xenyaa.videoshot.data.cache.entity.EditTaskEntity
 import com.xenyaa.videoshot.data.cache.entity.FacetRecentEntity
 import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
+import com.xenyaa.videoshot.data.repo.model.EditTask
+import com.xenyaa.videoshot.data.repo.model.EditTaskState
 import com.xenyaa.videoshot.data.repo.model.FacetRef
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
 class RoomCacheRepo(
@@ -67,6 +73,63 @@ class RoomCacheRepo(
 
     override suspend fun clearClipDraft() = withContext(io) { db.editDraftDao().clear() }
 
+    override suspend fun startEditTask(draft: ClipDraft, title: String, now: Long): Long = withContext(io) {
+        val task = draft.copy(history = EditHistory(draft.timeline)).let {
+            EditTaskEntity(
+                id = 0,
+                state = EditTaskState.QUEUED.dbValue,
+                progress = 0,
+                title = title,
+                orientation = it.orientation.name,
+                durationMs = it.timeline.durationMs,
+                payload = ClipDraftCodec.encode(it),
+                autoUpload = 1,
+                failReason = null,
+                skippedSources = 0,
+                galleryUri = null,
+                createdAt = now,
+                updatedAt = now,
+            )
+        }
+        db.useWriterConnection { transactor ->
+            transactor.withTransaction(Transactor.SQLiteTransactionType.IMMEDIATE) {
+                val id = db.editTaskDao().insert(task)
+                db.editDraftDao().clear()
+                id
+            }
+        }
+    }
+
+    override fun editTasks(): Flow<List<EditTask>> =
+        db.editTaskDao().all().map { rows -> rows.mapNotNull { it.toTask() } }
+
+    override fun editTask(id: Long): Flow<EditTask?> =
+        db.editTaskDao().byId(id).map { it?.toTask() }
+
+    override suspend fun pendingEditTaskIds(): List<Long> = withContext(io) { db.editTaskDao().pendingIds() }
+
+    override suspend fun setEditTaskProgress(id: Long, state: EditTaskState, progress: Int, now: Long) = withContext(io) {
+        db.editTaskDao().setProgress(id, state.dbValue, progress, now)
+    }
+
+    override suspend fun setEditTaskRendered(id: Long, skipped: Int, galleryUri: String?, now: Long) = withContext(io) {
+        db.editTaskDao().setRendered(id, skipped, galleryUri, now)
+    }
+
+    override suspend fun setEditTaskFailed(id: Long, reason: String, now: Long) = withContext(io) {
+        db.editTaskDao().setFailed(id, reason, now)
+    }
+
+    override suspend fun setEditTaskAutoUpload(id: Long, on: Boolean, now: Long) = withContext(io) {
+        db.editTaskDao().setAutoUpload(id, if (on) 1 else 0, now)
+    }
+
+    override suspend fun requeueEditTask(id: Long, now: Long) = withContext(io) {
+        db.editTaskDao().requeue(id, now)
+    }
+
+    override suspend fun deleteEditTask(id: Long) = withContext(io) { db.editTaskDao().delete(id) }
+
     override suspend fun touchFacets(refs: Collection<FacetRef>, usedAt: Long) = withContext(io) {
         db.facetRecentDao().upsertAll(refs.distinct().map { FacetRecentEntity(it.kind, it.id, usedAt) })
     }
@@ -100,4 +163,21 @@ class RoomCacheRepo(
         db.draftDao().clear()
         // edit_draft（剪輯草稿）刻意不清：引用的是這台手機的媒體，還原圖庫不影響它
     }
+}
+
+/** payload 解不開（版本不認識、內容壞掉）回 null。 */
+private fun EditTaskEntity.toTask(): EditTask? {
+    val draft = ClipDraftCodec.decode(payload) ?: return null
+    return EditTask(
+        id = id,
+        state = EditTaskState.fromDb(state),
+        progress = progress,
+        title = title,
+        draft = draft,
+        autoUpload = autoUpload != 0,
+        failReason = failReason,
+        skippedSources = skippedSources,
+        galleryUri = galleryUri,
+        createdAt = createdAt,
+    )
 }
