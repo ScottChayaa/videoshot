@@ -26,8 +26,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import java.io.File
 
+@RunWith(RobolectricTestRunner::class) // 失敗路徑會呼叫 android.util.Log
+@Config(sdk = [35])
 class ClipExportRunnerTest {
 
     @get:Rule val tmp = TemporaryFolder()
@@ -245,6 +250,26 @@ class ClipExportRunnerTest {
     }
 
     // ---- 輸出失敗、刪除、取消 ----
+
+    @Test fun `存相簿丟沒預期的例外算輸出失敗並通知且不留半成品`() = runTest {
+        val throwingSaver = object : MediaSaver {
+            override suspend fun saveVideo(file: File, title: String): String? = throw RuntimeException("寫入相簿壞了")
+        }
+        val id = start(autoUpload = false)
+
+        ClipExportRunner(
+            repo = repo, library = library, exporter = exporter, saver = throwingSaver, notifier = notifier,
+            dirFor = { File(tmp.root, "edits/$it") }, freeBytes = { free }, now = { 1234L },
+        ).run(id)
+
+        val t = task(id)!!
+        assertEquals(EditTaskState.FAILED, t.state)
+        assertEquals("輸出失敗", t.failReason)
+        assertNull(t.galleryUri)
+        assertFalse(outFor(id).exists())
+        assertTrue(notifier.finished.isEmpty())
+        assertEquals(listOf("輸出失敗"), notifier.failed.map { it.second })
+    }
 
     @Test fun `輸出失敗刪掉半成品`() = runTest {
         exporter.behavior = { _, out, _ ->

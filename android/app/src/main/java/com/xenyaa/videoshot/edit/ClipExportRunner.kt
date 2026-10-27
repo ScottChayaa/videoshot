@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.edit
 
+import android.util.Log
 import com.xenyaa.videoshot.core.timeline.ClipDraft
 import com.xenyaa.videoshot.core.timeline.pruneMissing
 import com.xenyaa.videoshot.core.timeline.requiredFreeBytes
@@ -98,6 +99,11 @@ class ClipExportRunner(
         } catch (e: CancellationException) {
             if (!kept) out.delete()
             throw e
+        } catch (e: Exception) {
+            // 沒預期的錯（例如存相簿或資料庫丟例外）：記下來、刪半成品、任務標失敗並通知，不讓排隊的工作跟著壞掉
+            Log.w(TAG, "輸出任務 $taskId 發生沒預期的錯", e)
+            if (!kept) out.delete()
+            return fail(task, REASON_EXPORT_FAILED)
         }
         val done = repo.editTask(taskId).first() ?: return // 存相簿途中又被刪掉
         notifier.finished(done)
@@ -143,5 +149,6 @@ class ClipExportRunner(
 
     private companion object {
         const val OUTPUT_NAME = "out.mp4"
+        const val TAG = "VsClipExport"
     }
 }

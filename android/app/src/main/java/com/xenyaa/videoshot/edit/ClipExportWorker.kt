@@ -9,6 +9,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
+import androidx.work.await
 import androidx.work.workDataOf
 import com.xenyaa.videoshot.data.repo.CacheRepo
 import com.xenyaa.videoshot.data.repo.model.EditTask
@@ -52,14 +53,7 @@ class ClipExportWorker(
             return Result.success()
         }
 
-        try {
-            runTask(taskId)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            // 沒預期的錯（例如資料庫壞了）：任務標成失敗，不讓整串排隊的工作跟著壞掉
-            runCatching { repo.setEditTaskFailed(taskId, REASON_EXPORT_FAILED, now()) }
-        }
+        runTask(taskId)
         return Result.success()
     }
 }
@@ -94,9 +88,14 @@ fun enqueueClipExport(context: Context, taskId: Long) {
     WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
 }
 
-/** 取消這個任務的輸出工作（跑到一半的會被中斷）。 */
-fun cancelClipExport(context: Context, taskId: Long) {
-    WorkManager.getInstance(context).cancelAllWorkByTag(clipExportTag(taskId))
+/**
+ * 取消這個任務的輸出工作（跑到一半的會被中斷），等到取消真的套用才回來。
+ * 同一串裡排在它後面的工作會被連帶取消，但那些任務在資料庫還是「等待中」：
+ * 呼叫端取消完要再呼叫 [resumeClipExports] 把它們補排。不等取消套用就補排，
+ * 可能讀到還沒被取消的狀態而跳過它們。
+ */
+suspend fun cancelClipExport(context: Context, taskId: Long) {
+    WorkManager.getInstance(context).cancelAllWorkByTag(clipExportTag(taskId)).await()
 }
 
 /**

@@ -113,18 +113,6 @@ class ClipExportWorkerTest {
         assertEquals(0, foregrounded)
     }
 
-    @Test
-    fun runner沒預期的錯誤把任務標成失敗並回success() = runTest {
-        val id = repo.startEditTask(draft(), "標題", 1_000L)
-
-        val result = worker(id) { throw RuntimeException("資料庫壞了") }.doWork()
-
-        assertEquals(ListenableWorker.Result.success(), result)
-        val task = repo.editTask(id).first()!!
-        assertEquals(EditTaskState.FAILED, task.state)
-        assertEquals("輸出失敗", task.failReason)
-    }
-
     // ---- 通知 ----
 
     private fun task(galleryUri: String? = null, skipped: Int = 0): EditTask {

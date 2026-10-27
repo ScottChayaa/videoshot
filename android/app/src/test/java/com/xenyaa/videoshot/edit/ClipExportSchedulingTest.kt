@@ -82,7 +82,7 @@ class ClipExportSchedulingTest {
     }
 
     @Test
-    fun 取消只取消那一支() {
+    fun 取消只取消那一支() = runBlocking {
         enqueueClipExport(context, 1)
         enqueueClipExport(context, 2) // 排在 1 後面（同一串）
 
@@ -90,6 +90,27 @@ class ClipExportSchedulingTest {
 
         assertEquals(WorkInfo.State.CANCELLED, infos(2).single().state)
         assertTrue(!infos(1).single().state.isFinished)
+    }
+
+    @Test
+    fun 取消串頭之後被連帶取消的任務能補排() = runBlocking {
+        val a = repo.startEditTask(draft(), "A", 1_000L)
+        val b = repo.startEditTask(draft(), "B", 1_000L)
+        val c = repo.startEditTask(draft(), "C", 1_000L)
+        enqueueClipExport(context, a)
+        enqueueClipExport(context, b) // 排在 a 後面
+        enqueueClipExport(context, c)
+
+        cancelClipExport(context, a) // 取消串頭：b、c 的工作會被連帶取消
+        repo.deleteEditTask(a) // 畫面端取消導出會刪掉任務
+        resumeClipExports(context, repo, 3_000L)
+
+        // 資料庫裡 b、c 還是等待中，補排後各自有一個還活著的工作
+        assertEquals(EditTaskState.QUEUED, repo.editTask(b).first()!!.state)
+        assertEquals(EditTaskState.QUEUED, repo.editTask(c).first()!!.state)
+        assertTrue(infos(b).any { !it.state.isFinished })
+        assertTrue(infos(c).any { !it.state.isFinished })
+        assertTrue(infos(a).all { it.state == WorkInfo.State.CANCELLED })
     }
 
     @Test
