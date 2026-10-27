@@ -21,5 +21,8 @@ interface ClipPreview {
     val positionMs: StateFlow<Long>
     val isPlaying: StateFlow<Boolean>
 
+    /** 播放出錯、停住了（讀不到素材等）。下次 [play] 會重試；[show] 也會清掉。 */
+    val failed: StateFlow<Boolean>
+
     fun release()
 }

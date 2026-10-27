@@ -110,6 +110,7 @@ class AppRootClipTest {
     private class NoOpPreview : ClipPreview {
         override val positionMs = kotlinx.coroutines.flow.MutableStateFlow(0L)
         override val isPlaying = kotlinx.coroutines.flow.MutableStateFlow(false)
+        override val failed = kotlinx.coroutines.flow.MutableStateFlow(false)
         override fun show(draft: ClipDraft, positionMs: Long) = Unit
         override fun seekTo(positionMs: Long) = Unit
         override fun play() = Unit

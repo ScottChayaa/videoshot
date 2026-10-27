@@ -49,6 +49,7 @@ class ClipEditorScreenTest {
         val calls = mutableListOf<String>()
         override val positionMs: MutableStateFlow<Long> = MutableStateFlow(position)
         override val isPlaying: MutableStateFlow<Boolean> = MutableStateFlow(playing)
+        override val failed: MutableStateFlow<Boolean> = MutableStateFlow(false)
         override fun show(draft: ClipDraft, positionMs: Long) { calls += "show" }
         override fun seekTo(positionMs: Long) { calls += "seekTo" }
         override fun play() { calls += "play" }
@@ -146,6 +147,14 @@ class ClipEditorScreenTest {
         show(state(durationMs = 108_000))
         listOf("編輯", "導出", "0:00 / 1:48").forEach { compose.onNodeWithText(it).assertIsDisplayed() }
         compose.onNodeWithText("總長", substring = true).assertDoesNotExist()
+    }
+
+    @Test fun 預覽出錯時提示按播放重試() {
+        val preview = FakePreview().apply { failed.value = true }
+        show(state(durationMs = 108_000), preview = preview)
+        compose.onNodeWithText("預覽出錯，按播放重試").assertIsDisplayed()
+        preview.failed.value = false
+        compose.onNodeWithText("預覽出錯，按播放重試").assertDoesNotExist()
     }
 
     @Test fun 播放列顯示時間與復原重做() {

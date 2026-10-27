@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material3.Icon
@@ -110,6 +111,7 @@ private fun ColumnScope.EditorBody(
 ) {
     val previewPosition by preview.positionMs.collectAsState()
     val playing by preview.isPlaying.collectAsState()
+    val failed by preview.failed.collectAsState()
     val durationMs = draft.timeline.durationMs
     val shownMs = (if (playing) previewPosition else state.playheadMs).coerceIn(0L, durationMs)
 
@@ -137,6 +139,17 @@ private fun ColumnScope.EditorBody(
 
     Box(Modifier.weight(1f).fillMaxWidth().background(Color.Black), contentAlignment = Alignment.Center) {
         ClipPreviewSurface(preview, draft.orientation, showVideo = !state.isEmpty)
+        if (failed) {
+            // 停住時畫面留著最後一格，字要墊一層半透明黑底才看得清楚
+            Text(
+                "預覽出錯，按播放重試",
+                style = MaterialTheme.typography.bodyMedium,
+                color = OnDarkColors.primary,
+                modifier = Modifier
+                    .background(OnDarkColors.hint, RoundedCornerShape(AppTheme.radii.sm))
+                    .padding(horizontal = AppTheme.spacing.s3, vertical = AppTheme.spacing.s2),
+            )
+        }
     }
 
     Row(

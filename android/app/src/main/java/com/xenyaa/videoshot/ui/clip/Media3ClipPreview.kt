@@ -1,6 +1,7 @@
 package com.xenyaa.videoshot.ui.clip
 
 import android.content.Context
+import android.util.Log
 import android.view.Choreographer
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
@@ -10,8 +11,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.transformer.CompositionPlayer
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
@@ -27,11 +30,17 @@ import kotlinx.coroutines.flow.asStateFlow
  * [show] 把草稿轉成合成（[clipComposition]）交給播放器並停在指定位置，不自動播放；
  * 時間軸變動後要再呼叫一次。時間軸是空的（合成為 null）就只停掉播放器、畫面留黑。
  * 播放位置沒有事件可以聽，所以播放中每一幀（`Choreographer`）讀一次 `currentPosition`，時間軸才會順順地走。
+ * 播放出錯（讀不到素材等）時播放器會停在 IDLE，按播放不會動：記下 [failed]，下次 [play] 先重新準備再播。
+ * 素材的格式辨識器照 MediaStore 回報的檔案類型排順序（[MimeFirstExtractorsFactory]）。
  */
 @OptIn(UnstableApi::class)
 class Media3ClipPreview(context: Context) : ClipPreview {
 
-    internal val player: CompositionPlayer = CompositionPlayer.Builder(context.applicationContext).build()
+    internal val player: CompositionPlayer = context.applicationContext.let { app ->
+        CompositionPlayer.Builder(app)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(app, MimeFirstExtractorsFactory { app.contentResolver.getType(it) }))
+            .build()
+    }
 
     private var polling = false
     private val pollFrame = object : Choreographer.FrameCallback {
@@ -49,8 +58,16 @@ class Media3ClipPreview(context: Context) : ClipPreview {
     private val _isPlaying = MutableStateFlow(false)
     override val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
 
+    private val _failed = MutableStateFlow(false)
+    override val failed: StateFlow<Boolean> = _failed.asStateFlow()
+
     init {
         player.addListener(object : Player.Listener {
+            override fun onPlayerError(error: PlaybackException) {
+                Log.w("VsClip", "預覽播放出錯", error)
+                _failed.value = true
+            }
+
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _isPlaying.value = isPlaying
                 if (isPlaying) {
@@ -66,6 +83,7 @@ class Media3ClipPreview(context: Context) : ClipPreview {
 
     override fun show(draft: ClipDraft, positionMs: Long) {
         player.pause()
+        _failed.value = false
         val composition = clipComposition(draft)
         if (composition == null) {
             if (hasComposition) player.stop()
@@ -88,6 +106,11 @@ class Media3ClipPreview(context: Context) : ClipPreview {
 
     override fun play() {
         if (!hasComposition) return
+        // 出錯後播放器停在 IDLE，要重新準備才會動（停在出錯的位置，從那裡接著播）
+        if (player.playbackState == Player.STATE_IDLE) {
+            _failed.value = false
+            player.prepare()
+        }
         // 播完停在尾端，再按播放從頭開始
         if (player.playbackState == Player.STATE_ENDED) player.seekTo(0)
         player.play()
