@@ -4,6 +4,7 @@ import androidx.annotation.OptIn
 import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.effect.FrameDropEffect
 import androidx.media3.effect.Presentation
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
@@ -66,19 +67,21 @@ fun usableSegments(draft: ClipDraft): List<Pair<Segment, ClipSource>> {
  * - 序列用 [EditedMediaItemSequence.withAudioAndVideoFrom]：沒有聲音的照片段會自動補靜音，
  *   跟有聲音的影片段接得上。
  *
+ * [maxFrameRate] 有值時（輸出用，30f）影片段的效果最前面加降幀：影片高於這個幀率才降，低於不動。預覽不傳。
+ *
  * 沒有任何可用段落（時間軸是空的，或段落的素材都不存在）時回 null——
  * Media3 的序列不接受空清單，會丟 `IllegalArgumentException`。
  */
 @OptIn(UnstableApi::class)
-fun clipComposition(draft: ClipDraft): Composition? {
+fun clipComposition(draft: ClipDraft, maxFrameRate: Float? = null): Composition? {
     val out = draft.orientation
-    val items = usableSegments(draft).map { (seg, source) -> editedItem(source, seg, out.width, out.height) }
+    val items = usableSegments(draft).map { (seg, source) -> editedItem(source, seg, out.width, out.height, maxFrameRate) }
     if (items.isEmpty()) return null
     return Composition.Builder(EditedMediaItemSequence.withAudioAndVideoFrom(items)).build()
 }
 
 @OptIn(UnstableApi::class)
-private fun editedItem(source: ClipSource, seg: Segment, outWidth: Int, outHeight: Int): EditedMediaItem {
+private fun editedItem(source: ClipSource, seg: Segment, outWidth: Int, outHeight: Int, maxFrameRate: Float?): EditedMediaItem {
     val uri = source.uri.toUri()
     val builder = when (source.kind) {
         SourceKind.VIDEO -> {
@@ -95,7 +98,7 @@ private fun editedItem(source: ClipSource, seg: Segment, outWidth: Int, outHeigh
         ).setDurationUs(seg.lengthMs * 1000).setFrameRate(PHOTO_FRAME_RATE)
     }
     val scale = fitScale(source.width, source.height, source.rotation, outWidth, outHeight)
-    val videoEffects = if (needsBlurBackground(scale)) {
+    val fitEffects = if (needsBlurBackground(scale)) {
         val (sharpW, sharpH) = sharpSize(scale, outWidth, outHeight)
         listOf(
             Presentation.createForWidthAndHeight(sharpW, sharpH, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP),
@@ -104,5 +107,11 @@ private fun editedItem(source: ClipSource, seg: Segment, outWidth: Int, outHeigh
     } else {
         listOf(Presentation.createForWidthAndHeight(outWidth, outHeight, Presentation.LAYOUT_SCALE_TO_FIT))
     }
-    return builder.setEffects(Effects(emptyList(), videoEffects)).build()
+    // 只有影片段降幀；照片段本來就是 30 fps
+    val dropFrames = if (maxFrameRate != null && source.kind == SourceKind.VIDEO) {
+        listOf(FrameDropEffect.createDefaultFrameDropEffect(maxFrameRate))
+    } else {
+        emptyList()
+    }
+    return builder.setEffects(Effects(emptyList(), dropFrames + fitEffects)).build()
 }
