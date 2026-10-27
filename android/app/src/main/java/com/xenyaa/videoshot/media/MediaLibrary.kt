@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.media
 
 import android.content.ContentResolver
 import android.content.ContentUris
+import android.os.Build
 import android.provider.MediaStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -41,6 +42,7 @@ class MediaStoreLibrary(
     /** 查詢失敗（沒權限或提供者出錯）回 null；取消例外照樣往外丟。 */
     private suspend fun query(kind: MediaKind): List<MediaItem>? {
         val isVideo = kind == MediaKind.VIDEO
+        val readsOrientation = !isVideo || Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
         val table = if (isVideo) MediaStore.Video.Media.EXTERNAL_CONTENT_URI else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
         // DATE_TAKEN 在 MediaColumns 上是 API 29 才有；兩張表各自的 ImageColumns／VideoColumns 一直都有
         val takenName = if (isVideo) MediaStore.Video.VideoColumns.DATE_TAKEN else MediaStore.Images.ImageColumns.DATE_TAKEN
@@ -50,8 +52,9 @@ class MediaStoreLibrary(
             add(MediaStore.MediaColumns.DATE_MODIFIED)
             add(MediaStore.MediaColumns.WIDTH)
             add(MediaStore.MediaColumns.HEIGHT)
-            // 影片表在 API 29 以下沒有 ORIENTATION 欄；影片的旋轉讀 0
-            if (!isVideo) add(MediaStore.Images.ImageColumns.ORIENTATION)
+            // 影片表在 API 29 起才有 ORIENTATION 欄（更早讀 0）。相機直拍的影片存成 1920×1080＋orientation=90，
+            // 不讀就會被當成橫的
+            if (readsOrientation) add(MediaStore.Images.ImageColumns.ORIENTATION)
             if (isVideo) add(MediaStore.Video.VideoColumns.DURATION)
         }.toTypedArray()
 
@@ -63,7 +66,7 @@ class MediaStoreLibrary(
                 val modifiedCol = c.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_MODIFIED)
                 val widthCol = c.getColumnIndexOrThrow(MediaStore.MediaColumns.WIDTH)
                 val heightCol = c.getColumnIndexOrThrow(MediaStore.MediaColumns.HEIGHT)
-                val orientationCol = if (isVideo) -1 else c.getColumnIndexOrThrow(MediaStore.Images.ImageColumns.ORIENTATION)
+                val orientationCol = if (readsOrientation) c.getColumnIndexOrThrow(MediaStore.Images.ImageColumns.ORIENTATION) else -1
                 val durationCol = if (isVideo) c.getColumnIndexOrThrow(MediaStore.Video.VideoColumns.DURATION) else -1
                 while (c.moveToNext()) {
                     if (items.size % CANCEL_CHECK_EVERY == 0) currentCoroutineContext().ensureActive()

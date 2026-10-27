@@ -46,6 +46,7 @@ class MediaStoreLibraryTest {
                         "_id" -> (i + 1).toLong()
                         "date_modified" -> 1_700_000_000L + i
                         "width", "height" -> 100
+                        "orientation" -> 90
                         else -> null
                     }
                 })
@@ -95,6 +96,13 @@ class MediaStoreLibraryTest {
         assertEquals(emptyList<MediaItem>(), lib.list(MediaFilter.VIDEO))
         // 照片分頁不受影片表影響
         assertEquals(3, lib.list(MediaFilter.PHOTO).size)
+    }
+
+    @Test
+    fun 影片也讀旋轉角度_直拍影片存成橫的尺寸加旋轉90() = runBlocking {
+        // 手機相機直拍的影片在 MediaStore 是 1920×1080＋orientation=90（2026-10-27 實機查到）
+        val lib = library(FakeMediaProvider(rows = 2))
+        assertEquals(listOf(90, 90), lib.list(MediaFilter.VIDEO).map { it.rotation })
     }
 
     @Test
