@@ -5,7 +5,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.StatFs
+import com.xenyaa.videoshot.edit.AndroidClipExportNotifier
+import com.xenyaa.videoshot.edit.ClipExportRunner
+import com.xenyaa.videoshot.edit.Media3ClipExporter
 import com.xenyaa.videoshot.media.MediaLibrary
+import com.xenyaa.videoshot.media.MediaStoreSaver
 import com.xenyaa.videoshot.media.MediaStoreLibrary
 import com.xenyaa.videoshot.media.MediaThumbLoader
 import com.xenyaa.videoshot.media.mediaPermissionsFor
@@ -516,6 +521,23 @@ class AppContainer(context: Context) : AppRootDeps {
             override val cacheRepo: CacheRepo get() = this@AppContainer.cacheRepo
             override fun now(): Long = System.currentTimeMillis()
         }
+    }
+
+    /** 剪輯輸出的通知；也是前景服務通知的來源。 */
+    val clipExportNotifier: AndroidClipExportNotifier by lazy { AndroidClipExportNotifier(appContext) }
+
+    /** 剪輯輸出一個任務的完整流程（背景工作 `ClipExportWorker` 呼叫它）。 */
+    val clipExportRunner: ClipExportRunner by lazy {
+        ClipExportRunner(
+            repo = cacheRepo,
+            library = clipDeps.mediaLibrary,
+            exporter = Media3ClipExporter(appContext),
+            saver = MediaStoreSaver(appContext.contentResolver),
+            notifier = clipExportNotifier,
+            dirFor = { taskId -> File(appContext.filesDir, "edits/$taskId") },
+            freeBytes = { StatFs(appContext.filesDir.path).availableBytes },
+            now = { clipDeps.now() },
+        )
     }
 
     override val haptics: Haptics by lazy { SystemHaptics(appContext) }

@@ -14,6 +14,11 @@
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <!-- 剪輯選素材（規格第十九節）；不用系統挑選器，因為它給的 URI 不能刪除 -->
     <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+    <!-- 剪輯輸出（規格第十九節）：背景輸出用前景服務，通知欄顯示進度與結果。Android 15 起類型是 mediaProcessing，14 以下是 dataSync -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROCESSING" />
 
     <application
         android:name=".VideoshotApp"
@@ -65,6 +70,12 @@
                 android:value="androidx.startup"
                 tools:node="remove" />
         </provider>
+
+        <!-- WorkManager 的前景服務要宣告類型，`setForeground` 才能指定 dataSync／mediaProcessing -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync|mediaProcessing"
+            tools:node="merge" />
     </application>
 
 </manifest>

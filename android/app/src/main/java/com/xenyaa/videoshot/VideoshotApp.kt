@@ -10,6 +10,7 @@ import com.xenyaa.videoshot.backfill.BackfillWorkerFactory
 import com.xenyaa.videoshot.backfill.scheduleBackfill
 import com.xenyaa.videoshot.backfill.scheduleBackfillScan
 import com.xenyaa.videoshot.di.AppContainer
+import com.xenyaa.videoshot.edit.ClipExportWorkerFactory
 
 class VideoshotApp : Application(), Configuration.Provider {
     lateinit var container: AppContainer
@@ -21,6 +22,14 @@ class VideoshotApp : Application(), Configuration.Provider {
                 addFactory(BackupWorkerFactory(runIfDue = { force -> container.backupManager.runIfDue(force) }))
                 addFactory(BackfillWorkerFactory(runBatch = { container.backfillManager.runBatch() }))
                 addFactory(BackfillScanWorkerFactory(scanForMissing = { container.backfillManager.scanForMissing() }))
+                addFactory(
+                    ClipExportWorkerFactory(
+                        repo = container.cacheRepo,
+                        foregroundInfoFor = { task -> container.clipExportNotifier.foregroundInfo(task) },
+                        runTask = { id -> container.clipExportRunner.run(id) },
+                        now = { System.currentTimeMillis() },
+                    ),
+                )
             }
             return Configuration.Builder().setWorkerFactory(factory).build()
         }
