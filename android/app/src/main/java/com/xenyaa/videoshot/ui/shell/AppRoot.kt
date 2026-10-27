@@ -71,6 +71,7 @@ import com.xenyaa.videoshot.ui.clip.ClipDraftSummary
 import com.xenyaa.videoshot.ui.clip.ClipEditorScreen
 import com.xenyaa.videoshot.ui.clip.ClipEditorViewModel
 import com.xenyaa.videoshot.ui.clip.ClipHomeScreen
+import com.xenyaa.videoshot.ui.clip.ClipResultRoute
 import com.xenyaa.videoshot.ui.clip.toSummary
 import com.xenyaa.videoshot.ui.clip.ExportSheet
 import com.xenyaa.videoshot.ui.clip.OrientationSheet
@@ -825,6 +826,13 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
         is Dest.ClipExport -> Column(Modifier.fillMaxSize()) {
             VsTopBar("導出", nav = TopBarNav.Back({ nav.pop()?.let { nav = it } }))
         }
+
+        // 成品播放：全螢幕、沒有底部導覽（同 Dest.Play）；返回回到導出中畫面
+        is Dest.ClipResult -> ClipResultRoute(
+            taskId = dest.taskId,
+            cacheRepo = container.clipDeps.cacheRepo,
+            onBack = { nav.pop()?.let { nav = it } },
+        )
 
         Dest.Root, is Dest.Folder, Dest.ArchivedFolders, is Dest.AccountSetting -> AppShell(nav = nav,
             onSelectTab = { foldersVm.clearSelection(); nav = nav.select(it) },

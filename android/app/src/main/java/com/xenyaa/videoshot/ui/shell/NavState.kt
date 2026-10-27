@@ -81,6 +81,12 @@ sealed interface Dest {
      * 沒有底部導覽。**只存任務編號**——標題與進度每次進來重新查。
      */
     data class ClipExport(val taskId: Long) : Dest
+
+    /**
+     * 全螢幕播放輸出完成的成品（階段 20）：從導出中畫面的【播放檢查】／【播放】進來，疊在上面，返回回到那裡；沒有底部導覽。
+     * **只存任務編號**——成品在 app 裡還是相簿裡，每次進來重新查。
+     */
+    data class ClipResult(val taskId: Long) : Dest
 }
 
 /**
@@ -159,6 +165,7 @@ object NavCodec {
                     is Dest.ClipPicker -> "C${orientationCode(dest.orientation)}"
                     is Dest.ClipEditor -> "E${orientationCode(dest.orientation)}"
                     is Dest.ClipExport -> "X${dest.taskId}"
+                    is Dest.ClipResult -> "R${dest.taskId}"
                 }
             }
             "${tab.name}=$items"
@@ -181,6 +188,8 @@ object NavCodec {
                     item == "V" -> Dest.RestoreFlow
                     item == "X" -> Dest.ArchivedFolders
                     // 「X」後面接數字＝導出中畫面（單獨一個「X」是封存相簿，上一行先處理掉）
+                    // 「R」後面接數字＝成品播放畫面（單獨一個「R」是根畫面，上面先處理掉）
+                    item.startsWith("R") -> Dest.ClipResult(item.drop(1).toLongOrNull() ?: return NavState())
                     item.startsWith("X") -> Dest.ClipExport(item.drop(1).toLongOrNull() ?: return NavState())
                     item.startsWith("L") -> Dest.Lightbox(item.drop(1).toIntOrNull() ?: return NavState())
                     item.startsWith("F") -> Dest.Folder(item.drop(1).toLongOrNull() ?: return NavState())

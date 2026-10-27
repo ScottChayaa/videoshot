@@ -174,6 +174,17 @@ class NavStateTest {
         assertEquals(nav, NavCodec.decode(NavCodec.encode(nav)))
     }
 
+    @Test fun 成品播放存檔碼是R加任務編號_且不會和根畫面混淆() {
+        val nav = NavState().select(Tab.CLIP).push(Dest.ClipExport(42)).push(Dest.ClipResult(42))
+        assertEquals("R42", NavCodec.encode(nav).substringAfter("CLIP=").split(";")[0].split(",").last())
+        assertEquals(nav, NavCodec.decode(NavCodec.encode(nav)))
+        assertEquals(Dest.ClipExport(42), nav.pop()?.current)
+        // 根畫面單獨的「R」照舊
+        assertEquals(NavState(), NavCodec.decode(NavCodec.encode(NavState())))
+        // 「R」後面不是數字：存檔壞掉，整個退回預設
+        assertEquals(NavState(), NavCodec.decode("CLIP|HOME|HOME=R;CLIP=R,Rabc"))
+    }
+
     @Test fun 導出中畫面存檔碼是X加任務編號_且不會和封存相簿混淆() {
         val nav = NavState().select(Tab.CLIP).push(Dest.ClipExport(42))
         assertEquals("X42", NavCodec.encode(nav).substringAfter("CLIP=").substringAfter(",").substringBefore(";"))
