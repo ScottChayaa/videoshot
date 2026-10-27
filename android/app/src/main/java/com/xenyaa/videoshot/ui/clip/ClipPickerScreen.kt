@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -47,6 +48,8 @@ import com.xenyaa.videoshot.ui.common.TopBarNav
 import com.xenyaa.videoshot.ui.common.VsActionDock
 import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsEmptyState
+import com.xenyaa.videoshot.ui.common.VsSkeletonArea
+import com.xenyaa.videoshot.ui.common.VsSkeletonBlock
 import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.ui.common.VsUnderlineTabs
 import com.xenyaa.videoshot.ui.theme.AppTheme
@@ -54,6 +57,7 @@ import com.xenyaa.videoshot.ui.theme.focusRing
 
 private val TabFilters = listOf(MediaFilter.ALL, MediaFilter.VIDEO, MediaFilter.PHOTO)
 private val TabLabels = listOf("全部", "影片", "照片")
+private val GridGap = 2.dp
 
 /**
  * 剪輯的「選素材」：手機裡的照片與影片，一格一個，依點選順序編號。
@@ -90,7 +94,7 @@ fun ClipPickerScreen(
         Box(Modifier.weight(1f).fillMaxWidth()) {
             val items = state.items
             when {
-                items == null -> Unit
+                items == null -> GridSkeleton()
                 items.isEmpty() -> VsEmptyState(
                     message = when (state.filter) {
                         MediaFilter.ALL -> "手機裡還沒有照片或影片"
@@ -102,8 +106,8 @@ fun ClipPickerScreen(
                 else -> LazyVerticalGrid(
                     columns = GridCells.Fixed(4),
                     modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(GridGap),
+                    verticalArrangement = Arrangement.spacedBy(GridGap),
                 ) {
                     items(items, key = { it.id }) { item ->
                         // 把 selected 當 key：選取改變時這格要重算序號（orderOf 讀的不是 Compose 的狀態）
@@ -122,6 +126,24 @@ fun ClipPickerScreen(
                 modifier = Modifier.weight(1f),
                 enabled = count > 0,
             )
+        }
+    }
+}
+
+/** 清單還在讀：4 欄正方形灰塊，間距同真的格線，排滿整塊高度（超出的被裁掉），換成真內容時版面不跳。 */
+@Composable
+private fun GridSkeleton() {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val cell = (maxWidth - GridGap * 3) / 4
+        val rows = (maxHeight / (cell + GridGap)).toInt() + 1
+        VsSkeletonArea(Modifier.fillMaxSize()) {
+            Column(verticalArrangement = Arrangement.spacedBy(GridGap)) {
+                repeat(rows) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(GridGap)) {
+                        repeat(4) { VsSkeletonBlock(Modifier.weight(1f).aspectRatio(1f), shape = RectangleShape) }
+                    }
+                }
+            }
         }
     }
 }

@@ -121,6 +121,13 @@ class ClipPickerScreenTest {
         assertTrue(opened)
     }
 
+    @Test fun 讀取中顯示骨架屏() {
+        show(state(FULL, items = null))
+        compose.onNodeWithContentDescription("載入中…").assertExists()
+        compose.onNodeWithContentDescription("照片").assertDoesNotExist()
+        compose.onNodeWithContentDescription("影片").assertDoesNotExist()
+    }
+
     @Test fun 空的影片分頁有說明() {
         show(state(FULL, filter = MediaFilter.VIDEO, items = emptyList()))
         compose.onNodeWithText("手機裡還沒有影片").assertIsDisplayed()
