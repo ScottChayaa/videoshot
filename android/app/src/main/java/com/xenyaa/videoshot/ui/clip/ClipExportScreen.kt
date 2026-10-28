@@ -3,6 +3,7 @@ package com.xenyaa.videoshot.ui.clip
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,7 +21,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -35,9 +35,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -153,7 +161,8 @@ internal suspend fun guarded(what: String, block: suspend () -> Unit) {
 
 /**
  * 導出中畫面（階段 20）：頂欄「導出」＋返回；成品第一格的縮圖；依任務狀態顯示
- * 等待中／輸出中（百分比與提示）／完成（【播放檢查】或存相簿後的【播放】）／失敗（原因與【重試】）。
+ * 等待中／輸出中（縮圖疊上大的百分比、亮的部分隨進度往右，加提示）／
+ * 完成（點縮圖或【播放檢查】、存相簿後的【播放】全螢幕播放）／失敗（原因與【重試】）。
  * 「完成後自動上傳到 YouTube」勾選框與【取消導出】只在等待中與輸出中顯示。
  *
  * 前一次輸出殘留的略過個數與相簿位置（重試之後、完成之前還留在任務上）只在 [EditTaskState.RENDERED] 才看。
@@ -182,23 +191,17 @@ fun ClipExportScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s4),
         ) {
-            ExportThumb(task, thumbLoader)
+            ExportThumb(
+                task,
+                thumbLoader,
+                progress = if (task.state == EditTaskState.RENDERING) task.progress.coerceIn(0, 100) else null,
+                onClick = if (task.state == EditTaskState.RENDERED) onPlay else null,
+            )
 
             when (task.state) {
                 EditTaskState.QUEUED -> StatusTitle("等待中…")
                 EditTaskState.RENDERING -> {
                     StatusTitle("輸出影片中…")
-                    Text(
-                        "${task.progress}%",
-                        style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold, fontSize = 40.sp),
-                        color = AppTheme.colors.text,
-                    )
-                    LinearProgressIndicator(
-                        progress = { task.progress.coerceIn(0, 100) / 100f },
-                        modifier = Modifier.fillMaxWidth(),
-                        color = AppTheme.colors.accent,
-                        trackColor = AppTheme.colors.surface2,
-                    )
                     Text(
                         "留在這個畫面會比較快；離開也會在背景繼續",
                         style = MaterialTheme.typography.bodyMedium,
@@ -301,22 +304,54 @@ internal fun rememberFirstSourceThumb(task: EditTask, loader: MediaThumbLoader):
     return bitmap
 }
 
-/** 成品第一格的縮圖：還沒載入（或解碼失敗）時是中性的色塊。 */
+/**
+ * 成品第一格的縮圖：還沒載入（或解碼失敗）時是中性的色塊。
+ *
+ * - [progress] 不是 null（輸出中）：疊上大的百分比，左邊已完成的部分是原本的亮度、右邊還沒完成的壓暗，亮的部分隨進度往右。
+ * - [onClick] 不是 null（輸出完成）：點縮圖跟【播放檢查】／【播放】一樣全螢幕播放成品。
+ */
 @Composable
-private fun ExportThumb(task: EditTask, loader: MediaThumbLoader) {
+private fun ExportThumb(task: EditTask, loader: MediaThumbLoader, progress: Int?, onClick: (() -> Unit)?) {
     val bitmap = rememberFirstSourceThumb(task, loader)
     val portrait = task.draft.orientation == ClipOrientation.PORTRAIT
     val shape = RoundedCornerShape(12.dp)
-    val modifier = if (portrait) Modifier.width(160.dp).aspectRatio(9f / 16f) else Modifier.fillMaxWidth().aspectRatio(16f / 9f)
-    val thumb = bitmap
-    if (thumb != null) {
-        Image(
-            thumb,
-            contentDescription = null,
-            modifier = modifier.clip(shape).testTag("exportThumb"),
-            contentScale = ContentScale.Crop,
-        )
-    } else {
-        Box(modifier.clip(shape).background(AppTheme.colors.surface2).testTag("exportThumb"))
+    val box = if (portrait) Modifier.width(160.dp).aspectRatio(9f / 16f) else Modifier.fillMaxWidth().aspectRatio(16f / 9f)
+    var modifier = box.clip(shape).background(AppTheme.colors.surface2)
+    val done = (progress ?: 0) / 100f
+    if (progress != null) {
+        modifier = modifier.semantics { progressBarRangeInfo = ProgressBarRangeInfo(done, 0f..1f) }
+    }
+    if (onClick != null) {
+        modifier = modifier.focusRing(shape).clickable(onClickLabel = "播放", role = Role.Button, onClick = onClick)
+    }
+    Box(modifier.testTag("exportThumb"), contentAlignment = Alignment.Center) {
+        val thumb = bitmap
+        if (thumb != null) {
+            Image(thumb, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        }
+        if (progress != null) {
+            // 還沒完成的部分（右邊）壓暗；百分比的字在這層上面，不跟著變暗
+            Box(
+                Modifier.fillMaxSize().drawBehind {
+                    drawRect(
+                        ThumbDim,
+                        topLeft = Offset(size.width * done, 0f),
+                        size = Size(size.width * (1f - done), size.height),
+                    )
+                },
+            )
+            Text(
+                "$progress%",
+                style = MaterialTheme.typography.displaySmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 40.sp,
+                    shadow = Shadow(Color.Black.copy(alpha = 0.6f), blurRadius = 8f),
+                ),
+                color = Color.White,
+            )
+        }
     }
 }
+
+/** 導出中縮圖還沒完成那一段的壓暗色。 */
+private val ThumbDim = Color.Black.copy(alpha = 0.55f)

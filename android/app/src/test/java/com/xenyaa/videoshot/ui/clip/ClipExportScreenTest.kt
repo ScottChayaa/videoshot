@@ -1,13 +1,18 @@
 package com.xenyaa.videoshot.ui.clip
 
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertRangeInfoEquals
 import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.xenyaa.videoshot.core.timeline.ClipDraft
@@ -88,6 +93,8 @@ class ClipExportScreenTest {
         compose.onNodeWithText("完成後自動上傳到 YouTube").assertIsDisplayed()
         compose.onNodeWithText("取消導出").assertIsDisplayed()
         noNode("輸出影片中…")
+        noNode("0%")
+        compose.onNodeWithTag("exportThumb").assertHasNoClickAction()
     }
 
     @Test
@@ -96,6 +103,10 @@ class ClipExportScreenTest {
 
         compose.onNodeWithText("輸出影片中…").assertIsDisplayed()
         compose.onNodeWithText("42%").assertIsDisplayed()
+        // 大的百分比疊在縮圖上，縮圖本身就是進度（亮的部分到 42%）；輸出中不能點
+        compose.onNode(hasText("42%") and hasAnyAncestor(hasTestTag("exportThumb"))).assertIsDisplayed()
+        compose.onNodeWithTag("exportThumb").assertRangeInfoEquals(ProgressBarRangeInfo(0.42f, 0f..1f))
+        compose.onNodeWithTag("exportThumb").assertHasNoClickAction()
         compose.onNodeWithText("留在這個畫面會比較快；離開也會在背景繼續").assertIsDisplayed()
         compose.onNodeWithText("完成後自動上傳到 YouTube").assertIsDisplayed()
         compose.onNodeWithText("取消導出").assertIsDisplayed()
@@ -113,6 +124,25 @@ class ClipExportScreenTest {
         noNode("完成後自動上傳到 YouTube")
         noNode("取消導出")
         noNode("已存到相簿")
+        noNode("0%")
+    }
+
+    @Test
+    fun 完成時點縮圖也全螢幕播放() {
+        var played = 0
+        show(task(EditTaskState.RENDERED), onPlay = { played++ })
+
+        compose.onNodeWithTag("exportThumb").performClick()
+        assertEquals(1, played)
+    }
+
+    @Test
+    fun 存相簿後點縮圖也全螢幕播放() {
+        var played = 0
+        show(task(EditTaskState.RENDERED, galleryUri = "content://media/99"), onPlay = { played++ })
+
+        compose.onNodeWithTag("exportThumb").performClick()
+        assertEquals(1, played)
     }
 
     @Test
@@ -148,6 +178,7 @@ class ClipExportScreenTest {
         compose.onNodeWithText("空間不足，還需要 1.2 GB").assertIsDisplayed()
         compose.onNodeWithText("重試").performClick()
         assertEquals(true, retried)
+        compose.onNodeWithTag("exportThumb").assertHasNoClickAction()
         noNode("完成後自動上傳到 YouTube")
         noNode("取消導出")
         noNode("已存到相簿")
