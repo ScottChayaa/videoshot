@@ -42,6 +42,9 @@ interface ClipDeps {
     /** 刪掉這個任務在 app 裡的成品資料夾（相簿裡的不動）；刪除或取消任務時呼叫。預設什麼都不做，`AppContainer` 覆寫。 */
     suspend fun deleteExportFiles(taskId: Long) = Unit
 
+    /** 刪掉 app 裡對不到任務的成品資料夾（見 `deleteOrphanEditDirs`）；app 啟動時跟 [resumeExports] 一起呼叫一次。預設什麼都不做，`AppContainer` 覆寫。 */
+    suspend fun cleanupExportFiles() = Unit
+
     /** 還需要向使用者要「通知」權限嗎（Android 13 起、尚未授權才是 true）；輸出進度與結果都靠通知。 */
     fun notificationPermissionMissing(): Boolean = false
 

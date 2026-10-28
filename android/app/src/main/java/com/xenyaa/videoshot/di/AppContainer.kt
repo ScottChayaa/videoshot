@@ -12,6 +12,7 @@ import com.xenyaa.videoshot.edit.Media3ClipExporter
 import com.xenyaa.videoshot.edit.cancelClipExport
 import com.xenyaa.videoshot.edit.enqueueClipExport
 import com.xenyaa.videoshot.edit.deleteEditTaskDir
+import com.xenyaa.videoshot.edit.deleteOrphanEditDirs
 import com.xenyaa.videoshot.edit.resumeClipExports
 import com.xenyaa.videoshot.media.MediaLibrary
 import com.xenyaa.videoshot.media.MediaStoreSaver
@@ -529,6 +530,9 @@ class AppContainer(context: Context) : AppRootDeps {
             override suspend fun resumeExports() = resumeClipExports(appContext, cacheRepo, now())
             override suspend fun deleteExportFiles(taskId: Long) =
                 withContext(Dispatchers.IO) { deleteEditTaskDir(appContext.filesDir, taskId) }
+            override suspend fun cleanupExportFiles() = withContext(Dispatchers.IO) {
+                deleteOrphanEditDirs(appContext.filesDir) { cacheRepo.editTasks().first().mapTo(HashSet()) { it.id } }
+            }
             override fun notificationPermissionMissing(): Boolean =
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                     appContext.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED

@@ -119,6 +119,9 @@ class AppRootClipTest {
         /** 刪任務時一併刪掉 app 裡成品的任務編號。 */
         val deletedFiles = mutableListOf<Long>()
         override suspend fun deleteExportFiles(taskId: Long) { deletedFiles += taskId }
+        /** 啟動時清理成品資料夾的次數。 */
+        var cleanups = 0
+        override suspend fun cleanupExportFiles() { cleanups++ }
         var notificationMissing = false
         override fun notificationPermissionMissing() = notificationMissing
         val preview = NoOpPreview()
@@ -861,11 +864,13 @@ class AppRootClipTest {
         compose.setContent { VideoshotTheme { AppRoot(deps(clip)) {} } }
         compose.waitForIdle()
         assertEquals(listOf("resume"), clip.exportCalls)
+        assertEquals(1, clip.cleanups) // 也清一次對不到任務的成品資料夾
 
-        // 之後切分頁不會再補排
+        // 之後切分頁不會再補排、再清理
         compose.onNodeWithText("剪輯").performClick()
         compose.waitForIdle()
         assertEquals(listOf("resume"), clip.exportCalls)
+        assertEquals(1, clip.cleanups)
     }
 
     @Test
