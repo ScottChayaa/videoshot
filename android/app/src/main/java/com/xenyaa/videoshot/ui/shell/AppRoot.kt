@@ -140,7 +140,7 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
             container.clipDeps.resumeExports()
         } catch (e: CancellationException) {
             throw e
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // 補排失敗不能把 app 炸掉；任務留在原狀態，下次打開 app 再補
             Log.w("VsClip", "補排輸出失敗", e)
         }
@@ -148,7 +148,7 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
             container.clipDeps.cleanupExportFiles()
         } catch (e: CancellationException) {
             throw e
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // 清不掉只是多佔空間，下次打開 app 再清
             Log.w("VsClip", "清理輸出資料夾失敗", e)
         }

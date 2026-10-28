@@ -24,6 +24,7 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -48,7 +49,12 @@ class ClipExportSchedulingTest {
             val repo = tasks
             if (repo != null && repo.editTask(id).first() == null) return Result.success()
             started += id
-            gates[id]?.await() ?: awaitCancellation()
+            running += id
+            try {
+                gates[id]?.await() ?: awaitCancellation()
+            } finally {
+                running -= id
+            }
             return Result.success()
         }
     }
@@ -72,6 +78,16 @@ class ClipExportSchedulingTest {
             Configuration.Builder().setWorkerFactory(factory).setMinimumLoggingLevel(android.util.Log.DEBUG).build(),
         )
         workManager = WorkManager.getInstance(context)
+    }
+
+    /**
+     * 替身工作不會自己結束：測試結束前全部取消並等它們真的停下，不然它們會在 WorkManager 的測試資料庫
+     * 關掉之後才被取消，例外漏到之後別的測試（`UncaughtExceptionsBeforeTest`）。
+     */
+    @After
+    fun tearDown() {
+        workManager.cancelAllWork().result.get()
+        waitUntil { running.isEmpty() }
     }
 
     private fun infos(taskId: Long): List<WorkInfo> = workManager.getWorkInfosByTag("clip-export-$taskId").get()
@@ -211,6 +227,7 @@ class ClipExportSchedulingTest {
 
     companion object {
         val started = CopyOnWriteArrayList<Long>()
+        val running: MutableSet<Long> = ConcurrentHashMap.newKeySet()
         val gates = ConcurrentHashMap<Long, CompletableDeferred<Unit>>()
 
         @Volatile
