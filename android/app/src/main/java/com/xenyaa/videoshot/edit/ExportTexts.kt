@@ -40,12 +40,18 @@ fun overLimitText(overMs: Long): String {
 /**
  * 導出抽屜的摘要一行與「是否超過上限」：
  * 「0:48・直式・會成為 Shorts」「1:20・橫式・一般影片」「3:48・直式・超過上限 48 秒，請先刪掉一些段落」。
+ *
+ * 超過上限時總長跟差多少一樣進位到整秒（上限是整秒），兩個數字才對得起來：3:00.4 寫「3:01・…超過上限 1 秒」，
+ * 不會寫成「3:00・…超過上限 1 秒」。沒超過時照常捨去。
  */
 fun exportSummary(orientation: ClipOrientation, durationMs: Long): Pair<String, Boolean> {
     val label = if (orientation == ClipOrientation.PORTRAIT) "直式" else "橫式"
-    val time = formatDuration(durationMs)
     val over = durationMs - orientation.maxDurationMs
-    if (over > 0) return "$time・$label・超過上限 ${overLimitText(over)}，請先刪掉一些段落" to true
+    if (over > 0) {
+        val time = formatDuration((durationMs + 999) / 1000 * 1000)
+        return "$time・$label・超過上限 ${overLimitText(over)}，請先刪掉一些段落" to true
+    }
+    val time = formatDuration(durationMs)
     val kind = if (orientation == ClipOrientation.PORTRAIT) "會成為 Shorts" else "一般影片"
     return "$time・$label・$kind" to false
 }

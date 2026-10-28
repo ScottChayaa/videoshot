@@ -39,6 +39,20 @@ class ExportTextsTest {
         )
     }
 
+    @Test fun `摘要超過上限時總長進位_不跟差多少矛盾`() {
+        // 3:00.4：差 0.4 秒進位成 1 秒，總長也要進位成 3:01，不能寫「3:00・…超過上限 1 秒」
+        assertEquals(
+            "3:01・直式・超過上限 1 秒，請先刪掉一些段落" to true,
+            exportSummary(ClipOrientation.PORTRAIT, 180_400),
+        )
+        assertEquals(
+            "3:49・直式・超過上限 49 秒，請先刪掉一些段落" to true,
+            exportSummary(ClipOrientation.PORTRAIT, 228_500),
+        )
+        // 沒超過時照常捨去
+        assertEquals("2:59・直式・會成為 Shorts" to false, exportSummary(ClipOrientation.PORTRAIT, 179_900))
+    }
+
     @Test fun `formatBytes 的 GB 取一位小數 MB 取整數`() {
         assertEquals("1.2 GB", formatBytes(1_200_000_000))
         assertEquals("350 MB", formatBytes(350_000_000))
