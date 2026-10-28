@@ -532,6 +532,8 @@ class AppContainer(context: Context) : AppRootDeps {
             override suspend fun resumeExports() = resumeClipExports(appContext, cacheRepo, now())
             override suspend fun deleteExportFiles(taskId: Long) =
                 withContext(Dispatchers.IO) { deleteEditTaskDir(appContext.filesDir, taskId) }
+            override fun viewingExport(taskId: Long?) { clipExportNotifier.viewingTaskId = taskId }
+            override fun dismissExportResult(taskId: Long) = clipExportNotifier.dismissResult(taskId)
             override suspend fun cleanupExportFiles() = withContext(Dispatchers.IO) {
                 deleteOrphanEditDirs(appContext.filesDir) { cacheRepo.editTasks().first().mapTo(HashSet()) { it.id } }
             }

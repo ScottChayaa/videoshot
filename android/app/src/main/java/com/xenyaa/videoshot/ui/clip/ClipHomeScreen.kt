@@ -303,7 +303,8 @@ private fun TaskRow(
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (task.state == EditTaskState.FAILED) colors.danger else colors.textDim,
-                maxLines = 2,
+                // 一行：失敗原因太長就截斷（完整的在導出畫面），列高跟其他列一樣
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 2.dp),
             )

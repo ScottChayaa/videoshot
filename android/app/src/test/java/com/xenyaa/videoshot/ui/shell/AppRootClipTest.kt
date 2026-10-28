@@ -122,6 +122,12 @@ class AppRootClipTest {
         /** 啟動時清理成品資料夾的次數。 */
         var cleanups = 0
         override suspend fun cleanupExportFiles() { cleanups++ }
+        /** 導出畫面告訴通知「正在看哪一支」的紀錄（null＝離開）。 */
+        val viewing = mutableListOf<Long?>()
+        override fun viewingExport(taskId: Long?) { viewing += taskId }
+        /** 收掉結果通知的任務編號。 */
+        val dismissed = mutableListOf<Long>()
+        override fun dismissExportResult(taskId: Long) { dismissed += taskId }
         var notificationMissing = false
         override fun notificationPermissionMissing() = notificationMissing
         val preview = NoOpPreview()
@@ -706,11 +712,14 @@ class AppRootClipTest {
         compose.onNodeWithText("編輯").assertDoesNotExist()
         compose.onNodeWithText("開始").assertDoesNotExist()
         compose.onNodeWithText("導出").assertIsDisplayed()
+        // 停在導出畫面：告訴通知正在看這一支
+        assertEquals(tasks[0].id, clip.viewing.last())
 
-        // 返回直接回剪輯頁（不再經過編輯畫面）
+        // 返回直接回剪輯頁（不再經過編輯畫面），離開後不再算在看
         compose.onNodeWithContentDescription("返回").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+        assertEquals(null, clip.viewing.last())
     }
 
     @Test
@@ -739,6 +748,7 @@ class AppRootClipTest {
         // 取消正在跑的工作 → 刪任務 → 再查一次 → 刪 app 裡的資料夾 → 補排；任務不在了就退回剪輯頁（只退一層）
         assertEquals(listOf("cancel$taskId", "cancel$taskId", "resume"), clip.exportCalls)
         assertEquals(listOf(taskId), clip.deletedFiles)
+        assertEquals(listOf(taskId), clip.dismissed)
         assertTrue(tasksOf(clip.cacheRepo).isEmpty())
         compose.onNodeWithText("新增剪輯").assertIsDisplayed()
     }
@@ -939,6 +949,7 @@ class AppRootClipTest {
 
         assertTrue(tasksOf(clip.cacheRepo).isEmpty())
         assertEquals(listOf(taskId), clip.deletedFiles)
+        assertEquals(listOf(taskId), clip.dismissed)
         assertEquals(listOf("resume"), clip.exportCalls)
     }
 

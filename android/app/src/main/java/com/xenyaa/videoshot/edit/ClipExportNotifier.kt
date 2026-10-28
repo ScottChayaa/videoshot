@@ -49,6 +49,17 @@ class AndroidClipExportNotifier(context: Context) : ClipExportNotifier {
         )
     }
 
+    /** 使用者正停在這個任務的導出畫面（null＝沒有）：結果已經在畫面上，不另外跳通知，舊的那則（例如重試前的失敗）也收掉。 */
+    @Volatile
+    var viewingTaskId: Long? = null
+        set(value) {
+            field = value
+            if (value != null) dismissResult(value)
+        }
+
+    /** 收掉這個任務的結果通知（任務被刪掉、或使用者正在看它）。 */
+    fun dismissResult(taskId: Long) = manager.cancel(resultNotificationId(taskId))
+
     /** 輸出工作開始時給 `setForeground` 的資訊；通知與之後的進度更新是同一則（[NOTIFY_PROGRESS_ID]）。 */
     fun foregroundInfo(task: EditTask, sdkInt: Int = Build.VERSION.SDK_INT): ForegroundInfo {
         val notification = progressNotification(task, task.progress)
@@ -85,6 +96,7 @@ class AndroidClipExportNotifier(context: Context) : ClipExportNotifier {
             .build()
 
     private fun notifyResult(task: EditTask, title: String, text: String) {
+        if (viewingTaskId == task.id) return dismissResult(task.id)
         val notification = NotificationCompat.Builder(context, CHANNEL_RESULT)
             .setSmallIcon(android.R.drawable.stat_sys_download_done)
             .setContentTitle(title)

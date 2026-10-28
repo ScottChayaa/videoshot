@@ -171,6 +171,38 @@ class ClipExportWorkerTest {
     }
 
     @Test
+    fun 正在看那一支的導出畫面時不跳結果通知_舊的也收掉() {
+        val notifier = AndroidClipExportNotifier(context)
+        val watched = task()
+        val other = task()
+        notifier.failed(watched, "輸出失敗") // 重試前留下的失敗通知
+
+        notifier.viewingTaskId = watched.id
+        assertNull(shadowOf(manager).getNotification(resultNotificationId(watched.id)))
+
+        notifier.finished(watched)
+        notifier.finished(other)
+        assertNull(shadowOf(manager).getNotification(resultNotificationId(watched.id)))
+        assertNotNull(shadowOf(manager).getNotification(resultNotificationId(other.id)))
+
+        // 離開畫面後照常跳
+        notifier.viewingTaskId = null
+        notifier.failed(watched, "輸出失敗")
+        assertNotNull(shadowOf(manager).getNotification(resultNotificationId(watched.id)))
+    }
+
+    @Test
+    fun 收掉一個任務的結果通知() {
+        val notifier = AndroidClipExportNotifier(context)
+        val t = task()
+        notifier.finished(t)
+
+        notifier.dismissResult(t.id)
+
+        assertNull(shadowOf(manager).getNotification(resultNotificationId(t.id)))
+    }
+
+    @Test
     fun 通知點下去開MainActivity帶剪輯extra() {
         val notifier = AndroidClipExportNotifier(context)
         notifier.progress(task(), 1)

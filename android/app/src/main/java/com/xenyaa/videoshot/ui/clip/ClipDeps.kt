@@ -42,6 +42,12 @@ interface ClipDeps {
     /** 刪掉這個任務在 app 裡的成品資料夾（相簿裡的不動）；刪除或取消任務時呼叫。預設什麼都不做，`AppContainer` 覆寫。 */
     suspend fun deleteExportFiles(taskId: Long) = Unit
 
+    /** 使用者正停在這個任務的導出畫面（null＝離開了）：結果已經在畫面上，這段期間它不另外跳通知，留著的那則也收掉。預設什麼都不做，`AppContainer` 覆寫。 */
+    fun viewingExport(taskId: Long?) = Unit
+
+    /** 收掉這個任務的結果通知；刪除或取消任務時呼叫。預設什麼都不做，`AppContainer` 覆寫。 */
+    fun dismissExportResult(taskId: Long) = Unit
+
     /** 刪掉 app 裡對不到任務的成品資料夾（見 `deleteOrphanEditDirs`）；app 啟動時跟 [resumeExports] 一起呼叫一次。預設什麼都不做，`AppContainer` 覆寫。 */
     suspend fun cleanupExportFiles() = Unit
 

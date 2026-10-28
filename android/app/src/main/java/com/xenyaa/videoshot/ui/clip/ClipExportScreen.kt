@@ -51,6 +51,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xenyaa.videoshot.core.timeline.ClipOrientation
 import com.xenyaa.videoshot.data.repo.CacheRepo
@@ -88,6 +92,11 @@ fun ClipExportRoute(
     onPlay: () -> Unit,
 ) {
     val repo: CacheRepo = deps.cacheRepo
+    // 停在這個畫面時結果直接看得到，不另外跳通知（橫幅會蓋住頂欄）；退到背景或離開就恢復
+    LifecycleResumeEffect(taskId, deps) {
+        deps.viewingExport(taskId)
+        onPauseOrDispose { deps.viewingExport(null) }
+    }
     val holder by remember(taskId, repo) { repo.editTask(taskId).map { ExportTaskHolder(it) } }.collectAsStateWithLifecycle(initialValue = null)
     val current = holder ?: return
     val task = current.task
@@ -119,6 +128,7 @@ internal suspend fun cancelExportTask(deps: ClipDeps, taskId: Long) {
             deps.cacheRepo.deleteEditTask(taskId)
             deps.cancelExport(taskId)
             deps.deleteExportFiles(taskId)
+            deps.dismissExportResult(taskId)
         }
     } finally {
         guarded("補排輸出") { deps.resumeExports() }
@@ -134,6 +144,7 @@ internal suspend fun deleteExportTask(deps: ClipDeps, taskId: Long) {
         guarded("刪除任務") {
             deps.cacheRepo.deleteEditTask(taskId)
             deps.deleteExportFiles(taskId)
+            deps.dismissExportResult(taskId)
         }
     } finally {
         guarded("補排輸出") { deps.resumeExports() }
@@ -298,8 +309,13 @@ internal fun rememberFirstSourceThumb(task: EditTask, loader: MediaThumbLoader):
         val firstId = task.draft.timeline.segments.firstOrNull()?.sourceId
         task.draft.sources.firstOrNull { it.id == firstId }
     }
-    val bitmap by produceState<ImageBitmap?>(first?.let { loader.peek(it.id) }, first?.id, loader) {
-        if (first != null && value == null) value = loader.load(first.toMediaItem())
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val bitmap by produceState<ImageBitmap?>(first?.let { loader.peek(it.id) }, first?.id, loader, lifecycle) {
+        if (first == null) return@produceState
+        // 讀不到時每次回到前景再試：使用者可能剛在系統設定把相片權限給回來
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            if (value == null) value = loader.load(first.toMediaItem())
+        }
     }
     return bitmap
 }

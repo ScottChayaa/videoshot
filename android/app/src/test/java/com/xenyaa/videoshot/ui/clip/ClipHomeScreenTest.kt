@@ -229,6 +229,42 @@ class ClipHomeScreenTest {
         compose.onNodeWithText("失敗：輸出失敗").assertIsDisplayed()
     }
 
+    @Test fun 縮圖讀不到時回到前景再讀一次() {
+        var allowed = false
+        var decodes = 0
+        val loader = MediaThumbLoader(decode = { decodes++; if (allowed) androidx.compose.ui.graphics.ImageBitmap(1, 1) else null })
+        val owner = object : androidx.lifecycle.LifecycleOwner {
+            val registry = androidx.lifecycle.LifecycleRegistry.createUnsafe(this).apply { currentState = androidx.lifecycle.Lifecycle.State.RESUMED }
+            override val lifecycle: androidx.lifecycle.Lifecycle get() = registry
+        }
+        compose.setContent {
+            androidx.compose.runtime.CompositionLocalProvider(androidx.lifecycle.compose.LocalLifecycleOwner provides owner) {
+                VideoshotTheme {
+                    ClipHomeScreen(
+                        onNewClip = {}, draft = null, onOpenDraft = {}, onDiscardDraft = {},
+                        tasks = listOf(task(1, EditTaskState.RENDERED)), thumbLoader = loader,
+                        onOpenTask = {}, onCancelTask = {}, onDeleteTask = {}, onRetryTask = {},
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+        assertEquals(1, decodes) // 沒權限：讀不到
+
+        // 去系統設定給回權限再回來
+        allowed = true
+        compose.runOnUiThread { owner.registry.currentState = androidx.lifecycle.Lifecycle.State.STARTED }
+        compose.runOnUiThread { owner.registry.currentState = androidx.lifecycle.Lifecycle.State.RESUMED }
+        compose.waitForIdle()
+        assertEquals(2, decodes)
+
+        // 讀到之後再回前景不會重讀
+        compose.runOnUiThread { owner.registry.currentState = androidx.lifecycle.Lifecycle.State.STARTED }
+        compose.runOnUiThread { owner.registry.currentState = androidx.lifecycle.Lifecycle.State.RESUMED }
+        compose.waitForIdle()
+        assertEquals(2, decodes)
+    }
+
     @Test fun 重試後殘留的相簿位置不影響狀態列() {
         // 重試時任務變回等待中，但前一次留下的 galleryUri 還在；只有「輸出完成」才看它
         show(tasks = listOf(task(1, EditTaskState.QUEUED, galleryUri = "content://old")))
