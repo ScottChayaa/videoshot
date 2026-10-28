@@ -63,6 +63,8 @@ fun ClipDraft.toSummary() = ClipDraftSummary(
     durationMs = timeline.durationMs,
 )
 
+private val IN_PROGRESS = setOf(EditTaskState.QUEUED, EditTaskState.RENDERING)
+
 /** 沒有真的縮圖來源時用的載入器（解碼一律失敗，縮圖位置是中性色塊）；測試與預覽不必傳。 */
 private val NoThumbs = MediaThumbLoader(decode = { null })
 
@@ -149,15 +151,16 @@ fun ClipHomeScreen(
         )
     }
 
+    // 確認框開著時任務可能剛好結束：取消只對進行中的任務有意義（否則會刪掉剛做好的成品），刪除只對已結束的
     val cancelling = tasks.firstOrNull { it.id == confirmCancelId }
-    if (cancelling != null) {
+    if (cancelling != null && cancelling.state in IN_PROGRESS) {
         CancelExportDialog(
             onConfirm = { confirmCancelId = null; onCancelTask(cancelling.id) },
             onDismiss = { confirmCancelId = null },
         )
     }
     val deleting = tasks.firstOrNull { it.id == confirmDeleteId }
-    if (deleting != null) {
+    if (deleting != null && deleting.state !in IN_PROGRESS) {
         DeleteTaskDialog(
             // 沒存進相簿的完成品只在 app 裡：刪任務會連影片一起刪，要講清楚
             alsoDeletesVideo = deleting.state == EditTaskState.RENDERED && deleting.galleryUri == null,
@@ -262,7 +265,7 @@ private fun TaskRow(
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(12.dp)
-    val inProgress = task.state == EditTaskState.QUEUED || task.state == EditTaskState.RENDERING
+    val inProgress = task.state in IN_PROGRESS
     val colors = AppTheme.colors
     Row(
         modifier

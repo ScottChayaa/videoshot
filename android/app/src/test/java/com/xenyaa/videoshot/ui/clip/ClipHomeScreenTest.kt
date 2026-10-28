@@ -338,4 +338,48 @@ class ClipHomeScreenTest {
         show(tasks = listOf(task(2, EditTaskState.QUEUED, title = "新的"), task(1, EditTaskState.QUEUED, title = "舊的")))
         assertTrue(compose.onNodeWithText("新的").getUnclippedBoundsInRoot().top < compose.onNodeWithText("舊的").getUnclippedBoundsInRoot().top)
     }
+
+    @Test fun 取消確認框開著時任務剛好完成_框消失且不會取消() {
+        val cancelled = mutableListOf<Long>()
+        val tasks = androidx.compose.runtime.mutableStateOf(listOf(task(4, EditTaskState.RENDERING, title = "跑著的", progress = 99)))
+        compose.setContent {
+            VideoshotTheme {
+                ClipHomeScreen(
+                    onNewClip = {}, tasks = tasks.value, thumbLoader = MediaThumbLoader(decode = { null }),
+                    onCancelTask = { cancelled += it },
+                )
+            }
+        }
+        longPress("跑著的")
+        compose.onNodeWithText("取消").performClick()
+        compose.onNodeWithText("取消導出？").assertIsDisplayed()
+
+        tasks.value = listOf(task(4, EditTaskState.RENDERED, title = "跑著的"))
+        compose.waitForIdle()
+
+        compose.onNodeWithText("取消導出？").assertDoesNotExist()
+        assertEquals(emptyList<Long>(), cancelled)
+    }
+
+    @Test fun 刪除確認框開著時任務變回進行中_框消失且不會刪除() {
+        val deleted = mutableListOf<Long>()
+        val tasks = androidx.compose.runtime.mutableStateOf(listOf(task(4, EditTaskState.FAILED, title = "壞了的", failReason = "輸出失敗")))
+        compose.setContent {
+            VideoshotTheme {
+                ClipHomeScreen(
+                    onNewClip = {}, tasks = tasks.value, thumbLoader = MediaThumbLoader(decode = { null }),
+                    onDeleteTask = { deleted += it },
+                )
+            }
+        }
+        longPress("壞了的")
+        compose.onNodeWithText("刪除任務").performClick()
+        compose.onNodeWithText("刪除這個任務？").assertIsDisplayed()
+
+        tasks.value = listOf(task(4, EditTaskState.QUEUED, title = "壞了的"))
+        compose.waitForIdle()
+
+        compose.onNodeWithText("刪除這個任務？").assertDoesNotExist()
+        assertEquals(emptyList<Long>(), deleted)
+    }
 }
