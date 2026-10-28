@@ -16,6 +16,7 @@ import com.xenyaa.videoshot.data.repo.model.EditTaskState
 import com.xenyaa.videoshot.data.repo.model.FacetRef
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
@@ -100,11 +101,12 @@ class RoomCacheRepo(
         }
     }
 
+    // 解 payload（整份草稿的 JSON）放在 io：輸出中每秒寫一次進度，這兩個流就每秒重解一次，收集端常在主執行緒
     override fun editTasks(): Flow<List<EditTask>> =
-        db.editTaskDao().all().map { rows -> rows.mapNotNull { it.toTask() } }
+        db.editTaskDao().all().map { rows -> rows.mapNotNull { it.toTask() } }.flowOn(io)
 
     override fun editTask(id: Long): Flow<EditTask?> =
-        db.editTaskDao().byId(id).map { it?.toTask() }
+        db.editTaskDao().byId(id).map { it?.toTask() }.flowOn(io)
 
     override suspend fun pendingEditTaskIds(): List<Long> = withContext(io) { db.editTaskDao().pendingIds() }
 
