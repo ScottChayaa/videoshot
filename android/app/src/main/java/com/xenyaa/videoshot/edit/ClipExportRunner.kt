@@ -131,8 +131,9 @@ class ClipExportRunner(
                 true
             } catch (e: CancellationException) {
                 throw e
-            } catch (_: Exception) {
-                // ClipExportException 的訊息是 Media3 的英文，不給使用者看；其他意外一律當輸出失敗
+            } catch (e: Exception) {
+                // ClipExportException 的訊息是 Media3 的英文，不給使用者看（只記 log）；其他意外一律當輸出失敗
+                Log.w(TAG, "輸出任務 ${task.id} 失敗", e)
                 false
             } finally {
                 queue.close()

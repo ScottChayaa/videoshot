@@ -29,6 +29,7 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowLog
 import java.io.File
 
 @RunWith(RobolectricTestRunner::class) // 失敗路徑會呼叫 android.util.Log
@@ -286,6 +287,20 @@ class ClipExportRunnerTest {
         assertFalse(outFor(id).exists())
         assertEquals(listOf("輸出失敗"), notifier.failed.map { it.second })
         assertTrue(notifier.finished.isEmpty())
+    }
+
+    @Test fun `輸出失敗的原因記在log裡`() = runTest {
+        ShadowLog.clear()
+        val error = ClipExportException("Transformer: Decoder init failed")
+        exporter.behavior = { _, _, _ -> throw error }
+        val id = start()
+
+        runner().run(id)
+
+        val log = ShadowLog.getLogsForTag("VsClipExport").single()
+        assertEquals(android.util.Log.WARN, log.type)
+        assertTrue(log.msg, log.msg.contains("$id"))
+        assertEquals(error, log.throwable)
     }
 
     @Test fun `輸出失敗之後進度的寫入不會蓋掉失敗`() = runTest {
