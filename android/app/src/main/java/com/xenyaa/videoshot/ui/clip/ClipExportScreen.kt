@@ -66,7 +66,7 @@ private class ExportTaskHolder(val task: EditTask?)
 /**
  * 導覽用的入口：收集任務、接上取消／重試／勾選框，任務不在了（取消後被刪掉）就呼叫 [onGone]。
  *
- * 取消的順序（缺一不可）：確認 → 取消排程中或執行中的工作（等套用完）→ 刪任務 → 補排被連帶取消的後面幾個任務。
+ * 取消的順序見 [cancelExportTask]。
  * [scope] 要比這個畫面活得久（`AppRoot` 的 scope）：刪掉任務後這個畫面就離開組合了，補排不能跟著被取消。
  * 刪掉任務之後 [onGone] 由任務流變成 null 觸發，這裡不另外呼叫，避免退兩層。
  */
@@ -99,14 +99,18 @@ fun ClipExportRoute(
 }
 
 /**
- * 取消一個任務（導出中畫面與剪輯頁的任務列共用）：取消排程中或執行中的工作（等套用完）→ 刪任務 →
+ * 取消一個任務（導出中畫面與剪輯頁的任務列共用）：取消正在跑的工作（等套用完；排隊中的不動）→ 刪任務 →
+ * 再查一次（刪之前剛好輪到它開始跑的話，它已經讀到任務、會一路輸出完）→ 刪 app 裡的資料夾 →
  * 補排被連帶取消的後面幾個任務。補排不管前面成不成功都做（已排著的不動）。
+ * 排隊中的工作留著，輪到時讀不到任務就直接結束。
  */
 internal suspend fun cancelExportTask(deps: ClipDeps, taskId: Long) {
     try {
         guarded("取消輸出") {
             deps.cancelExport(taskId)
             deps.cacheRepo.deleteEditTask(taskId)
+            deps.cancelExport(taskId)
+            deps.deleteExportFiles(taskId)
         }
     } finally {
         guarded("補排輸出") { deps.resumeExports() }

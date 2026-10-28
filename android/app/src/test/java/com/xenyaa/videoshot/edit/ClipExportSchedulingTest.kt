@@ -19,6 +19,7 @@ import com.xenyaa.videoshot.core.timeline.SourceKind
 import com.xenyaa.videoshot.core.timeline.Timeline
 import com.xenyaa.videoshot.data.repo.FakeCacheRepo
 import com.xenyaa.videoshot.data.repo.model.EditTaskState
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -29,6 +30,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
 /** 排程、取消、恢復：用 work-testing 的 WorkManager，工作本身換成永遠不結束的替身，才看得到「排著」的狀態。 */
@@ -36,11 +38,18 @@ import java.util.concurrent.CopyOnWriteArrayList
 @Config(sdk = [35])
 class ClipExportSchedulingTest {
 
-    /** 替身：記下收到的任務編號，然後一直跑著（不結束）。 */
+    /**
+     * 替身：記下收到的任務編號，然後一直跑著（不結束）。
+     * 有設 [tasks] 時跟真的工作一樣先查任務、不在就直接結束；有 [gates] 的編號等它放行才結束。
+     */
     class HangingWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
         override suspend fun doWork(): Result {
-            started += inputData.getLong("task_id", -1L)
-            awaitCancellation()
+            val id = inputData.getLong("task_id", -1L)
+            val repo = tasks
+            if (repo != null && repo.editTask(id).first() == null) return Result.success()
+            started += id
+            gates[id]?.await() ?: awaitCancellation()
+            return Result.success()
         }
     }
 
@@ -51,6 +60,8 @@ class ClipExportSchedulingTest {
     @Before
     fun setUp() {
         started.clear()
+        gates.clear()
+        tasks = null
         context = ApplicationProvider.getApplicationContext()
         val factory = object : WorkerFactory() {
             override fun createWorker(appContext: Context, workerClassName: String, workerParameters: WorkerParameters): ListenableWorker? =
@@ -81,15 +92,61 @@ class ClipExportSchedulingTest {
         assertEquals(listOf(7L), started.toList()) // input 的 task_id 有帶到工作裡
     }
 
+    /** 等 [condition] 成立（工作在別的執行緒跑），最多 5 秒。 */
+    private fun waitUntil(condition: () -> Boolean) {
+        val deadline = System.currentTimeMillis() + 5_000
+        while (!condition()) {
+            check(System.currentTimeMillis() < deadline) { "等太久" }
+            Thread.sleep(10)
+        }
+    }
+
     @Test
-    fun 取消只取消那一支() = runBlocking {
+    fun 取消排隊中的不動工作只取消正在跑的() = runBlocking {
         enqueueClipExport(context, 1)
         enqueueClipExport(context, 2) // 排在 1 後面（同一串）
+        waitUntil { infos(1).single().state == WorkInfo.State.RUNNING }
 
-        cancelClipExport(context, 2)
+        cancelClipExport(context, 2) // 排隊中：工作留著，輪到時讀不到任務自己結束
 
-        assertEquals(WorkInfo.State.CANCELLED, infos(2).single().state)
-        assertTrue(!infos(1).single().state.isFinished)
+        assertTrue(!infos(2).single().state.isFinished)
+        assertEquals(WorkInfo.State.RUNNING, infos(1).single().state)
+
+        cancelClipExport(context, 1) // 正在跑：取消
+        assertEquals(WorkInfo.State.CANCELLED, infos(1).single().state)
+    }
+
+    @Test
+    fun 取消排隊的任務後再排一支_正在跑的不受影響_新的排在後面() = runBlocking {
+        tasks = repo
+        val a = repo.startEditTask(draft(), "A", 1_000L)
+        val b = repo.startEditTask(draft(), "B", 1_000L)
+        gates[a] = CompletableDeferred()
+        enqueueClipExport(context, a)
+        enqueueClipExport(context, b) // b 是串的末端
+        waitUntil { started.toList() == listOf(a) }
+
+        // 剪輯頁取消 b：取消工作（排隊中的不動）→ 刪任務 → 補排
+        cancelClipExport(context, b)
+        repo.deleteEditTask(b)
+        resumeClipExports(context, repo, 3_000L)
+        // 之後再導出一支 c
+        val c = repo.startEditTask(draft(), "C", 4_000L)
+        gates[c] = CompletableDeferred()
+        enqueueClipExport(context, c)
+
+        // a 還在跑、c 排在後面還沒開始：一次只輸出一支
+        assertEquals(WorkInfo.State.RUNNING, infos(a).single().state)
+        assertEquals(WorkInfo.State.BLOCKED, infos(c).single().state)
+        assertEquals(listOf(a), started.toList())
+
+        // a 做完：b 的工作讀不到任務直接結束，接著才輪到 c
+        gates.getValue(a).complete(Unit)
+        waitUntil { started.size == 2 }
+        assertEquals(listOf(a, c), started.toList())
+        assertEquals(WorkInfo.State.SUCCEEDED, infos(a).single().state)
+        assertEquals(WorkInfo.State.SUCCEEDED, infos(b).single().state)
+        waitUntil { infos(c).single().state == WorkInfo.State.RUNNING }
     }
 
     @Test
@@ -100,8 +157,9 @@ class ClipExportSchedulingTest {
         enqueueClipExport(context, a)
         enqueueClipExport(context, b) // 排在 a 後面
         enqueueClipExport(context, c)
+        waitUntil { infos(a).single().state == WorkInfo.State.RUNNING }
 
-        cancelClipExport(context, a) // 取消串頭：b、c 的工作會被連帶取消
+        cancelClipExport(context, a) // 取消正在跑的串頭：b、c 的工作會被連帶取消
         repo.deleteEditTask(a) // 畫面端取消導出會刪掉任務
         resumeClipExports(context, repo, 3_000L)
 
@@ -153,5 +211,9 @@ class ClipExportSchedulingTest {
 
     companion object {
         val started = CopyOnWriteArrayList<Long>()
+        val gates = ConcurrentHashMap<Long, CompletableDeferred<Unit>>()
+
+        @Volatile
+        var tasks: FakeCacheRepo? = null
     }
 }

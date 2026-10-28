@@ -733,8 +733,9 @@ class AppRootClipTest {
             .onFirst().performClick()
         compose.waitForIdle()
 
-        // 取消工作 → 刪任務 → 補排；任務不在了就退回剪輯頁（只退一層）
-        assertEquals(listOf("cancel$taskId", "resume"), clip.exportCalls)
+        // 取消正在跑的工作 → 刪任務 → 再查一次 → 刪 app 裡的資料夾 → 補排；任務不在了就退回剪輯頁（只退一層）
+        assertEquals(listOf("cancel$taskId", "cancel$taskId", "resume"), clip.exportCalls)
+        assertEquals(listOf(taskId), clip.deletedFiles)
         assertTrue(tasksOf(clip.cacheRepo).isEmpty())
         compose.onNodeWithText("新增剪輯").assertIsDisplayed()
     }
@@ -910,7 +911,8 @@ class AppRootClipTest {
         compose.onNodeWithText("取消導出").performClick()
         compose.waitForIdle()
 
-        assertEquals(listOf("cancel$taskId", "resume"), clip.exportCalls)
+        assertEquals(listOf("cancel$taskId", "cancel$taskId", "resume"), clip.exportCalls)
+        assertEquals(listOf(taskId), clip.deletedFiles)
         assertTrue(tasksOf(clip.cacheRepo).isEmpty())
         compose.onNodeWithText("我的旅行").assertDoesNotExist()
         compose.onNodeWithText("把手機裡的照片和影片剪成一支片").assertIsDisplayed()
