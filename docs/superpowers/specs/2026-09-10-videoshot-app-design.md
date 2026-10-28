@@ -352,7 +352,7 @@ web 版程式碼（`src/`、`tests/`、`static/` 與 SvelteKit／Vite／Playwrig
 |---|---|---|
 | 語言與 UI | Kotlin ＋ Jetpack Compose（Material 3） | 選型理由見附錄 A-12 |
 | applicationId | `com.xenyaa.videoshot`（Kotlin 套件同名；POC 用 `com.xenyaa.videoshot.poc`） | OAuth client 綁定它與簽章憑證，**上線後不可改** |
-| 最低版本 | minSdk 26（Android 8.0） | `PixelCopy` 的視窗 API 從 26 開始 |
+| 最低版本 | minSdk 28（Android 9） | 取圖精靈從相簿選圖用的 `ImageDecoder` 從 28 開始；Android 8 太舊，直接不支援（scott，2026-10-28，原本是 26） |
 | 非同步 | Kotlin coroutines ＋ Flow | 重運算在 `Dispatchers.Default` |
 | 資料庫 | Room 2.8 ＋ `BundledSQLiteDriver` | 自帶 SQLite 3.50.1，已確認含 FTS5 trigram（第二節第 7 點）；FTS5 表以原生 SQL 在 `RoomDatabase.Callback` 的 `onCreate` 建立（Room 的 `@Fts4` 不支援 FTS5），查詢該表的 DAO 方法要加 `@SkipQueryVerification`；**交易一律用 driver API 的 `useWriterConnection` ＋ `Transactor.withTransaction`**，`room-ktx` 的 `RoomDatabase.withTransaction` 走舊的 `SupportSQLiteOpenHelper` 路徑，設了 `setDriver` 之後不可用 |
 | 依賴注入 | 手動注入（`VideoshotApp` 持有 `AppContainer`，建構子注入） | 單人專案、模組數量不多；不引入額外建置負擔，測試直接 new 假實作。WorkManager 自寫 `WorkerFactory` |
@@ -1980,12 +1980,12 @@ flowchart TD
   - 系統不讓 app 在背景重新開始輸出時（Android 12 起的限制），任務留在「等待中」，下次打開 app 自動接著輸出。
 
 - **剪輯頁的任務清單**（階段 20 起）：有草稿時「編輯中」那一列在最上面，下面是任務，新的在上面，最下面是【新增剪輯】。
-  每列：第一段素材的縮圖、標題、狀態那一行（「等待中」「輸出影片中 42%」＋細進度條、「輸出完成」＋ ▶︎（沒打勾的是「已存到相簿」）、紅字「失敗：空間不足，還需要 1.2 GB」＋【重試】）。
+  每列：第一段素材的縮圖、標題、狀態那一行（「等待中」「輸出影片中 42%」＋細進度條、「輸出完成」＋ ▶︎（沒打勾的是「已存到相簿」）、紅字「失敗：空間不足，還需要 1.2 GB」＋【重試】）。狀態只佔一行，太長就截斷（完整原因在導出中畫面）。縮圖讀不到時（例如沒相片權限），每次回到前景再讀一次。
   點一列進導出中畫面。右邊 ⋮（或長按）：等待中、進行中的有【取消】（確認框）；完成、失敗的有【刪除任務】（確認框「刪除這個任務？」，停在輸出完成、沒存相簿的多一行「app 裡輸出的影片會一起刪掉。」）。
 - **通知**（scott，2026-10-27）：
   - 進行中：一條不出聲、不能滑掉的進度通知（Android 規定），「輸出影片中 42%」＋標題。頻道「影片輸出進度」（`clip_export_progress`，低重要性），固定編號 4300（同時只有一支在輸出）。
   - **完成、失敗各跳一則會出聲的橫幅通知**，跟進度通知分開：「影片輸出完成」「〈標題〉・點一下檢查成品」（沒打勾的是「影片已存到相簿」）；「影片輸出失敗」「〈原因〉」。點了回到 app 的剪輯頁。
-    頻道「影片輸出結果」（`clip_export_result`，高重要性），每個任務一個編號（4400＋任務編號），重試的結果蓋掉同一則。有略過的素材時內文接「・有 N 個素材已不存在，已略過」。
+    頻道「影片輸出結果」（`clip_export_result`，高重要性），每個任務一個編號（4400＋任務編號），重試的結果蓋掉同一則。**人正停在那個任務的導出中畫面時不跳**（結果已經在畫面上，橫幅會蓋住頂欄；scott，2026-10-28），進那個畫面時也收掉它留著的那則；刪除或取消任務時一併收掉。有略過的素材時內文接「・有 N 個素材已不存在，已略過」。
     （階段 21 起完成通知改成「已完成，點一下開始取圖」；上傳失敗同樣跳失敗通知。）
 - **階段 20 的終點是「輸出完成」**：在導出中畫面（或點任務那一列進去）全螢幕播放成品（播放／暫停、進度條，返回鍵回上一頁），讓 scott 檢查畫面與聲音。
   階段 20 就做勾選框與「沒打勾 → 存相簿」；打勾的停在「輸出完成」，上傳是階段 21（我的決定）。

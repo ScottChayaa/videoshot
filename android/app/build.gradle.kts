@@ -13,7 +13,7 @@ android {
 
     defaultConfig {
         applicationId = "com.xenyaa.videoshot"
-        minSdk = 26
+        minSdk = 28
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
