@@ -1,5 +1,7 @@
 package com.xenyaa.videoshot.ui.clip
 
+import android.app.Activity
+import android.view.View
 import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.OnBackPressedDispatcherOwner
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
@@ -8,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -18,6 +21,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -174,6 +178,25 @@ class ClipResultScreenTest {
 
         compose.runOnUiThread { owner.registry.handleLifecycleEvent(Lifecycle.Event.ON_STOP) }
         assertFalse(playback.isPlaying.value)
+    }
+
+    @Test
+    fun 黑底時狀態列圖示是白的_離開後還原() {
+        var visible by mutableStateOf(false)
+        lateinit var view: View
+        compose.setContent {
+            view = LocalView.current
+            VideoshotTheme { if (visible) ClipResultContent(FakeResultPlayback(), onBack = {}, surface = {}) }
+        }
+        val controller = compose.runOnIdle {
+            WindowCompat.getInsetsController((view.context as Activity).window, view).apply { isAppearanceLightStatusBars = true }
+        }
+
+        compose.runOnIdle { visible = true }
+        compose.runOnIdle { assertFalse(controller.isAppearanceLightStatusBars) }
+
+        compose.runOnIdle { visible = false }
+        compose.runOnIdle { assertTrue(controller.isAppearanceLightStatusBars) }
     }
 
     @Test

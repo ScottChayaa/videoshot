@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.clip
 
+import android.app.Activity
 import android.content.Context
 import android.net.Uri
 import android.util.Log
@@ -35,9 +36,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -204,6 +207,14 @@ internal fun ClipResultContent(
     surface: @Composable (Modifier) -> Unit,
 ) {
     DisposableEffect(playback) { onDispose { playback.release() } }
+    // 黑底：狀態列圖示換成白的，離開時還原（app 平常是亮底配深色圖示）
+    val view = LocalView.current
+    DisposableEffect(view) {
+        val controller = (view.context as? Activity)?.window?.let { WindowCompat.getInsetsController(it, view) }
+        val wasLight = controller?.isAppearanceLightStatusBars
+        controller?.isAppearanceLightStatusBars = false
+        onDispose { if (wasLight != null) controller.isAppearanceLightStatusBars = wasLight }
+    }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { playback.pause() }
     BackHandler(onBack = onBack)
 
