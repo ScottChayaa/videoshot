@@ -7,13 +7,17 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.Density
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -170,5 +174,25 @@ class ClipResultScreenTest {
 
         compose.runOnUiThread { owner.registry.handleLifecycleEvent(Lifecycle.Event.ON_STOP) }
         assertFalse(playback.isPlaying.value)
+    }
+
+    @Test
+    fun 大字型時_10分的時間文字不折行() {
+        compose.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 1.3f)) {
+                VideoshotTheme {
+                    ClipResultContent(FakeResultPlayback(duration = 600_000, position = 600_000), onBack = {}, surface = {})
+                }
+            }
+        }
+
+        val times = compose.onAllNodesWithText("10:00").fetchSemanticsNodes()
+        assertEquals(2, times.size)
+        times.forEach { node ->
+            val layouts = mutableListOf<TextLayoutResult>()
+            node.config[SemanticsActions.GetTextLayoutResult].action!!.invoke(layouts)
+            assertEquals(1, layouts.single().lineCount)
+        }
     }
 }
