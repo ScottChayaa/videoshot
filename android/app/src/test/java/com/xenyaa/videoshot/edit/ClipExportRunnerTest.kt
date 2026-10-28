@@ -109,6 +109,7 @@ class ClipExportRunnerTest {
     private val saver = FakeSaver()
     private val notifier = FakeNotifier()
     private var free = 10_000_000_000L
+    private var canRead = true
 
     private fun runner() = ClipExportRunner(
         repo = repo,
@@ -116,6 +117,7 @@ class ClipExportRunnerTest {
         exporter = exporter,
         saver = saver,
         notifier = notifier,
+        canReadMedia = { canRead },
         dirFor = { File(tmp.root, "edits/$it") },
         freeBytes = { free },
         now = { 123L },
@@ -173,6 +175,32 @@ class ClipExportRunnerTest {
         // 不能把素材全當成被刪：任務裡的草稿原封不動
         assertEquals(twoPhotos.sources, t.draft.sources)
         assertEquals(twoPhotos.timeline, t.draft.timeline)
+    }
+
+    @Test fun `沒有相片權限就說讀不到_清單裡只剩app自己存的影片也一樣`() = runTest {
+        canRead = false
+        library.items = listOf(item(99)) // 沒權限時 MediaStore 仍列得出 app 自己存進相簿的影片
+        val id = start()
+
+        runner().run(id)
+
+        val t = task(id)!!
+        assertEquals(EditTaskState.FAILED, t.state)
+        assertEquals("讀不到相片和影片，請確認存取權", t.failReason)
+        assertEquals(0, exporter.calls)
+        assertEquals(twoPhotos.sources, t.draft.sources)
+        assertEquals(twoPhotos.timeline, t.draft.timeline)
+    }
+
+    @Test fun `檢查沒過也刪掉上次中斷留下的半成品`() = runTest {
+        library.items = listOf(item(99))
+        val id = start()
+        outFor(id).apply { parentFile!!.mkdirs(); writeText("上次輸出到一半") }
+
+        runner().run(id)
+
+        assertEquals("素材都已不存在", task(id)!!.failReason)
+        assertFalse(outFor(id).exists())
     }
 
     @Test fun `部分素材不見照樣輸出並記略過數`() = runTest {
@@ -260,7 +288,7 @@ class ClipExportRunnerTest {
 
         ClipExportRunner(
             repo = repo, library = library, exporter = exporter, saver = throwingSaver, notifier = notifier,
-            dirFor = { File(tmp.root, "edits/$it") }, freeBytes = { free }, now = { 1234L },
+            canReadMedia = { true }, dirFor = { File(tmp.root, "edits/$it") }, freeBytes = { free }, now = { 1234L },
         ).run(id)
 
         val t = task(id)!!
@@ -381,7 +409,7 @@ class ClipExportRunnerTest {
         try {
             ClipExportRunner(
                 repo = repo, library = library, exporter = exporter, saver = cancellingSaver, notifier = notifier,
-                dirFor = { File(tmp.root, "edits/$it") }, freeBytes = { free }, now = { 123L },
+                canReadMedia = { true }, dirFor = { File(tmp.root, "edits/$it") }, freeBytes = { free }, now = { 123L },
             ).run(id)
         } catch (_: CancellationException) {
             cancelled = true

@@ -18,6 +18,8 @@ import com.xenyaa.videoshot.media.MediaLibrary
 import com.xenyaa.videoshot.media.MediaStoreSaver
 import com.xenyaa.videoshot.media.MediaStoreLibrary
 import com.xenyaa.videoshot.media.MediaThumbLoader
+import com.xenyaa.videoshot.media.MediaAccess
+import com.xenyaa.videoshot.media.mediaAccessOf
 import com.xenyaa.videoshot.media.mediaPermissionsFor
 import com.xenyaa.videoshot.media.mediaStoreThumbDecoder
 import com.xenyaa.videoshot.ui.clip.ClipDeps
@@ -550,6 +552,7 @@ class AppContainer(context: Context) : AppRootDeps {
             exporter = Media3ClipExporter(appContext),
             saver = MediaStoreSaver(appContext.contentResolver),
             notifier = clipExportNotifier,
+            canReadMedia = { mediaAccessOf(Build.VERSION.SDK_INT, clipDeps.grantedMediaPermissions()) != MediaAccess.DENIED },
             dirFor = { taskId -> File(appContext.filesDir, "edits/$taskId") },
             freeBytes = { StatFs(appContext.filesDir.path).availableBytes },
             now = { clipDeps.now() },

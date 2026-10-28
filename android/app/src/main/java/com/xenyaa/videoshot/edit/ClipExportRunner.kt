@@ -42,6 +42,8 @@ class ClipExportRunner(
     private val exporter: ClipExporter,
     private val saver: MediaSaver,
     private val notifier: ClipExportNotifier,
+    /** 現在有沒有讀手機相片與影片的權限（使用者隨時可以在系統設定收回）。 */
+    private val canReadMedia: () -> Boolean,
     private val dirFor: (Long) -> File,
     private val freeBytes: () -> Long,
     private val now: () -> Long,
@@ -52,7 +54,13 @@ class ClipExportRunner(
         val task = repo.editTask(taskId).first() ?: return
         if (task.state != EditTaskState.QUEUED && task.state != EditTaskState.RENDERING) return
 
-        // 素材：清單整份空但草稿有素材 = 讀不到（沒權限或查詢失敗），不能當成素材全被刪掉而去修剪
+        // 上次被中斷（app 被殺、權限被收回）可能留著半成品：這次不管成不成都用不到，先清掉
+        val out = File(dirFor(taskId), OUTPUT_NAME)
+        out.delete()
+
+        // 素材：沒權限時 MediaStore 仍列得出 app 自己存進相簿的影片，清單不是空的，所以先直接看權限；
+        // 清單整份空但草稿有素材也是讀不到（查詢失敗）。兩種都不能當成素材全被刪掉而去修剪
+        if (!canReadMedia()) return fail(task, REASON_CANNOT_READ)
         val items = library.list(MediaFilter.ALL)
         if (items.isEmpty() && task.draft.sources.isNotEmpty()) return fail(task, REASON_CANNOT_READ)
         val pruned = task.draft.pruneMissing(items.mapTo(HashSet()) { it.id })
@@ -64,9 +72,7 @@ class ClipExportRunner(
         val free = freeBytes()
         if (free < need) return fail(task, reasonNoSpace(need - free))
 
-        // 輸出：重試可能留著上次的半成品，先清掉
-        val out = File(dirFor(taskId), OUTPUT_NAME)
-        out.delete()
+        // 輸出
         out.parentFile?.mkdirs()
         repo.setEditTaskProgress(taskId, EditTaskState.RENDERING, 0, now())
         notifier.progress(task.copy(state = EditTaskState.RENDERING, progress = 0), 0)
