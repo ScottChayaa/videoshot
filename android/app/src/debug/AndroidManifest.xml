@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- 一次性實驗（spike/stage20-bg-export，不合併）：背景導出 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <application android:networkSecurityConfig="@xml/network_security_config">
         <!-- 開發測試版專用：元件總覽頁（計畫 15A Task 8）。exported 才能用 adb am start 開；
              桌面另有一個「元件總覽」圖示。taskAffinity 跟主程式分開，點圖示才不會只把照片頁叫回前景 -->
@@ -25,5 +29,18 @@
                 <action android:name="com.xenyaa.videoshot.debug.SEED" />
             </intent-filter>
         </receiver>
+        <receiver
+            android:name=".debug.spike.SpikeExportReceiver"
+            android:permission="android.permission.DUMP"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.xenyaa.videoshot.debug.SPIKE_EXPORT" />
+                <action android:name="com.xenyaa.videoshot.debug.SPIKE_CANCEL" />
+            </intent-filter>
+        </receiver>
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
     </application>
 </manifest>
