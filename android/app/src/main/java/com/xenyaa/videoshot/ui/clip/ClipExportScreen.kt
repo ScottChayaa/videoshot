@@ -92,33 +92,52 @@ fun ClipExportRoute(
         thumbLoader = deps.mediaThumbLoader,
         onBack = onBack,
         onAutoUploadChange = { on -> scope.launch { guarded("改自動上傳") { repo.setEditTaskAutoUpload(taskId, on, deps.now()) } } },
-        onCancel = {
-            scope.launch {
-                try {
-                    guarded("取消輸出") {
-                        deps.cancelExport(taskId)
-                        repo.deleteEditTask(taskId)
-                    }
-                } finally {
-                    // 後面排隊的工作被連帶取消了：不管上面成不成功都補排（已排著的不動）
-                    guarded("補排輸出") { deps.resumeExports() }
-                }
-            }
-        },
-        onRetry = {
-            scope.launch {
-                guarded("重試輸出") {
-                    repo.requeueEditTask(taskId, deps.now())
-                    deps.enqueueExport(taskId)
-                }
-            }
-        },
+        onCancel = { scope.launch { cancelExportTask(deps, taskId) } },
+        onRetry = { scope.launch { retryExportTask(deps, taskId) } },
         onPlay = onPlay,
     )
 }
 
+/**
+ * 取消一個任務（導出中畫面與剪輯頁的任務列共用）：取消排程中或執行中的工作（等套用完）→ 刪任務 →
+ * 補排被連帶取消的後面幾個任務。補排不管前面成不成功都做（已排著的不動）。
+ */
+internal suspend fun cancelExportTask(deps: ClipDeps, taskId: Long) {
+    try {
+        guarded("取消輸出") {
+            deps.cancelExport(taskId)
+            deps.cacheRepo.deleteEditTask(taskId)
+        }
+    } finally {
+        guarded("補排輸出") { deps.resumeExports() }
+    }
+}
+
+/**
+ * 刪掉一個已經結束（完成或失敗）的任務：先刪任務、再刪 app 裡的成品資料夾（相簿裡的不動），最後補排一次。
+ * 先刪任務：中途掛掉最多留下沒人指到的檔案，不會留下指向已刪成品的任務。
+ */
+internal suspend fun deleteExportTask(deps: ClipDeps, taskId: Long) {
+    try {
+        guarded("刪除任務") {
+            deps.cacheRepo.deleteEditTask(taskId)
+            deps.deleteExportFiles(taskId)
+        }
+    } finally {
+        guarded("補排輸出") { deps.resumeExports() }
+    }
+}
+
+/** 重試一個失敗的任務：改回等待中、重新排程（導出中畫面與剪輯頁的任務列共用）。 */
+internal suspend fun retryExportTask(deps: ClipDeps, taskId: Long) {
+    guarded("重試輸出") {
+        deps.cacheRepo.requeueEditTask(taskId, deps.now())
+        deps.enqueueExport(taskId)
+    }
+}
+
 /** 執行 [block]；除了取消之外的例外只記 log（這些都是使用者按一下的動作，失敗了畫面狀態不變、可以再按）。 */
-private suspend fun guarded(what: String, block: suspend () -> Unit) {
+internal suspend fun guarded(what: String, block: suspend () -> Unit) {
     try {
         block()
     } catch (e: CancellationException) {
@@ -222,18 +241,23 @@ fun ClipExportScreen(
     }
 
     if (confirmCancel && inProgress) {
-        AlertDialog(
-            onDismissRequest = { confirmCancel = false },
-            title = { Text("取消導出？") },
-            text = { Text("已經輸出的部分會刪掉。") },
-            confirmButton = {
-                TextButton(onClick = { confirmCancel = false; onCancel() }) {
-                    Text("取消導出", color = AppTheme.colors.danger)
-                }
-            },
-            dismissButton = { TextButton(onClick = { confirmCancel = false }) { Text("繼續導出") } },
+        CancelExportDialog(
+            onConfirm = { confirmCancel = false; onCancel() },
+            onDismiss = { confirmCancel = false },
         )
     }
+}
+
+/** 取消導出的確認框：導出中畫面與剪輯頁的任務列共用。 */
+@Composable
+fun CancelExportDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("取消導出？") },
+        text = { Text("已經輸出的部分會刪掉。") },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("取消導出", color = AppTheme.colors.danger) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("繼續導出") } },
+    )
 }
 
 @Composable
@@ -260,9 +284,9 @@ private fun AutoUploadCheckbox(checked: Boolean, onChange: (Boolean) -> Unit) {
     }
 }
 
-/** 成品第一格的縮圖：時間軸第一段的素材；還沒載入（或解碼失敗）時是中性的色塊。 */
+/** 成品第一格的縮圖圖片：時間軸第一段的素材；還沒載入（或解碼失敗）是 null。導出中畫面與剪輯頁的任務列共用。 */
 @Composable
-private fun ExportThumb(task: EditTask, loader: MediaThumbLoader) {
+internal fun rememberFirstSourceThumb(task: EditTask, loader: MediaThumbLoader): ImageBitmap? {
     val first = remember(task.draft) {
         val firstId = task.draft.timeline.segments.firstOrNull()?.sourceId
         task.draft.sources.firstOrNull { it.id == firstId }
@@ -270,6 +294,13 @@ private fun ExportThumb(task: EditTask, loader: MediaThumbLoader) {
     val bitmap by produceState<ImageBitmap?>(first?.let { loader.peek(it.id) }, first?.id, loader) {
         if (first != null && value == null) value = loader.load(first.toMediaItem())
     }
+    return bitmap
+}
+
+/** 成品第一格的縮圖：還沒載入（或解碼失敗）時是中性的色塊。 */
+@Composable
+private fun ExportThumb(task: EditTask, loader: MediaThumbLoader) {
+    val bitmap = rememberFirstSourceThumb(task, loader)
     val portrait = task.draft.orientation == ClipOrientation.PORTRAIT
     val shape = RoundedCornerShape(12.dp)
     val modifier = if (portrait) Modifier.width(160.dp).aspectRatio(9f / 16f) else Modifier.fillMaxWidth().aspectRatio(16f / 9f)

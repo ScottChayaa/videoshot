@@ -12,6 +12,8 @@ import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.foundation.layout.statusBarsPadding
 import com.xenyaa.videoshot.media.MediaAccess
 import com.xenyaa.videoshot.media.mediaPermissionsFor
@@ -72,6 +74,10 @@ import com.xenyaa.videoshot.ui.clip.ClipEditorScreen
 import com.xenyaa.videoshot.ui.clip.ClipExportRoute
 import com.xenyaa.videoshot.ui.clip.ClipEditorViewModel
 import com.xenyaa.videoshot.ui.clip.ClipHomeScreen
+import com.xenyaa.videoshot.ui.clip.cancelExportTask
+import com.xenyaa.videoshot.ui.clip.deleteExportTask
+import com.xenyaa.videoshot.ui.clip.retryExportTask
+import com.xenyaa.videoshot.data.repo.model.EditTask
 import com.xenyaa.videoshot.ui.clip.ClipResultRoute
 import com.xenyaa.videoshot.ui.clip.toSummary
 import com.xenyaa.videoshot.ui.clip.ExportSheet
@@ -121,9 +127,23 @@ private val NavSaver = Saver<NavState, String>(
  * 組裝點：導覽狀態、各分頁的內容、系統返回鍵。
  *
  * @param onExitApp 已經在最外層還按返回 —— 交還給系統（結束 Activity）
+ * @param openClipSignal 「切到剪輯頁」的訊號：點輸出通知時 `MainActivity` 把它加一（冷啟動帶著就是 1），
+ *   每次變成大於 0 的新值就回到剪輯分頁的根畫面。用累加的整數而不是布林，連點兩次通知才都會觸發。
  */
 @Composable
-fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
+fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Unit) {
+    // app 回到前景：把沒有輸出工作的未完成任務補排（被殺、重開機、之前系統不讓開前景服務）。
+    // 放在所有 return 之前，不管首次使用閘門擋不擋都要補；只在第一次組合時做一次（這時 app 在前景，開得了前景服務）
+    LaunchedEffect(container) {
+        try {
+            container.clipDeps.resumeExports()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // 補排失敗不能把 app 炸掉；任務留在原狀態，下次打開 app 再補
+            Log.w("VsClip", "補排輸出失敗", e)
+        }
+    }
     // 播放器全螢幕時底部導覽也要藏起來（規格第六節「全螢幕與畫面方向」）
     val fullscreen = LocalPlayerFullscreen.current
     // 全新安裝的第一個畫面（規格第十節「還原」入口）。用 null 當「還在讀 DataStore」的訊號——
@@ -303,6 +323,23 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
     // 剪輯頁「編輯中」那一列的摘要；null＝沒有草稿（或還沒讀到）。每次回到剪輯頁根畫面都重讀一次
     var clipDraftSummary by remember { mutableStateOf<ClipDraftSummary?>(null) }
     val onClipHome = nav.tab == Tab.CLIP && nav.current == Dest.Root
+    // 剪輯頁的導出任務清單（新的在前）。只在剪輯頁根畫面開著、且 app 在前景時收集；離開後留著最後一份，
+    // 下次回來先顯示舊的、再被新的蓋掉（不會先閃一下空狀態）
+    var clipTasks by remember { mutableStateOf<List<EditTask>>(emptyList()) }
+    val clipLifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(onClipHome, container) {
+        if (!onClipHome) return@LaunchedEffect
+        clipLifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            try {
+                container.clipDeps.cacheRepo.editTasks().collect { clipTasks = it }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // 讀不出來就維持上一份：任務還在資料庫裡，不會因此被動到
+                Log.w("VsClip", "讀取輸出任務失敗", e)
+            }
+        }
+    }
     LaunchedEffect(onClipHome) {
         if (!onClipHome) return@LaunchedEffect
         clipDraftSummary = try {
@@ -352,6 +389,13 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
     var editing by remember { mutableStateOf<ShotRow?>(null) }
     // 剪輯頁【新增剪輯】的「選影片方向」抽屜：true＝開著
     var choosingOrientation by remember { mutableStateOf(false) }
+    // 點輸出通知：切到剪輯分頁、回到它的根畫面（導出中畫面、成品播放等都收掉），讓使用者從任務清單找結果
+    LaunchedEffect(openClipSignal) {
+        if (openClipSignal <= 0) return@LaunchedEffect
+        choosingOrientation = false
+        val toClip = nav.select(Tab.CLIP)
+        nav = toClip.copy(stacks = toClip.stacks + (Tab.CLIP to listOf(Dest.Root)))
+    }
     // 就地編輯存檔完成的次數：Lightbox 的標籤列靠它重讀（標籤不在 ShotRow 裡，比不出差異）
     var shotEdits by remember { mutableIntStateOf(0) }
 
@@ -1155,6 +1199,12 @@ fun AppRoot(container: AppRootDeps, onExitApp: () -> Unit) {
                     Tab.CLIP -> ClipHomeScreen(
                         onNewClip = { choosingOrientation = true },
                         draft = clipDraftSummary,
+                        tasks = clipTasks,
+                        thumbLoader = container.clipDeps.mediaThumbLoader,
+                        onOpenTask = { taskId -> nav = nav.push(Dest.ClipExport(taskId)) },
+                        onCancelTask = { taskId -> scope.launch { cancelExportTask(container.clipDeps, taskId) } },
+                        onDeleteTask = { taskId -> scope.launch { deleteExportTask(container.clipDeps, taskId) } },
+                        onRetryTask = { taskId -> scope.launch { retryExportTask(container.clipDeps, taskId) } },
                         onOpenDraft = {
                             clipDraftSummary?.let { draft ->
                                 clipEditorRun++

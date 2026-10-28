@@ -39,6 +39,9 @@ interface ClipDeps {
     /** 把沒有輸出工作的未完成任務補排（見 `resumeClipExports`）；取消一個任務後，排在它後面被連帶取消的要靠這個補回來。 */
     suspend fun resumeExports() = Unit
 
+    /** 刪掉這個任務在 app 裡的成品資料夾（相簿裡的不動）；刪完、失敗的任務時呼叫。預設什麼都不做，`AppContainer` 覆寫。 */
+    suspend fun deleteExportFiles(taskId: Long) = Unit
+
     /** 還需要向使用者要「通知」權限嗎（Android 13 起、尚未授權才是 true）；輸出進度與結果都靠通知。 */
     fun notificationPermissionMissing(): Boolean = false
 

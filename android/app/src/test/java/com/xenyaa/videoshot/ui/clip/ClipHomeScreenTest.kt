@@ -7,10 +7,21 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.xenyaa.videoshot.core.timeline.ClipDraft
 import com.xenyaa.videoshot.core.timeline.ClipOrientation
+import com.xenyaa.videoshot.core.timeline.ClipSource
+import com.xenyaa.videoshot.core.timeline.EditHistory
+import com.xenyaa.videoshot.core.timeline.Segment
+import com.xenyaa.videoshot.core.timeline.SourceKind
+import com.xenyaa.videoshot.core.timeline.Timeline
+import com.xenyaa.videoshot.data.repo.model.EditTask
+import com.xenyaa.videoshot.data.repo.model.EditTaskState
+import com.xenyaa.videoshot.media.MediaThumbLoader
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -29,13 +40,41 @@ class ClipHomeScreenTest {
         draft: ClipDraftSummary? = null,
         onOpenDraft: () -> Unit = {},
         onDiscardDraft: () -> Unit = {},
+        tasks: List<EditTask> = emptyList(),
+        onOpenTask: (Long) -> Unit = {},
+        onCancelTask: (Long) -> Unit = {},
+        onDeleteTask: (Long) -> Unit = {},
+        onRetryTask: (Long) -> Unit = {},
     ) {
         compose.setContent {
             VideoshotTheme {
-                ClipHomeScreen(onNewClip = onNewClip, draft = draft, onOpenDraft = onOpenDraft, onDiscardDraft = onDiscardDraft)
+                ClipHomeScreen(
+                    onNewClip = onNewClip, draft = draft, onOpenDraft = onOpenDraft, onDiscardDraft = onDiscardDraft,
+                    tasks = tasks, thumbLoader = MediaThumbLoader(decode = { null }),
+                    onOpenTask = onOpenTask, onCancelTask = onCancelTask, onDeleteTask = onDeleteTask, onRetryTask = onRetryTask,
+                )
             }
         }
     }
+
+    private fun task(
+        id: Long,
+        state: EditTaskState,
+        title: String = "任務$id",
+        progress: Int = 0,
+        failReason: String? = null,
+        galleryUri: String? = null,
+    ): EditTask {
+        val source = ClipSource(7, "content://media/7", SourceKind.PHOTO, 0, null, 1080, 1920, 0)
+        val timeline = Timeline(listOf(Segment(7, 0, 3_000)))
+        return EditTask(
+            id = id, state = state, progress = progress, title = title,
+            draft = ClipDraft(ClipOrientation.PORTRAIT, listOf(source), EditHistory(timeline)),
+            autoUpload = true, failReason = failReason, skippedSources = 0, galleryUri = galleryUri, createdAt = id,
+        )
+    }
+
+    private fun longPress(text: String) = compose.onNodeWithText(text).performTouchInput { longClick() }
 
     private val summary = ClipDraftSummary(ClipOrientation.PORTRAIT, 4, 108_000)
 
@@ -163,5 +202,140 @@ class ClipHomeScreenTest {
         compose.onNodeWithText("取消").performClick()
         assertEquals(emptyList<String>(), calls)
         compose.onNodeWithText("編輯中").assertIsDisplayed()
+    }
+
+    // ---- 導出任務清單（階段 20）----
+
+    @Test fun 五種狀態列的文字() {
+        show(
+            tasks = listOf(
+                task(5, EditTaskState.FAILED, failReason = "空間不足，還需要 1.2 GB"),
+                task(4, EditTaskState.RENDERED, galleryUri = "content://media/external/video/9"),
+                task(3, EditTaskState.RENDERED),
+                task(2, EditTaskState.RENDERING, progress = 42),
+                task(1, EditTaskState.QUEUED),
+            ),
+        )
+        compose.onNodeWithText("等待中").assertIsDisplayed()
+        compose.onNodeWithText("輸出影片中 42%").assertIsDisplayed()
+        compose.onNodeWithText("輸出完成").assertIsDisplayed()
+        compose.onNodeWithText("已存到相簿").assertIsDisplayed()
+        compose.onNodeWithText("失敗：空間不足，還需要 1.2 GB").assertIsDisplayed()
+        compose.onNodeWithText("任務1").assertIsDisplayed()
+    }
+
+    @Test fun 失敗沒有原因時寫輸出失敗() {
+        show(tasks = listOf(task(1, EditTaskState.FAILED)))
+        compose.onNodeWithText("失敗：輸出失敗").assertIsDisplayed()
+    }
+
+    @Test fun 重試後殘留的相簿位置不影響狀態列() {
+        // 重試時任務變回等待中，但前一次留下的 galleryUri 還在；只有「輸出完成」才看它
+        show(tasks = listOf(task(1, EditTaskState.QUEUED, galleryUri = "content://old")))
+        compose.onNodeWithText("等待中").assertIsDisplayed()
+        compose.onNodeWithText("已存到相簿").assertDoesNotExist()
+    }
+
+    @Test fun 失敗列有重試() {
+        val retried = mutableListOf<Long>()
+        show(tasks = listOf(task(3, EditTaskState.FAILED, failReason = "輸出失敗")), onRetryTask = { retried += it })
+        compose.onNodeWithText("重試").performClick()
+        assertEquals(listOf(3L), retried)
+    }
+
+    @Test fun 只有失敗列有重試() {
+        show(tasks = listOf(task(1, EditTaskState.QUEUED), task(2, EditTaskState.RENDERED)))
+        compose.onNodeWithText("重試").assertDoesNotExist()
+    }
+
+    @Test fun 點任務列通知呼叫端() {
+        val opened = mutableListOf<Long>()
+        show(tasks = listOf(task(8, EditTaskState.RENDERED, title = "旅行")), onOpenTask = { opened += it })
+        compose.onNodeWithText("旅行").performClick()
+        assertEquals(listOf(8L), opened)
+    }
+
+    @Test fun 長按等待中有取消_確認後才回報() {
+        val cancelled = mutableListOf<Long>()
+        show(tasks = listOf(task(4, EditTaskState.QUEUED, title = "等著的")), onCancelTask = { cancelled += it })
+        longPress("等著的")
+        compose.onNodeWithText("取消").performClick()
+        compose.onNodeWithText("取消導出？").assertIsDisplayed()
+        compose.onNodeWithText("已經輸出的部分會刪掉。").assertIsDisplayed()
+        assertEquals(emptyList<Long>(), cancelled)
+
+        compose.onNodeWithText("取消導出").performClick()
+        assertEquals(listOf(4L), cancelled)
+    }
+
+    @Test fun 長按輸出中取消後選繼續導出什麼都沒發生() {
+        val cancelled = mutableListOf<Long>()
+        show(tasks = listOf(task(4, EditTaskState.RENDERING, title = "跑著的", progress = 10)), onCancelTask = { cancelled += it })
+        longPress("跑著的")
+        compose.onNodeWithText("取消").performClick()
+        compose.onNodeWithText("繼續導出").performClick()
+        assertEquals(emptyList<Long>(), cancelled)
+        compose.onNodeWithText("取消導出？").assertDoesNotExist()
+    }
+
+    @Test fun 長按等待中沒有刪除任務() {
+        show(tasks = listOf(task(4, EditTaskState.QUEUED, title = "等著的")))
+        longPress("等著的")
+        compose.onNodeWithText("取消").assertIsDisplayed()
+        compose.onNodeWithText("刪除任務").assertDoesNotExist()
+    }
+
+    @Test fun 長按完成有刪除任務且要確認_沒存相簿的多一句() {
+        val deleted = mutableListOf<Long>()
+        show(tasks = listOf(task(6, EditTaskState.RENDERED, title = "完成的")), onDeleteTask = { deleted += it })
+        longPress("完成的")
+        compose.onNodeWithText("取消").assertDoesNotExist()
+        compose.onNodeWithText("刪除任務").performClick()
+        compose.onNodeWithText("刪除這個任務？").assertIsDisplayed()
+        compose.onNodeWithText("app 裡輸出的影片會一起刪掉。").assertIsDisplayed()
+        assertEquals(emptyList<Long>(), deleted)
+
+        compose.onNodeWithText("刪除").performClick()
+        assertEquals(listOf(6L), deleted)
+    }
+
+    @Test fun 存進相簿的任務刪除確認沒有那一句() {
+        show(tasks = listOf(task(6, EditTaskState.RENDERED, title = "存了的", galleryUri = "content://media/external/video/9")))
+        longPress("存了的")
+        compose.onNodeWithText("刪除任務").performClick()
+        compose.onNodeWithText("刪除這個任務？").assertIsDisplayed()
+        compose.onNodeWithText("app 裡輸出的影片會一起刪掉。").assertDoesNotExist()
+    }
+
+    @Test fun 失敗的任務也能長按刪除_取消不刪() {
+        val deleted = mutableListOf<Long>()
+        show(tasks = listOf(task(2, EditTaskState.FAILED, title = "壞了的", failReason = "輸出失敗")), onDeleteTask = { deleted += it })
+        longPress("壞了的")
+        compose.onNodeWithText("刪除任務").performClick()
+        compose.onNodeWithText("刪除這個任務？").assertIsDisplayed()
+        compose.onNodeWithText("app 裡輸出的影片會一起刪掉。").assertDoesNotExist()
+        compose.onNodeWithText("取消").performClick()
+        assertEquals(emptyList<Long>(), deleted)
+        compose.onNodeWithText("刪除這個任務？").assertDoesNotExist()
+    }
+
+    @Test fun 有任務時不顯示空狀態() {
+        show(tasks = listOf(task(1, EditTaskState.QUEUED)))
+        compose.onNodeWithText("把手機裡的照片和影片剪成一支片").assertDoesNotExist()
+        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+    }
+
+    @Test fun 順序是編輯中_任務_新增剪輯() {
+        show(draft = summary, tasks = listOf(task(1, EditTaskState.QUEUED, title = "任務甲")))
+        val draftTop = compose.onNodeWithText("編輯中").getUnclippedBoundsInRoot().top
+        val taskTop = compose.onNodeWithText("任務甲").getUnclippedBoundsInRoot().top
+        val newTop = compose.onNodeWithText("新增剪輯").getUnclippedBoundsInRoot().top
+        assertTrue(draftTop < taskTop)
+        assertTrue(taskTop < newTop)
+    }
+
+    @Test fun 任務順序照傳進來的順序() {
+        show(tasks = listOf(task(2, EditTaskState.QUEUED, title = "新的"), task(1, EditTaskState.QUEUED, title = "舊的")))
+        assertTrue(compose.onNodeWithText("新的").getUnclippedBoundsInRoot().top < compose.onNodeWithText("舊的").getUnclippedBoundsInRoot().top)
     }
 }

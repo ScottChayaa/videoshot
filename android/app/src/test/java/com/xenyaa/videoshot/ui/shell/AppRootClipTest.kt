@@ -8,7 +8,9 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import com.xenyaa.videoshot.core.folders.FolderSort
 import com.xenyaa.videoshot.core.paging.FolderCursor
 import com.xenyaa.videoshot.core.paging.ShotCursor
@@ -23,6 +25,7 @@ import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
 import com.xenyaa.videoshot.data.library.entity.VideoEntity
 import com.xenyaa.videoshot.data.repo.CacheRepo
 import com.xenyaa.videoshot.data.repo.LibraryRepo
+import com.xenyaa.videoshot.data.repo.model.EditTaskState
 import com.xenyaa.videoshot.data.repo.model.FolderCard
 import com.xenyaa.videoshot.data.repo.model.FolderNode
 import com.xenyaa.videoshot.data.repo.model.FolderPage
@@ -113,6 +116,9 @@ class AppRootClipTest {
         val exportCalls = mutableListOf<String>()
         override suspend fun cancelExport(taskId: Long) { exportCalls += "cancel$taskId" }
         override suspend fun resumeExports() { exportCalls += "resume" }
+        /** 刪任務時一併刪掉 app 裡成品的任務編號。 */
+        val deletedFiles = mutableListOf<Long>()
+        override suspend fun deleteExportFiles(taskId: Long) { deletedFiles += taskId }
         var notificationMissing = false
         override fun notificationPermissionMissing() = notificationMissing
         val preview = NoOpPreview()
@@ -712,6 +718,7 @@ class AppRootClipTest {
         compose.waitForIdle()
         val taskId = tasksOf(clip.cacheRepo).single().id
         compose.onNodeWithText("等待中…").assertIsDisplayed()
+        clip.exportCalls.clear() // 打開 app 時的那一次補排不算在取消流程裡
 
         compose.onNodeWithText("取消導出").performClick()
         compose.onNodeWithText("取消導出？").assertIsDisplayed()
@@ -795,5 +802,152 @@ class AppRootClipTest {
         assertEquals(1, requested.size)
         assertEquals(1, tasksOf(repo).size)
         assertEquals(1, clip.enqueued.size)
+    }
+
+    // ---- 剪輯頁的任務清單與點通知回剪輯頁（任務 9）----
+
+    private fun FakeClipDeps.withTask(title: String = "我的旅行"): Long = kotlinx.coroutines.runBlocking {
+        cacheRepo.startEditTask(newClipDraft(ClipOrientation.PORTRAIT, listOf(clipSource(1), clipSource(2))), title, 0)
+    }
+
+    private fun openClipTab(clip: FakeClipDeps) {
+        compose.setContent { VideoshotTheme { AppRoot(deps(clip)) {} } }
+        compose.onNodeWithText("剪輯").performClick()
+        compose.waitForIdle()
+    }
+
+    @Test
+    fun 帶開剪輯的intent進到剪輯頁() {
+        val signal = androidx.compose.runtime.mutableIntStateOf(0)
+        compose.setContent { VideoshotTheme { AppRoot(deps(FakeClipDeps(full)), onExitApp = {}, openClipSignal = signal.intValue) } }
+        compose.onNodeWithText("新增剪輯").assertDoesNotExist()
+
+        // app 已經開著時點通知（onNewIntent）
+        signal.intValue = 1
+        compose.waitForIdle()
+        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+    }
+
+    @Test
+    fun 冷啟動帶開剪輯的intent一開始就是剪輯頁() {
+        compose.setContent { VideoshotTheme { AppRoot(deps(FakeClipDeps(full)), onExitApp = {}, openClipSignal = 1) } }
+        compose.waitForIdle()
+        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+    }
+
+    @Test
+    fun 點通知時人在導出中畫面也回到剪輯頁根() {
+        val clip = FakeClipDeps(full)
+        val taskId = clip.withTask("我的旅行")
+        val signal = androidx.compose.runtime.mutableIntStateOf(0)
+        compose.setContent { VideoshotTheme { AppRoot(deps(clip), onExitApp = {}, openClipSignal = signal.intValue) } }
+        compose.onNodeWithText("剪輯").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("我的旅行").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("等待中…").assertIsDisplayed()
+
+        signal.intValue = 1
+        compose.waitForIdle()
+        compose.onNodeWithText("等待中…").assertDoesNotExist()
+        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+        assertEquals(1, tasksOf(clip.cacheRepo).count { it.id == taskId })
+    }
+
+    @Test
+    fun 打開app時把沒做完的任務補排一次() {
+        val clip = FakeClipDeps(full)
+        compose.setContent { VideoshotTheme { AppRoot(deps(clip)) {} } }
+        compose.waitForIdle()
+        assertEquals(listOf("resume"), clip.exportCalls)
+
+        // 之後切分頁不會再補排
+        compose.onNodeWithText("剪輯").performClick()
+        compose.waitForIdle()
+        assertEquals(listOf("resume"), clip.exportCalls)
+    }
+
+    @Test
+    fun 剪輯頁列出任務_有任務就沒有空狀態() {
+        val clip = FakeClipDeps(full)
+        clip.withTask("我的旅行")
+        openClipTab(clip)
+
+        compose.onNodeWithText("我的旅行").assertIsDisplayed()
+        compose.onNodeWithText("等待中").assertIsDisplayed()
+        compose.onNodeWithText("把手機裡的照片和影片剪成一支片").assertDoesNotExist()
+        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+    }
+
+    @Test
+    fun 點任務進導出中畫面() {
+        val clip = FakeClipDeps(full)
+        clip.withTask("我的旅行")
+        openClipTab(clip)
+
+        compose.onNodeWithText("我的旅行").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("等待中…").assertIsDisplayed()
+        compose.onNodeWithText("取消導出").assertIsDisplayed()
+        compose.onNodeWithText("相簿").assertDoesNotExist()
+        // 返回回到剪輯頁
+        compose.onNodeWithContentDescription("返回").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+    }
+
+    @Test
+    fun 剪輯頁長按任務取消_取消工作後刪任務再補排() {
+        val clip = FakeClipDeps(full)
+        val taskId = clip.withTask("我的旅行")
+        openClipTab(clip)
+        clip.exportCalls.clear()
+
+        compose.onNodeWithText("我的旅行").performTouchInput { longClick() }
+        compose.onNodeWithText("取消").performClick()
+        compose.onNodeWithText("取消導出？").assertIsDisplayed()
+        compose.onNodeWithText("取消導出").performClick()
+        compose.waitForIdle()
+
+        assertEquals(listOf("cancel$taskId", "resume"), clip.exportCalls)
+        assertTrue(tasksOf(clip.cacheRepo).isEmpty())
+        compose.onNodeWithText("我的旅行").assertDoesNotExist()
+        compose.onNodeWithText("把手機裡的照片和影片剪成一支片").assertIsDisplayed()
+    }
+
+    @Test
+    fun 剪輯頁刪除完成的任務_連app裡的成品一起刪再補排() {
+        val clip = FakeClipDeps(full)
+        val taskId = clip.withTask("我的旅行")
+        kotlinx.coroutines.runBlocking { clip.cacheRepo.setEditTaskRendered(taskId, 0, null, 0) }
+        openClipTab(clip)
+        clip.exportCalls.clear()
+
+        compose.onNodeWithText("我的旅行").performTouchInput { longClick() }
+        compose.onNodeWithText("刪除任務").performClick()
+        compose.onNodeWithText("app 裡輸出的影片會一起刪掉。").assertIsDisplayed()
+        compose.onNodeWithText("刪除").performClick()
+        compose.waitForIdle()
+
+        assertTrue(tasksOf(clip.cacheRepo).isEmpty())
+        assertEquals(listOf(taskId), clip.deletedFiles)
+        assertEquals(listOf("resume"), clip.exportCalls)
+    }
+
+    @Test
+    fun 剪輯頁失敗任務重試_回到等待中並重新排程() {
+        val clip = FakeClipDeps(full)
+        val taskId = clip.withTask("我的旅行")
+        kotlinx.coroutines.runBlocking { clip.cacheRepo.setEditTaskFailed(taskId, "輸出失敗", 0) }
+        openClipTab(clip)
+        compose.onNodeWithText("失敗：輸出失敗").assertIsDisplayed()
+
+        compose.onNodeWithText("重試").performClick()
+        compose.waitForIdle()
+
+        assertEquals(EditTaskState.QUEUED, tasksOf(clip.cacheRepo).single().state)
+        assertEquals(listOf(taskId), clip.enqueued)
+        compose.onNodeWithText("等待中").assertIsDisplayed()
     }
 }
