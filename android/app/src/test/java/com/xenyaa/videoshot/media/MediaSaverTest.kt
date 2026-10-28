@@ -38,6 +38,33 @@ class MediaSaverTest {
     @Test fun 沒有不合法字元時只加副檔名() =
         assertEquals("我的影片.mp4", galleryFileName("我的影片"))
 
+    @Test fun 很長的中文標題依UTF8位元組截斷() {
+        val title = "很長的中文標題".repeat(20) // 140 個中文字，420 bytes
+        val name = galleryFileName(title)
+
+        assertTrue(name.endsWith(".mp4"))
+        assertTrue(title.startsWith(name.removeSuffix(".mp4"))) // 截斷，不是改寫
+        assertTrue(name.toByteArray(Charsets.UTF_8).size <= 255)
+        // 同名時相簿會接「 (1)」：留了空間，接到三位數也不超過
+        assertTrue("${name.removeSuffix(".mp4")} (999).mp4".toByteArray(Charsets.UTF_8).size <= 255)
+        // 沒有切掉半個字：截完的長度剛好是整數個中文字
+        assertEquals(0, name.removeSuffix(".mp4").toByteArray(Charsets.UTF_8).size % 3)
+    }
+
+    @Test fun 截斷不會切開表情符號() {
+        val title = "a" + "😀".repeat(100) // 每個 4 bytes、兩個 char
+        val base = galleryFileName(title).removeSuffix(".mp4")
+
+        assertTrue(base.toByteArray(Charsets.UTF_8).size <= 255)
+        assertTrue(!Character.isHighSurrogate(base.last())) // 沒留下半個代理對
+        assertEquals(base, String(base.toByteArray(Charsets.UTF_8), Charsets.UTF_8))
+    }
+
+    @Test fun 剛好不超過的標題不截() {
+        val title = "a".repeat(200)
+        assertEquals("$title.mp4", galleryFileName(title))
+    }
+
     @Test fun Android9以下要寫入權限() {
         val expected = listOf("android.permission.READ_EXTERNAL_STORAGE", "android.permission.WRITE_EXTERNAL_STORAGE")
         assertEquals(expected, mediaPermissionsFor(28))

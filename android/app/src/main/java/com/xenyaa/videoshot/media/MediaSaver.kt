@@ -19,9 +19,36 @@ private const val GALLERY_FOLDER = "videoshot"
 /**
  * 剪輯成品在相簿裡的檔名：標題裡檔名不能用的字元（`/ \ : * ? " < > |`）換成 `-`，再加 `.mp4`。
  * 預設標題有「/」（例如「videoshot 2026/10/20～10/27」），不換掉會變成子資料夾或寫入失敗。
+ *
+ * 檔名上限是 255 bytes（UTF-8，中文字一個 3 bytes）：標題太長就整個字整個字截掉，
+ * 留下 `.mp4` 與同名時相簿接上的「 (999)」的空間。
  */
-fun galleryFileName(title: String): String =
-    title.replace(Regex("""[/\\:*?"<>|]"""), "-") + ".mp4"
+fun galleryFileName(title: String): String {
+    val base = title.replace(Regex("""[/\\:*?"<>|]"""), "-")
+    return truncateUtf8(base, MAX_NAME_BYTES - ".mp4".length - " (999)".length) + ".mp4"
+}
+
+/** 檔名（含副檔名）的位元組上限。 */
+private const val MAX_NAME_BYTES = 255
+
+/** [text] 的 UTF-8 不超過 [maxBytes]：從頭一個字（code point）一個字收，不會切開半個字或半個代理對。 */
+private fun truncateUtf8(text: String, maxBytes: Int): String {
+    var bytes = 0
+    var end = 0
+    while (end < text.length) {
+        val cp = text.codePointAt(end)
+        val size = when {
+            cp < 0x80 -> 1
+            cp < 0x800 -> 2
+            cp < 0x10000 -> 3
+            else -> 4
+        }
+        if (bytes + size > maxBytes) break
+        bytes += size
+        end += Character.charCount(cp)
+    }
+    return text.substring(0, end)
+}
 
 /** 把 app 輸出的影片存進手機相簿。畫面與輸出流程只碰這個介面，不直接碰 `ContentResolver`。 */
 interface MediaSaver {
