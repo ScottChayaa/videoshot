@@ -11,6 +11,7 @@ import androidx.core.app.NotificationCompat
 import androidx.work.ForegroundInfo
 import com.xenyaa.videoshot.MainActivity
 import com.xenyaa.videoshot.data.repo.model.EditTask
+import com.xenyaa.videoshot.data.repo.model.EditTaskState
 
 /** 點通知回到 app 的剪輯頁：MainActivity 看到這個 extra 就切到剪輯（畫面端的處理是之後的任務）。 */
 const val EXTRA_OPEN_CLIP = "com.xenyaa.videoshot.OPEN_CLIP"
@@ -24,8 +25,13 @@ fun resultNotificationId(taskId: Long): Int = 4400 + taskId.toInt()
 const val CHANNEL_PROGRESS = "clip_export_progress"
 const val CHANNEL_RESULT = "clip_export_result"
 
-/** 前景服務類型：Android 15 起 mediaProcessing、10～14 dataSync、9 以下沒有類型。 */
-fun foregroundServiceTypeFor(sdkInt: Int): Int? = when {
+/**
+ * 前景服務類型：Android 15 起 mediaProcessing（[uploads]＝這個工作還要上傳時再加 dataSync）、
+ * 10～14 dataSync、9 以下沒有類型。
+ */
+fun foregroundServiceTypeFor(sdkInt: Int, uploads: Boolean): Int? = when {
+    sdkInt >= 35 && uploads ->
+        ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING or ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
     sdkInt >= 35 -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING
     sdkInt >= 29 -> ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
     else -> null
@@ -60,10 +66,13 @@ class AndroidClipExportNotifier(context: Context) : ClipExportNotifier {
     /** 收掉這個任務的結果通知（任務被刪掉、或使用者正在看它）。 */
     fun dismissResult(taskId: Long) = manager.cancel(resultNotificationId(taskId))
 
-    /** 輸出工作開始時給 `setForeground` 的資訊；通知與之後的進度更新是同一則（[NOTIFY_PROGRESS_ID]）。 */
+    /**
+     * 輸出工作開始時給 `setForeground` 的資訊；通知與之後的進度更新是同一則（[NOTIFY_PROGRESS_ID]）。
+     * 同一個工作輸出完接著上傳，所以有勾自動上傳（或已經在上傳中）就一開始帶上網路傳輸的類型。
+     */
     fun foregroundInfo(task: EditTask, sdkInt: Int = Build.VERSION.SDK_INT): ForegroundInfo {
         val notification = progressNotification(task, task.progress)
-        val type = foregroundServiceTypeFor(sdkInt)
+        val type = foregroundServiceTypeFor(sdkInt, uploads = task.autoUpload || task.state == EditTaskState.UPLOADING)
         return if (type != null) ForegroundInfo(NOTIFY_PROGRESS_ID, notification, type)
         else ForegroundInfo(NOTIFY_PROGRESS_ID, notification)
     }
@@ -85,13 +94,13 @@ class AndroidClipExportNotifier(context: Context) : ClipExportNotifier {
     }
 
     override fun failed(task: EditTask, reason: String) {
-        notifyResult(task, "影片輸出失敗", reason)
+        notifyResult(task, failedTitle(task.failedStep), reason)
     }
 
     private fun progressNotification(task: EditTask, percent: Int) =
         NotificationCompat.Builder(context, CHANNEL_PROGRESS)
             .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentTitle("輸出影片中 $percent%")
+            .setContentTitle(if (task.state == EditTaskState.UPLOADING) "上傳中 $percent%" else "輸出影片中 $percent%")
             .setContentText(task.title)
             .setOngoing(true)
             .setOnlyAlertOnce(true)

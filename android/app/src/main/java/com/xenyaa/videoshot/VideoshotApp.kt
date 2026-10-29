@@ -26,7 +26,8 @@ class VideoshotApp : Application(), Configuration.Provider {
                     ClipExportWorkerFactory(
                         repo = container.cacheRepo,
                         foregroundInfoFor = { task -> container.clipExportNotifier.foregroundInfo(task) },
-                        runTask = { id -> container.clipExportRunner.run(id) },
+                        runTask = { id -> container.runClipTask(id) },
+                        poll = { id -> container.storyboardPoller.poll(id) },
                         now = { System.currentTimeMillis() },
                     ),
                 )

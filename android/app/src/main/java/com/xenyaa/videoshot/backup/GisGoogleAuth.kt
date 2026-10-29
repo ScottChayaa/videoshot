@@ -8,6 +8,7 @@ import android.util.Base64
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
+import com.google.android.gms.auth.api.identity.ClearTokenRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.auth.api.identity.RevokeAccessRequest
 import com.google.android.gms.common.api.Scope
@@ -48,6 +49,14 @@ class GisGoogleAuth(
      * 所以那個方法改成由呼叫端把 email 帶進來，不能依賴這個欄位。
      */
     private var pendingAccount: LinkedGoogleAccount? = null
+
+    /**
+     * 上一次 [youtubeAccessToken] 拿到的權杖：YouTube 拒絕它（401）時要先從 Play 服務的快取清掉，
+     * 不然 `authorize` 會再回同一個。只放記憶體——行程重啟後快取裡的舊權杖清不到，最多多失敗一次
+     * （流程層只重拿一次，之後算「授權已失效」，【重試】可以救回來）。
+     */
+    @Volatile
+    private var lastYoutubeToken: String? = null
 
     override suspend fun beginLink(activity: Activity): LinkOutcome = withContext(io) {
         val credentialManager = CredentialManager.create(context)
@@ -101,11 +110,18 @@ class GisGoogleAuth(
         authClient.getAuthorizationResultFromIntent(data) // 授權失敗會丟 ApiException，讓它往上傳
     }
 
-    override suspend fun youtubeAccessToken(email: String): String = withContext(io) {
+    override suspend fun youtubeAccessToken(email: String, forceRefresh: Boolean): String = withContext(io) {
         val authClient = Identity.getAuthorizationClient(context)
+        val stale = lastYoutubeToken
+        if (forceRefresh && stale != null) {
+            Tasks.await(authClient.clearToken(ClearTokenRequest.builder().setToken(stale).build()))
+            lastYoutubeToken = null
+        }
         val result = Tasks.await(authClient.authorize(youtubeAuthorizationRequest(email)))
         if (result.hasResolution()) throw GoogleAuthRevoked("YouTube 授權已失效，需要使用者重新同意")
-        result.accessToken ?: error("YouTube 授權沒有回傳存取權杖")
+        val token = result.accessToken ?: error("YouTube 授權沒有回傳存取權杖")
+        lastYoutubeToken = token
+        token
     }
 
     override suspend fun unlink(email: String): Unit = withContext(io) {

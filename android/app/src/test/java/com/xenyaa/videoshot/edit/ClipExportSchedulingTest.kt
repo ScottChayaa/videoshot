@@ -201,6 +201,37 @@ class ClipExportSchedulingTest {
     }
 
     @Test
+    fun 恢復時上傳中的照樣排回串上且不改狀態() = runBlocking {
+        val id = repo.startEditTask(draft(), "標題", true, 1_000L)
+        repo.setEditTaskReadyToUpload(id, 0, 2_000L)
+        repo.setEditTaskUploadUrl(id, "https://upload.example/session", 2_500L)
+        repo.setEditTaskProgress(id, EditTaskState.UPLOADING, 40, 3_000L) // app 被殺時停在上傳中
+
+        resumeClipExports(context, repo, 4_000L)
+
+        val task = repo.editTask(id).first()!!
+        assertEquals(EditTaskState.UPLOADING, task.state) // 改回等待中會重新輸出、從 0 重傳
+        assertEquals(40, task.progress)
+        assertEquals("https://upload.example/session", task.uploadUrl)
+        assertTrue(!infos(id).single().state.isFinished)
+    }
+
+    @Test
+    fun 恢復時補排等storyboard() = runBlocking {
+        val id = repo.startEditTask(draft(), "標題", true, 1_000L)
+        repo.setEditTaskReadyToUpload(id, 0, 2_000L)
+        repo.setEditTaskUploaded(id, "abc123def45", 3_000L) // 處理中，但輪詢工作被強制停止清掉了
+
+        resumeClipExports(context, repo, 4_000L)
+
+        assertTrue(infos(id).isEmpty()) // 不排上 clip-export 串
+        val polls = workManager.getWorkInfosForUniqueWork("clip-storyboard-$id").get()
+        assertEquals(1, polls.size)
+        assertTrue(!polls.single().state.isFinished)
+        assertEquals(EditTaskState.PROCESSING, repo.editTask(id).first()!!.state)
+    }
+
+    @Test
     fun 已經排著的不重複排() = runBlocking {
         val id = repo.startEditTask(draft(), "標題", true, 1_000L)
         enqueueClipExport(context, id)

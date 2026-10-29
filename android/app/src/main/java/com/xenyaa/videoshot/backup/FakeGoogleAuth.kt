@@ -27,6 +27,9 @@ class FakeGoogleAuth(initiallyLinked: LinkedGoogleAccount? = null) : GoogleAuth 
     /** `beginYoutubeAuth`／`youtubeAccessToken` 被要求過的 email，依呼叫順序。 */
     val youtubeRequestedEmails = mutableListOf<String>()
 
+    /** `youtubeAccessToken` 每次收到的 `forceRefresh`，依呼叫順序。 */
+    val youtubeForceRefreshes = mutableListOf<Boolean>()
+
     override suspend fun beginLink(activity: Activity): LinkOutcome {
         failNextBeginLink?.let { failNextBeginLink = null; throw it }
         val outcome = nextLinkOutcome ?: LinkOutcome.Linked(LinkedGoogleAccount("測試用戶", "test@example.com"))
@@ -56,8 +59,9 @@ class FakeGoogleAuth(initiallyLinked: LinkedGoogleAccount? = null) : GoogleAuth 
         youtubeRevoked = false
     }
 
-    override suspend fun youtubeAccessToken(email: String): String {
+    override suspend fun youtubeAccessToken(email: String, forceRefresh: Boolean): String {
         youtubeRequestedEmails += email
+        youtubeForceRefreshes += forceRefresh
         if (!youtubeGranted || youtubeRevoked) throw GoogleAuthRevoked("YouTube 授權已失效，需要使用者重新同意")
         return "fake-youtube-token"
     }

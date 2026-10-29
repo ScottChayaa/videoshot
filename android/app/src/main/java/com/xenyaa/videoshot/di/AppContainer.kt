@@ -14,6 +14,14 @@ import com.xenyaa.videoshot.edit.enqueueClipExport
 import com.xenyaa.videoshot.edit.deleteEditTaskDir
 import com.xenyaa.videoshot.edit.deleteOrphanEditDirs
 import com.xenyaa.videoshot.edit.resumeClipExports
+import com.xenyaa.videoshot.publish.ClipUploadRunner
+import com.xenyaa.videoshot.publish.OkHttpYoutubeUploader
+import com.xenyaa.videoshot.publish.StoryboardPoller
+import com.xenyaa.videoshot.publish.awaitValidatedNetwork
+import com.xenyaa.videoshot.publish.enqueueStoryboardPoll
+import com.xenyaa.videoshot.backup.GoogleAuthRevoked
+import com.xenyaa.videoshot.data.repo.model.EditTaskState
+import java.util.concurrent.TimeUnit
 import com.xenyaa.videoshot.media.MediaLibrary
 import com.xenyaa.videoshot.media.MediaStoreSaver
 import com.xenyaa.videoshot.media.MediaStoreLibrary
@@ -555,10 +563,67 @@ class AppContainer(context: Context) : AppRootDeps {
             saver = MediaStoreSaver(appContext.contentResolver),
             notifier = clipExportNotifier,
             canReadMedia = { mediaAccessOf(Build.VERSION.SDK_INT, clipDeps.grantedMediaPermissions()) != MediaAccess.DENIED },
-            dirFor = { taskId -> File(appContext.filesDir, "edits/$taskId") },
+            dirFor = ::editTaskDir,
             freeBytes = { StatFs(appContext.filesDir.path).availableBytes },
             now = { clipDeps.now() },
         )
+    }
+
+    /** 一個剪輯任務的工作資料夾（成品 `out.mp4` 在裡面）；輸出與上傳必須是同一個。 */
+    private fun editTaskDir(taskId: Long): File = File(appContext.filesDir, "edits/$taskId")
+
+    /**
+     * 上傳用的 HTTP：共用 [httpClient] 的連線池與執行緒池，只把逾時拉長——一段 8 MiB，
+     * 預設的 10 秒在慢的上行網路寫不完、也等不到 YouTube 收完一段的回應。
+     */
+    private val uploadHttpClient: OkHttpClient by lazy {
+        httpClient.newBuilder()
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .build()
+    }
+
+    /** 剪輯任務上傳到 YouTube 的流程（輸出完變上傳中之後，同一個背景工作接著呼叫它）。 */
+    val clipUploadRunner: ClipUploadRunner by lazy {
+        ClipUploadRunner(
+            repo = cacheRepo,
+            uploader = OkHttpYoutubeUploader(uploadHttpClient, Dispatchers.IO),
+            token = { forceRefresh ->
+                // 用帳號頁連結的同一個 Google 帳號；中斷連結後當成授權失效
+                val email = settings.linkedAccount.first()?.email ?: throw GoogleAuthRevoked("沒有連結")
+                googleAuth.youtubeAccessToken(email, forceRefresh)
+            },
+            awaitNetwork = { timeoutMs -> awaitValidatedNetwork(appContext, timeoutMs) },
+            schedulePoll = { id, delayMs -> enqueueStoryboardPoll(appContext, id, delayMs) },
+            notifier = clipExportNotifier,
+            dirFor = ::editTaskDir,
+            now = { clipDeps.now() },
+        )
+    }
+
+    /** 上傳完之後等 YouTube 產生縮圖（背景工作 `StoryboardPollWorker` 呼叫它）。 */
+    val storyboardPoller: StoryboardPoller by lazy {
+        StoryboardPoller(
+            repo = cacheRepo,
+            youtube = youtube,
+            notifier = clipExportNotifier,
+            schedule = { id, delayMs -> enqueueStoryboardPoll(appContext, id, delayMs) },
+            now = { clipDeps.now() },
+        )
+    }
+
+    /**
+     * `ClipExportWorker` 跑一個任務：先輸出（有勾自動上傳的輸出完變上傳中），再上傳——同一個工作、
+     * 同一個前景服務，上傳完 `clip-export` 串才輪到下一支。兩個 runner 都只處理自己那一段的狀態，
+     * 所以重開後從上傳中開始的任務會直接跳過輸出。
+     */
+    suspend fun runClipTask(taskId: Long) {
+        clipExportRunner.run(taskId)
+        // 輸出完到上傳的第一段之間，進度通知還寫著「輸出影片中 100%」：先換成上傳中
+        cacheRepo.editTask(taskId).first()
+            ?.takeIf { it.state == EditTaskState.UPLOADING }
+            ?.let { clipExportNotifier.progress(it, it.progress) }
+        clipUploadRunner.run(taskId)
     }
 
     override val haptics: Haptics by lazy { SystemHaptics(appContext) }

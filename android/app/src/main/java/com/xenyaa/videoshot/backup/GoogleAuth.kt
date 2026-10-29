@@ -53,8 +53,11 @@ interface GoogleAuth {
     /** 使用者從 [YoutubeAuthOutcome.NeedsConsent] 的系統畫面回來後呼叫；授權失敗往外丟。 */
     suspend fun finishYoutubeAuth(data: Intent)
 
-    /** 背景可呼叫：拿 `youtube.upload` 的存取權杖。被撤銷或沒同意過丟 [GoogleAuthRevoked]。 */
-    suspend fun youtubeAccessToken(email: String): String
+    /**
+     * 背景可呼叫：拿 `youtube.upload` 的存取權杖。被撤銷或沒同意過丟 [GoogleAuthRevoked]。
+     * [forceRefresh]：上一個權杖被 YouTube 拒絕了（401），先清掉快取再拿，不要回同一個。
+     */
+    suspend fun youtubeAccessToken(email: String, forceRefresh: Boolean = false): String
 
     /**
      * 撤銷授權（規格「中斷連結」，破壞性樣式按鈕）。

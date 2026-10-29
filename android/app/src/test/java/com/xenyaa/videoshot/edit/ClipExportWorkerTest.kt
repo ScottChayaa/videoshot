@@ -58,7 +58,7 @@ class ClipExportWorkerTest {
     ) = TestListenableWorkerBuilder<ClipExportWorker>(context)
         .setInputData(workDataOf("task_id" to taskId))
         .setForegroundUpdater(updater)
-        .setWorkerFactory(ClipExportWorkerFactory(repo, ::foregroundInfo, runTask) { 5_000L })
+        .setWorkerFactory(ClipExportWorkerFactory(repo, ::foregroundInfo, runTask, poll = {}) { 5_000L })
         .build()
 
     @Test
@@ -84,6 +84,36 @@ class ClipExportWorkerTest {
         val task = repo.editTask(id).first()!!
         assertEquals(EditTaskState.QUEUED, task.state)
         assertEquals(0, task.progress)
+    }
+
+    @Test
+    fun 上傳中的任務開不了前景服務時留在上傳中() = runTest {
+        val id = repo.startEditTask(draft(), "標題", true, 1_000L)
+        repo.setEditTaskReadyToUpload(id, 0, 2_000L)
+        repo.setEditTaskProgress(id, EditTaskState.UPLOADING, 40, 3_000L)
+        val refuse = ForegroundUpdater { _, _, _ ->
+            Futures.immediateFailedFuture<Void?>(IllegalStateException("ForegroundServiceStartNotAllowedException"))
+        }
+
+        assertEquals(ListenableWorker.Result.success(), worker(id, refuse).doWork())
+
+        assertTrue(ran.isEmpty())
+        val task = repo.editTask(id).first()!!
+        assertEquals(EditTaskState.UPLOADING, task.state) // 退回等待中會重新輸出
+        assertEquals(40, task.progress)
+    }
+
+    @Test
+    fun 上傳中的任務會被執行() = runTest {
+        val id = repo.startEditTask(draft(), "標題", true, 1_000L)
+        repo.setEditTaskReadyToUpload(id, 0, 2_000L)
+        var foregrounded = 0
+        val counting = ForegroundUpdater { _, _, _ -> foregrounded++; Futures.immediateFuture<Void?>(null) }
+
+        assertEquals(ListenableWorker.Result.success(), worker(id, counting).doWork())
+
+        assertEquals(listOf(id), ran)
+        assertEquals(1, foregrounded)
     }
 
     @Test
@@ -171,28 +201,6 @@ class ClipExportWorkerTest {
     }
 
     @Test
-    fun 上傳完成通知的標題與略過說明() {
-        val notifier = AndroidClipExportNotifier(context)
-        val t = task(skipped = 2).copy(state = EditTaskState.DONE)
-        notifier.done(t)
-
-        val n = shadowOf(manager).getNotification(resultNotificationId(t.id))
-        assertEquals("已完成，點一下開始取圖", n.title())
-        assertEquals("videoshot 2026/10/20・有 2 個素材已不存在，已略過", n.text())
-        assertEquals(CHANNEL_RESULT, n.channelId)
-
-        val plain = task().copy(state = EditTaskState.DONE)
-        notifier.done(plain)
-        assertEquals("videoshot 2026/10/20", shadowOf(manager).getNotification(resultNotificationId(plain.id)).text())
-
-        // 停在那個任務的導出畫面時不跳
-        val watched = task().copy(state = EditTaskState.DONE)
-        notifier.viewingTaskId = watched.id
-        notifier.done(watched)
-        assertNull(shadowOf(manager).getNotification(resultNotificationId(watched.id)))
-    }
-
-    @Test
     fun 正在看那一支的導出畫面時不跳結果通知_舊的也收掉() {
         val notifier = AndroidClipExportNotifier(context)
         val watched = task()
@@ -250,11 +258,11 @@ class ClipExportWorkerTest {
 
     @Test
     fun 前景服務類型依版本選() {
-        assertEquals(ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING, foregroundServiceTypeFor(35))
-        assertEquals(ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING, foregroundServiceTypeFor(37))
-        assertEquals(ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC, foregroundServiceTypeFor(34))
-        assertEquals(ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC, foregroundServiceTypeFor(29))
-        assertNull(foregroundServiceTypeFor(28))
+        assertEquals(ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING, foregroundServiceTypeFor(35, false))
+        assertEquals(ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING, foregroundServiceTypeFor(37, false))
+        assertEquals(ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC, foregroundServiceTypeFor(34, false))
+        assertEquals(ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC, foregroundServiceTypeFor(29, false))
+        assertNull(foregroundServiceTypeFor(28, false))
 
         val notifier = AndroidClipExportNotifier(context)
         assertEquals(ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC, notifier.foregroundInfo(task(), 33).foregroundServiceType)

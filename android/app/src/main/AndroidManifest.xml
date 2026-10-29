@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 上傳斷網時等網路回來（registerDefaultNetworkCallback）；WorkManager 也會合併進來，這裡寫明是自己要用 -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- 第二步長按跳播的 15 ms 回饋（規格第五節）。一般權限，不需要執行期詢問 -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- 剪輯選素材（規格第十九節）；不用系統挑選器，因為它給的 URI 不能刪除 -->

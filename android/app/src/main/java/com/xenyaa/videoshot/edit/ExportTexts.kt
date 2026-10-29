@@ -1,6 +1,7 @@
 package com.xenyaa.videoshot.edit
 
 import com.xenyaa.videoshot.core.timeline.ClipOrientation
+import com.xenyaa.videoshot.data.repo.model.EditTaskStep
 import com.xenyaa.videoshot.ui.clip.formatDuration
 import java.util.Locale
 
@@ -63,3 +64,10 @@ fun doneNotificationText(title: String, skipped: Int): String = "$title・點一
 
 /** 已存進相簿的通知內文：「〈標題〉」，有略過的素材再接說明。 */
 fun savedNotificationText(title: String, skipped: Int): String = "$title${skippedSuffix(skipped)}"
+
+/** 失敗的標題（通知與導出中畫面共用），依失敗的步驟；舊資料沒記步驟當成輸出。 */
+fun failedTitle(step: EditTaskStep?): String = when (step) {
+    EditTaskStep.UPLOAD -> "影片上傳失敗"
+    EditTaskStep.STORYBOARD -> "YouTube 處理失敗"
+    EditTaskStep.RENDER, null -> "影片輸出失敗"
+}

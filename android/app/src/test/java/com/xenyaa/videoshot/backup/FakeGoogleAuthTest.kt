@@ -89,6 +89,16 @@ class FakeGoogleAuthTest {
     }
 
     @Test
+    fun youtubeAccessToken記下是否要求重拿() = runTest {
+        val auth = FakeGoogleAuth().apply { youtubeGranted = true }
+
+        auth.youtubeAccessToken("ming@example.com")
+        auth.youtubeAccessToken("ming@example.com", forceRefresh = true)
+
+        assertEquals(listOf(false, true), auth.youtubeForceRefreshes)
+    }
+
+    @Test
     fun 沒同意過或被撤銷後youtubeAccessToken丟GoogleAuthRevoked() = runTest {
         val auth = FakeGoogleAuth()
         assertTrue(runCatching { auth.youtubeAccessToken("ming@example.com") }.exceptionOrNull() is GoogleAuthRevoked)
