@@ -1,11 +1,14 @@
 package com.xenyaa.videoshot.ui.clip
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import com.xenyaa.videoshot.data.repo.CacheRepo
 import com.xenyaa.videoshot.media.MediaFilter
 import com.xenyaa.videoshot.media.MediaItem
 import com.xenyaa.videoshot.media.MediaLibrary
 import com.xenyaa.videoshot.media.MediaThumbLoader
+import com.xenyaa.videoshot.publish.UploadAuthStep
 
 /**
  * 剪輯功能用得到的組裝點。窄介面，理由同 `AppRootDeps`：測試不必為了選素材畫面造真的
@@ -32,6 +35,19 @@ interface ClipDeps {
      * （`AppContainer`）會覆寫，測試用這裡記下被排的任務編號。
      */
     fun enqueueExport(taskId: Long) = Unit
+
+    /** 排一次等 YouTube 產生縮圖的查詢（處理中的任務按【重試】時呼叫）。預設什麼都不做，`AppContainer` 覆寫成馬上查。 */
+    fun enqueueStoryboardPoll(taskId: Long) = Unit
+
+    /**
+     * 上傳前的授權（見 `UploadAuthFlow`）：前景才能呼叫。預設直接通過，給既有的測試替身用；`AppContainer` 覆寫。
+     * 回兩種 `Needs…` 時由畫面跳出系統畫面，回來後呼叫 [afterUploadAuthConsent]。
+     */
+    suspend fun beginUploadAuth(activity: Activity): UploadAuthStep = UploadAuthStep.Granted
+
+    /** 使用者在 [beginUploadAuth] 跳出的系統畫面按了同意：把帶回的 [data] 交給 [step] 那一步，回下一步。 */
+    suspend fun afterUploadAuthConsent(activity: Activity, step: UploadAuthStep, data: Intent): UploadAuthStep =
+        UploadAuthStep.Granted
 
     /** 這個任務的輸出工作正在跑才取消它，等取消真的套用才回來；排隊中的不動（見 `cancelClipExport`）。預設什麼都不做，`AppContainer` 覆寫。 */
     suspend fun cancelExport(taskId: Long) = Unit

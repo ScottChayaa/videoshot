@@ -17,11 +17,14 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** 【重試】依失敗的步驟回到對的狀態，只有要跑工作的（等待中、上傳中）才排工作。 */
+/** 【重試】依失敗的步驟回到對的狀態：等待中、上傳中排工作，處理中排輪詢；上傳那一步失敗要先授權。 */
 class RetryExportTaskTest {
 
     private val repo = FakeCacheRepo()
     private val enqueued = mutableListOf<Long>()
+    private val polled = mutableListOf<Long>()
+    private var authorizeCalls = 0
+    private var denied = 0
 
     private val deps = object : ClipDeps {
         override val mediaLibrary = object : MediaLibrary {
@@ -33,6 +36,7 @@ class RetryExportTaskTest {
         override val cacheRepo: CacheRepo = repo
         override fun now() = 500L
         override fun enqueueExport(taskId: Long) { enqueued += taskId }
+        override fun enqueueStoryboardPoll(taskId: Long) { polled += taskId }
     }
 
     private val draft = newClipDraft(
@@ -46,32 +50,68 @@ class RetryExportTaskTest {
         return id
     }
 
+    private suspend fun retry(id: Long, granted: Boolean = true) =
+        retryExportTask(deps, id, authorize = { authorizeCalls++; granted }, onAuthDenied = { denied++ })
+
     @Test fun 輸出失敗回到等待中並排工作() = runTest {
         val id = failedAt(EditTaskStep.RENDER)
-        retryExportTask(deps, id)
+        retry(id)
         assertEquals(EditTaskState.QUEUED, repo.editTask(id).first()!!.state)
         assertEquals(listOf(id), enqueued)
     }
 
     @Test fun 上傳失敗回到上傳中並排工作() = runTest {
         val id = failedAt(EditTaskStep.UPLOAD)
-        retryExportTask(deps, id)
+        retry(id)
         assertEquals(EditTaskState.UPLOADING, repo.editTask(id).first()!!.state)
         assertEquals(listOf(id), enqueued)
     }
 
-    @Test fun 縮圖等待失敗回到處理中且先不排工作() = runTest {
+    @Test fun storyboard步驟重試排輪詢不排串() = runTest {
         val id = failedAt(EditTaskStep.STORYBOARD)
-        retryExportTask(deps, id)
+        retry(id)
         assertEquals(EditTaskState.PROCESSING, repo.editTask(id).first()!!.state)
         assertEquals(emptyList<Long>(), enqueued)
+        assertEquals(listOf(id), polled)
+        assertEquals(0, authorizeCalls) // 只重新等縮圖，不重傳，不必授權
+    }
+
+    @Test fun 上傳步驟失敗重試前先授權() = runTest {
+        val id = failedAt(EditTaskStep.UPLOAD)
+        var stateWhenAsked: EditTaskState? = null
+        retryExportTask(
+            deps, id,
+            authorize = { stateWhenAsked = repo.editTask(id).first()!!.state; true },
+            onAuthDenied = { denied++ },
+        )
+        assertEquals(EditTaskState.FAILED, stateWhenAsked) // 授權通過之前不改狀態
+        assertEquals(EditTaskState.UPLOADING, repo.editTask(id).first()!!.state)
+        assertEquals(listOf(id), enqueued)
+        assertEquals(0, denied)
+    }
+
+    @Test fun 上傳步驟授權被拒就維持失敗並提示() = runTest {
+        val id = failedAt(EditTaskStep.UPLOAD)
+        retry(id, granted = false)
+        val task = repo.editTask(id).first()!!
+        assertEquals(EditTaskState.FAILED, task.state)
+        assertEquals(EditTaskStep.UPLOAD, task.failedStep)
+        assertEquals(emptyList<Long>(), enqueued)
+        assertEquals(1, denied)
+    }
+
+    @Test fun 輸出步驟失敗重試不授權() = runTest {
+        retry(failedAt(EditTaskStep.RENDER))
+        assertEquals(0, authorizeCalls)
     }
 
     @Test fun 不是失敗的任務什麼都不動也不排工作() = runTest {
         val id = failedAt(null) // 還是等待中
-        retryExportTask(deps, id)
-        retryExportTask(deps, 999)
+        retry(id)
+        retry(999)
         assertEquals(EditTaskState.QUEUED, repo.editTask(id).first()!!.state)
         assertEquals(emptyList<Long>(), enqueued)
+        assertEquals(emptyList<Long>(), polled)
+        assertEquals(0, authorizeCalls)
     }
 }

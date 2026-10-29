@@ -17,6 +17,8 @@ import com.xenyaa.videoshot.edit.resumeClipExports
 import com.xenyaa.videoshot.publish.ClipUploadRunner
 import com.xenyaa.videoshot.publish.OkHttpYoutubeUploader
 import com.xenyaa.videoshot.publish.StoryboardPoller
+import com.xenyaa.videoshot.publish.UploadAuthFlow
+import com.xenyaa.videoshot.publish.UploadAuthStep
 import com.xenyaa.videoshot.publish.awaitValidatedNetwork
 import com.xenyaa.videoshot.publish.enqueueStoryboardPoll
 import com.xenyaa.videoshot.backup.GoogleAuthRevoked
@@ -522,6 +524,13 @@ class AppContainer(context: Context) : AppRootDeps {
         val am = appContext.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
         val mediaBudgetBytes = am.memoryClass.toLong() * 1024 * 1024 / 8
         val mediaEntries = (mediaBudgetBytes / (256L * 256 * 4)).toInt().coerceIn(60, 200)
+        // 沒連結先走帳號頁同一套連結（成功時寫進 settings.linkedAccount），再要 youtube.upload
+        val uploadAuth = UploadAuthFlow(
+            auth = googleAuth,
+            linkedEmail = { settings.linkedAccount.first()?.email },
+            beginLink = accountDeps::beginLink,
+            finishLink = accountDeps::finishLink,
+        )
         object : ClipDeps {
             override val mediaLibrary: MediaLibrary = MediaStoreLibrary(resolver, Dispatchers.IO)
             override val mediaThumbLoader = MediaThumbLoader(
@@ -536,6 +545,11 @@ class AppContainer(context: Context) : AppRootDeps {
             override val cacheRepo: CacheRepo get() = this@AppContainer.cacheRepo
             override fun now(): Long = System.currentTimeMillis()
             override fun enqueueExport(taskId: Long) = enqueueClipExport(appContext, taskId)
+            override fun enqueueStoryboardPoll(taskId: Long) =
+                com.xenyaa.videoshot.publish.enqueueStoryboardPoll(appContext, taskId, delayMs = 0L)
+            override suspend fun beginUploadAuth(activity: Activity): UploadAuthStep = uploadAuth.begin(activity)
+            override suspend fun afterUploadAuthConsent(activity: Activity, step: UploadAuthStep, data: Intent): UploadAuthStep =
+                uploadAuth.afterConsent(activity, step, data)
             override suspend fun cancelExport(taskId: Long) = cancelClipExport(appContext, taskId)
             override suspend fun resumeExports() = resumeClipExports(appContext, cacheRepo, now())
             override suspend fun deleteExportFiles(taskId: Long) =

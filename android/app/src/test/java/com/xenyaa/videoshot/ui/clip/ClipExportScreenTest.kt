@@ -22,7 +22,17 @@ import com.xenyaa.videoshot.core.timeline.EditHistory
 import com.xenyaa.videoshot.core.timeline.Segment
 import com.xenyaa.videoshot.core.timeline.SourceKind
 import com.xenyaa.videoshot.core.timeline.Timeline
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.isToggleable
+import com.xenyaa.videoshot.core.timeline.newClipDraft
+import com.xenyaa.videoshot.data.repo.CacheRepo
+import com.xenyaa.videoshot.data.repo.FakeCacheRepo
 import com.xenyaa.videoshot.data.repo.model.EditTask
+import com.xenyaa.videoshot.media.MediaFilter
+import com.xenyaa.videoshot.media.MediaLibrary
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import com.xenyaa.videoshot.data.repo.model.EditTaskState
 import com.xenyaa.videoshot.media.MediaItem
 import com.xenyaa.videoshot.media.MediaThumbLoader
@@ -247,5 +257,80 @@ class ClipExportScreenTest {
 
         compose.onNodeWithContentDescription("返回").performClick()
         assertEquals(true, back)
+    }
+
+    // ── 導覽入口（ClipExportRoute）：勾選框打勾前先授權 ──
+
+    private val repo = FakeCacheRepo()
+    private val routeDeps = object : ClipDeps {
+        override val mediaLibrary = object : MediaLibrary {
+            override suspend fun list(filter: MediaFilter): List<MediaItem> = emptyList()
+        }
+        override val mediaThumbLoader = loader
+        override fun sdkInt() = 34
+        override fun grantedMediaPermissions() = emptySet<String>()
+        override val cacheRepo: CacheRepo = repo
+        override fun now() = 500L
+    }
+
+    private fun showRoute(autoUpload: Boolean, granted: Boolean, authorizeCalls: MutableList<Unit>, notices: MutableList<String>): Long {
+        val id = runBlocking {
+            repo.startEditTask(newClipDraft(ClipOrientation.PORTRAIT, listOf(source(7))), "我的旅行", autoUpload, 100)
+        }
+        compose.setContent {
+            VideoshotTheme {
+                ClipExportRoute(
+                    taskId = id, deps = routeDeps, scope = rememberCoroutineScope(),
+                    onBack = {}, onGone = {}, onPlay = {},
+                    authorize = { authorizeCalls += Unit; granted },
+                    onNotice = { notices += it },
+                )
+            }
+        }
+        return id
+    }
+
+    private fun autoUploadOf(id: Long) = runBlocking { repo.editTask(id).first()!!.autoUpload }
+
+    @Test
+    fun 授權被拒時勾選框維持沒勾並提示() {
+        val calls = mutableListOf<Unit>()
+        val notices = mutableListOf<String>()
+        val id = showRoute(autoUpload = false, granted = false, authorizeCalls = calls, notices = notices)
+
+        compose.onNodeWithText("完成後自動上傳到 YouTube").performClick()
+        compose.waitForIdle()
+
+        assertEquals(1, calls.size)
+        assertEquals(false, autoUploadOf(id))
+        compose.onNode(isToggleable()).assertIsOff()
+        assertEquals(listOf("沒有取得 YouTube 授權，這支不會上傳"), notices)
+    }
+
+    @Test
+    fun 授權通過才打勾() {
+        val calls = mutableListOf<Unit>()
+        val notices = mutableListOf<String>()
+        val id = showRoute(autoUpload = false, granted = true, authorizeCalls = calls, notices = notices)
+
+        compose.onNodeWithText("完成後自動上傳到 YouTube").performClick()
+        compose.waitForIdle()
+
+        assertEquals(1, calls.size)
+        assertEquals(true, autoUploadOf(id))
+        assertEquals(emptyList<String>(), notices)
+    }
+
+    @Test
+    fun 取消打勾不用授權() {
+        val calls = mutableListOf<Unit>()
+        val notices = mutableListOf<String>()
+        val id = showRoute(autoUpload = true, granted = false, authorizeCalls = calls, notices = notices)
+
+        compose.onNodeWithText("完成後自動上傳到 YouTube").performClick()
+        compose.waitForIdle()
+
+        assertEquals(0, calls.size)
+        assertEquals(false, autoUploadOf(id))
     }
 }

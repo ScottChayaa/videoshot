@@ -60,6 +60,7 @@ import com.xenyaa.videoshot.core.timeline.ClipOrientation
 import com.xenyaa.videoshot.data.repo.CacheRepo
 import com.xenyaa.videoshot.data.repo.model.EditTask
 import com.xenyaa.videoshot.data.repo.model.EditTaskState
+import com.xenyaa.videoshot.data.repo.model.EditTaskStep
 import com.xenyaa.videoshot.media.MediaThumbLoader
 import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.TopBarNav
@@ -70,6 +71,7 @@ import com.xenyaa.videoshot.ui.theme.focusRing
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 /** [ClipExportRoute] 用的包裝：區分「還沒讀到」（沒有這個物件）與「讀到了、任務已經不在」（[task] 是 null）。 */
@@ -81,6 +83,7 @@ private class ExportTaskHolder(val task: EditTask?)
  * 取消的順序見 [cancelExportTask]。
  * [scope] 要比這個畫面活得久（`AppRoot` 的 scope）：刪掉任務後這個畫面就離開組合了，補排不能跟著被取消。
  * 刪掉任務之後 [onGone] 由任務流變成 null 觸發，這裡不另外呼叫，避免退兩層。
+ * 勾選框打勾、上傳失敗後【重試】都先 [authorize]（見 [YoutubeAuthorizer]）；沒拿到授權用 [onNotice] 提示。
  */
 @Composable
 fun ClipExportRoute(
@@ -90,6 +93,8 @@ fun ClipExportRoute(
     onBack: () -> Unit,
     onGone: () -> Unit,
     onPlay: () -> Unit,
+    authorize: suspend () -> Boolean,
+    onNotice: (String) -> Unit,
 ) {
     val repo: CacheRepo = deps.cacheRepo
     // 停在這個畫面時結果直接看得到，不另外跳通知（橫幅會蓋住頂欄）；退到背景或離開就恢復
@@ -108,9 +113,18 @@ fun ClipExportRoute(
         task = task,
         thumbLoader = deps.mediaThumbLoader,
         onBack = onBack,
-        onAutoUploadChange = { on -> scope.launch { guarded("改自動上傳") { repo.setEditTaskAutoUpload(taskId, on, deps.now()) } } },
+        onAutoUploadChange = { on ->
+            scope.launch {
+                // 取消打勾不用授權；打勾前先授權，沒拿到就維持沒勾
+                if (on && !authorize()) {
+                    onNotice(NO_AUTH_NO_UPLOAD)
+                    return@launch
+                }
+                guarded("改自動上傳") { repo.setEditTaskAutoUpload(taskId, on, deps.now()) }
+            }
+        },
         onCancel = { scope.launch { cancelExportTask(deps, taskId) } },
-        onRetry = { scope.launch { retryExportTask(deps, taskId) } },
+        onRetry = { scope.launch { retryExportTask(deps, taskId, authorize) { onNotice(NO_AUTH_CANT_UPLOAD) } } },
         onPlay = onPlay,
     )
 }
@@ -151,14 +165,33 @@ internal suspend fun deleteExportTask(deps: ClipDeps, taskId: Long) {
     }
 }
 
+/** 【開始】或勾選框打勾時沒拿到 YouTube 授權：任務照建（或維持）但不上傳。 */
+const val NO_AUTH_NO_UPLOAD = "沒有取得 YouTube 授權，這支不會上傳"
+
+/** 上傳那一步失敗後按【重試】時沒拿到 YouTube 授權：任務維持失敗。 */
+const val NO_AUTH_CANT_UPLOAD = "沒有取得 YouTube 授權，無法上傳"
+
 /**
  * 重試一個失敗的任務：依它失敗的步驟回到那一步的開頭（導出中畫面與剪輯頁的任務列共用）。
- * 回到等待中或上傳中才重新排工作；回到處理中（等縮圖）的輪詢、以及上傳前的授權還沒接上。
+ * 回到等待中或上傳中重新排工作，回到處理中（等縮圖）排一次查詢。
+ * 上傳那一步失敗的先 [authorize]，通過了才改狀態（先改的話被拒會留下沒排工作的上傳中任務）；
+ * 被拒就什麼都不動、呼叫 [onAuthDenied]。
  */
-internal suspend fun retryExportTask(deps: ClipDeps, taskId: Long) {
+internal suspend fun retryExportTask(
+    deps: ClipDeps,
+    taskId: Long,
+    authorize: suspend () -> Boolean,
+    onAuthDenied: () -> Unit,
+) {
     guarded("重試輸出") {
+        val failed = deps.cacheRepo.editTask(taskId).first() ?: return@guarded
+        if (failed.state == EditTaskState.FAILED && failed.failedStep == EditTaskStep.UPLOAD && !authorize()) {
+            onAuthDenied()
+            return@guarded
+        }
         when (deps.cacheRepo.retryEditTask(taskId, deps.now())) {
             EditTaskState.QUEUED, EditTaskState.UPLOADING -> deps.enqueueExport(taskId)
+            EditTaskState.PROCESSING -> deps.enqueueStoryboardPoll(taskId)
             else -> Unit
         }
     }

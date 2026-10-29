@@ -77,6 +77,9 @@ import com.xenyaa.videoshot.ui.clip.ClipHomeScreen
 import com.xenyaa.videoshot.ui.clip.cancelExportTask
 import com.xenyaa.videoshot.ui.clip.deleteExportTask
 import com.xenyaa.videoshot.ui.clip.retryExportTask
+import com.xenyaa.videoshot.ui.clip.NO_AUTH_CANT_UPLOAD
+import com.xenyaa.videoshot.ui.clip.NO_AUTH_NO_UPLOAD
+import com.xenyaa.videoshot.ui.clip.rememberYoutubeAuthorizer
 import com.xenyaa.videoshot.data.repo.model.EditTask
 import com.xenyaa.videoshot.ui.clip.ClipResultRoute
 import com.xenyaa.videoshot.ui.clip.toSummary
@@ -259,6 +262,9 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
             accountVm.finishLink(data)
         }
     }
+
+    // 上傳前的 Google 連結＋YouTube 授權：【開始】、導出中畫面的勾選框打勾、上傳失敗後的【重試】共用一份
+    val youtubeAuthorizer = rememberYoutubeAuthorizer(container.clipDeps)
 
     // 目前打開的資料夾（分類分頁的堆疊裡最後一個 Dest.Folder）。key 帶 id：換一個資料夾
     // 就是換一個 VM，否則會看到上一個資料夾的內容
@@ -800,14 +806,16 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
             // 等通知權限的對話框回來之後才開始建立任務，標題先放在這裡
             var pendingExportTitle by remember { mutableStateOf<String?>(null) }
 
-            // 建立輸出任務（同時清掉草稿）→ 排工作 → 換成導出中畫面。建立失敗：留在編輯畫面、抽屜不關、草稿還在
+            // 先要 YouTube 授權 → 建立輸出任務（同時清掉草稿）→ 排工作 → 換成導出中畫面。建立失敗：留在編輯畫面、抽屜不關、草稿還在。
+            // 授權被拒照樣建任務，只是不打勾自動上傳
             fun startExport(title: String) {
                 val draft = editorVm.state.value.draft ?: return
                 if (exportStarting) return
                 exportStarting = true
                 scope.launch {
                     try {
-                        val taskId = container.clipDeps.cacheRepo.startEditTask(draft, title, autoUpload = true, now = container.clipDeps.now())
+                        val autoUpload = youtubeAuthorizer.authorize()
+                        val taskId = container.clipDeps.cacheRepo.startEditTask(draft, title, autoUpload = autoUpload, now = container.clipDeps.now())
                         try {
                             container.clipDeps.enqueueExport(taskId)
                         } catch (e: CancellationException) {
@@ -821,6 +829,7 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
                             exportSheetOpen = false
                             nav = nav.replaceTop(Dest.ClipExport(taskId))
                         }
+                        if (!autoUpload) scope.launch { snackbarHostState.showSnackbar(NO_AUTH_NO_UPLOAD) }
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
@@ -877,14 +886,19 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
         }
 
         // 導出中畫面：全螢幕、沒有底部導覽；任務被取消（刪掉）就退回剪輯頁，播放成品進 Dest.ClipResult
-        is Dest.ClipExport -> ClipExportRoute(
-            taskId = dest.taskId,
-            deps = container.clipDeps,
-            scope = scope,
-            onBack = { nav.pop()?.let { nav = it } },
-            onGone = { if (nav.current is Dest.ClipExport) nav.pop()?.let { nav = it } },
-            onPlay = { nav = nav.push(Dest.ClipResult(dest.taskId)) },
-        )
+        is Dest.ClipExport -> Box(Modifier.fillMaxSize()) {
+            ClipExportRoute(
+                taskId = dest.taskId,
+                deps = container.clipDeps,
+                scope = scope,
+                onBack = { nav.pop()?.let { nav = it } },
+                onGone = { if (nav.current is Dest.ClipExport) nav.pop()?.let { nav = it } },
+                onPlay = { nav = nav.push(Dest.ClipResult(dest.taskId)) },
+                authorize = youtubeAuthorizer::authorize,
+                onNotice = { message -> scope.launch { snackbarHostState.showSnackbar(message) } },
+            )
+            SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
+        }
 
         // 成品播放：全螢幕、沒有底部導覽（同 Dest.Play）；返回回到導出中畫面
         is Dest.ClipResult -> ClipResultRoute(
@@ -1213,7 +1227,13 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
                         onOpenTask = { taskId -> nav = nav.push(Dest.ClipExport(taskId)) },
                         onCancelTask = { taskId -> scope.launch { cancelExportTask(container.clipDeps, taskId) } },
                         onDeleteTask = { taskId -> scope.launch { deleteExportTask(container.clipDeps, taskId) } },
-                        onRetryTask = { taskId -> scope.launch { retryExportTask(container.clipDeps, taskId) } },
+                        onRetryTask = { taskId ->
+                            scope.launch {
+                                retryExportTask(container.clipDeps, taskId, youtubeAuthorizer::authorize) {
+                                    scope.launch { snackbarHostState.showSnackbar(NO_AUTH_CANT_UPLOAD) }
+                                }
+                            }
+                        },
                         onOpenDraft = {
                             clipDraftSummary?.let { draft ->
                                 clipEditorRun++
