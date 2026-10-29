@@ -119,6 +119,7 @@ class ClipUploadRunnerTest {
     private val notifier = FakeNotifier()
     private val tokenScript = ArrayDeque<suspend () -> String>()
     private var tokenCalls = 0
+    private val tokenForceRefresh = mutableListOf<Boolean>()
     private val networkWaits = mutableListOf<Long>()
     private var networkBack = true
     private val polls = mutableListOf<Pair<Long, Long>>()
@@ -127,8 +128,9 @@ class ClipUploadRunnerTest {
     private fun runner() = ClipUploadRunner(
         repo = repo,
         uploader = uploader,
-        token = {
+        token = { forceRefresh ->
             tokenCalls++
+            tokenForceRefresh += forceRefresh
             tokenScript.removeFirstOrNull()?.invoke() ?: "tok"
         },
         awaitNetwork = { timeout ->
@@ -295,7 +297,7 @@ class ClipUploadRunnerTest {
 
         runner().run(id)
 
-        assertEquals(6, networkWaits.size)
+        assertEquals(5, networkWaits.size) // 第 6 次斷線直接失敗，不再等網路
         assertEquals(listOf(1_000L, 2_000L, 4_000L, 8_000L, 16_000L), sleeps)
         val t = task(id)!!
         assertEquals("沒有網路連線", t.failReason)
@@ -365,7 +367,7 @@ class ClipUploadRunnerTest {
 
         runner().run(id)
 
-        assertEquals(2, tokenCalls)
+        assertEquals(listOf(false, true), tokenForceRefresh) // 401 之後那次要換新的，不能回快取
         assertEquals(listOf("t1", "t2", "t2", "t2"), uploader.putTokens)
         assertEquals(EditTaskState.PROCESSING, task(id)!!.state)
     }
@@ -595,6 +597,46 @@ class ClipUploadRunnerTest {
         )
         assertEquals(listOf(40, 80), notifier.progress)
         assertEquals(EditTaskState.PROCESSING, task(id)!!.state)
+    }
+
+    @Test fun `接著傳時查到起點之前不把進度寫回0`() = runTest {
+        val id = start(url = "https://upload/old")
+        repo.setEditTaskProgress(id, EditTaskState.UPLOADING, 40, 2L) // 上次傳到 40% 被中斷
+        repo.progressWrites.clear()
+        uploader.queryScript += { UploadStatus.Partial(2 * MIB8) }
+
+        runner().run(id)
+
+        assertEquals(listOf(EditTaskState.UPLOADING to 80), repo.progressWrites)
+        assertEquals(listOf(80), notifier.progress)
+    }
+
+    @Test fun `斷線後等網路時不把進度寫回0`() = runTest {
+        val id = start(url = "https://upload/old")
+        repo.setEditTaskProgress(id, EditTaskState.UPLOADING, 40, 2L)
+        repo.progressWrites.clear()
+        networkBack = false
+        uploader.queryScript += { throw IOException("連線中斷") }
+
+        runner().run(id)
+
+        assertTrue(repo.progressWrites.isEmpty())
+        assertTrue(notifier.progress.isEmpty())
+        assertEquals("沒有網路連線", task(id)!!.failReason)
+    }
+
+    @Test fun `分段一直沒前進就退避五次後失敗`() = runTest {
+        val id = start()
+        uploader.defaultPut = { chunk -> UploadStatus.Partial(chunk.start) } // 伺服器回 308 卻沒多收
+
+        runner().run(id)
+
+        assertEquals(listOf(1_000L, 2_000L, 4_000L, 8_000L, 16_000L), sleeps)
+        assertEquals(6, uploader.puts.size)
+        val t = task(id)!!
+        assertEquals("上傳失敗", t.failReason)
+        assertEquals(EditTaskStep.UPLOAD, t.failedStep)
+        assertEquals("https://upload/session-1", t.uploadUrl)
     }
 
     private companion object {

@@ -32,8 +32,11 @@ import java.io.IOException
 class ClipUploadRunner(
     private val repo: CacheRepo,
     private val uploader: YoutubeUploader,
-    /** `youtube.upload` 的存取權杖；授權被撤銷丟 [GoogleAuthRevoked]。 */
-    private val token: suspend () -> String,
+    /**
+     * `youtube.upload` 的存取權杖；授權被撤銷丟 [GoogleAuthRevoked]。
+     * `forceRefresh` 是 true 時上一個權杖被拒絕了（401），不能再回快取裡的那一個。
+     */
+    private val token: suspend (forceRefresh: Boolean) -> String,
     /** 等網路回來，最多 [timeoutMs]；等到回 true。 */
     private val awaitNetwork: suspend (timeoutMs: Long) -> Boolean,
     /** 排等 YouTube 產生縮圖的輪詢。 */
@@ -80,7 +83,7 @@ class ClipUploadRunner(
      */
     private suspend fun upload(task: EditTask, out: File, size: Long): String? {
         val id = task.id
-        var accessToken = fetchToken()
+        var accessToken = fetchToken(forceRefresh = false)
         var url = task.uploadUrl
         var needQuery = url != null
         var offset = 0L
@@ -94,8 +97,9 @@ class ClipUploadRunner(
         while (true) {
             if (repo.editTask(id).first() == null) return null
 
+            // 要查詢時起點還不確定（offset 不是真的）：先不寫，免得接著傳時進度先退回 0%
             val percent = (offset * 100 / size).toInt()
-            if (percent != lastPercent) {
+            if (!(needQuery && url != null) && percent != lastPercent) {
                 lastPercent = percent
                 repo.setEditTaskProgress(id, EditTaskState.UPLOADING, percent, now())
                 notifier.progress(task.copy(state = EditTaskState.UPLOADING, progress = percent), percent)
@@ -122,10 +126,10 @@ class ClipUploadRunner(
                 // 讀檔失敗（成品被刪或變短）也是 IOException：那不是斷網，等網路也沒用
                 if (out.length() != size) throw UploadFailure(REASON_OUTPUT_MISSING, EditTaskStep.RENDER)
                 Log.i(TAG, "上傳任務 $id 斷線，等網路回來", e)
-                if (!awaitNetwork(NETWORK_WAIT_MS)) throw UploadFailure(REASON_NO_NETWORK, EditTaskStep.UPLOAD)
                 networkFails++
                 // 網路說回來了卻一直連不上（例如要登入的 Wi-Fi）：照伺服器錯誤的節奏退避，不空轉
                 if (networkFails > MAX_RETRIES) throw UploadFailure(REASON_NO_NETWORK, EditTaskStep.UPLOAD)
+                if (!awaitNetwork(NETWORK_WAIT_MS)) throw UploadFailure(REASON_NO_NETWORK, EditTaskStep.UPLOAD)
                 sleep(backoffMs(networkFails))
                 needQuery = true
                 continue
@@ -134,7 +138,7 @@ class ClipUploadRunner(
                     UploadErrorKind.AUTH -> {
                         if (authRetried) throw UploadFailure(REASON_AUTH, EditTaskStep.UPLOAD)
                         authRetried = true
-                        accessToken = fetchToken()
+                        accessToken = fetchToken(forceRefresh = true)
                     }
                     UploadErrorKind.SESSION_GONE -> {
                         if (sessionRestarted) throw UploadFailure(REASON_UPLOAD_FAILED, EditTaskStep.UPLOAD)
@@ -161,6 +165,11 @@ class ClipUploadRunner(
                         authRetried = false
                         transientFails = 0
                         networkFails = 0
+                    } else if (putting) {
+                        // 分段沒前進也沒報錯：當成一次暫時錯誤，不然會一直重傳同一段
+                        transientFails++
+                        if (transientFails > MAX_RETRIES) throw UploadFailure(REASON_UPLOAD_FAILED, EditTaskStep.UPLOAD)
+                        sleep(backoffMs(transientFails))
                     }
                     offset = status.receivedBytes
                     // 收滿了卻沒給影片編號（不該發生）：當上傳失敗，重試時查詢會拿到真正的結果
@@ -175,9 +184,9 @@ class ClipUploadRunner(
      * 拿存取權杖。被撤銷 → 授權失效；其他錯（Play 服務離線時的 `ExecutionException`／`ApiException` 等）
      * 當成斷網：等網路回來再拿一次，還是失敗才算上傳失敗。
      */
-    private suspend fun fetchToken(): String {
+    private suspend fun fetchToken(forceRefresh: Boolean): String {
         try {
-            return token()
+            return token(forceRefresh)
         } catch (e: GoogleAuthRevoked) {
             throw UploadFailure(REASON_AUTH, EditTaskStep.UPLOAD)
         } catch (e: CancellationException) {
@@ -187,7 +196,7 @@ class ClipUploadRunner(
         }
         if (!awaitNetwork(NETWORK_WAIT_MS)) throw UploadFailure(REASON_NO_NETWORK, EditTaskStep.UPLOAD)
         try {
-            return token()
+            return token(forceRefresh)
         } catch (e: GoogleAuthRevoked) {
             throw UploadFailure(REASON_AUTH, EditTaskStep.UPLOAD)
         } catch (e: CancellationException) {

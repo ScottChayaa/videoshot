@@ -97,7 +97,7 @@ class ClipExportRunner(
             }
 
             if (current.autoUpload) {
-                // 成品留給上傳；不跳「影片輸出完成」，上傳完才通知
+                // 成品留給上傳；不跳「影片輸出完成」，等 YouTube 產生縮圖、任務完成才通知
                 repo.setEditTaskReadyToUpload(taskId, pruned.removedSources, now())
                 return
             }
