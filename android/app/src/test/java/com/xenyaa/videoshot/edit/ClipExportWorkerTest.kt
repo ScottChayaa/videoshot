@@ -171,6 +171,28 @@ class ClipExportWorkerTest {
     }
 
     @Test
+    fun 上傳完成通知的標題與略過說明() {
+        val notifier = AndroidClipExportNotifier(context)
+        val t = task(skipped = 2).copy(state = EditTaskState.DONE)
+        notifier.done(t)
+
+        val n = shadowOf(manager).getNotification(resultNotificationId(t.id))
+        assertEquals("已完成，點一下開始取圖", n.title())
+        assertEquals("videoshot 2026/10/20・有 2 個素材已不存在，已略過", n.text())
+        assertEquals(CHANNEL_RESULT, n.channelId)
+
+        val plain = task().copy(state = EditTaskState.DONE)
+        notifier.done(plain)
+        assertEquals("videoshot 2026/10/20", shadowOf(manager).getNotification(resultNotificationId(plain.id)).text())
+
+        // 停在那個任務的導出畫面時不跳
+        val watched = task().copy(state = EditTaskState.DONE)
+        notifier.viewingTaskId = watched.id
+        notifier.done(watched)
+        assertNull(shadowOf(manager).getNotification(resultNotificationId(watched.id)))
+    }
+
+    @Test
     fun 正在看那一支的導出畫面時不跳結果通知_舊的也收掉() {
         val notifier = AndroidClipExportNotifier(context)
         val watched = task()

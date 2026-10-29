@@ -23,14 +23,17 @@ import java.util.concurrent.atomic.AtomicInteger
 interface ClipExportNotifier {
     fun progress(task: EditTask, percent: Int)
 
-    /** 輸出完成：停在輸出完成，或已存進相簿（看 [EditTask.galleryUri]）。[task] 是寫完結果之後重讀的。 */
+    /** 輸出完成、已存進相簿（沒勾自動上傳的任務）。[task] 是寫完結果之後重讀的。 */
     fun finished(task: EditTask)
+
+    /** 上傳完、YouTube 也產生縮圖了（[EditTaskState.DONE]）。 */
+    fun done(task: EditTask)
 
     fun failed(task: EditTask, reason: String)
 }
 
 /**
- * 一個輸出任務從頭到尾的流程：檢查素材與空間 → 輸出 → 存相簿或停在輸出完成 → 失敗處理。
+ * 一個輸出任務從頭到尾的流程：檢查素材與空間 → 輸出 → 存相簿或交給上傳（改成上傳中）→ 失敗處理。
  * 依賴全部可換，純 JVM 可測；背景工作（WorkManager）只是呼叫 [run]。
  *
  * - 任務在輸出途中被刪掉：之後所有寫入都不會把它寫回來（`CacheRepo` 的 `setEditTask…` 對不存在的編號不動作），
@@ -79,8 +82,7 @@ class ClipExportRunner(
         notifier.progress(task.copy(state = EditTaskState.RENDERING, progress = 0), 0)
 
         // 取消時（含輸出完成後、存相簿途中）都要把 app 裡的成品刪掉：取消導出只會刪任務、不會刪 edits/{id}/，
-        // 留著就是一支看不到也永遠清不掉的完整成品。唯一的例外是「停在輸出完成」已經寫進去之後，那份成品是有效的。
-        var kept = false
+        // 留著就是一支看不到也永遠清不掉的完整成品。唯一的例外是已經改成上傳中之後，那份成品要給上傳用。
         try {
             if (!export(task, draft, out)) {
                 out.delete()
@@ -95,21 +97,21 @@ class ClipExportRunner(
             }
 
             if (current.autoUpload) {
-                repo.setEditTaskRendered(taskId, pruned.removedSources, null, now())
-                kept = true
-            } else {
-                val uri = saver.saveVideo(out, current.title)
-                out.delete() // 存進相簿就不留 app 裡那份；沒存成的重試也是從頭輸出
-                if (uri == null) return fail(task, REASON_EXPORT_FAILED)
-                repo.setEditTaskRendered(taskId, pruned.removedSources, uri, now())
+                // 成品留給上傳；不跳「影片輸出完成」，上傳完才通知
+                repo.setEditTaskReadyToUpload(taskId, pruned.removedSources, now())
+                return
             }
+            val uri = saver.saveVideo(out, current.title)
+            out.delete() // 存進相簿就不留 app 裡那份；沒存成的重試也是從頭輸出
+            if (uri == null) return fail(task, REASON_EXPORT_FAILED)
+            repo.setEditTaskRendered(taskId, pruned.removedSources, uri, now())
         } catch (e: CancellationException) {
-            if (!kept) out.delete()
+            out.delete()
             throw e
         } catch (e: Exception) {
             // 沒預期的錯（例如存相簿或資料庫丟例外）：記下來、刪半成品、任務標失敗並通知，不讓排隊的工作跟著壞掉
             Log.w(TAG, "輸出任務 $taskId 發生沒預期的錯", e)
-            if (!kept) out.delete()
+            out.delete()
             return fail(task, REASON_EXPORT_FAILED)
         }
         val done = repo.editTask(taskId).first() ?: return // 存相簿途中又被刪掉

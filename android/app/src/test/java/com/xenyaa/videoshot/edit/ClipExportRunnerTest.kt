@@ -78,6 +78,7 @@ class ClipExportRunnerTest {
         val failed = mutableListOf<Pair<EditTask, String>>()
         override fun progress(task: EditTask, percent: Int) { progress += percent }
         override fun finished(task: EditTask) { finished += task }
+        override fun done(task: EditTask) = throw AssertionError("輸出不該呼叫 done")
         override fun failed(task: EditTask, reason: String) { failed += task to reason }
     }
 
@@ -205,7 +206,7 @@ class ClipExportRunnerTest {
 
     @Test fun `部分素材不見照樣輸出並記略過數`() = runTest {
         library.items = listOf(item(1)) // 素材 2 不見了
-        val id = start(autoUpload = true)
+        val id = start(autoUpload = false)
 
         runner().run(id)
 
@@ -221,19 +222,20 @@ class ClipExportRunnerTest {
 
     // ---- 成功 ----
 
-    @Test fun `有勾自動上傳停在輸出完成`() = runTest {
+    @Test fun `有勾自動上傳輸出完變上傳中且不跳完成通知`() = runTest {
+        library.items = listOf(item(1)) // 素材 2 不見了：略過數要記下來，上傳完的通知會用到
         val id = start(autoUpload = true)
 
         runner().run(id)
 
         val t = task(id)!!
-        assertEquals(EditTaskState.RENDERED, t.state)
-        assertEquals(100, t.progress)
+        assertEquals(EditTaskState.UPLOADING, t.state)
+        assertEquals(0, t.progress)
+        assertEquals(1, t.skippedSources)
         assertNull(t.galleryUri)
-        assertTrue(outFor(id).exists()) // 成品留在 app 裡等檢查或上傳
+        assertTrue(outFor(id).exists()) // 成品留在 app 裡給上傳
         assertTrue(saver.saved.isEmpty())
-        assertEquals(1, notifier.finished.size)
-        assertEquals(id, notifier.finished.single().id)
+        assertTrue(notifier.finished.isEmpty())
         assertTrue(notifier.failed.isEmpty())
     }
 
@@ -443,7 +445,7 @@ class ClipExportRunnerTest {
             repo.progressWrites,
         )
         assertEquals(listOf(0, 10, 42, 100), notifier.progress)
-        assertEquals(EditTaskState.RENDERED, task(id)!!.state)
+        assertEquals(EditTaskState.UPLOADING, task(id)!!.state) // 有勾自動上傳：輸出完交給上傳
     }
 
     @Test fun `開始輸出時狀態是輸出中`() = runTest {
@@ -471,7 +473,7 @@ class ClipExportRunnerTest {
         runner().run(id)
 
         assertEquals(false, existedAtStart)
-        assertEquals(EditTaskState.RENDERED, task(id)!!.state)
+        assertEquals(EditTaskState.UPLOADING, task(id)!!.state) // 有勾自動上傳：輸出完交給上傳
     }
 
     @Test fun `資料夾還沒建時也能輸出`() = runTest {
@@ -510,7 +512,7 @@ class ClipExportRunnerTest {
 
         runner().run(id)
 
-        assertEquals(EditTaskState.RENDERED, task(id)!!.state)
+        assertEquals(EditTaskState.UPLOADING, task(id)!!.state) // 有勾自動上傳：輸出完交給上傳
         assertEquals(1, exporter.calls)
     }
 

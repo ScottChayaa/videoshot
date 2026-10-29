@@ -80,6 +80,10 @@ class AndroidClipExportNotifier(context: Context) : ClipExportNotifier {
         notifyResult(task, title, text)
     }
 
+    override fun done(task: EditTask) {
+        notifyResult(task, "已完成，點一下開始取圖", savedNotificationText(task.title, task.skippedSources))
+    }
+
     override fun failed(task: EditTask, reason: String) {
         notifyResult(task, "影片輸出失敗", reason)
     }
