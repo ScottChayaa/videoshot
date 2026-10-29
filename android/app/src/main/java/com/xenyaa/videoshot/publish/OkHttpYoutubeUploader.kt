@@ -6,7 +6,14 @@ import com.xenyaa.videoshot.core.publish.UploadErrorKind
 import com.xenyaa.videoshot.core.publish.classifyUploadError
 import java.io.File
 import java.io.RandomAccessFile
+import java.io.IOException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
@@ -52,7 +59,7 @@ class OkHttpYoutubeUploader(
             .header("X-Upload-Content-Length", sizeBytes.toString())
             .post(metadata.toString().toRequestBody("application/json; charset=UTF-8".toMediaType()))
             .build()
-        http.newCall(request).execute().use { response ->
+        call(request) { response ->
             if (!response.isSuccessful) throw response.toException()
             response.header("Location") ?: throw UploadHttpException(response.code, UploadErrorKind.FATAL)
         }
@@ -65,7 +72,7 @@ class OkHttpYoutubeUploader(
             .header("Content-Range", "bytes */$sizeBytes")
             .put(ByteArray(0).toRequestBody(null))
             .build()
-        http.newCall(request).execute().use { it.toStatus() }
+        call(request) { it.toStatus() }
     }
 
     override suspend fun putChunk(
@@ -81,14 +88,42 @@ class OkHttpYoutubeUploader(
             .header("Content-Range", chunk.contentRangeHeader())
             .put(bytes.toRequestBody(VIDEO_MIME.toMediaType()))
             .build()
-        http.newCall(request).execute().use { it.toStatus() }
+        call(request) { it.toStatus() }
+    }
+
+    /**
+     * 送出請求並在 [block] 裡讀回應。協程取消時立刻 `call.cancel()`，進行中的請求（含讀 body）不用等傳完；
+     * 取消造成的 IOException 會換成 `CancellationException`，其餘 IOException 原樣往外丟。
+     */
+    private suspend fun <T> call(request: Request, block: (Response) -> T): T = withContext(io) {
+        coroutineScope {
+            val call = http.newCall(request)
+            // Unconfined：取消當下就在取消者的執行緒上 cancel，不必等 io 執行緒（它正卡在阻塞的 execute）
+            val watcher = launch(Dispatchers.Unconfined, start = CoroutineStart.UNDISPATCHED) {
+                try {
+                    awaitCancellation()
+                } finally {
+                    call.cancel()
+                }
+            }
+            try {
+                call.execute().use(block)
+            } catch (e: IOException) {
+                ensureActive()
+                throw e
+            } finally {
+                watcher.cancel()
+            }
+        }
     }
 
     private fun Response.toStatus(): UploadStatus = when (code) {
         308 -> UploadStatus.Partial(parseReceivedBytes(header("Range")))
         200, 201 -> {
+            // 讀 body 的 IOException 要往外丟（流程層當斷網處理）；只有 JSON 解析失敗才算沒有 id
+            val text = body.string()
             val id = runCatching {
-                Json.parseToJsonElement(body.string()).jsonObject["id"]?.jsonPrimitive?.content
+                Json.parseToJsonElement(text).jsonObject["id"]?.jsonPrimitive?.content
             }.getOrNull()
             UploadStatus.Done(id ?: throw UploadHttpException(code, UploadErrorKind.FATAL))
         }
@@ -96,7 +131,7 @@ class OkHttpYoutubeUploader(
     }
 
     private fun Response.toException(): UploadHttpException {
-        val text = runCatching { body.string() }.getOrNull()
+        val text = body.string()
         return UploadHttpException(code, classifyUploadError(code, text))
     }
 }

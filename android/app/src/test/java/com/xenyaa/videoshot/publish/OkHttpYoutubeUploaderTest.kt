@@ -4,7 +4,11 @@ import com.xenyaa.videoshot.core.backup.UploadChunk
 import com.xenyaa.videoshot.core.publish.UploadErrorKind
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.boolean
@@ -167,5 +171,47 @@ class OkHttpYoutubeUploaderTest {
             uploader.putChunk(sessionUrl(), "tok", file, UploadChunk(0, 1_999_999, 2_000_000))
         }.exceptionOrNull()
         assertEquals(true, e is IOException)
+    }
+
+    @Test
+    fun 成功回應的body讀到一半斷線丟IOException() = runBlocking {
+        // Content-Length 宣告 100 但只送 10 個位元組就斷線：讀 body 時 IOException 不能被吞成 FATAL
+        server.enqueue(MockResponse.Builder().code(200)
+            .body("""{"id":"ab""")
+            .setHeader("Content-Length", "100")
+            .onResponseBody(SocketEffect.CloseSocket())
+            .build())
+
+        val e = runCatching { uploader.query(sessionUrl(), "tok", 100L) }.exceptionOrNull()
+        assertEquals(true, e is IOException)
+    }
+
+    @Test
+    fun 錯誤回應的body讀到一半斷線丟IOException() = runBlocking {
+        server.enqueue(MockResponse.Builder().code(403)
+            .body("""{"error":{"errors":[{"reason":"quo""")
+            .setHeader("Content-Length", "200")
+            .onResponseBody(SocketEffect.CloseSocket())
+            .build())
+
+        val e = runCatching { uploader.startSession("tok", "t", 1L) }.exceptionOrNull()
+        assertEquals(true, e is IOException)
+    }
+
+    @Test
+    fun 請求進行中取消coroutine會很快結束() = runBlocking {
+        val file = tmp.newFile("v.mp4").apply { writeBytes(ByteArray(1000)) }
+        server.enqueue(MockResponse.Builder().code(308).headersDelay(10, TimeUnit.SECONDS).build())
+
+        val job = async(Dispatchers.Default) { uploader.putChunk(sessionUrl(), "tok", file, UploadChunk(0, 999, 1000)) }
+        server.takeRequest(5, TimeUnit.SECONDS)!!
+        val started = System.nanoTime()
+        withTimeout(3_000) { job.cancelAndJoin() }
+        val elapsedMs = (System.nanoTime() - started) / 1_000_000
+
+        assertEquals(true, job.isCancelled)
+        assertEquals(true, elapsedMs < 2_000)
+        val e = runCatching { job.await() }.exceptionOrNull()
+        assertEquals(true, e is CancellationException)
     }
 }
