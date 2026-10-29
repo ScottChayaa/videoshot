@@ -19,6 +19,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 private const val DRIVE_APPDATA_SCOPE = "https://www.googleapis.com/auth/drive.appdata"
+private const val YOUTUBE_UPLOAD_SCOPE = "https://www.googleapis.com/auth/youtube.upload"
 
 /** Play Services 帳號類型常數（`GoogleAuthUtil.GOOGLE_ACCOUNT_TYPE`），[RevokeAccessRequest] 需要用它組出 [Account]。 */
 private const val GOOGLE_ACCOUNT_TYPE = "com.google"
@@ -83,6 +84,30 @@ class GisGoogleAuth(
         result.accessToken ?: error("Drive 授權沒有回傳存取權杖")
     }
 
+    override suspend fun beginYoutubeAuth(activity: Activity, email: String): YoutubeAuthOutcome = withContext(io) {
+        // 同 beginLink：要跳同意畫面就得綁在目前的 activity 上。
+        val authClient = Identity.getAuthorizationClient(activity)
+        val result = Tasks.await(authClient.authorize(youtubeAuthorizationRequest(email)))
+        val pendingIntent = result.pendingIntent
+        if (result.hasResolution() && pendingIntent != null) {
+            YoutubeAuthOutcome.NeedsConsent(pendingIntent.intentSender)
+        } else {
+            YoutubeAuthOutcome.Granted
+        }
+    }
+
+    override suspend fun finishYoutubeAuth(data: Intent): Unit = withContext(io) {
+        val authClient = Identity.getAuthorizationClient(context)
+        authClient.getAuthorizationResultFromIntent(data) // 授權失敗會丟 ApiException，讓它往上傳
+    }
+
+    override suspend fun youtubeAccessToken(email: String): String = withContext(io) {
+        val authClient = Identity.getAuthorizationClient(context)
+        val result = Tasks.await(authClient.authorize(youtubeAuthorizationRequest(email)))
+        if (result.hasResolution()) throw GoogleAuthRevoked("YouTube 授權已失效，需要使用者重新同意")
+        result.accessToken ?: error("YouTube 授權沒有回傳存取權杖")
+    }
+
     override suspend fun unlink(email: String): Unit = withContext(io) {
         // revokeAccess 需要指定帳號（官方文件範例是 .setAccount(account).setScopes(scopes)，
         // 不能只呼叫 builder().build()——那樣沒有目標帳號，撤銷不到東西）。
@@ -93,7 +118,7 @@ class GisGoogleAuth(
         val authClient = Identity.getAuthorizationClient(context)
         val revokeRequest = RevokeAccessRequest.builder()
             .setAccount(account)
-            .setScopes(listOf(Scope(DRIVE_APPDATA_SCOPE)))
+            .setScopes(listOf(Scope(DRIVE_APPDATA_SCOPE), Scope(YOUTUBE_UPLOAD_SCOPE)))
             .build()
         Tasks.await(authClient.revokeAccess(revokeRequest))
         pendingAccount = null
@@ -102,6 +127,13 @@ class GisGoogleAuth(
     private fun driveAppDataAuthorizationRequest(): AuthorizationRequest =
         AuthorizationRequest.builder()
             .setRequestedScopes(listOf(Scope(DRIVE_APPDATA_SCOPE)))
+            .build()
+
+    /** 只要 `youtube.upload`，綁連結的那個帳號，同意畫面上才只多出 YouTube 這一項。 */
+    private fun youtubeAuthorizationRequest(email: String): AuthorizationRequest =
+        AuthorizationRequest.builder()
+            .setRequestedScopes(listOf(Scope(YOUTUBE_UPLOAD_SCOPE)))
+            .setAccount(Account(email, GOOGLE_ACCOUNT_TYPE))
             .build()
 
     private fun decodeEmailFromIdToken(idToken: String): String? = runCatching {

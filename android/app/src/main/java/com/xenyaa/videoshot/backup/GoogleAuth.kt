@@ -18,6 +18,18 @@ sealed interface LinkOutcome {
 }
 
 /**
+ * `beginYoutubeAuth` 的結果：[Granted] 代表 `youtube.upload` 早就同意過，靜默通過；[NeedsConsent]
+ * 代表要由呼叫端跳出系統同意畫面，使用者同意後把拿到的 `Intent` 餵回 [GoogleAuth.finishYoutubeAuth]。
+ */
+sealed interface YoutubeAuthOutcome {
+    data object Granted : YoutubeAuthOutcome
+    data class NeedsConsent(val intentSender: IntentSender) : YoutubeAuthOutcome
+}
+
+/** `youtube.upload` 授權被撤銷、或從沒同意過，背景拿不到權杖——要回前景重新走 [GoogleAuth.beginYoutubeAuth]。 */
+class GoogleAuthRevoked(message: String) : Exception(message)
+
+/**
  * Google 帳號連結：身分（顯示名稱／Email）＋ `drive.appdata` 授權（規格第十節）。
  * 真正實作見 [GisGoogleAuth]；測試與 Task 0 完成前的開發用 [FakeGoogleAuth]。
  * **模組邊界**：這是唯一允許碰 Google Identity／Drive 授權 API 的地方（規格第三節）。
@@ -33,9 +45,22 @@ interface GoogleAuth {
     suspend fun accessToken(): String
 
     /**
+     * 前景才能呼叫：第一次導出時才另外要 `youtube.upload`（連結時只拿 `drive.appdata`，規格第十九節），
+     * 綁在 [email] 這個已連結的帳號上，畫面上只多出 YouTube 這一項。
+     */
+    suspend fun beginYoutubeAuth(activity: Activity, email: String): YoutubeAuthOutcome
+
+    /** 使用者從 [YoutubeAuthOutcome.NeedsConsent] 的系統畫面回來後呼叫；授權失敗往外丟。 */
+    suspend fun finishYoutubeAuth(data: Intent)
+
+    /** 背景可呼叫：拿 `youtube.upload` 的存取權杖。被撤銷或沒同意過丟 [GoogleAuthRevoked]。 */
+    suspend fun youtubeAccessToken(email: String): String
+
+    /**
      * 撤銷授權（規格「中斷連結」，破壞性樣式按鈕）。
      * `email` 由呼叫端提供——真正的「目前是否已連結」狀態存在 `AppSettings.linkedAccount`
      * （跨行程持久化），不是這個介面自己記的，所以撤銷時要由呼叫端把 email 帶進來。
+     * `drive.appdata` 與 `youtube.upload` 一起撤銷。
      */
     suspend fun unlink(email: String)
 }

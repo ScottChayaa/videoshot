@@ -63,4 +63,60 @@ class FakeGoogleAuthTest {
 
         assertTrue(runCatching { auth.accessToken() }.isFailure)
     }
+
+    @Test
+    fun 沒同意過YouTube授權時回NeedsConsent_finishYoutubeAuth後回Granted() = runTest {
+        val auth = FakeGoogleAuth()
+        val activity = Robolectric.buildActivity(Activity::class.java).get()
+
+        val first = auth.beginYoutubeAuth(activity, "ming@example.com")
+        assertTrue(first is YoutubeAuthOutcome.NeedsConsent)
+
+        auth.finishYoutubeAuth(Intent())
+        val second = auth.beginYoutubeAuth(activity, "ming@example.com")
+        assertEquals(YoutubeAuthOutcome.Granted, second)
+        assertEquals(listOf("ming@example.com", "ming@example.com"), auth.youtubeRequestedEmails)
+    }
+
+    @Test
+    fun youtubeGranted預設設成true時靜默通過並拿得到權杖() = runTest {
+        val auth = FakeGoogleAuth().apply { youtubeGranted = true }
+        val activity = Robolectric.buildActivity(Activity::class.java).get()
+
+        assertEquals(YoutubeAuthOutcome.Granted, auth.beginYoutubeAuth(activity, "ming@example.com"))
+        assertEquals("fake-youtube-token", auth.youtubeAccessToken("ming@example.com"))
+        assertEquals(listOf("ming@example.com", "ming@example.com"), auth.youtubeRequestedEmails)
+    }
+
+    @Test
+    fun 沒同意過或被撤銷後youtubeAccessToken丟GoogleAuthRevoked() = runTest {
+        val auth = FakeGoogleAuth()
+        assertTrue(runCatching { auth.youtubeAccessToken("ming@example.com") }.exceptionOrNull() is GoogleAuthRevoked)
+
+        auth.youtubeGranted = true
+        auth.youtubeAccessToken("ming@example.com") // 同意中，不丟
+        auth.youtubeRevoked = true
+        assertTrue(runCatching { auth.youtubeAccessToken("ming@example.com") }.exceptionOrNull() is GoogleAuthRevoked)
+    }
+
+    @Test
+    fun 被撤銷後beginYoutubeAuth回NeedsConsent_重新同意後恢復() = runTest {
+        val auth = FakeGoogleAuth().apply { youtubeGranted = true; youtubeRevoked = true }
+        val activity = Robolectric.buildActivity(Activity::class.java).get()
+
+        assertTrue(auth.beginYoutubeAuth(activity, "ming@example.com") is YoutubeAuthOutcome.NeedsConsent)
+
+        auth.finishYoutubeAuth(Intent())
+        assertEquals("fake-youtube-token", auth.youtubeAccessToken("ming@example.com"))
+    }
+
+    @Test
+    fun unlink連YouTube授權一起撤銷() = runTest {
+        val auth = FakeGoogleAuth(initiallyLinked = LinkedGoogleAccount("阿明", "ming@example.com"))
+        auth.youtubeGranted = true
+
+        auth.unlink("ming@example.com")
+
+        assertTrue(runCatching { auth.youtubeAccessToken("ming@example.com") }.exceptionOrNull() is GoogleAuthRevoked)
+    }
 }
