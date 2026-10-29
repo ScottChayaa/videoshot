@@ -109,8 +109,17 @@ interface EditTaskDao {
     @Query("SELECT * FROM edit_task WHERE id = :id")
     fun byId(id: Long): Flow<EditTaskEntity?>
 
-    @Query("SELECT id FROM edit_task WHERE state IN ('queued', 'rendering') ORDER BY id")
+    @Query("SELECT * FROM edit_task WHERE id = :id")
+    suspend fun once(id: Long): EditTaskEntity?
+
+    @Query("SELECT id FROM edit_task WHERE state IN ('queued', 'rendering', 'uploading') ORDER BY id")
     suspend fun pendingIds(): List<Long>
+
+    @Query("SELECT id FROM edit_task WHERE state = 'processing' ORDER BY id")
+    suspend fun processingIds(): List<Long>
+
+    @Query("SELECT COUNT(*) FROM edit_task WHERE state = 'done'")
+    fun doneCount(): Flow<Int>
 
     @Query("UPDATE edit_task SET state = :state, progress = :progress, updated_at = :now WHERE id = :id")
     suspend fun setProgress(id: Long, state: String, progress: Int, now: Long)
@@ -125,14 +134,44 @@ interface EditTaskDao {
     )
     suspend fun setRendered(id: Long, skipped: Int, galleryUri: String?, now: Long)
 
-    @Query("UPDATE edit_task SET state = 'failed', fail_reason = :reason, updated_at = :now WHERE id = :id")
-    suspend fun setFailed(id: Long, reason: String, now: Long)
+    @Query("UPDATE edit_task SET state = 'uploading', progress = 0, skipped_sources = :skipped, updated_at = :now WHERE id = :id")
+    suspend fun setReadyToUpload(id: Long, skipped: Int, now: Long)
+
+    @Query("UPDATE edit_task SET upload_url = :url, updated_at = :now WHERE id = :id")
+    suspend fun setUploadUrl(id: Long, url: String?, now: Long)
+
+    @Query(
+        """
+        UPDATE edit_task
+        SET state = 'processing', progress = 100, video_id = :videoId, upload_url = NULL,
+            fail_reason = NULL, failed_step = NULL, updated_at = :now
+        WHERE id = :id
+        """
+    )
+    suspend fun setUploaded(id: Long, videoId: String, now: Long)
+
+    @Query("UPDATE edit_task SET state = 'done', updated_at = :now WHERE id = :id")
+    suspend fun setDone(id: Long, now: Long)
+
+    @Query("UPDATE edit_task SET state = 'failed', fail_reason = :reason, failed_step = :step, updated_at = :now WHERE id = :id")
+    suspend fun setFailed(id: Long, reason: String, step: String, now: Long)
 
     @Query("UPDATE edit_task SET auto_upload = :on, updated_at = :now WHERE id = :id")
     suspend fun setAutoUpload(id: Long, on: Int, now: Long)
 
-    @Query("UPDATE edit_task SET state = 'queued', progress = 0, fail_reason = NULL, updated_at = :now WHERE id = :id")
+    /** 只動輸出中的：上傳中與處理中的任務有自己的接續方式，不能退回等待輸出。 */
+    @Query("UPDATE edit_task SET state = 'queued', progress = 0, fail_reason = NULL, updated_at = :now WHERE id = :id AND state = 'rendering'")
     suspend fun requeue(id: Long, now: Long)
+
+    /** 失敗任務依失敗的步驟回到那一步的開頭；三個都只動 `failed` 的列。 */
+    @Query("UPDATE edit_task SET state = 'queued', progress = 0, fail_reason = NULL, failed_step = NULL, updated_at = :now WHERE id = :id AND state = 'failed'")
+    suspend fun retryRender(id: Long, now: Long)
+
+    @Query("UPDATE edit_task SET state = 'uploading', progress = 0, fail_reason = NULL, failed_step = NULL, updated_at = :now WHERE id = :id AND state = 'failed'")
+    suspend fun retryUpload(id: Long, now: Long)
+
+    @Query("UPDATE edit_task SET state = 'processing', fail_reason = NULL, failed_step = NULL, updated_at = :now WHERE id = :id AND state = 'failed'")
+    suspend fun retryStoryboard(id: Long, now: Long)
 
     @Query("DELETE FROM edit_task WHERE id = :id")
     suspend fun delete(id: Long)

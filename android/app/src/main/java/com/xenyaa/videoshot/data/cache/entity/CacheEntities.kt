@@ -81,7 +81,7 @@ data class EditDraftEntity(
 @Entity(tableName = "edit_task")
 data class EditTaskEntity(
     @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "id") val id: Long,
-    /** 'queued' | 'rendering' | 'rendered' | 'failed'（對應 `EditTaskState`） */
+    /** 'queued' | 'rendering' | 'rendered' | 'uploading' | 'processing' | 'done' | 'failed'（對應 `EditTaskState`） */
     @ColumnInfo(name = "state") val state: String,
     /** 0～100 */
     @ColumnInfo(name = "progress") val progress: Int,
@@ -101,4 +101,10 @@ data class EditTaskEntity(
     /** Unix 毫秒 */
     @ColumnInfo(name = "created_at") val createdAt: Long,
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
+    /** 失敗在哪一步：'render' | 'upload' | 'storyboard'（對應 `EditTaskStep`）；非失敗或舊資料為 null */
+    @ColumnInfo(name = "failed_step") val failedStep: String? = null,
+    /** YouTube 可續傳上傳的工作階段網址 */
+    @ColumnInfo(name = "upload_url") val uploadUrl: String? = null,
+    /** 上傳完成後 YouTube 給的影片編號 */
+    @ColumnInfo(name = "video_id") val videoId: String? = null,
 )

@@ -37,5 +37,15 @@ val CACHE_MIGRATION_3_4: Migration = object : Migration(3, 4) {
     }
 }
 
+/** v4→v5：`edit_task` 加上傳到 YouTube 用的三欄（失敗步驟、上傳網址、影片編號），都可為 null。欄位定義照抄 `5.json`，原因同上。 */
+val CACHE_MIGRATION_4_5: Migration = object : Migration(4, 5) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("ALTER TABLE `edit_task` ADD COLUMN `failed_step` TEXT")
+        connection.execSQL("ALTER TABLE `edit_task` ADD COLUMN `upload_url` TEXT")
+        connection.execSQL("ALTER TABLE `edit_task` ADD COLUMN `video_id` TEXT")
+    }
+}
+
 /** cache.db 的遷移清單。它不進備份，沒有備份相容性的問題（規格第四節）。 */
-val CACHE_MIGRATIONS: Array<Migration> = arrayOf(CACHE_MIGRATION_1_2, CACHE_MIGRATION_2_3, CACHE_MIGRATION_3_4)
+val CACHE_MIGRATIONS: Array<Migration> =
+    arrayOf(CACHE_MIGRATION_1_2, CACHE_MIGRATION_2_3, CACHE_MIGRATION_3_4, CACHE_MIGRATION_4_5)

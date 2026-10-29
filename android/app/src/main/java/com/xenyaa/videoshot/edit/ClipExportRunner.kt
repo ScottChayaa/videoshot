@@ -7,6 +7,7 @@ import com.xenyaa.videoshot.core.timeline.requiredFreeBytes
 import com.xenyaa.videoshot.data.repo.CacheRepo
 import com.xenyaa.videoshot.data.repo.model.EditTask
 import com.xenyaa.videoshot.data.repo.model.EditTaskState
+import com.xenyaa.videoshot.data.repo.model.EditTaskStep
 import com.xenyaa.videoshot.media.MediaFilter
 import com.xenyaa.videoshot.media.MediaLibrary
 import com.xenyaa.videoshot.media.MediaSaver
@@ -149,7 +150,7 @@ class ClipExportRunner(
 
     /** 任務失敗：寫入原因、通知。任務已被刪掉就不通知。 */
     private suspend fun fail(task: EditTask, reason: String) {
-        repo.setEditTaskFailed(task.id, reason, now())
+        repo.setEditTaskFailed(task.id, reason, EditTaskStep.RENDER, now())
         val failed = repo.editTask(task.id).first() ?: return
         notifier.failed(failed, reason)
     }

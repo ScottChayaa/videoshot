@@ -126,7 +126,7 @@ class ClipExportRunnerTest {
     private fun outFor(id: Long) = File(tmp.root, "edits/$id/out.mp4")
 
     private suspend fun start(draft: ClipDraft = twoPhotos, autoUpload: Boolean = true): Long {
-        val id = repo.startEditTask(draft, "我的片", 1L)
+        val id = repo.startEditTask(draft, "我的片", true, 1L)
         repo.setEditTaskAutoUpload(id, autoUpload, 1L)
         return id
     }
@@ -494,7 +494,7 @@ class ClipExportRunnerTest {
         val done = start()
         repo.setEditTaskRendered(done, 0, null, 1L)
         val failed = start()
-        repo.setEditTaskFailed(failed, "輸出失敗", 1L)
+        repo.setEditTaskFailed(failed, "輸出失敗", com.xenyaa.videoshot.data.repo.model.EditTaskStep.RENDER, 1L)
 
         runner().run(done)
         runner().run(failed)

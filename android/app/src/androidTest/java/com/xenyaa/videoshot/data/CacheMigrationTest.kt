@@ -5,6 +5,7 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.xenyaa.videoshot.core.timeline.ClipDraftCodec
 import com.xenyaa.videoshot.core.timeline.ClipOrientation
 import com.xenyaa.videoshot.core.timeline.ClipSource
 import com.xenyaa.videoshot.core.timeline.SourceKind
@@ -12,6 +13,7 @@ import com.xenyaa.videoshot.core.timeline.newClipDraft
 import com.xenyaa.videoshot.data.cache.CACHE_MIGRATIONS
 import com.xenyaa.videoshot.data.cache.CacheDatabase
 import com.xenyaa.videoshot.data.repo.RoomCacheRepo
+import com.xenyaa.videoshot.data.repo.model.EditTaskState
 import com.xenyaa.videoshot.data.repo.model.FacetRef
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -129,11 +131,55 @@ class CacheMigrationTest {
                 ClipOrientation.PORTRAIT,
                 listOf(ClipSource(1, "content://media/1", SourceKind.PHOTO, 1000, null, 1080, 1920, 0)),
             )
-            val id = repo.startEditTask(draft, "標題", now = 9)
+            val id = repo.startEditTask(draft, "標題", autoUpload = true, now = 9)
             assertEquals("標題", repo.editTask(id).first()!!.title)
             assertEquals(listOf(id), repo.pendingEditTaskIds())
         } finally {
             v3db.close()
+        }
+    }
+
+    @Test fun v4升到v5保留任務並多三欄() = runTest {
+        val file = File(tmp.root, "cache-v4.db")
+        // v4 的建表 SQL 一字不差取自 app/schemas/com.xenyaa.videoshot.data.cache.CacheDatabase/4.json
+        BundledSQLiteDriver().open(file.path).let { c ->
+            try {
+                c.execSQL("CREATE TABLE IF NOT EXISTS `thumb_state` (`video_id` TEXT NOT NULL, `sb_level` INTEGER NOT NULL, `frame_index` INTEGER NOT NULL, `state` TEXT NOT NULL, `attempts` INTEGER NOT NULL, `next_try_at` INTEGER NOT NULL, `lost_reason` TEXT, PRIMARY KEY(`video_id`, `sb_level`, `frame_index`))")
+                c.execSQL("CREATE TABLE IF NOT EXISTS `draft` (`video_id` TEXT NOT NULL, `step` INTEGER NOT NULL, `payload` TEXT NOT NULL, `updated_at` INTEGER NOT NULL, `id` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                c.execSQL("CREATE TABLE IF NOT EXISTS `facet_recent` (`kind` INTEGER NOT NULL, `ref_id` INTEGER NOT NULL, `used_at` INTEGER NOT NULL, PRIMARY KEY(`kind`, `ref_id`))")
+                c.execSQL("CREATE TABLE IF NOT EXISTS `edit_draft` (`orientation` TEXT NOT NULL, `payload` TEXT NOT NULL, `updated_at` INTEGER NOT NULL, `id` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                c.execSQL("CREATE TABLE IF NOT EXISTS `edit_task` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `state` TEXT NOT NULL, `progress` INTEGER NOT NULL, `title` TEXT NOT NULL, `orientation` TEXT NOT NULL, `duration_ms` INTEGER NOT NULL, `payload` TEXT NOT NULL, `auto_upload` INTEGER NOT NULL, `fail_reason` TEXT, `skipped_sources` INTEGER NOT NULL, `gallery_uri` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL)")
+                val payload = ClipDraftCodec.encode(
+                    newClipDraft(
+                        ClipOrientation.PORTRAIT,
+                        listOf(ClipSource(1, "content://media/1", SourceKind.PHOTO, 1000, null, 1080, 1920, 0)),
+                    )
+                )
+                c.execSQL("INSERT INTO edit_task VALUES (7, 'rendered', 100, '舊任務', 'PORTRAIT', 3000, '${payload.replace("'", "''")}', 1, NULL, 0, 'content://media/9', 50, 60)")
+                c.execSQL("PRAGMA user_version = 4")
+            } finally {
+                c.close()
+            }
+        }
+        val v4db = Room.databaseBuilder(InstrumentationRegistry.getInstrumentation().targetContext, CacheDatabase::class.java, file.path)
+            .setDriver(BundledSQLiteDriver())
+            .addMigrations(*CACHE_MIGRATIONS)
+            .build()
+        try {
+            val repo = RoomCacheRepo(v4db, Dispatchers.IO)
+            val old = repo.editTask(7).first()!!
+            assertEquals(EditTaskState.RENDERED, old.state)
+            assertEquals("舊任務", old.title)
+            assertEquals("content://media/9", old.galleryUri)
+            assertEquals(60L, old.updatedAt)
+            assertNull(old.failedStep)
+            assertNull(old.uploadUrl)
+            assertNull(old.videoId)
+            // 新欄位可以寫可以讀
+            repo.setEditTaskUploadUrl(7, "https://upload/7", now = 70)
+            assertEquals("https://upload/7", repo.editTask(7).first()!!.uploadUrl)
+        } finally {
+            v4db.close()
         }
     }
 }

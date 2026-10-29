@@ -299,6 +299,10 @@ private fun TaskRow(
                     EditTaskState.QUEUED -> "等待中"
                     EditTaskState.RENDERING -> "輸出影片中 ${task.progress}%"
                     EditTaskState.RENDERED -> if (task.galleryUri != null) "已存到相簿" else "輸出完成"
+                    // 上傳的三個狀態先放文字，畫面正式的樣子是 Task 9 的事
+                    EditTaskState.UPLOADING -> "上傳中 ${task.progress}%"
+                    EditTaskState.PROCESSING -> "YouTube 處理中"
+                    EditTaskState.DONE -> "已完成，點一下開始取圖"
                     EditTaskState.FAILED -> "失敗：${task.failReason ?: "輸出失敗"}"
                 },
                 style = MaterialTheme.typography.bodyMedium,

@@ -202,15 +202,22 @@ class AppRootFoldersTest {
         override suspend fun saveClipDraft(draft: com.xenyaa.videoshot.core.timeline.ClipDraft, now: Long) = Unit
         override suspend fun currentClipDraft(): com.xenyaa.videoshot.core.timeline.ClipDraft? = null
         override suspend fun clearClipDraft() = Unit
-        override suspend fun startEditTask(draft: com.xenyaa.videoshot.core.timeline.ClipDraft, title: String, now: Long): Long = 0L
+        override suspend fun startEditTask(draft: com.xenyaa.videoshot.core.timeline.ClipDraft, title: String, autoUpload: Boolean, now: Long): Long = 0L
         override fun editTasks(): kotlinx.coroutines.flow.Flow<List<com.xenyaa.videoshot.data.repo.model.EditTask>> = kotlinx.coroutines.flow.flowOf(emptyList())
         override fun editTask(id: Long): kotlinx.coroutines.flow.Flow<com.xenyaa.videoshot.data.repo.model.EditTask?> = kotlinx.coroutines.flow.flowOf(null)
         override suspend fun pendingEditTaskIds(): List<Long> = emptyList()
         override suspend fun setEditTaskProgress(id: Long, state: com.xenyaa.videoshot.data.repo.model.EditTaskState, progress: Int, now: Long) = Unit
         override suspend fun setEditTaskRendered(id: Long, skipped: Int, galleryUri: String?, now: Long) = Unit
-        override suspend fun setEditTaskFailed(id: Long, reason: String, now: Long) = Unit
+        override suspend fun setEditTaskFailed(id: Long, reason: String, step: com.xenyaa.videoshot.data.repo.model.EditTaskStep, now: Long) = Unit
         override suspend fun setEditTaskAutoUpload(id: Long, on: Boolean, now: Long) = Unit
         override suspend fun requeueEditTask(id: Long, now: Long) = Unit
+        override suspend fun processingEditTaskIds(): List<Long> = emptyList()
+        override fun doneEditTaskCount(): kotlinx.coroutines.flow.Flow<Int> = kotlinx.coroutines.flow.flowOf(0)
+        override suspend fun setEditTaskReadyToUpload(id: Long, skipped: Int, now: Long) = Unit
+        override suspend fun setEditTaskUploadUrl(id: Long, url: String?, now: Long) = Unit
+        override suspend fun setEditTaskUploaded(id: Long, videoId: String, now: Long) = Unit
+        override suspend fun setEditTaskDone(id: Long, now: Long) = Unit
+        override suspend fun retryEditTask(id: Long, now: Long): com.xenyaa.videoshot.data.repo.model.EditTaskState? = null
         override suspend fun deleteEditTask(id: Long) = Unit
         override suspend fun clearAll() = Unit
     }

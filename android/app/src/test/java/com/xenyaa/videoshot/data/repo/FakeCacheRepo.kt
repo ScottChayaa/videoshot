@@ -6,9 +6,11 @@ import com.xenyaa.videoshot.data.cache.entity.DraftEntity
 import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
 import com.xenyaa.videoshot.data.repo.model.EditTask
 import com.xenyaa.videoshot.data.repo.model.EditTaskState
+import com.xenyaa.videoshot.data.repo.model.EditTaskStep
 import com.xenyaa.videoshot.data.repo.model.FacetRef
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
@@ -74,7 +76,7 @@ open class FakeCacheRepo : CacheRepo {
     override suspend fun currentClipDraft(): ClipDraft? = clipDraft
     override suspend fun clearClipDraft() { clipDraft = null }
 
-    override suspend fun startEditTask(draft: ClipDraft, title: String, now: Long): Long {
+    override suspend fun startEditTask(draft: ClipDraft, title: String, autoUpload: Boolean, now: Long): Long {
         val id = nextTaskId++
         val task = EditTask(
             id = id,
@@ -82,7 +84,7 @@ open class FakeCacheRepo : CacheRepo {
             progress = 0,
             title = title,
             draft = draft.copy(history = EditHistory(draft.timeline)),
-            autoUpload = true,
+            autoUpload = autoUpload,
             failReason = null,
             skippedSources = 0,
             galleryUri = null,
@@ -97,28 +99,79 @@ open class FakeCacheRepo : CacheRepo {
     override fun editTask(id: Long): Flow<EditTask?> = tasks.map { list -> list.firstOrNull { it.id == id } }
 
     override suspend fun pendingEditTaskIds(): List<Long> =
-        tasks.value.filter { it.state == EditTaskState.QUEUED || it.state == EditTaskState.RENDERING }.map { it.id }
+        tasks.value.filter {
+            it.state == EditTaskState.QUEUED || it.state == EditTaskState.RENDERING || it.state == EditTaskState.UPLOADING
+        }.map { it.id }
+
+    override suspend fun processingEditTaskIds(): List<Long> =
+        tasks.value.filter { it.state == EditTaskState.PROCESSING }.map { it.id }
+
+    override fun doneEditTaskCount(): Flow<Int> =
+        tasks.map { list -> list.count { it.state == EditTaskState.DONE } }.distinctUntilChanged()
 
     /** 改指定任務；編號不存在就什麼都不做。 */
     private fun changeTask(id: Long, change: (EditTask) -> EditTask) =
         tasks.update { list -> list.map { if (it.id == id) change(it) else it } }
 
     override suspend fun setEditTaskProgress(id: Long, state: EditTaskState, progress: Int, now: Long) =
-        changeTask(id) { it.copy(state = state, progress = progress) }
+        changeTask(id) { it.copy(state = state, progress = progress, updatedAt = now) }
 
     override suspend fun setEditTaskRendered(id: Long, skipped: Int, galleryUri: String?, now: Long) =
         changeTask(id) {
-            it.copy(state = EditTaskState.RENDERED, progress = 100, skippedSources = skipped, galleryUri = galleryUri, failReason = null)
+            it.copy(
+                state = EditTaskState.RENDERED, progress = 100, skippedSources = skipped, galleryUri = galleryUri,
+                failReason = null, updatedAt = now,
+            )
         }
 
-    override suspend fun setEditTaskFailed(id: Long, reason: String, now: Long) =
-        changeTask(id) { it.copy(state = EditTaskState.FAILED, failReason = reason) }
+    override suspend fun setEditTaskReadyToUpload(id: Long, skipped: Int, now: Long) =
+        changeTask(id) { it.copy(state = EditTaskState.UPLOADING, progress = 0, skippedSources = skipped, updatedAt = now) }
+
+    override suspend fun setEditTaskUploadUrl(id: Long, url: String?, now: Long) =
+        changeTask(id) { it.copy(uploadUrl = url, updatedAt = now) }
+
+    override suspend fun setEditTaskUploaded(id: Long, videoId: String, now: Long) =
+        changeTask(id) {
+            it.copy(
+                state = EditTaskState.PROCESSING, progress = 100, videoId = videoId, uploadUrl = null,
+                failReason = null, failedStep = null, updatedAt = now,
+            )
+        }
+
+    override suspend fun setEditTaskDone(id: Long, now: Long) =
+        changeTask(id) { it.copy(state = EditTaskState.DONE, updatedAt = now) }
+
+    override suspend fun setEditTaskFailed(id: Long, reason: String, step: EditTaskStep, now: Long) =
+        changeTask(id) { it.copy(state = EditTaskState.FAILED, failReason = reason, failedStep = step, updatedAt = now) }
 
     override suspend fun setEditTaskAutoUpload(id: Long, on: Boolean, now: Long) =
-        changeTask(id) { it.copy(autoUpload = on) }
+        changeTask(id) { it.copy(autoUpload = on, updatedAt = now) }
 
     override suspend fun requeueEditTask(id: Long, now: Long) =
-        changeTask(id) { it.copy(state = EditTaskState.QUEUED, progress = 0, failReason = null) }
+        changeTask(id) {
+            if (it.state == EditTaskState.RENDERING) {
+                it.copy(state = EditTaskState.QUEUED, progress = 0, failReason = null, updatedAt = now)
+            } else {
+                it
+            }
+        }
+
+    override suspend fun retryEditTask(id: Long, now: Long): EditTaskState? {
+        val task = tasks.value.firstOrNull { it.id == id }?.takeIf { it.state == EditTaskState.FAILED } ?: return null
+        val next = when (task.failedStep ?: EditTaskStep.RENDER) {
+            EditTaskStep.RENDER -> EditTaskState.QUEUED
+            EditTaskStep.UPLOAD -> EditTaskState.UPLOADING
+            EditTaskStep.STORYBOARD -> EditTaskState.PROCESSING
+        }
+        changeTask(id) {
+            it.copy(
+                state = next,
+                progress = if (next == EditTaskState.PROCESSING) it.progress else 0,
+                failReason = null, failedStep = null, updatedAt = now,
+            )
+        }
+        return next
+    }
 
     override suspend fun deleteEditTask(id: Long) { tasks.update { list -> list.filterNot { it.id == id } } }
 

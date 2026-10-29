@@ -221,15 +221,22 @@ class AppRootClipTest {
                 override suspend fun saveClipDraft(draft: com.xenyaa.videoshot.core.timeline.ClipDraft, now: Long) = Unit
                 override suspend fun currentClipDraft(): com.xenyaa.videoshot.core.timeline.ClipDraft? = null
                 override suspend fun clearClipDraft() = Unit
-                override suspend fun startEditTask(draft: com.xenyaa.videoshot.core.timeline.ClipDraft, title: String, now: Long): Long = 0L
+                override suspend fun startEditTask(draft: com.xenyaa.videoshot.core.timeline.ClipDraft, title: String, autoUpload: Boolean, now: Long): Long = 0L
                 override fun editTasks(): kotlinx.coroutines.flow.Flow<List<com.xenyaa.videoshot.data.repo.model.EditTask>> = kotlinx.coroutines.flow.flowOf(emptyList())
                 override fun editTask(id: Long): kotlinx.coroutines.flow.Flow<com.xenyaa.videoshot.data.repo.model.EditTask?> = kotlinx.coroutines.flow.flowOf(null)
                 override suspend fun pendingEditTaskIds(): List<Long> = emptyList()
                 override suspend fun setEditTaskProgress(id: Long, state: com.xenyaa.videoshot.data.repo.model.EditTaskState, progress: Int, now: Long) = Unit
                 override suspend fun setEditTaskRendered(id: Long, skipped: Int, galleryUri: String?, now: Long) = Unit
-                override suspend fun setEditTaskFailed(id: Long, reason: String, now: Long) = Unit
+                override suspend fun setEditTaskFailed(id: Long, reason: String, step: com.xenyaa.videoshot.data.repo.model.EditTaskStep, now: Long) = Unit
                 override suspend fun setEditTaskAutoUpload(id: Long, on: Boolean, now: Long) = Unit
                 override suspend fun requeueEditTask(id: Long, now: Long) = Unit
+                override suspend fun processingEditTaskIds(): List<Long> = emptyList()
+                override fun doneEditTaskCount(): kotlinx.coroutines.flow.Flow<Int> = kotlinx.coroutines.flow.flowOf(0)
+                override suspend fun setEditTaskReadyToUpload(id: Long, skipped: Int, now: Long) = Unit
+                override suspend fun setEditTaskUploadUrl(id: Long, url: String?, now: Long) = Unit
+                override suspend fun setEditTaskUploaded(id: Long, videoId: String, now: Long) = Unit
+                override suspend fun setEditTaskDone(id: Long, now: Long) = Unit
+                override suspend fun retryEditTask(id: Long, now: Long): com.xenyaa.videoshot.data.repo.model.EditTaskState? = null
                 override suspend fun deleteEditTask(id: Long) = Unit
                 override suspend fun clearAll() = Unit
             },
@@ -756,7 +763,7 @@ class AppRootClipTest {
     @Test
     fun 建立任務失敗留在編輯畫面草稿還在() {
         val repo = object : com.xenyaa.videoshot.data.repo.FakeCacheRepo() {
-            override suspend fun startEditTask(draft: ClipDraft, title: String, now: Long): Long =
+            override suspend fun startEditTask(draft: ClipDraft, title: String, autoUpload: Boolean, now: Long): Long =
                 throw IllegalStateException("資料庫被鎖住")
         }
         val clip = FakeClipDeps(full, repo).withDraft()
@@ -792,9 +799,9 @@ class AppRootClipTest {
         }
         var failFirst = true
         val repo = object : com.xenyaa.videoshot.data.repo.FakeCacheRepo() {
-            override suspend fun startEditTask(draft: ClipDraft, title: String, now: Long): Long {
+            override suspend fun startEditTask(draft: ClipDraft, title: String, autoUpload: Boolean, now: Long): Long {
                 if (failFirst) { failFirst = false; throw IllegalStateException("資料庫被鎖住") }
-                return super.startEditTask(draft, title, now)
+                return super.startEditTask(draft, title, autoUpload, now)
             }
         }
         val clip = FakeClipDeps(full, repo).withDraft().apply { notificationMissing = true }
@@ -821,7 +828,7 @@ class AppRootClipTest {
     // ---- 剪輯頁的任務清單與點通知回剪輯頁（任務 9）----
 
     private fun FakeClipDeps.withTask(title: String = "我的旅行"): Long = kotlinx.coroutines.runBlocking {
-        cacheRepo.startEditTask(newClipDraft(ClipOrientation.PORTRAIT, listOf(clipSource(1), clipSource(2))), title, 0)
+        cacheRepo.startEditTask(newClipDraft(ClipOrientation.PORTRAIT, listOf(clipSource(1), clipSource(2))), title, true, 0)
     }
 
     private fun openClipTab(clip: FakeClipDeps) {
@@ -957,7 +964,7 @@ class AppRootClipTest {
     fun 剪輯頁失敗任務重試_回到等待中並重新排程() {
         val clip = FakeClipDeps(full)
         val taskId = clip.withTask("我的旅行")
-        kotlinx.coroutines.runBlocking { clip.cacheRepo.setEditTaskFailed(taskId, "輸出失敗", 0) }
+        kotlinx.coroutines.runBlocking { clip.cacheRepo.setEditTaskFailed(taskId, "輸出失敗", com.xenyaa.videoshot.data.repo.model.EditTaskStep.RENDER, 0) }
         openClipTab(clip)
         compose.onNodeWithText("失敗：輸出失敗").assertIsDisplayed()
 

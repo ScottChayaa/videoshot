@@ -13,6 +13,7 @@ import com.xenyaa.videoshot.data.cache.entity.FacetRecentEntity
 import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
 import com.xenyaa.videoshot.data.repo.model.EditTask
 import com.xenyaa.videoshot.data.repo.model.EditTaskState
+import com.xenyaa.videoshot.data.repo.model.EditTaskStep
 import com.xenyaa.videoshot.data.repo.model.FacetRef
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
@@ -74,7 +75,7 @@ class RoomCacheRepo(
 
     override suspend fun clearClipDraft() = withContext(io) { db.editDraftDao().clear() }
 
-    override suspend fun startEditTask(draft: ClipDraft, title: String, now: Long): Long = withContext(io) {
+    override suspend fun startEditTask(draft: ClipDraft, title: String, autoUpload: Boolean, now: Long): Long = withContext(io) {
         val task = draft.copy(history = EditHistory(draft.timeline)).let {
             EditTaskEntity(
                 id = 0,
@@ -84,7 +85,7 @@ class RoomCacheRepo(
                 orientation = it.orientation.name,
                 durationMs = it.timeline.durationMs,
                 payload = ClipDraftCodec.encode(it),
-                autoUpload = 1,
+                autoUpload = if (autoUpload) 1 else 0,
                 failReason = null,
                 skippedSources = 0,
                 galleryUri = null,
@@ -118,8 +119,28 @@ class RoomCacheRepo(
         db.editTaskDao().setRendered(id, skipped, galleryUri, now)
     }
 
-    override suspend fun setEditTaskFailed(id: Long, reason: String, now: Long) = withContext(io) {
-        db.editTaskDao().setFailed(id, reason, now)
+    override suspend fun processingEditTaskIds(): List<Long> = withContext(io) { db.editTaskDao().processingIds() }
+
+    override fun doneEditTaskCount(): Flow<Int> = db.editTaskDao().doneCount().flowOn(io)
+
+    override suspend fun setEditTaskReadyToUpload(id: Long, skipped: Int, now: Long) = withContext(io) {
+        db.editTaskDao().setReadyToUpload(id, skipped, now)
+    }
+
+    override suspend fun setEditTaskUploadUrl(id: Long, url: String?, now: Long) = withContext(io) {
+        db.editTaskDao().setUploadUrl(id, url, now)
+    }
+
+    override suspend fun setEditTaskUploaded(id: Long, videoId: String, now: Long) = withContext(io) {
+        db.editTaskDao().setUploaded(id, videoId, now)
+    }
+
+    override suspend fun setEditTaskDone(id: Long, now: Long) = withContext(io) {
+        db.editTaskDao().setDone(id, now)
+    }
+
+    override suspend fun setEditTaskFailed(id: Long, reason: String, step: EditTaskStep, now: Long) = withContext(io) {
+        db.editTaskDao().setFailed(id, reason, step.dbValue, now)
     }
 
     override suspend fun setEditTaskAutoUpload(id: Long, on: Boolean, now: Long) = withContext(io) {
@@ -128,6 +149,25 @@ class RoomCacheRepo(
 
     override suspend fun requeueEditTask(id: Long, now: Long) = withContext(io) {
         db.editTaskDao().requeue(id, now)
+    }
+
+    override suspend fun retryEditTask(id: Long, now: Long): EditTaskState? = withContext(io) {
+        // 讀步驟與改狀態同一個交易：中間不會被別的寫入插進來
+        db.useWriterConnection { transactor ->
+            transactor.withTransaction(Transactor.SQLiteTransactionType.IMMEDIATE) {
+                val dao = db.editTaskDao()
+                val row = dao.once(id)
+                if (row == null || EditTaskState.fromDb(row.state) != EditTaskState.FAILED) {
+                    null
+                } else {
+                    when (row.failedStep?.let(EditTaskStep::fromDb) ?: EditTaskStep.RENDER) {
+                        EditTaskStep.RENDER -> { dao.retryRender(id, now); EditTaskState.QUEUED }
+                        EditTaskStep.UPLOAD -> { dao.retryUpload(id, now); EditTaskState.UPLOADING }
+                        EditTaskStep.STORYBOARD -> { dao.retryStoryboard(id, now); EditTaskState.PROCESSING }
+                    }
+                }
+            }
+        }
     }
 
     override suspend fun deleteEditTask(id: Long) = withContext(io) { db.editTaskDao().delete(id) }
@@ -181,5 +221,9 @@ private fun EditTaskEntity.toTask(): EditTask? {
         skippedSources = skippedSources,
         galleryUri = galleryUri,
         createdAt = createdAt,
+        failedStep = failedStep?.let(EditTaskStep::fromDb),
+        uploadUrl = uploadUrl,
+        videoId = videoId,
+        updatedAt = updatedAt,
     )
 }

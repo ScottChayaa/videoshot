@@ -807,7 +807,7 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
                 exportStarting = true
                 scope.launch {
                     try {
-                        val taskId = container.clipDeps.cacheRepo.startEditTask(draft, title, container.clipDeps.now())
+                        val taskId = container.clipDeps.cacheRepo.startEditTask(draft, title, autoUpload = true, now = container.clipDeps.now())
                         try {
                             container.clipDeps.enqueueExport(taskId)
                         } catch (e: CancellationException) {

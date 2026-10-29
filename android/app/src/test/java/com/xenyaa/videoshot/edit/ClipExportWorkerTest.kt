@@ -63,7 +63,7 @@ class ClipExportWorkerTest {
 
     @Test
     fun 升成前景後交給runner輸出() = runTest {
-        val id = repo.startEditTask(draft(), "標題", 1_000L)
+        val id = repo.startEditTask(draft(), "標題", true, 1_000L)
 
         assertEquals(ListenableWorker.Result.success(), worker(id).doWork())
 
@@ -72,7 +72,7 @@ class ClipExportWorkerTest {
 
     @Test
     fun 系統不讓開前景服務時改回等待中且不輸出() = runTest {
-        val id = repo.startEditTask(draft(), "標題", 1_000L)
+        val id = repo.startEditTask(draft(), "標題", true, 1_000L)
         repo.setEditTaskProgress(id, EditTaskState.RENDERING, 30, 2_000L)
         val refuse = ForegroundUpdater { _, _, _ ->
             Futures.immediateFailedFuture<Void?>(IllegalStateException("ForegroundServiceStartNotAllowedException"))
@@ -88,7 +88,7 @@ class ClipExportWorkerTest {
 
     @Test
     fun 取消時不當成開不了前景服務() = runTest {
-        val id = repo.startEditTask(draft(), "標題", 1_000L)
+        val id = repo.startEditTask(draft(), "標題", true, 1_000L)
         repo.setEditTaskProgress(id, EditTaskState.RENDERING, 30, 2_000L)
 
         try {
@@ -101,7 +101,7 @@ class ClipExportWorkerTest {
 
     @Test
     fun 任務不存在或已經結束就什麼都不做() = runTest {
-        val done = repo.startEditTask(draft(), "完成", 1_000L)
+        val done = repo.startEditTask(draft(), "完成", true, 1_000L)
         repo.setEditTaskRendered(done, 0, null, 2_000L)
         var foregrounded = 0
         val counting = ForegroundUpdater { _, _, _ -> foregrounded++; Futures.immediateFuture<Void?>(null) }
@@ -117,7 +117,7 @@ class ClipExportWorkerTest {
 
     private fun task(galleryUri: String? = null, skipped: Int = 0): EditTask {
         val base = kotlinx.coroutines.runBlocking {
-            val id = repo.startEditTask(draft(), "videoshot 2026/10/20", 1_000L)
+            val id = repo.startEditTask(draft(), "videoshot 2026/10/20", true, 1_000L)
             repo.editTask(id).first()!!
         }
         return base.copy(galleryUri = galleryUri, skippedSources = skipped, state = EditTaskState.RENDERED)

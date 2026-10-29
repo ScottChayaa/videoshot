@@ -135,8 +135,8 @@ class ClipExportSchedulingTest {
     @Test
     fun 取消排隊的任務後再排一支_正在跑的不受影響_新的排在後面() = runBlocking {
         tasks = repo
-        val a = repo.startEditTask(draft(), "A", 1_000L)
-        val b = repo.startEditTask(draft(), "B", 1_000L)
+        val a = repo.startEditTask(draft(), "A", true, 1_000L)
+        val b = repo.startEditTask(draft(), "B", true, 1_000L)
         gates[a] = CompletableDeferred()
         enqueueClipExport(context, a)
         enqueueClipExport(context, b) // b 是串的末端
@@ -147,7 +147,7 @@ class ClipExportSchedulingTest {
         repo.deleteEditTask(b)
         resumeClipExports(context, repo, 3_000L)
         // 之後再導出一支 c
-        val c = repo.startEditTask(draft(), "C", 4_000L)
+        val c = repo.startEditTask(draft(), "C", true, 4_000L)
         gates[c] = CompletableDeferred()
         enqueueClipExport(context, c)
 
@@ -167,9 +167,9 @@ class ClipExportSchedulingTest {
 
     @Test
     fun 取消串頭之後被連帶取消的任務能補排() = runBlocking {
-        val a = repo.startEditTask(draft(), "A", 1_000L)
-        val b = repo.startEditTask(draft(), "B", 1_000L)
-        val c = repo.startEditTask(draft(), "C", 1_000L)
+        val a = repo.startEditTask(draft(), "A", true, 1_000L)
+        val b = repo.startEditTask(draft(), "B", true, 1_000L)
+        val c = repo.startEditTask(draft(), "C", true, 1_000L)
         enqueueClipExport(context, a)
         enqueueClipExport(context, b) // 排在 a 後面
         enqueueClipExport(context, c)
@@ -189,7 +189,7 @@ class ClipExportSchedulingTest {
 
     @Test
     fun 恢復時輸出中的改回等待並重排() = runBlocking {
-        val id = repo.startEditTask(draft(), "標題", 1_000L)
+        val id = repo.startEditTask(draft(), "標題", true, 1_000L)
         repo.setEditTaskProgress(id, EditTaskState.RENDERING, 40, 2_000L) // app 被殺時停在輸出中
 
         resumeClipExports(context, repo, 3_000L)
@@ -202,7 +202,7 @@ class ClipExportSchedulingTest {
 
     @Test
     fun 已經排著的不重複排() = runBlocking {
-        val id = repo.startEditTask(draft(), "標題", 1_000L)
+        val id = repo.startEditTask(draft(), "標題", true, 1_000L)
         enqueueClipExport(context, id)
         repo.setEditTaskProgress(id, EditTaskState.RENDERING, 40, 2_000L) // 工作真的在跑
 
@@ -214,10 +214,10 @@ class ClipExportSchedulingTest {
 
     @Test
     fun 輸出完成或失敗的任務不會被排() = runBlocking {
-        val done = repo.startEditTask(draft(), "完成", 1_000L)
+        val done = repo.startEditTask(draft(), "完成", true, 1_000L)
         repo.setEditTaskRendered(done, 0, null, 2_000L)
-        val failed = repo.startEditTask(draft(), "失敗", 1_000L)
-        repo.setEditTaskFailed(failed, "輸出失敗", 2_000L)
+        val failed = repo.startEditTask(draft(), "失敗", true, 1_000L)
+        repo.setEditTaskFailed(failed, "輸出失敗", com.xenyaa.videoshot.data.repo.model.EditTaskStep.RENDER, 2_000L)
 
         resumeClipExports(context, repo, 3_000L)
 

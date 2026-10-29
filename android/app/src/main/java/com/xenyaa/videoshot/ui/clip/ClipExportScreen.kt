@@ -151,11 +151,16 @@ internal suspend fun deleteExportTask(deps: ClipDeps, taskId: Long) {
     }
 }
 
-/** 重試一個失敗的任務：改回等待中、重新排程（導出中畫面與剪輯頁的任務列共用）。 */
+/**
+ * 重試一個失敗的任務：依它失敗的步驟回到那一步的開頭（導出中畫面與剪輯頁的任務列共用）。
+ * 回到等待中或上傳中才重新排工作；回到處理中（等縮圖）的輪詢、以及上傳前的授權還沒接上。
+ */
 internal suspend fun retryExportTask(deps: ClipDeps, taskId: Long) {
     guarded("重試輸出") {
-        deps.cacheRepo.requeueEditTask(taskId, deps.now())
-        deps.enqueueExport(taskId)
+        when (deps.cacheRepo.retryEditTask(taskId, deps.now())) {
+            EditTaskState.QUEUED, EditTaskState.UPLOADING -> deps.enqueueExport(taskId)
+            else -> Unit
+        }
     }
 }
 
@@ -239,6 +244,8 @@ fun ClipExportScreen(
                     }
                     VsButton(if (saved) "播放" else "播放檢查", onClick = onPlay)
                 }
+                // 上傳的三個狀態還沒有畫面，是 Task 9 的事
+                EditTaskState.UPLOADING, EditTaskState.PROCESSING, EditTaskState.DONE -> Unit
                 EditTaskState.FAILED -> {
                     StatusTitle("影片輸出失敗")
                     Text(
