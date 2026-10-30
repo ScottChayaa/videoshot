@@ -156,7 +156,8 @@ interface EditTaskDao {
     @Query("UPDATE edit_task SET state = 'failed', fail_reason = :reason, failed_step = :step, updated_at = :now WHERE id = :id")
     suspend fun setFailed(id: Long, reason: String, step: String, now: Long)
 
-    @Query("UPDATE edit_task SET auto_upload = :on, updated_at = :now WHERE id = :id")
+    /** 只動等待中與輸出中的：勾選框只在這兩個狀態顯示，之後的狀態（尤其處理中靠 `updated_at` 計時）不能被改到。 */
+    @Query("UPDATE edit_task SET auto_upload = :on, updated_at = :now WHERE id = :id AND state IN ('queued','rendering')")
     suspend fun setAutoUpload(id: Long, on: Int, now: Long)
 
     /** 只動輸出中的：上傳中與處理中的任務有自己的接續方式，不能退回等待輸出。 */
@@ -167,7 +168,7 @@ interface EditTaskDao {
     @Query("UPDATE edit_task SET state = 'queued', progress = 0, fail_reason = NULL, failed_step = NULL, updated_at = :now WHERE id = :id AND state = 'failed'")
     suspend fun retryRender(id: Long, now: Long)
 
-    @Query("UPDATE edit_task SET state = 'uploading', progress = 0, fail_reason = NULL, failed_step = NULL, updated_at = :now WHERE id = :id AND state = 'failed'")
+    @Query("UPDATE edit_task SET state = 'uploading', fail_reason = NULL, failed_step = NULL, updated_at = :now WHERE id = :id AND state = 'failed'")
     suspend fun retryUpload(id: Long, now: Long)
 
     @Query("UPDATE edit_task SET state = 'processing', fail_reason = NULL, failed_step = NULL, updated_at = :now WHERE id = :id AND state = 'failed'")

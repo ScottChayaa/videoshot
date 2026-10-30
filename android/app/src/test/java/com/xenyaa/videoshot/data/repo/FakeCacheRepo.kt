@@ -145,7 +145,9 @@ open class FakeCacheRepo : CacheRepo {
         changeTask(id) { it.copy(state = EditTaskState.FAILED, failReason = reason, failedStep = step, updatedAt = now) }
 
     override suspend fun setEditTaskAutoUpload(id: Long, on: Boolean, now: Long) =
-        changeTask(id) { it.copy(autoUpload = on, updatedAt = now) }
+        changeTask(id) {
+            if (it.state == EditTaskState.QUEUED || it.state == EditTaskState.RENDERING) it.copy(autoUpload = on, updatedAt = now) else it
+        }
 
     override suspend fun requeueEditTask(id: Long, now: Long) =
         changeTask(id) {
@@ -166,7 +168,7 @@ open class FakeCacheRepo : CacheRepo {
         changeTask(id) {
             it.copy(
                 state = next,
-                progress = if (next == EditTaskState.PROCESSING) it.progress else 0,
+                progress = if (next == EditTaskState.QUEUED) 0 else it.progress,
                 failReason = null, failedStep = null, updatedAt = now,
             )
         }

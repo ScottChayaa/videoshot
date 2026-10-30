@@ -83,6 +83,8 @@ interface CacheRepo {
 
     /** 任務失敗：記下原因與失敗的 [step]（【重試】依它決定回到哪個狀態）。 */
     suspend fun setEditTaskFailed(id: Long, reason: String, step: EditTaskStep, now: Long)
+
+    /** 改「完成後自動上傳」；只動等待中與輸出中的任務，其他狀態不動。 */
     suspend fun setEditTaskAutoUpload(id: Long, on: Boolean, now: Long)
 
     /**
@@ -93,7 +95,7 @@ interface CacheRepo {
 
     /**
      * 【重試】：只對 `failed` 的任務，依失敗的步驟回到那一步的開頭並清掉失敗原因與步驟——
-     * `render`（或沒記）→ `queued`、進度 0；`upload` → `uploading`、進度 0（上傳網址保留，接著傳）；
+     * `render`（或沒記）→ `queued`、進度 0；`upload` → `uploading`、進度不動（上傳網址保留，接著傳）；
      * `storyboard` → `processing`（`updated_at` 設成 [now]，重新計時）。
      * @return 新的狀態；任務不存在或不是失敗則回 null、不動它。
      */

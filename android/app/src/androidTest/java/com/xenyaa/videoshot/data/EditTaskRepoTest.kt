@@ -218,7 +218,7 @@ class EditTaskRepoTest {
         }
         repo.editTask(upload).first()!!.let {
             assertEquals(EditTaskState.UPLOADING, it.state)
-            assertEquals(0, it.progress)
+            assertEquals(63, it.progress) // 接著傳，進度不退回 0
             assertNull(it.failReason)
             assertNull(it.failedStep)
             assertEquals("https://upload/u", it.uploadUrl) // 從斷掉的地方接著傳
@@ -349,6 +349,18 @@ class EditTaskRepoTest {
 
         assertNull(repo.editTask(id).first())
         assertEquals(0L, rowCount("edit_task"))
+    }
+
+    @Test fun 自動上傳只在等待中與輸出中改得動() = runTest {
+        val id = repo.startEditTask(draft, "標題", autoUpload = true, now = 100)
+        repo.setEditTaskUploaded(id, "vid", now = 130) // 處理中
+
+        repo.setEditTaskAutoUpload(id, false, now = 200)
+
+        repo.editTask(id).first()!!.let {
+            assertTrue(it.autoUpload)
+            assertEquals(130L, it.updatedAt) // 處理中的計時靠 updated_at，不能被動到
+        }
     }
 
     @Test fun 開始任務可以指定不自動上傳() = runTest {

@@ -35,6 +35,7 @@ class FakeCacheRepoEditTaskTest {
         repo.setEditTaskFailed(render, "輸出失敗", EditTaskStep.RENDER, now = 110)
         val upload = start("U")
         repo.setEditTaskReadyToUpload(upload, skipped = 0, now = 105)
+        repo.setEditTaskProgress(upload, EditTaskState.UPLOADING, 63, now = 106)
         repo.setEditTaskUploadUrl(upload, "https://upload/u", now = 107)
         repo.setEditTaskFailed(upload, "沒有網路連線", EditTaskStep.UPLOAD, now = 110)
         val storyboard = start("S")
@@ -53,7 +54,7 @@ class FakeCacheRepoEditTaskTest {
         }
         task(upload).let {
             assertEquals(EditTaskState.UPLOADING, it.state)
-            assertEquals(0, it.progress)
+            assertEquals(63, it.progress) // 接著傳，進度不退回 0
             assertNull(it.failedStep)
             assertEquals("https://upload/u", it.uploadUrl)
         }
@@ -145,6 +146,18 @@ class FakeCacheRepoEditTaskTest {
 
         assertNull(repo.editTask(id).first())
         assertEquals(emptyList<Long>(), repo.pendingEditTaskIds())
+    }
+
+    @Test fun 自動上傳只在等待中與輸出中改得動() = runTest {
+        val id = start(autoUpload = true)
+        repo.setEditTaskUploaded(id, "vid", now = 130) // 處理中
+
+        repo.setEditTaskAutoUpload(id, false, now = 200)
+
+        task(id).let {
+            assertEquals(true, it.autoUpload)
+            assertEquals(130L, it.updatedAt) // 處理中的計時靠 updated_at，不能被動到
+        }
     }
 
     @Test fun 開始任務可以指定不自動上傳() = runTest {
