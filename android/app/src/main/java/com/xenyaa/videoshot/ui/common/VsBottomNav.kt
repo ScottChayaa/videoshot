@@ -30,8 +30,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.invisibleToUser
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.ui.icons.VsIcons
@@ -52,6 +52,9 @@ private fun iconOf(tab: Tab): ImageVector = when (tab) {
     Tab.FOLDERS -> VsIcons.Folder
     Tab.ACCOUNT -> VsIcons.Person
 }
+
+/** 剪輯格紅點的 testTag：紅點的語意整個清掉了，測試只能用它找到紅點本身。 */
+internal const val NAV_BADGE_TAG = "navBadge"
 
 /** 剪輯格紅點上的字：沒有（0 以下）不畫、1～9 照寫、超過 9 寫「9+」。 */
 internal fun navBadgeText(count: Int): String? = when {
@@ -151,14 +154,14 @@ private fun NavItem(
                 else -> Icon(iconOf(tab), null, tint = color, modifier = Modifier.size(24.dp))
             }
             if (badgeText != null) {
-                // 紅點只是視覺：數字從無障礙樹拿掉，唸的內容由下面的標籤文字負責
+                // 紅點只是視覺：數字從無障礙樹清掉（同帳號頭像字母），唸的內容由下面的標籤文字負責
                 Box(
                     Modifier.align(Alignment.TopEnd).offset(x = 10.dp, y = (-4).dp)
                         .defaultMinSize(minWidth = 16.dp, minHeight = 16.dp)
                         .clip(CircleShape)
                         .background(AppTheme.colors.accent)
                         .padding(horizontal = 4.dp)
-                        .semantics { invisibleToUser() },
+                        .clearAndSetSemantics { testTag = NAV_BADGE_TAG },
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(

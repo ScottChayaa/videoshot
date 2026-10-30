@@ -1,11 +1,14 @@
 package com.xenyaa.videoshot.ui.common
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.xenyaa.videoshot.ui.shell.Tab
@@ -85,25 +88,30 @@ class VsBottomNavTest {
         assertEquals("9+", navBadgeText(12))
     }
 
-    @Test fun 有已完成時剪輯格畫紅點數字() {
+    // 紅點的語意清掉了（數字找不到），上面寫什麼由 navBadgeText 的測試負責；這裡只看紅點有沒有畫
+    @Test fun 有已完成時剪輯格畫紅點() {
         show(clipBadge = 3)
-        compose.onNodeWithText("3", useUnmergedTree = true).assertIsDisplayed()
-    }
-
-    @Test fun 超過9個時紅點寫9加() {
-        show(clipBadge = 12)
-        compose.onNodeWithText("9+", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag(NAV_BADGE_TAG, useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test fun 沒有已完成時不畫紅點() {
         show(clipBadge = 0)
-        compose.onNodeWithText("0", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag(NAV_BADGE_TAG, useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithText("剪輯").assertIsDisplayed()
     }
 
     @Test fun 紅點的TalkBack文字() {
         show(clipBadge = 3)
         compose.onNodeWithContentDescription("剪輯，3 個已完成").assertIsDisplayed()
+    }
+
+    @Test fun 紅點上的數字不會被TalkBack另外唸() {
+        show(clipBadge = 3)
+        // 合併後的剪輯格只有「剪輯，3 個已完成」這一句，沒有單獨的「3」
+        val merged = compose.onNodeWithContentDescription("剪輯，3 個已完成").fetchSemanticsNode().config
+        assertEquals(listOf("剪輯，3 個已完成"), merged.getOrNull(SemanticsProperties.ContentDescription))
+        assertNull(merged.getOrNull(SemanticsProperties.Text))
+        compose.onNodeWithText("3").assertDoesNotExist()
     }
 
     @Test fun 超過9個時TalkBack唸實際個數() {
