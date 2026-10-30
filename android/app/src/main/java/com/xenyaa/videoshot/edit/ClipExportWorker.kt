@@ -15,7 +15,9 @@ import androidx.work.workDataOf
 import com.xenyaa.videoshot.data.repo.CacheRepo
 import com.xenyaa.videoshot.data.repo.model.EditTask
 import com.xenyaa.videoshot.data.repo.model.EditTaskState
+import com.xenyaa.videoshot.publish.QuotaResumeWorker
 import com.xenyaa.videoshot.publish.StoryboardPollWorker
+import com.xenyaa.videoshot.publish.ensureQuotaResumes
 import com.xenyaa.videoshot.publish.ensureStoryboardPolls
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
@@ -30,7 +32,8 @@ internal fun clipExportTag(taskId: Long) = "clip-export-$taskId"
  * （`AppContainer.runClipTask`：輸出，有勾自動上傳的接著上傳）。等待中、輸出中、上傳中的任務都會跑。
  *
  * 系統不讓這時候開前景服務（Android 12 起，app 在背景時）：輸出中的改回「等待中」、上傳中的原樣留著
- * （下次從存著的上傳網址接著傳，不重新輸出），回成功，留給下次打開 app 時 [resumeClipExports] 重排。
+ * （下次從存著的上傳網址接著傳，不重新輸出）並 [notifyCanResume]（例如每日上限重置後 app 在背景），
+ * 回成功，留給下次打開 app 時 [resumeClipExports] 重排。
  * 任務不存在或已經做完（處理中以後）就什麼都不做。
  */
 class ClipExportWorker(
@@ -40,6 +43,8 @@ class ClipExportWorker(
     private val foregroundInfoFor: (EditTask) -> ForegroundInfo,
     private val runTask: suspend (Long) -> Unit,
     private val now: () -> Long,
+    /** 上傳中的任務開不了前景服務：提醒使用者打開 app 接著傳。 */
+    private val notifyCanResume: (EditTask) -> Unit = {},
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
@@ -55,6 +60,7 @@ class ClipExportWorker(
         } catch (e: IllegalStateException) {
             // ForegroundServiceStartNotAllowedException 也是 IllegalStateException；只把輸出中的改回等待中
             repo.requeueEditTask(taskId, now())
+            if (task.state == EditTaskState.UPLOADING) notifyCanResume(task)
             return Result.success()
         }
 
@@ -68,14 +74,15 @@ class ClipExportWorker(
 }
 
 /**
- * 把剪輯任務的依賴接進 [ClipExportWorker] 與 [StoryboardPollWorker] 的建構子——WorkManager 自己不知道怎麼生出它們。
- * [poll] 是 `StoryboardPoller.poll`。
+ * 把剪輯任務的依賴接進 [ClipExportWorker]、[StoryboardPollWorker] 與 [QuotaResumeWorker] 的建構子——WorkManager 自己不知道怎麼生出它們。
+ * [poll] 是 `StoryboardPoller.poll`；[notifyCanResume] 見 [ClipExportWorker]。
  */
 class ClipExportWorkerFactory(
     private val repo: CacheRepo,
     private val foregroundInfoFor: (EditTask) -> ForegroundInfo,
     private val runTask: suspend (Long) -> Unit,
     private val poll: suspend (Long) -> Unit,
+    private val notifyCanResume: (EditTask) -> Unit = {},
     private val now: () -> Long,
 ) : WorkerFactory() {
     override fun createWorker(
@@ -84,8 +91,9 @@ class ClipExportWorkerFactory(
         workerParameters: WorkerParameters,
     ): ListenableWorker? = when (workerClassName) {
         ClipExportWorker::class.java.name ->
-            ClipExportWorker(appContext, workerParameters, repo, foregroundInfoFor, runTask, now)
+            ClipExportWorker(appContext, workerParameters, repo, foregroundInfoFor, runTask, now, notifyCanResume)
         StoryboardPollWorker::class.java.name -> StoryboardPollWorker(appContext, workerParameters, poll)
+        QuotaResumeWorker::class.java.name -> QuotaResumeWorker(appContext, workerParameters, repo, now)
         else -> null
     }
 }
@@ -123,6 +131,7 @@ suspend fun cancelClipExport(context: Context, taskId: Long) {
 /**
  * 把沒有工作的未完成任務（app 被殺、手機重開、之前系統不讓開前景服務）排回 `clip-export` 串上：
  * 輸出中的改回等待中（從頭輸出）、上傳中的原樣排回去（從存著的上傳網址接著傳）。
+ * 先處理等每日上限重置的任務（[ensureQuotaResumes]：已過重置時間的改回上傳中、跟著排回串上，還沒到的補排等待工作），
  * 最後把處理中、沒有輪詢工作的任務補排等縮圖（[ensureStoryboardPolls]）。
  * 在 app 第一次回到前景時呼叫——這時才開得了前景服務。已經排著或在跑的不動。
  *
@@ -131,6 +140,7 @@ suspend fun cancelClipExport(context: Context, taskId: Long) {
  */
 suspend fun resumeClipExports(context: Context, repo: CacheRepo, now: Long) {
     val manager = WorkManager.getInstance(context)
+    ensureQuotaResumes(context, repo, now)
     for (id in repo.pendingEditTaskIds()) {
         val scheduled = manager.getWorkInfosByTagFlow(clipExportTag(id)).first().any { !it.state.isFinished }
         if (scheduled) continue

@@ -46,6 +46,7 @@ class StoryboardPollerTest {
         override fun finished(task: EditTask) = throw AssertionError("不該呼叫 finished")
         override fun done(task: EditTask) { done += task }
         override fun failed(task: EditTask, reason: String) { failed += task to reason }
+        override fun waitingQuota(task: EditTask) = throw AssertionError("等縮圖不該呼叫 waitingQuota")
     }
 
     private val repo = FakeCacheRepo()

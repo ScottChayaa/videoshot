@@ -108,10 +108,12 @@ class ClipUploadRunnerTest {
     private class FakeNotifier : ClipExportNotifier {
         val progress = mutableListOf<Int>()
         val failed = mutableListOf<Pair<EditTask, String>>()
+        val waiting = mutableListOf<EditTask>()
         override fun progress(task: EditTask, percent: Int) { progress += percent }
         override fun finished(task: EditTask) = throw AssertionError("上傳不該呼叫 finished")
         override fun done(task: EditTask) = throw AssertionError("上傳不該呼叫 done")
         override fun failed(task: EditTask, reason: String) { failed += task to reason }
+        override fun waitingQuota(task: EditTask) { waiting += task }
     }
 
     private val repo = RecordingRepo()
@@ -124,6 +126,8 @@ class ClipUploadRunnerTest {
     private var networkBack = true
     private val polls = mutableListOf<Pair<Long, Long>>()
     private val sleeps = mutableListOf<Long>()
+    private val quotaResumes = mutableListOf<Pair<Long, Long>>()
+    private var nowMs = 123L
 
     private fun runner() = ClipUploadRunner(
         repo = repo,
@@ -138,9 +142,10 @@ class ClipUploadRunnerTest {
             networkBack
         },
         schedulePoll = { id, delay -> polls += id to delay },
+        scheduleQuotaResume = { id, delay -> quotaResumes += id to delay },
         notifier = notifier,
         dirFor = { File(tmp.root, "edits/$it") },
-        now = { 123L },
+        now = { nowMs },
         sleep = { sleeps += it },
     )
 
@@ -386,11 +391,9 @@ class ClipUploadRunnerTest {
         assertEquals(EditTaskStep.UPLOAD, t.failedStep)
     }
 
-    @Test fun `沒頻道與額度的原因`() = runTest {
+    @Test fun `沒頻道的原因`() = runTest {
         val cases = listOf(
             UploadErrorKind.NO_CHANNEL to "這個 Google 帳號還沒有 YouTube 頻道",
-            UploadErrorKind.QUOTA to "今天的上傳額度用完了，請明天再試",
-            UploadErrorKind.CHANNEL_LIMIT to "這個頻道今天的上傳次數已達上限，請明天再試",
             UploadErrorKind.FATAL to "上傳失敗",
         )
         for ((kind, reason) in cases) {
@@ -537,7 +540,7 @@ class ClipUploadRunnerTest {
         val id = start()
         uploader.startScript += {
             repo.deleteEditTask(id)
-            throw http(403, UploadErrorKind.QUOTA)
+            throw http(403, UploadErrorKind.NO_CHANNEL)
         }
 
         runner().run(id)
@@ -545,6 +548,76 @@ class ClipUploadRunnerTest {
         assertNull(task(id))
         assertFalse(outFor(id).exists())
         assertTrue(notifier.failed.isEmpty())
+    }
+
+    // ---- 超過每日上傳上限：不算失敗，停在等待中 ----
+
+    @Test fun `額度用完停在等待中不刪檔並排明天`() = runTest {
+        val id = start()
+        uploader.startScript += { throw http(403, UploadErrorKind.QUOTA) }
+
+        runner().run(id)
+
+        val t = task(id)!!
+        assertEquals(EditTaskState.WAITING_QUOTA, t.state)
+        assertEquals("系統目前上傳已超過每日配額，請隔天再繼續上傳", t.failReason)
+        assertNull(t.failedStep)
+        assertEquals(123L, t.updatedAt) // 撞到上限的時間
+        assertTrue(outFor(id).exists()) // 重置後接著傳，不重新輸出
+        // now＝123 毫秒＝太平洋時間 1969-12-31 16:00 → 1970-01-01 00:00 PST（08:00Z）＋5 分
+        assertEquals(listOf(id to 29_100_000L - 123L), quotaResumes)
+        assertEquals(EditTaskState.WAITING_QUOTA, notifier.waiting.single().state)
+        assertEquals(id, notifier.waiting.single().id)
+        assertTrue(notifier.failed.isEmpty())
+        assertTrue(polls.isEmpty())
+        assertTrue(sleeps.isEmpty()) // 不在工作裡等，串可以輪到下一支
+    }
+
+    @Test fun `頻道上限一樣等且保留上傳網址`() = runTest {
+        val id = start(url = "https://upload/old")
+        uploader.queryScript += { throw http(400, UploadErrorKind.CHANNEL_LIMIT) }
+
+        runner().run(id)
+
+        val t = task(id)!!
+        assertEquals(EditTaskState.WAITING_QUOTA, t.state)
+        assertEquals("這個頻道今天的上傳次數已達上限，請隔天再繼續上傳", t.failReason)
+        assertEquals("https://upload/old", t.uploadUrl)
+        assertTrue(outFor(id).exists())
+        assertEquals(listOf(id), quotaResumes.map { it.first })
+        assertEquals(listOf(id), notifier.waiting.map { it.id })
+        assertTrue(notifier.failed.isEmpty())
+    }
+
+    @Test fun `等待中不寫updated_at`() = runTest {
+        val id = start()
+        uploader.startScript += { throw http(403, UploadErrorKind.QUOTA) }
+        runner().run(id)
+
+        // 等待期間又被叫到（例如工作被重排）：不是上傳中，什麼都不做
+        nowMs = 5_000L
+        runner().run(id)
+
+        val t = task(id)!!
+        assertEquals(EditTaskState.WAITING_QUOTA, t.state)
+        assertEquals(123L, t.updatedAt)
+        assertEquals(listOf("start"), uploader.calls)
+        assertEquals(1, quotaResumes.size)
+    }
+
+    @Test fun `撞到上限時任務已被刪就不排不通知且刪檔`() = runTest {
+        val id = start()
+        uploader.startScript += {
+            repo.deleteEditTask(id)
+            throw http(403, UploadErrorKind.QUOTA)
+        }
+
+        runner().run(id)
+
+        assertNull(task(id))
+        assertFalse(outFor(id).exists())
+        assertTrue(quotaResumes.isEmpty())
+        assertTrue(notifier.waiting.isEmpty())
     }
 
     @Test fun `取消時不刪檔也不清網址`() = runTest {

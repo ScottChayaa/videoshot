@@ -38,6 +38,7 @@ class ClipExportNotifierTest {
         skipped: Int = 0,
         failedStep: EditTaskStep? = null,
         progress: Int = 0,
+        failReason: String? = null,
     ) = EditTask(
         id = nextId++,
         state = state,
@@ -49,7 +50,7 @@ class ClipExportNotifierTest {
             EditHistory(Timeline(listOf(Segment(1, 0, 3000)))),
         ),
         autoUpload = autoUpload,
-        failReason = null,
+        failReason = failReason,
         skippedSources = skipped,
         galleryUri = null,
         createdAt = 1_000L,
@@ -134,5 +135,40 @@ class ClipExportNotifierTest {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING,
             notifier.foregroundInfo(task(state = EditTaskState.QUEUED, autoUpload = false), 35).foregroundServiceType,
         )
+    }
+    @Test
+    fun 撞到上限的通知文字() {
+        val notifier = AndroidClipExportNotifier(context)
+        val quota = task(state = EditTaskState.WAITING_QUOTA, failReason = "系統目前上傳已超過每日配額，請隔天再繼續上傳")
+        notifier.waitingQuota(quota)
+
+        val n = shadowOf(manager).getNotification(resultNotificationId(quota.id))
+        assertEquals("上傳已超過每日配額", n.title())
+        assertEquals("videoshot 2026/10/29・隔天會自動接著上傳", n.text())
+        assertEquals(CHANNEL_RESULT, n.channelId)
+
+        val channel = task(state = EditTaskState.WAITING_QUOTA, failReason = "這個頻道今天的上傳次數已達上限，請隔天再繼續上傳")
+        notifier.waitingQuota(channel)
+        val c = shadowOf(manager).getNotification(resultNotificationId(channel.id))
+        assertEquals("頻道今天的上傳次數已達上限", c.title())
+        assertEquals("videoshot 2026/10/29・隔天會自動接著上傳", c.text())
+
+        // 停在那個任務的導出畫面時不跳
+        val watched = task(state = EditTaskState.WAITING_QUOTA, failReason = "系統目前上傳已超過每日配額，請隔天再繼續上傳")
+        notifier.viewingTaskId = watched.id
+        notifier.waitingQuota(watched)
+        assertNull(shadowOf(manager).getNotification(resultNotificationId(watched.id)))
+    }
+
+    @Test
+    fun 開不了前景服務的上傳任務跳可以繼續上傳() {
+        val notifier = AndroidClipExportNotifier(context)
+        val t = task(state = EditTaskState.UPLOADING)
+        notifier.canResumeUpload(t)
+
+        val n = shadowOf(manager).getNotification(resultNotificationId(t.id))
+        assertEquals("影片可以繼續上傳了", n.title())
+        assertEquals("打開 videoshot 就會接著上傳", n.text())
+        assertEquals(CHANNEL_RESULT, n.channelId)
     }
 }

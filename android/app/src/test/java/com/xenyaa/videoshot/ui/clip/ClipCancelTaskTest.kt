@@ -41,6 +41,7 @@ class ClipCancelTaskTest {
         }
 
         override fun cancelStoryboardPoll(taskId: Long) { calls += "cancelPoll" }
+        override fun cancelQuotaResume(taskId: Long) { calls += "cancelQuota" }
         override suspend fun cancelExport(taskId: Long) = log("cancelExport")
         override suspend fun resumeExports() = log("resume")
         override suspend fun deleteExportFiles(taskId: Long) = log("deleteFiles")
@@ -64,7 +65,29 @@ class ClipCancelTaskTest {
 
         assertNull(repo.editTask(id).first())
         assertEquals(
-            listOf("cancelPoll", "cancelExport:任務在", "cancelExport:任務已刪", "deleteFiles:任務已刪", "dismiss", "resume:任務已刪"),
+            listOf("cancelPoll", "cancelQuota", "cancelExport:任務在", "cancelExport:任務已刪", "deleteFiles:任務已刪", "dismiss", "resume:任務已刪"),
+            calls,
+        )
+    }
+
+    @Test fun 取消等待明天上傳的任務_先收等待工作和刪資料列_最後才補排() = runTest {
+        val id = processingTask()
+        repo.deleteEditTask(id)
+        val draft = newClipDraft(
+            ClipOrientation.PORTRAIT,
+            listOf(ClipSource(7, "content://media/7", SourceKind.PHOTO, 0, null, 1080, 1920, 0)),
+        )
+        val waiting = repo.startEditTask(draft, "等明天的", true, 100)
+        repo.setEditTaskReadyToUpload(waiting, 0, 150)
+        repo.setEditTaskWaitingQuota(waiting, "系統目前上傳已超過每日配額，請隔天再繼續上傳", 200)
+        taskId = waiting
+
+        cancelExportTask(deps, waiting)
+
+        assertNull(repo.editTask(waiting).first())
+        // resumeExports 在刪之前跑的話會把等待工作補排回去
+        assertEquals(
+            listOf("cancelPoll", "cancelQuota", "cancelExport:任務在", "cancelExport:任務已刪", "deleteFiles:任務已刪", "dismiss", "resume:任務已刪"),
             calls,
         )
     }

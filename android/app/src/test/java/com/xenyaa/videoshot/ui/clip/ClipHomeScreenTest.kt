@@ -595,4 +595,30 @@ class ClipHomeScreenTest {
         compose.waitForIdle()
         compose.onNodeWithText("取消導出？").assertIsDisplayed()
     }
+    // ── 超過每日上傳上限（Task 13）──
+
+    @Test fun 等待明天上傳的任務列() {
+        show(tasks = listOf(task(6, EditTaskState.WAITING_QUOTA, title = "等明天的", failReason = "系統目前上傳已超過每日配額，請隔天再繼續上傳")))
+        compose.onNodeWithText("等待明天上傳").assertIsDisplayed()
+        // 不是失敗：一般字色、沒有【重試】、沒有進度條、沒有勾選框、沒有主色圓點
+        assertEquals(palette.textDim, taskStatusColor(EditTaskState.WAITING_QUOTA, palette))
+        compose.onNodeWithText("重試").assertDoesNotExist()
+        compose.onAllNodes(hasProgressBar).assertCountEquals(0)
+        compose.onAllNodes(isToggleable()).assertCountEquals(0)
+        compose.onAllNodes(hasTestTag("doneDot"), useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    @Test fun 等待中可以取消_確認框寫取消上傳() {
+        val cancelled = mutableListOf<Long>()
+        show(tasks = listOf(task(6, EditTaskState.WAITING_QUOTA, title = "等明天的")), onCancelTask = { cancelled += it })
+        longPress("等明天的")
+        compose.onNodeWithText("刪除任務").assertDoesNotExist()
+        compose.onNodeWithText("取消").performClick()
+        compose.onNodeWithText("取消上傳？").assertIsDisplayed()
+        compose.onNodeWithText("已經上傳的部分會作廢。").assertIsDisplayed()
+        assertEquals(emptyList<Long>(), cancelled)
+
+        compose.onNodeWithText("取消上傳").performClick()
+        assertEquals(listOf(6L), cancelled)
+    }
 }

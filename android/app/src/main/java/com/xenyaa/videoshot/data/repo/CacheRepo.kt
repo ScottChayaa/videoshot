@@ -62,6 +62,9 @@ interface CacheRepo {
     /** 已上傳、等 YouTube 產生縮圖（`processing`）的任務編號，舊的在前。 */
     suspend fun processingEditTaskIds(): List<Long>
 
+    /** 撞到每日上傳上限、等隔天接著傳（`waiting_quota`）的任務編號，舊的在前。 */
+    suspend fun waitingQuotaEditTaskIds(): List<Long>
+
     /** `done` 的任務個數（導覽列「剪輯」的紅點）。 */
     fun doneEditTaskCount(): Flow<Int>
 
@@ -83,6 +86,15 @@ interface CacheRepo {
 
     /** 任務失敗：記下原因與失敗的 [step]（【重試】依它決定回到哪個狀態）。 */
     suspend fun setEditTaskFailed(id: Long, reason: String, step: EditTaskStep, now: Long)
+
+    /**
+     * 撞到每日上傳上限：只把 `uploading` 改成 `waiting_quota`，`fail_reason` 存畫面上那句 [reason]、
+     * `updated_at` 記成 [now]（撞到上限的時間，等待期間不再寫）；上傳網址與失敗步驟不動。
+     */
+    suspend fun setEditTaskWaitingQuota(id: Long, reason: String, now: Long)
+
+    /** 每日上限重置了：只把 `waiting_quota` 改回 `uploading`、清掉原因。@return 有改到才是 true。 */
+    suspend fun resumeEditTaskFromQuota(id: Long, now: Long): Boolean
 
     /** 改「完成後自動上傳」；只動等待中與輸出中的任務，其他狀態不動。 */
     suspend fun setEditTaskAutoUpload(id: Long, on: Boolean, now: Long)

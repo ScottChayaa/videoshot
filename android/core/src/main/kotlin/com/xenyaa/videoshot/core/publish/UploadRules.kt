@@ -4,6 +4,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import java.time.Instant
+import java.time.ZoneId
 
 /** 上傳分段大小：8 MiB（YouTube 要求 256 KiB 的倍數）。 */
 const val UPLOAD_CHUNK_BYTES = 8L * 1024 * 1024
@@ -62,4 +64,19 @@ fun storyboardPollDelayMs(elapsedMs: Long): Long? = when {
     elapsedMs < 300_000L -> 30_000L
     elapsedMs < 3_600_000L -> 120_000L
     else -> null
+}
+
+/** YouTube Data API 的每日額度在美國太平洋時間午夜重置（頻道的每日上限也是隔天恢復）。 */
+private val QUOTA_RESET_ZONE: ZoneId = ZoneId.of("America/Los_Angeles")
+
+/** 重置後多等一下再接著傳，免得剛好卡在重置前一刻又撞上限：5 分鐘。 */
+private const val QUOTA_RESET_GRACE_MS = 300_000L
+
+/**
+ * 撞到每日上傳上限後，什麼時候可以接著傳：[nowMs] 之後的下一個美國太平洋時間午夜，再加 5 分鐘。
+ * 剛好是午夜或剛過午夜時是隔天的午夜（今天的額度剛重置又用完了）；夏令時間切換那天照當地日曆算。
+ */
+fun nextQuotaResetMs(nowMs: Long): Long {
+    val today = Instant.ofEpochMilli(nowMs).atZone(QUOTA_RESET_ZONE).toLocalDate()
+    return today.plusDays(1).atStartOfDay(QUOTA_RESET_ZONE).toInstant().toEpochMilli() + QUOTA_RESET_GRACE_MS
 }

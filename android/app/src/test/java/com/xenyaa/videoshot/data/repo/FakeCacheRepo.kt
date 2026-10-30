@@ -106,6 +106,9 @@ open class FakeCacheRepo : CacheRepo {
     override suspend fun processingEditTaskIds(): List<Long> =
         tasks.value.filter { it.state == EditTaskState.PROCESSING }.map { it.id }
 
+    override suspend fun waitingQuotaEditTaskIds(): List<Long> =
+        tasks.value.filter { it.state == EditTaskState.WAITING_QUOTA }.map { it.id }
+
     override fun doneEditTaskCount(): Flow<Int> =
         tasks.map { list -> list.count { it.state == EditTaskState.DONE } }.distinctUntilChanged()
 
@@ -143,6 +146,17 @@ open class FakeCacheRepo : CacheRepo {
 
     override suspend fun setEditTaskFailed(id: Long, reason: String, step: EditTaskStep, now: Long) =
         changeTask(id) { it.copy(state = EditTaskState.FAILED, failReason = reason, failedStep = step, updatedAt = now) }
+
+    override suspend fun setEditTaskWaitingQuota(id: Long, reason: String, now: Long) =
+        changeTask(id) {
+            if (it.state == EditTaskState.UPLOADING) it.copy(state = EditTaskState.WAITING_QUOTA, failReason = reason, updatedAt = now) else it
+        }
+
+    override suspend fun resumeEditTaskFromQuota(id: Long, now: Long): Boolean {
+        if (tasks.value.firstOrNull { it.id == id }?.state != EditTaskState.WAITING_QUOTA) return false
+        changeTask(id) { it.copy(state = EditTaskState.UPLOADING, failReason = null, updatedAt = now) }
+        return true
+    }
 
     override suspend fun setEditTaskAutoUpload(id: Long, on: Boolean, now: Long) =
         changeTask(id) {

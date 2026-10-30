@@ -293,6 +293,35 @@ class ClipExportScreenTest {
     }
 
     @Test
+    fun 等待明天上傳的導出中畫面() {
+        var cancelled = 0
+        show(
+            task(EditTaskState.WAITING_QUOTA, failReason = "系統目前上傳已超過每日配額，請隔天再繼續上傳"),
+            onCancel = { cancelled++ },
+        )
+
+        compose.onNodeWithText("等待明天上傳").assertIsDisplayed()
+        compose.onNodeWithText("系統目前上傳已超過每日配額，請隔天再繼續上傳").assertIsDisplayed()
+        compose.onNodeWithTag("exportThumb").assertHasNoClickAction()
+        noNode("重試")
+        noNode("完成後自動上傳到 YouTube")
+        noNode("取消導出")
+
+        compose.onNodeWithText("取消上傳").performClick()
+        compose.onNodeWithText("取消上傳？").assertIsDisplayed()
+        compose.onNodeWithText("已經上傳的部分會作廢。").assertIsDisplayed()
+        compose.onNode(hasText("取消上傳") and hasAnyAncestor(isDialog())).performClick()
+        assertEquals(1, cancelled)
+    }
+
+    @Test
+    fun 頻道上限的等待原因() {
+        show(task(EditTaskState.WAITING_QUOTA, failReason = "這個頻道今天的上傳次數已達上限，請隔天再繼續上傳"))
+        compose.onNodeWithText("等待明天上傳").assertIsDisplayed()
+        compose.onNodeWithText("這個頻道今天的上傳次數已達上限，請隔天再繼續上傳").assertIsDisplayed()
+    }
+
+    @Test
     fun 處理中的小字與取消任務() {
         var cancelled = 0
         show(task(EditTaskState.PROCESSING, videoId = "abc"), onCancel = { cancelled++ })

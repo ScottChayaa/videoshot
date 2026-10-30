@@ -6,11 +6,17 @@ import com.xenyaa.videoshot.core.publish.UploadErrorKind
 const val REASON_NO_NETWORK = "沒有網路連線"
 const val REASON_AUTH = "Google 授權已失效，請按重試重新授權"
 const val REASON_NO_CHANNEL = "這個 Google 帳號還沒有 YouTube 頻道"
-const val REASON_QUOTA = "今天的上傳額度用完了，請明天再試"
-const val REASON_CHANNEL_LIMIT = "這個頻道今天的上傳次數已達上限，請明天再試"
+
+/** 撞到每日上傳上限（不算失敗，任務停在等待中）的原因：專案額度、頻道上限。 */
+const val REASON_QUOTA = "系統目前上傳已超過每日配額，請隔天再繼續上傳"
+const val REASON_CHANNEL_LIMIT = "這個頻道今天的上傳次數已達上限，請隔天再繼續上傳"
 const val REASON_OUTPUT_MISSING = "輸出的影片不見了，請按重試重新輸出"
 const val REASON_UPLOAD_FAILED = "上傳失敗"
 const val REASON_NO_STORYBOARD = "YouTube 還沒產生縮圖"
+
+/** 撞到每日上傳上限的通知標題，依等待的原因（[REASON_QUOTA] 或 [REASON_CHANNEL_LIMIT]）。 */
+fun quotaWaitTitle(reason: String?): String =
+    if (reason == REASON_CHANNEL_LIMIT) "頻道今天的上傳次數已達上限" else "上傳已超過每日配額"
 
 /** YouTube 錯誤分類對應的失敗原因；沒有專屬說法的一律「上傳失敗」。 */
 fun reasonFor(kind: UploadErrorKind): String = when (kind) {

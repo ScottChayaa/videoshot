@@ -80,6 +80,7 @@ class ClipExportRunnerTest {
         override fun finished(task: EditTask) { finished += task }
         override fun done(task: EditTask) = throw AssertionError("輸出不該呼叫 done")
         override fun failed(task: EditTask, reason: String) { failed += task to reason }
+        override fun waitingQuota(task: EditTask) = throw AssertionError("輸出不該呼叫 waitingQuota")
     }
 
     // ---- 素材與草稿 ----

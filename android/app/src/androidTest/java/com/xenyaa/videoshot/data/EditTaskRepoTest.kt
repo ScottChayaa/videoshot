@@ -375,4 +375,66 @@ class EditTaskRepoTest {
         }
         assertEquals(draft, ClipDraftCodec.decode(payload))
     }
+    private suspend fun start(title: String) = repo.startEditTask(draft, title, autoUpload = true, now = 100)
+    private suspend fun task(id: Long) = repo.editTask(id).first()!!
+
+    @Test fun 只有上傳中能進等待() = runTest {
+        val uploading = start("U")
+        repo.setEditTaskReadyToUpload(uploading, skipped = 0, now = 105)
+        repo.setEditTaskProgress(uploading, EditTaskState.UPLOADING, 0, now = 106)
+        repo.setEditTaskUploadUrl(uploading, "https://upload/u", now = 107)
+        val queued = start("Q")
+        val processing = start("P")
+        repo.setEditTaskUploaded(processing, "vid", now = 105)
+        val failed = start("F")
+        repo.setEditTaskFailed(failed, "沒有網路連線", EditTaskStep.UPLOAD, now = 105)
+
+        for (id in listOf(uploading, queued, processing, failed)) repo.setEditTaskWaitingQuota(id, "額度", now = 200)
+
+        task(uploading).let {
+            assertEquals(EditTaskState.WAITING_QUOTA, it.state)
+            assertEquals("額度", it.failReason)
+            assertNull(it.failedStep)
+            assertEquals("https://upload/u", it.uploadUrl) // 保留，重置後接著傳
+            assertEquals(200L, it.updatedAt) // 撞到上限的時間，重置時間從它算
+        }
+        assertEquals(EditTaskState.QUEUED, task(queued).state)
+        assertEquals(EditTaskState.PROCESSING, task(processing).state)
+        task(failed).let {
+            assertEquals(EditTaskState.FAILED, it.state)
+            assertEquals("沒有網路連線", it.failReason)
+        }
+        // 等待中不算待處理（沒有工作在跑）、不算已完成
+        assertEquals(listOf(queued), repo.pendingEditTaskIds())
+        assertEquals(listOf(uploading), repo.waitingQuotaEditTaskIds())
+        assertEquals(0, repo.doneEditTaskCount().first())
+    }
+
+    @Test fun 只有等待中能回上傳中() = runTest {
+        val waiting = start("W")
+        repo.setEditTaskReadyToUpload(waiting, skipped = 0, now = 105)
+        repo.setEditTaskUploadUrl(waiting, "https://upload/w", now = 106)
+        repo.setEditTaskWaitingQuota(waiting, "額度", now = 200)
+        val uploading = start("U")
+        repo.setEditTaskReadyToUpload(uploading, skipped = 0, now = 105)
+
+        // 等待期間別的寫入不動 updated_at
+        repo.requeueEditTask(waiting, now = 250)
+        repo.setEditTaskAutoUpload(waiting, false, now = 260)
+        assertEquals(200L, task(waiting).updatedAt)
+
+        assertEquals(true, repo.resumeEditTaskFromQuota(waiting, now = 300))
+        assertEquals(false, repo.resumeEditTaskFromQuota(waiting, now = 310)) // 已經回上傳中了
+        assertEquals(false, repo.resumeEditTaskFromQuota(uploading, now = 300))
+        assertEquals(false, repo.resumeEditTaskFromQuota(999, now = 300))
+
+        task(waiting).let {
+            assertEquals(EditTaskState.UPLOADING, it.state)
+            assertNull(it.failReason)
+            assertEquals("https://upload/w", it.uploadUrl)
+            assertEquals(300L, it.updatedAt)
+        }
+        assertEquals(105L, task(uploading).updatedAt)
+        assertEquals(emptyList<Long>(), repo.waitingQuotaEditTaskIds())
+    }
 }

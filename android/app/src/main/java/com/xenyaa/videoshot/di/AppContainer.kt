@@ -20,6 +20,7 @@ import com.xenyaa.videoshot.publish.StoryboardPoller
 import com.xenyaa.videoshot.publish.UploadAuthFlow
 import com.xenyaa.videoshot.publish.UploadAuthStep
 import com.xenyaa.videoshot.publish.awaitValidatedNetwork
+import com.xenyaa.videoshot.publish.enqueueQuotaResume
 import com.xenyaa.videoshot.publish.enqueueStoryboardPoll
 import com.xenyaa.videoshot.backup.GoogleAuthRevoked
 import com.xenyaa.videoshot.data.repo.model.EditTaskState
@@ -549,6 +550,8 @@ class AppContainer(context: Context) : AppRootDeps {
                 com.xenyaa.videoshot.publish.enqueueStoryboardPoll(appContext, taskId, delayMs = 0L)
             override fun cancelStoryboardPoll(taskId: Long) =
                 com.xenyaa.videoshot.publish.cancelStoryboardPoll(appContext, taskId)
+            override fun cancelQuotaResume(taskId: Long) =
+                com.xenyaa.videoshot.publish.cancelQuotaResume(appContext, taskId)
             override suspend fun beginUploadAuth(activity: Activity): UploadAuthStep = uploadAuth.begin(activity)
             override suspend fun afterUploadAuthConsent(activity: Activity, step: UploadAuthStep, data: Intent): UploadAuthStep =
                 uploadAuth.afterConsent(activity, step, data)
@@ -611,6 +614,7 @@ class AppContainer(context: Context) : AppRootDeps {
             },
             awaitNetwork = { timeoutMs -> awaitValidatedNetwork(appContext, timeoutMs) },
             schedulePoll = { id, delayMs -> enqueueStoryboardPoll(appContext, id, delayMs) },
+            scheduleQuotaResume = { id, delayMs -> enqueueQuotaResume(appContext, id, delayMs) },
             notifier = clipExportNotifier,
             dirFor = ::editTaskDir,
             now = { clipDeps.now() },

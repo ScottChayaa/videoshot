@@ -51,6 +51,9 @@ class ClipExportWorkerTest {
 
     private fun foregroundInfo(@Suppress("UNUSED_PARAMETER") task: EditTask) = ForegroundInfo(NOTIFY_PROGRESS_ID, Notification())
 
+    /** 開不了前景服務時被提醒「可以繼續上傳」的任務。 */
+    private val resumable = mutableListOf<EditTask>()
+
     private fun worker(
         taskId: Long,
         updater: ForegroundUpdater = ForegroundUpdater { _, _, _ -> Futures.immediateFuture<Void?>(null) },
@@ -58,7 +61,9 @@ class ClipExportWorkerTest {
     ) = TestListenableWorkerBuilder<ClipExportWorker>(context)
         .setInputData(workDataOf("task_id" to taskId))
         .setForegroundUpdater(updater)
-        .setWorkerFactory(ClipExportWorkerFactory(repo, ::foregroundInfo, runTask, poll = {}) { 5_000L })
+        .setWorkerFactory(
+            ClipExportWorkerFactory(repo, ::foregroundInfo, runTask, poll = {}, notifyCanResume = { resumable += it }) { 5_000L },
+        )
         .build()
 
     @Test
@@ -84,6 +89,7 @@ class ClipExportWorkerTest {
         val task = repo.editTask(id).first()!!
         assertEquals(EditTaskState.QUEUED, task.state)
         assertEquals(0, task.progress)
+        assertTrue(resumable.isEmpty()) // 輸出中的不提醒（下次打開 app 從頭輸出）
     }
 
     @Test
@@ -101,6 +107,8 @@ class ClipExportWorkerTest {
         val task = repo.editTask(id).first()!!
         assertEquals(EditTaskState.UPLOADING, task.state) // 退回等待中會重新輸出
         assertEquals(40, task.progress)
+        // 例如額度重置後 app 在背景：提醒使用者打開 app 接著傳
+        assertEquals(listOf(id), resumable.map { it.id })
     }
 
     @Test

@@ -6,6 +6,7 @@ import com.xenyaa.videoshot.core.backup.nextChunk
 import com.xenyaa.videoshot.core.publish.NETWORK_WAIT_MS
 import com.xenyaa.videoshot.core.publish.UPLOAD_CHUNK_BYTES
 import com.xenyaa.videoshot.core.publish.UploadErrorKind
+import com.xenyaa.videoshot.core.publish.nextQuotaResetMs
 import com.xenyaa.videoshot.core.publish.youtubeTitle
 import com.xenyaa.videoshot.data.repo.CacheRepo
 import com.xenyaa.videoshot.data.repo.model.EditTask
@@ -28,6 +29,8 @@ import java.io.IOException
  *   下一段之前發現就停、刪成品、不通知。
  * - 取消（`CancellationException`）往外丟，成品與網址都留著：系統停掉的工作下次要接著傳；
  *   使用者取消時由呼叫端刪資料夾。
+ * - 撞到每日上傳上限（專案額度、頻道上限）不算失敗：停在等待中、成品與網址都留著，
+ *   排好重置後接著傳（[scheduleQuotaResume]），這個工作照常結束、串輪到下一支。
  */
 class ClipUploadRunner(
     private val repo: CacheRepo,
@@ -41,6 +44,8 @@ class ClipUploadRunner(
     private val awaitNetwork: suspend (timeoutMs: Long) -> Boolean,
     /** 排等 YouTube 產生縮圖的輪詢。 */
     private val schedulePoll: (taskId: Long, delayMs: Long) -> Unit,
+    /** 排每日上限重置後接著傳（`enqueueQuotaResume`）。 */
+    private val scheduleQuotaResume: (taskId: Long, delayMs: Long) -> Unit,
     private val notifier: ClipExportNotifier,
     private val dirFor: (Long) -> File,
     private val now: () -> Long,
@@ -63,6 +68,8 @@ class ClipUploadRunner(
             upload(task, out, size)
         } catch (e: UploadFailure) {
             return fail(taskId, out, e.reason, e.step)
+        } catch (e: QuotaReached) {
+            return waitForQuota(taskId, out, e.reason)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -147,6 +154,7 @@ class ClipUploadRunner(
                         offset = 0
                         repo.setEditTaskUploadUrl(id, null, now())
                     }
+                    UploadErrorKind.QUOTA, UploadErrorKind.CHANNEL_LIMIT -> throw QuotaReached(reasonFor(e.kind))
                     UploadErrorKind.TRANSIENT -> {
                         transientFails++
                         if (transientFails > MAX_RETRIES) throw UploadFailure(REASON_UPLOAD_FAILED, EditTaskStep.UPLOAD)
@@ -231,8 +239,27 @@ class ClipUploadRunner(
         notifier.failed(failed, reason)
     }
 
+    /**
+     * 撞到每日上傳上限：改成等待中（`updated_at` 記下撞到的時間）、排好重置後接著傳、通知。成品與網址留著。
+     * 任務已被刪就刪成品、不排不通知。
+     */
+    private suspend fun waitForQuota(taskId: Long, out: File, reason: String) {
+        val hitAt = now()
+        repo.setEditTaskWaitingQuota(taskId, reason, hitAt)
+        val waiting = repo.editTask(taskId).first()
+        if (waiting == null) {
+            out.delete()
+            return
+        }
+        scheduleQuotaResume(taskId, nextQuotaResetMs(hitAt) - hitAt)
+        notifier.waitingQuota(waiting)
+    }
+
     /** 要讓任務失敗的原因（流程內部用，[run] 接住後寫進任務）。 */
     private class UploadFailure(val reason: String, val step: EditTaskStep) : Exception(reason)
+
+    /** 撞到每日上傳上限（流程內部用，[run] 接住後改成等待中）。 */
+    private class QuotaReached(val reason: String) : Exception(reason)
 
     private companion object {
         const val OUTPUT_NAME = "out.mp4"

@@ -121,6 +121,8 @@ class RoomCacheRepo(
 
     override suspend fun processingEditTaskIds(): List<Long> = withContext(io) { db.editTaskDao().processingIds() }
 
+    override suspend fun waitingQuotaEditTaskIds(): List<Long> = withContext(io) { db.editTaskDao().waitingQuotaIds() }
+
     override fun doneEditTaskCount(): Flow<Int> = db.editTaskDao().doneCount().flowOn(io)
 
     override suspend fun setEditTaskReadyToUpload(id: Long, skipped: Int, now: Long) = withContext(io) {
@@ -141,6 +143,14 @@ class RoomCacheRepo(
 
     override suspend fun setEditTaskFailed(id: Long, reason: String, step: EditTaskStep, now: Long) = withContext(io) {
         db.editTaskDao().setFailed(id, reason, step.dbValue, now)
+    }
+
+    override suspend fun setEditTaskWaitingQuota(id: Long, reason: String, now: Long) = withContext(io) {
+        db.editTaskDao().setWaitingQuota(id, reason, now)
+    }
+
+    override suspend fun resumeEditTaskFromQuota(id: Long, now: Long): Boolean = withContext(io) {
+        db.editTaskDao().resumeFromQuota(id, now) > 0
     }
 
     override suspend fun setEditTaskAutoUpload(id: Long, on: Boolean, now: Long) = withContext(io) {

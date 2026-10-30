@@ -3,11 +3,12 @@ package com.xenyaa.videoshot.data.repo.model
 import com.xenyaa.videoshot.core.timeline.ClipDraft
 
 /**
- * 剪輯輸出任務的狀態；資料庫裡存小寫（`queued`／`rendering`／`rendered`／`uploading`／`processing`／`done`／`failed`）。
- * [UPLOADING] 是上傳到 YouTube 中，[PROCESSING] 是已上傳、等 YouTube 產生縮圖，[DONE] 是等到縮圖了。
+ * 剪輯輸出任務的狀態；資料庫裡存小寫（`queued`／`rendering`／`rendered`／`uploading`／`waiting_quota`／`processing`／`done`／`failed`）。
+ * [UPLOADING] 是上傳到 YouTube 中，[WAITING_QUOTA] 是撞到每日上傳上限、等隔天重置後接著傳（不算失敗），
+ * [PROCESSING] 是已上傳、等 YouTube 產生縮圖，[DONE] 是等到縮圖了。
  */
 enum class EditTaskState {
-    QUEUED, RENDERING, RENDERED, UPLOADING, PROCESSING, DONE, FAILED;
+    QUEUED, RENDERING, RENDERED, UPLOADING, WAITING_QUOTA, PROCESSING, DONE, FAILED;
 
     val dbValue: String get() = name.lowercase()
 
@@ -53,7 +54,10 @@ data class EditTask(
     val failedStep: EditTaskStep? = null,
     val uploadUrl: String? = null,
     val videoId: String? = null,
-    /** Unix 毫秒；[EditTaskState.PROCESSING] 期間不更新（等縮圖的計時從進入處理中那一刻起算） */
+    /**
+     * Unix 毫秒；[EditTaskState.PROCESSING] 期間不更新（等縮圖的計時從進入處理中那一刻起算），
+     * [EditTaskState.WAITING_QUOTA] 期間也不更新（它是撞到上限的時間，重置時間從它算）
+     */
     val updatedAt: Long = createdAt,
 ) {
     val durationMs: Long get() = draft.timeline.durationMs

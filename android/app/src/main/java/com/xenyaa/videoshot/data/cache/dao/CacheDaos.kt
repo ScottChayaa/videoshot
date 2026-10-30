@@ -118,6 +118,9 @@ interface EditTaskDao {
     @Query("SELECT id FROM edit_task WHERE state = 'processing' ORDER BY id")
     suspend fun processingIds(): List<Long>
 
+    @Query("SELECT id FROM edit_task WHERE state = 'waiting_quota' ORDER BY id")
+    suspend fun waitingQuotaIds(): List<Long>
+
     @Query("SELECT COUNT(*) FROM edit_task WHERE state = 'done'")
     fun doneCount(): Flow<Int>
 
@@ -173,6 +176,14 @@ interface EditTaskDao {
 
     @Query("UPDATE edit_task SET state = 'processing', fail_reason = NULL, failed_step = NULL, updated_at = :now WHERE id = :id AND state = 'failed'")
     suspend fun retryStoryboard(id: Long, now: Long)
+
+    /** 只對上傳中；上傳網址與失敗步驟不動。 */
+    @Query("UPDATE edit_task SET state = 'waiting_quota', fail_reason = :reason, updated_at = :now WHERE id = :id AND state = 'uploading'")
+    suspend fun setWaitingQuota(id: Long, reason: String, now: Long)
+
+    /** 只對等待中；回改到的列數。 */
+    @Query("UPDATE edit_task SET state = 'uploading', fail_reason = NULL, updated_at = :now WHERE id = :id AND state = 'waiting_quota'")
+    suspend fun resumeFromQuota(id: Long, now: Long): Int
 
     @Query("DELETE FROM edit_task WHERE id = :id")
     suspend fun delete(id: Long)

@@ -30,6 +30,9 @@ interface ClipExportNotifier {
     fun done(task: EditTask)
 
     fun failed(task: EditTask, reason: String)
+
+    /** 撞到每日上傳上限、停在等待中（[EditTaskState.WAITING_QUOTA]，原因在 `failReason`）。 */
+    fun waitingQuota(task: EditTask)
 }
 
 /**

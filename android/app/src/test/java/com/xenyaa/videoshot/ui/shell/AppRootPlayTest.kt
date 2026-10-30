@@ -152,6 +152,9 @@ class AppRootPlayTest {
                 override suspend fun setEditTaskAutoUpload(id: Long, on: Boolean, now: Long) = Unit
                 override suspend fun requeueEditTask(id: Long, now: Long) = Unit
                 override suspend fun processingEditTaskIds(): List<Long> = emptyList()
+                override suspend fun waitingQuotaEditTaskIds(): List<Long> = emptyList()
+                override suspend fun setEditTaskWaitingQuota(id: Long, reason: String, now: Long) = Unit
+                override suspend fun resumeEditTaskFromQuota(id: Long, now: Long): Boolean = false
                 override fun doneEditTaskCount(): kotlinx.coroutines.flow.Flow<Int> = kotlinx.coroutines.flow.flowOf(0)
                 override suspend fun setEditTaskReadyToUpload(id: Long, skipped: Int, now: Long) = Unit
                 override suspend fun setEditTaskUploadUrl(id: Long, url: String?, now: Long) = Unit

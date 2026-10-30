@@ -63,6 +63,7 @@ import com.xenyaa.videoshot.data.repo.model.EditTaskState
 import com.xenyaa.videoshot.data.repo.model.EditTaskStep
 import com.xenyaa.videoshot.edit.failedTitle
 import com.xenyaa.videoshot.media.MediaThumbLoader
+import com.xenyaa.videoshot.publish.REASON_QUOTA
 import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.TopBarNav
 import com.xenyaa.videoshot.ui.common.VsButton
@@ -131,17 +132,18 @@ fun ClipExportRoute(
 }
 
 /**
- * 取消一個任務（導出中畫面與剪輯頁的任務列共用）：收掉等縮圖的輪詢（處理中的任務才有）→
+ * 取消一個任務（導出中畫面與剪輯頁的任務列共用）：收掉等縮圖的輪詢（處理中的任務才有）與等每日上限重置的工作（等待明天上傳的才有）→
  * 取消正在跑的工作（等套用完；排隊中的不動）→ 刪任務 →
  * 再查一次（刪之前剛好輪到它開始跑的話，它已經讀到任務、會一路輸出完）→ 刪 app 裡的資料夾 →
  * 補排被連帶取消的後面幾個任務。補排不管前面成不成功都做（已排著的不動），而且一定在刪任務之後：
- * 補排最後會把「處理中」的任務排回輪詢，順序反了會把剛收掉的輪詢排回去。
+ * 補排會把「處理中」的任務排回輪詢、「等待明天上傳」的排回等待工作，順序反了會把剛收掉的排回去。
  * 排隊中的工作留著，輪到時讀不到任務就直接結束。
  */
 internal suspend fun cancelExportTask(deps: ClipDeps, taskId: Long) {
     try {
         guarded("取消輸出") {
             deps.cancelStoryboardPoll(taskId)
+            deps.cancelQuotaResume(taskId)
             deps.cancelExport(taskId)
             deps.cacheRepo.deleteEditTask(taskId)
             deps.cancelExport(taskId)
@@ -216,7 +218,8 @@ internal suspend fun guarded(what: String, block: suspend () -> Unit) {
 /**
  * 導出中畫面（階段 20）：頂欄「導出」＋返回；成品第一格的縮圖；依任務狀態顯示
  * 等待中／輸出中（縮圖疊上大的百分比、亮的部分隨進度往右，加提示）／
- * 完成（點縮圖或【播放檢查】、存相簿後的【播放】全螢幕播放）／上傳中（同輸出中的畫法）／YouTube 處理中／已完成／
+ * 完成（點縮圖或【播放檢查】、存相簿後的【播放】全螢幕播放）／上傳中（同輸出中的畫法）／等待明天上傳（超過每日上傳上限）／
+ * YouTube 處理中／已完成／
  * 失敗（標題依失敗的步驟、原因與【重試】）。
  * 「完成後自動上傳到 YouTube」勾選框只在等待中與輸出中顯示；底部的取消鈕依階段是【取消導出】【取消上傳】【取消任務】。
  *
@@ -287,6 +290,16 @@ fun ClipExportScreen(
                 }
                 // 縮圖上的大字百分比同輸出中；out.mp4 正在傳，縮圖不能點
                 EditTaskState.UPLOADING -> StatusTitle("上傳中…")
+                // 超過每日上傳上限：不是失敗（沒有【重試】），重置後自動接著傳
+                EditTaskState.WAITING_QUOTA -> {
+                    StatusTitle("等待明天上傳")
+                    Text(
+                        task.failReason ?: REASON_QUOTA,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = AppTheme.colors.textDim,
+                        textAlign = TextAlign.Center,
+                    )
+                }
                 EditTaskState.PROCESSING -> {
                     StatusTitle("YouTube 處理中…")
                     Text(
@@ -341,7 +354,7 @@ fun ClipExportScreen(
     }
 }
 
-/** 取消任務的三種說法：輸出（等待中、輸出中）、上傳中、等 YouTube 處理中。 */
+/** 取消任務的三種說法：輸出（等待中、輸出中）、上傳中（含等待明天上傳）、等 YouTube 處理中。 */
 internal enum class CancelKind(val buttonText: String) {
     EXPORT("取消導出"),
     UPLOAD("取消上傳"),
@@ -351,7 +364,7 @@ internal enum class CancelKind(val buttonText: String) {
 /** 這個狀態的任務可以取消嗎、用哪一種說法；已結束的（輸出完成、已完成、失敗）是 null，只能刪除。 */
 internal fun EditTaskState.cancelKind(): CancelKind? = when (this) {
     EditTaskState.QUEUED, EditTaskState.RENDERING -> CancelKind.EXPORT
-    EditTaskState.UPLOADING -> CancelKind.UPLOAD
+    EditTaskState.UPLOADING, EditTaskState.WAITING_QUOTA -> CancelKind.UPLOAD
     EditTaskState.PROCESSING -> CancelKind.PROCESSING
     EditTaskState.RENDERED, EditTaskState.DONE, EditTaskState.FAILED -> null
 }

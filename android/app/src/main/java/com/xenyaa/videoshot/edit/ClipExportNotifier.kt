@@ -12,6 +12,7 @@ import androidx.work.ForegroundInfo
 import com.xenyaa.videoshot.MainActivity
 import com.xenyaa.videoshot.data.repo.model.EditTask
 import com.xenyaa.videoshot.data.repo.model.EditTaskState
+import com.xenyaa.videoshot.publish.quotaWaitTitle
 
 /** 點通知回到 app 的剪輯頁：MainActivity 看到這個 extra 就切到剪輯（畫面端的處理是之後的任務）。 */
 const val EXTRA_OPEN_CLIP = "com.xenyaa.videoshot.OPEN_CLIP"
@@ -19,7 +20,7 @@ const val EXTRA_OPEN_CLIP = "com.xenyaa.videoshot.OPEN_CLIP"
 /** 前景服務的進度通知。同一時間只有一支在輸出，所以固定一個編號；內容隨進度更新。 */
 const val NOTIFY_PROGRESS_ID = 4300
 
-/** 結果通知（完成、存相簿、失敗）。每個任務一個編號；輸出工作結束後前景通知會被拿掉，這個留著。 */
+/** 結果通知（完成、存相簿、失敗、等每日上限重置、可以繼續上傳）。每個任務一個編號；輸出工作結束後前景通知會被拿掉，這個留著。 */
 fun resultNotificationId(taskId: Long): Int = 4400 + taskId.toInt()
 
 const val CHANNEL_PROGRESS = "clip_export_progress"
@@ -95,6 +96,18 @@ class AndroidClipExportNotifier(context: Context) : ClipExportNotifier {
 
     override fun failed(task: EditTask, reason: String) {
         notifyResult(task, failedTitle(task.failedStep), reason)
+    }
+
+    override fun waitingQuota(task: EditTask) {
+        notifyResult(task, quotaWaitTitle(task.failReason), "${task.title}・隔天會自動接著上傳")
+    }
+
+    /**
+     * 上傳中的任務開不了前景服務（例如每日上限重置後 app 在背景，Android 12 起的限制）：
+     * 任務留在上傳中，請使用者打開 app 接著傳。用同一個結果通知編號，重複叫也只有一則。
+     */
+    fun canResumeUpload(task: EditTask) {
+        notifyResult(task, "影片可以繼續上傳了", "打開 videoshot 就會接著上傳")
     }
 
     private fun progressNotification(task: EditTask, percent: Int) =

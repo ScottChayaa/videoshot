@@ -42,6 +42,9 @@ interface ClipDeps {
     /** 收掉這個任務等 YouTube 縮圖的輪詢（取消或刪除任務時呼叫，要在刪資料列之前或之後都行，但 [resumeExports] 一定在刪之後）。預設什麼都不做，`AppContainer` 覆寫。 */
     fun cancelStoryboardPoll(taskId: Long) = Unit
 
+    /** 收掉這個任務等每日上傳上限重置的工作（取消等待中的任務時呼叫；[resumeExports] 一定在刪資料列之後，不然會被補排回去）。預設什麼都不做，`AppContainer` 覆寫。 */
+    fun cancelQuotaResume(taskId: Long) = Unit
+
     /**
      * 上傳前的授權（見 `UploadAuthFlow`）：前景才能呼叫。預設直接通過，給既有的測試替身用；`AppContainer` 覆寫。
      * 回兩種 `Needs…` 時由畫面跳出系統畫面，回來後呼叫 [afterUploadAuthConsent]。
