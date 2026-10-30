@@ -19,9 +19,17 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
+ * [YoutubeAuthorizer.authorize] 的結果：[DECLINED] 使用者沒給授權；
+ * [UNAVAILABLE] 授權服務叫不動（離線、Play 服務出錯），不知道有沒有授權——呼叫端當成可以上傳，
+ * 背景上傳會等網路，真的沒授權會失敗「Google 授權已失效，請按重試重新授權」。
+ */
+enum class UploadAuthResult { GRANTED, DECLINED, UNAVAILABLE }
+
+/**
  * 上傳前要授權的地方（【開始】、勾選框打勾、上傳失敗的【重試】）共用：[authorize] 依 [ClipDeps.beginUploadAuth]
  * 一步步走，遇到要同意的系統畫面就用 [requestConsent] 跳出來等結果。
- * 使用者按取消（不是 `RESULT_OK` 或沒帶 `data`）、或流程失敗都回 false。
+ * 使用者按取消（不是 `RESULT_OK` 或沒帶 `data`）、跳不出系統畫面、或使用者取消帳號選擇都回 [UploadAuthResult.DECLINED]；
+ * 授權服務出錯回 [UploadAuthResult.UNAVAILABLE]。
  * 同時按兩次會排隊：第二次等第一次走完再走（通常已經授權、靜默通過）。
  */
 class YoutubeAuthorizer(
@@ -32,27 +40,31 @@ class YoutubeAuthorizer(
 ) {
     private val mutex = Mutex()
 
-    suspend fun authorize(): Boolean = mutex.withLock {
-        val activity = activity() ?: return@withLock false
+    suspend fun authorize(): UploadAuthResult = mutex.withLock {
+        val activity = activity() ?: return@withLock UploadAuthResult.DECLINED
         try {
             var step = deps.beginUploadAuth(activity)
             while (true) {
                 val sender = when (val current = step) {
-                    UploadAuthStep.Granted, UploadAuthStep.Failed -> break
+                    UploadAuthStep.Granted, UploadAuthStep.Failed, UploadAuthStep.Unavailable -> break
                     is UploadAuthStep.NeedsLinkConsent -> current.intentSender
                     is UploadAuthStep.NeedsYoutubeConsent -> current.intentSender
                 }
                 val result = requestConsent(sender)
                 val data = result?.data
-                if (result?.resultCode != Activity.RESULT_OK || data == null) return@withLock false
+                if (result?.resultCode != Activity.RESULT_OK || data == null) return@withLock UploadAuthResult.DECLINED
                 step = deps.afterUploadAuthConsent(activity, step, data)
             }
-            step == UploadAuthStep.Granted
+            when (step) {
+                UploadAuthStep.Granted -> UploadAuthResult.GRANTED
+                UploadAuthStep.Unavailable -> UploadAuthResult.UNAVAILABLE
+                else -> UploadAuthResult.DECLINED
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Log.w("VsClipUpload", "上傳授權失敗", e)
-            false
+            UploadAuthResult.UNAVAILABLE
         }
     }
 }

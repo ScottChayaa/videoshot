@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.content.IntentSender
 import android.util.Log
+import androidx.credentials.exceptions.GetCredentialCancellationException
 import com.xenyaa.videoshot.backup.GoogleAuth
 import com.xenyaa.videoshot.backup.LinkOutcome
 import com.xenyaa.videoshot.backup.LinkedGoogleAccount
@@ -11,12 +12,14 @@ import com.xenyaa.videoshot.backup.YoutubeAuthOutcome
 import kotlinx.coroutines.CancellationException
 
 /**
- * 上傳授權走到哪一步：[Granted] 可以上傳；[Failed] 沒拿到（使用者取消帳號選擇、同意結果無效等）；
+ * 上傳授權走到哪一步：[Granted] 可以上傳；[Failed] 使用者沒給（取消帳號選擇）；
+ * [Unavailable] 授權服務叫不動（離線、Play 服務出錯），不代表使用者拒絕；
  * 兩種 `Needs…` 要由畫面跳出系統畫面，回來後把結果餵給 [UploadAuthFlow.afterConsent]。
  */
 sealed interface UploadAuthStep {
     data object Granted : UploadAuthStep
     data object Failed : UploadAuthStep
+    data object Unavailable : UploadAuthStep
     data class NeedsLinkConsent(val intentSender: IntentSender) : UploadAuthStep
     data class NeedsYoutubeConsent(val intentSender: IntentSender) : UploadAuthStep
 }
@@ -32,7 +35,7 @@ class UploadAuthFlow(
     private val beginLink: suspend (Activity) -> LinkOutcome,
     private val finishLink: suspend (Intent) -> LinkedGoogleAccount,
 ) {
-    suspend fun begin(activity: Activity): UploadAuthStep = failedOnError {
+    suspend fun begin(activity: Activity): UploadAuthStep = stepOnError {
         val email = linkedEmail()
         if (email != null) {
             youtube(activity, email)
@@ -45,14 +48,14 @@ class UploadAuthFlow(
     }
 
     /** [step] 是剛剛跳出系統畫面的那一步，[data] 是使用者同意後帶回來的 Intent。 */
-    suspend fun afterConsent(activity: Activity, step: UploadAuthStep, data: Intent): UploadAuthStep = failedOnError {
+    suspend fun afterConsent(activity: Activity, step: UploadAuthStep, data: Intent): UploadAuthStep = stepOnError {
         when (step) {
             is UploadAuthStep.NeedsLinkConsent -> youtube(activity, finishLink(data).email)
             is UploadAuthStep.NeedsYoutubeConsent -> {
                 auth.finishYoutubeAuth(data)
                 UploadAuthStep.Granted
             }
-            UploadAuthStep.Granted, UploadAuthStep.Failed -> step
+            UploadAuthStep.Granted, UploadAuthStep.Failed, UploadAuthStep.Unavailable -> step
         }
     }
 
@@ -62,12 +65,20 @@ class UploadAuthFlow(
             is YoutubeAuthOutcome.NeedsConsent -> UploadAuthStep.NeedsYoutubeConsent(outcome.intentSender)
         }
 
-    private inline fun failedOnError(block: () -> UploadAuthStep): UploadAuthStep = try {
+    /**
+     * 只有使用者取消帳號選擇（Credential Manager 的 [GetCredentialCancellationException]）算 [UploadAuthStep.Failed]；
+     * 其餘例外（離線、Play 服務出錯、`AuthorizationClient` 的 `ApiException` 等）分不出是不是使用者的意思，
+     * 算 [UploadAuthStep.Unavailable]。同意畫面按返回不會走到這裡（畫面那邊就停了）。
+     */
+    private inline fun stepOnError(block: () -> UploadAuthStep): UploadAuthStep = try {
         block()
     } catch (e: CancellationException) {
         throw e
-    } catch (e: Exception) {
-        Log.i("VsClipUpload", "沒拿到 YouTube 上傳授權", e)
+    } catch (e: GetCredentialCancellationException) {
+        Log.i("VsClipUpload", "使用者取消帳號選擇", e)
         UploadAuthStep.Failed
+    } catch (e: Exception) {
+        Log.w("VsClipUpload", "叫不動 Google 授權", e)
+        UploadAuthStep.Unavailable
     }
 }

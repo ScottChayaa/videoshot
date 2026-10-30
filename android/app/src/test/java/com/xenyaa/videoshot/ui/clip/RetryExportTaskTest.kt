@@ -50,8 +50,8 @@ class RetryExportTaskTest {
         return id
     }
 
-    private suspend fun retry(id: Long, granted: Boolean = true) =
-        retryExportTask(deps, id, authorize = { authorizeCalls++; granted }, onAuthDenied = { denied++ })
+    private suspend fun retry(id: Long, result: UploadAuthResult = UploadAuthResult.GRANTED) =
+        retryExportTask(deps, id, authorize = { authorizeCalls++; result }, onAuthDenied = { denied++ })
 
     @Test fun 輸出失敗回到等待中並排工作() = runTest {
         val id = failedAt(EditTaskStep.RENDER)
@@ -81,7 +81,7 @@ class RetryExportTaskTest {
         var stateWhenAsked: EditTaskState? = null
         retryExportTask(
             deps, id,
-            authorize = { stateWhenAsked = repo.editTask(id).first()!!.state; true },
+            authorize = { stateWhenAsked = repo.editTask(id).first()!!.state; UploadAuthResult.GRANTED },
             onAuthDenied = { denied++ },
         )
         assertEquals(EditTaskState.FAILED, stateWhenAsked) // 授權通過之前不改狀態
@@ -92,12 +92,21 @@ class RetryExportTaskTest {
 
     @Test fun 上傳步驟授權被拒就維持失敗並提示() = runTest {
         val id = failedAt(EditTaskStep.UPLOAD)
-        retry(id, granted = false)
+        retry(id, UploadAuthResult.DECLINED)
         val task = repo.editTask(id).first()!!
         assertEquals(EditTaskState.FAILED, task.state)
         assertEquals(EditTaskStep.UPLOAD, task.failedStep)
         assertEquals(emptyList<Long>(), enqueued)
         assertEquals(1, denied)
+    }
+
+    @Test fun 授權服務不可用時照樣重試() = runTest {
+        // 離線或 Play 服務出錯不是拒絕：照樣回到上傳中排工作（背景上傳會等網路；真的沒授權會再失敗一次）
+        val id = failedAt(EditTaskStep.UPLOAD)
+        retry(id, UploadAuthResult.UNAVAILABLE)
+        assertEquals(EditTaskState.UPLOADING, repo.editTask(id).first()!!.state)
+        assertEquals(listOf(id), enqueued)
+        assertEquals(0, denied)
     }
 
     @Test fun 輸出步驟失敗重試不授權() = runTest {

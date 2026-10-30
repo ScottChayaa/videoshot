@@ -132,6 +132,9 @@ class AppRootClipTest {
         override fun notificationPermissionMissing() = notificationMissing
         val preview = NoOpPreview()
         override fun newPreview(context: android.content.Context): ClipPreview = preview
+        /** 【開始】前的上傳授權走到哪一步（預設已授權）。 */
+        var uploadAuth: com.xenyaa.videoshot.publish.UploadAuthStep = com.xenyaa.videoshot.publish.UploadAuthStep.Granted
+        override suspend fun beginUploadAuth(activity: android.app.Activity) = uploadAuth
     }
 
     /** 不碰 Media3 的假預覽（Robolectric 裡不建真的 CompositionPlayer）。 */
@@ -727,6 +730,36 @@ class AppRootClipTest {
         compose.waitForIdle()
         compose.onNodeWithText("新增剪輯").assertIsDisplayed()
         assertEquals(null, clip.viewing.last())
+    }
+
+    @Test
+    fun 按開始時授權被拒_任務照建但不打勾並提示() {
+        val clip = FakeClipDeps(full).withDraft().apply { uploadAuth = com.xenyaa.videoshot.publish.UploadAuthStep.Failed }
+        openExportSheet(clip)
+
+        compose.onNodeWithText("開始").performClick()
+        compose.waitForIdle()
+
+        val tasks = tasksOf(clip.cacheRepo)
+        assertEquals(1, tasks.size)
+        assertEquals(false, tasks[0].autoUpload)
+        compose.onNodeWithText("沒有取得 YouTube 授權，這支不會上傳").assertIsDisplayed()
+    }
+
+    @Test
+    fun 按開始時授權服務不可用_照樣打勾建任務不提示() {
+        // 離線或 Play 服務出錯不是拒絕：背景上傳會等網路，真的沒授權會失敗「Google 授權已失效」
+        val clip = FakeClipDeps(full).withDraft().apply { uploadAuth = com.xenyaa.videoshot.publish.UploadAuthStep.Unavailable }
+        openExportSheet(clip)
+
+        compose.onNodeWithText("開始").performClick()
+        compose.waitForIdle()
+
+        val tasks = tasksOf(clip.cacheRepo)
+        assertEquals(1, tasks.size)
+        assertEquals(true, tasks[0].autoUpload)
+        assertEquals(listOf(tasks[0].id), clip.enqueued)
+        compose.onNodeWithText("沒有取得 YouTube 授權，這支不會上傳").assertDoesNotExist()
     }
 
     @Test

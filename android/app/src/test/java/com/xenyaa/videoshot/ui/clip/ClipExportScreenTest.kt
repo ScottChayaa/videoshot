@@ -377,7 +377,7 @@ class ClipExportScreenTest {
         override fun now() = 500L
     }
 
-    private fun showRoute(autoUpload: Boolean, granted: Boolean, authorizeCalls: MutableList<Unit>, notices: MutableList<String>): Long {
+    private fun showRoute(autoUpload: Boolean, granted: UploadAuthResult, authorizeCalls: MutableList<Unit>, notices: MutableList<String>): Long {
         val id = runBlocking {
             repo.startEditTask(newClipDraft(ClipOrientation.PORTRAIT, listOf(source(7))), "我的旅行", autoUpload, 100)
         }
@@ -400,7 +400,7 @@ class ClipExportScreenTest {
     fun 授權被拒時勾選框維持沒勾並提示() {
         val calls = mutableListOf<Unit>()
         val notices = mutableListOf<String>()
-        val id = showRoute(autoUpload = false, granted = false, authorizeCalls = calls, notices = notices)
+        val id = showRoute(autoUpload = false, granted = UploadAuthResult.DECLINED, authorizeCalls = calls, notices = notices)
 
         compose.onNodeWithText("完成後自動上傳到 YouTube").performClick()
         compose.waitForIdle()
@@ -415,7 +415,21 @@ class ClipExportScreenTest {
     fun 授權通過才打勾() {
         val calls = mutableListOf<Unit>()
         val notices = mutableListOf<String>()
-        val id = showRoute(autoUpload = false, granted = true, authorizeCalls = calls, notices = notices)
+        val id = showRoute(autoUpload = false, granted = UploadAuthResult.GRANTED, authorizeCalls = calls, notices = notices)
+
+        compose.onNodeWithText("完成後自動上傳到 YouTube").performClick()
+        compose.waitForIdle()
+
+        assertEquals(1, calls.size)
+        assertEquals(true, autoUploadOf(id))
+        assertEquals(emptyList<String>(), notices)
+    }
+
+    @Test
+    fun 授權服務不可用時照樣打勾不提示() {
+        val calls = mutableListOf<Unit>()
+        val notices = mutableListOf<String>()
+        val id = showRoute(autoUpload = false, granted = UploadAuthResult.UNAVAILABLE, authorizeCalls = calls, notices = notices)
 
         compose.onNodeWithText("完成後自動上傳到 YouTube").performClick()
         compose.waitForIdle()
@@ -429,7 +443,7 @@ class ClipExportScreenTest {
     fun 取消打勾不用授權() {
         val calls = mutableListOf<Unit>()
         val notices = mutableListOf<String>()
-        val id = showRoute(autoUpload = true, granted = false, authorizeCalls = calls, notices = notices)
+        val id = showRoute(autoUpload = true, granted = UploadAuthResult.DECLINED, authorizeCalls = calls, notices = notices)
 
         compose.onNodeWithText("完成後自動上傳到 YouTube").performClick()
         compose.waitForIdle()

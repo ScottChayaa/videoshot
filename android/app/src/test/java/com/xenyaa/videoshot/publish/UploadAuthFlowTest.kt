@@ -3,6 +3,7 @@ package com.xenyaa.videoshot.publish
 import android.app.Activity
 import android.app.PendingIntent
 import android.content.Intent
+import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.test.core.app.ApplicationProvider
 import com.xenyaa.videoshot.backup.FakeGoogleAuth
 import com.xenyaa.videoshot.backup.LinkOutcome
@@ -89,20 +90,29 @@ class UploadAuthFlowTest {
 
     @Test
     fun 取消帳號選擇回Failed() = runTest {
-        auth.failNextBeginLink = RuntimeException("使用者取消")
+        auth.failNextBeginLink = GetCredentialCancellationException("使用者取消")
 
         assertEquals(UploadAuthStep.Failed, flow.begin(activity))
         assertEquals(emptyList<String>(), auth.youtubeRequestedEmails)
     }
 
     @Test
-    fun 同意回來後失敗回Failed() = runTest {
+    fun 授權呼叫丟例外回Unavailable() = runTest {
+        // 離線、Play 服務出錯：不是使用者拒絕
+        auth.failNextBeginLink = IllegalStateException("沒有網路")
+
+        assertEquals(UploadAuthStep.Unavailable, flow.begin(activity))
+        assertEquals(emptyList<String>(), auth.youtubeRequestedEmails)
+    }
+
+    @Test
+    fun 同意回來後服務出錯回Unavailable() = runTest {
         val failing = UploadAuthFlow(
             auth = auth,
             linkedEmail = { null },
             beginLink = { auth.beginLink(it) },
-            finishLink = { throw RuntimeException("同意結果無效") },
+            finishLink = { throw RuntimeException("Play 服務出錯") },
         )
-        assertEquals(UploadAuthStep.Failed, failing.afterConsent(activity, UploadAuthStep.NeedsLinkConsent(sender()), Intent()))
+        assertEquals(UploadAuthStep.Unavailable, failing.afterConsent(activity, UploadAuthStep.NeedsLinkConsent(sender()), Intent()))
     }
 }

@@ -72,6 +72,7 @@ import com.xenyaa.videoshot.backup.restartApp
 import com.xenyaa.videoshot.ui.clip.ClipDraftSummary
 import com.xenyaa.videoshot.ui.clip.ClipEditorScreen
 import com.xenyaa.videoshot.ui.clip.ClipExportRoute
+import com.xenyaa.videoshot.ui.clip.UploadAuthResult
 import com.xenyaa.videoshot.ui.clip.ClipEditorViewModel
 import com.xenyaa.videoshot.ui.clip.ClipHomeScreen
 import com.xenyaa.videoshot.ui.clip.cancelExportTask
@@ -821,14 +822,14 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
             var pendingExportTitle by remember { mutableStateOf<String?>(null) }
 
             // 先要 YouTube 授權 → 建立輸出任務（同時清掉草稿）→ 排工作 → 換成導出中畫面。建立失敗：留在編輯畫面、抽屜不關、草稿還在。
-            // 授權被拒照樣建任務，只是不打勾自動上傳
+            // 授權被拒照樣建任務，只是不打勾自動上傳；授權服務叫不動（離線、Play 服務出錯）照樣打勾、不提示
             fun startExport(title: String) {
                 val draft = editorVm.state.value.draft ?: return
                 if (exportStarting) return
                 exportStarting = true
                 scope.launch {
                     try {
-                        val autoUpload = youtubeAuthorizer.authorize()
+                        val autoUpload = youtubeAuthorizer.authorize() != UploadAuthResult.DECLINED
                         val taskId = container.clipDeps.cacheRepo.startEditTask(draft, title, autoUpload = autoUpload, now = container.clipDeps.now())
                         try {
                             container.clipDeps.enqueueExport(taskId)

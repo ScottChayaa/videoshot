@@ -14,7 +14,6 @@ import com.xenyaa.videoshot.media.MediaThumbLoader
 import com.xenyaa.videoshot.publish.UploadAuthStep
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -61,7 +60,7 @@ class YoutubeAuthorizerTest {
     @Test
     fun 已授權不跳畫面() = runTest {
         val (a, launched) = authorizer(Deps(UploadAuthStep.Granted, emptyList()), emptyList())
-        assertTrue(a.authorize())
+        assertEquals(UploadAuthResult.GRANTED, a.authorize())
         assertEquals(emptyList<IntentSender>(), launched)
     }
 
@@ -72,23 +71,37 @@ class YoutubeAuthorizerTest {
             listOf(UploadAuthStep.NeedsYoutubeConsent(sender), UploadAuthStep.Granted),
         )
         val (a, launched) = authorizer(deps, listOf(ok, ok))
-        assertTrue(a.authorize())
+        assertEquals(UploadAuthResult.GRANTED, a.authorize())
         assertEquals(2, launched.size)
         assertTrue(deps.consentSteps[0] is UploadAuthStep.NeedsLinkConsent)
         assertTrue(deps.consentSteps[1] is UploadAuthStep.NeedsYoutubeConsent)
     }
 
     @Test
-    fun 使用者按取消回false() = runTest {
+    fun 使用者按取消回DECLINED() = runTest {
         val deps = Deps(UploadAuthStep.NeedsYoutubeConsent(sender), listOf(UploadAuthStep.Granted))
         val (a, _) = authorizer(deps, listOf(ActivityResult(Activity.RESULT_CANCELED, null)))
-        assertFalse(a.authorize())
+        assertEquals(UploadAuthResult.DECLINED, a.authorize())
         assertEquals(emptyList<UploadAuthStep>(), deps.consentSteps)
     }
 
     @Test
-    fun 失敗回false() = runTest {
+    fun 失敗回DECLINED() = runTest {
         val (a, _) = authorizer(Deps(UploadAuthStep.Failed, emptyList()), emptyList())
-        assertFalse(a.authorize())
+        assertEquals(UploadAuthResult.DECLINED, a.authorize())
+    }
+
+    @Test
+    fun 同意回來後授權服務不可用回UNAVAILABLE() = runTest {
+        val deps = Deps(UploadAuthStep.NeedsYoutubeConsent(sender), listOf(UploadAuthStep.Unavailable))
+        val (a, _) = authorizer(deps, listOf(ok))
+        assertEquals(UploadAuthResult.UNAVAILABLE, a.authorize())
+    }
+
+    @Test
+    fun 授權服務不可用回UNAVAILABLE() = runTest {
+        val (a, launched) = authorizer(Deps(UploadAuthStep.Unavailable, emptyList()), emptyList())
+        assertEquals(UploadAuthResult.UNAVAILABLE, a.authorize())
+        assertEquals(emptyList<IntentSender>(), launched)
     }
 }

@@ -84,7 +84,7 @@ private class ExportTaskHolder(val task: EditTask?)
  * 取消的順序見 [cancelExportTask]。
  * [scope] 要比這個畫面活得久（`AppRoot` 的 scope）：刪掉任務後這個畫面就離開組合了，補排不能跟著被取消。
  * 刪掉任務之後 [onGone] 由任務流變成 null 觸發，這裡不另外呼叫，避免退兩層。
- * 勾選框打勾、上傳失敗後【重試】都先 [authorize]（見 [YoutubeAuthorizer]）；沒拿到授權用 [onNotice] 提示。
+ * 勾選框打勾、上傳失敗後【重試】都先 [authorize]（見 [YoutubeAuthorizer]）；使用者沒給授權用 [onNotice] 提示。
  */
 @Composable
 fun ClipExportRoute(
@@ -94,7 +94,7 @@ fun ClipExportRoute(
     onBack: () -> Unit,
     onGone: () -> Unit,
     onPlay: () -> Unit,
-    authorize: suspend () -> Boolean,
+    authorize: suspend () -> UploadAuthResult,
     onNotice: (String) -> Unit,
 ) {
     val repo: CacheRepo = deps.cacheRepo
@@ -116,8 +116,8 @@ fun ClipExportRoute(
         onBack = onBack,
         onAutoUploadChange = { on ->
             scope.launch {
-                // 取消打勾不用授權；打勾前先授權，沒拿到就維持沒勾
-                if (on && !authorize()) {
+                // 取消打勾不用授權；打勾前先授權，使用者沒給就維持沒勾（授權服務叫不動照樣打勾）
+                if (on && authorize() == UploadAuthResult.DECLINED) {
                     onNotice(NO_AUTH_NO_UPLOAD)
                     return@launch
                 }
@@ -180,17 +180,17 @@ const val NO_AUTH_CANT_UPLOAD = "沒有取得 YouTube 授權，無法上傳"
  * 重試一個失敗的任務：依它失敗的步驟回到那一步的開頭（導出中畫面與剪輯頁的任務列共用）。
  * 回到等待中或上傳中重新排工作，回到處理中（等縮圖）排一次查詢。
  * 上傳那一步失敗的先 [authorize]，通過了才改狀態（先改的話被拒會留下沒排工作的上傳中任務）；
- * 被拒就什麼都不動、呼叫 [onAuthDenied]。
+ * 被拒就什麼都不動、呼叫 [onAuthDenied]；授權服務叫不動（離線、Play 服務出錯）照樣重試。
  */
 internal suspend fun retryExportTask(
     deps: ClipDeps,
     taskId: Long,
-    authorize: suspend () -> Boolean,
+    authorize: suspend () -> UploadAuthResult,
     onAuthDenied: () -> Unit,
 ) {
     guarded("重試輸出") {
         val failed = deps.cacheRepo.editTask(taskId).first() ?: return@guarded
-        if (failed.state == EditTaskState.FAILED && failed.failedStep == EditTaskStep.UPLOAD && !authorize()) {
+        if (failed.state == EditTaskState.FAILED && failed.failedStep == EditTaskStep.UPLOAD && authorize() == UploadAuthResult.DECLINED) {
             onAuthDenied()
             return@guarded
         }
