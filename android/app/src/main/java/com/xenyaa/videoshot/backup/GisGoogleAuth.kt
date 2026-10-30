@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.util.Base64
+import android.util.Log
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
@@ -15,6 +16,7 @@ import com.google.android.gms.common.api.Scope
 import com.google.android.gms.tasks.Tasks
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -114,7 +116,14 @@ class GisGoogleAuth(
         val authClient = Identity.getAuthorizationClient(context)
         val stale = lastYoutubeToken
         if (forceRefresh && stale != null) {
-            Tasks.await(authClient.clearToken(ClearTokenRequest.builder().setToken(stale).build()))
+            // 清快取只是盡力而為：清不掉頂多再拿到同一個舊權杖、再被 YouTube 拒絕一次，不該讓這次拿權杖整個失敗
+            try {
+                Tasks.await(authClient.clearToken(ClearTokenRequest.builder().setToken(stale).build()))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("VsClipUpload", "清不掉快取裡的舊 YouTube 權杖", e)
+            }
             lastYoutubeToken = null
         }
         val result = Tasks.await(authClient.authorize(youtubeAuthorizationRequest(email)))
