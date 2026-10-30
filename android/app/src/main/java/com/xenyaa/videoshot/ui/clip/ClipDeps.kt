@@ -39,6 +39,9 @@ interface ClipDeps {
     /** 排一次等 YouTube 產生縮圖的查詢（處理中的任務按【重試】時呼叫）。預設什麼都不做，`AppContainer` 覆寫成馬上查。 */
     fun enqueueStoryboardPoll(taskId: Long) = Unit
 
+    /** 收掉這個任務等 YouTube 縮圖的輪詢（取消或刪除任務時呼叫，要在刪資料列之前或之後都行，但 [resumeExports] 一定在刪之後）。預設什麼都不做，`AppContainer` 覆寫。 */
+    fun cancelStoryboardPoll(taskId: Long) = Unit
+
     /**
      * 上傳前的授權（見 `UploadAuthFlow`）：前景才能呼叫。預設直接通過，給既有的測試替身用；`AppContainer` 覆寫。
      * 回兩種 `Needs…` 時由畫面跳出系統畫面，回來後呼叫 [afterUploadAuthConsent]。

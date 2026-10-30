@@ -1,10 +1,18 @@
 package com.xenyaa.videoshot.ui.clip
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import com.xenyaa.videoshot.ui.theme.AppTheme
+import com.xenyaa.videoshot.ui.theme.Palette
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isToggleable
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.xenyaa.videoshot.core.timeline.ClipDraft
@@ -16,6 +24,7 @@ import com.xenyaa.videoshot.core.timeline.SourceKind
 import com.xenyaa.videoshot.core.timeline.Timeline
 import com.xenyaa.videoshot.data.repo.model.EditTask
 import com.xenyaa.videoshot.data.repo.model.EditTaskState
+import com.xenyaa.videoshot.data.repo.model.EditTaskStep
 import com.xenyaa.videoshot.media.MediaThumbLoader
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
@@ -48,6 +57,7 @@ class ClipHomeScreenTest {
     ) {
         compose.setContent {
             VideoshotTheme {
+                palette = AppTheme.colors
                 ClipHomeScreen(
                     onNewClip = onNewClip, draft = draft, onOpenDraft = onOpenDraft, onDiscardDraft = onDiscardDraft,
                     tasks = tasks, thumbLoader = MediaThumbLoader(decode = { null }),
@@ -64,6 +74,8 @@ class ClipHomeScreenTest {
         progress: Int = 0,
         failReason: String? = null,
         galleryUri: String? = null,
+        failedStep: EditTaskStep? = null,
+        videoId: String? = null,
     ): EditTask {
         val source = ClipSource(7, "content://media/7", SourceKind.PHOTO, 0, null, 1080, 1920, 0)
         val timeline = Timeline(listOf(Segment(7, 0, 3_000)))
@@ -71,8 +83,13 @@ class ClipHomeScreenTest {
             id = id, state = state, progress = progress, title = title,
             draft = ClipDraft(ClipOrientation.PORTRAIT, listOf(source), EditHistory(timeline)),
             autoUpload = true, failReason = failReason, skippedSources = 0, galleryUri = galleryUri, createdAt = id,
+            failedStep = failedStep, videoId = videoId,
         )
     }
+
+    private lateinit var palette: Palette
+
+    private val hasProgressBar = SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)
 
     private fun longPress(text: String) = compose.onNodeWithText(text).performTouchInput { longClick() }
 
@@ -417,5 +434,165 @@ class ClipHomeScreenTest {
 
         compose.onNodeWithText("刪除這個任務？").assertDoesNotExist()
         assertEquals(emptyList<Long>(), deleted)
+    }
+
+    // ---- 上傳到 YouTube（階段 21）----
+
+    @Test fun 上傳中顯示百分比與進度條() {
+        show(tasks = listOf(task(1, EditTaskState.UPLOADING, progress = 63)))
+        compose.onNodeWithText("上傳中 63%").assertIsDisplayed()
+        compose.onAllNodes(hasProgressBar).assertCountEquals(1)
+        assertEquals(palette.textDim, taskStatusColor(EditTaskState.UPLOADING, palette))
+    }
+
+    @Test fun 處理中只有文字沒有進度條() {
+        show(tasks = listOf(task(1, EditTaskState.PROCESSING)))
+        compose.onNodeWithText("YouTube 處理中").assertIsDisplayed()
+        compose.onAllNodes(hasProgressBar).assertCountEquals(0)
+    }
+
+    @Test fun 已完成用主色字且右邊有主色圓點() {
+        show(tasks = listOf(task(1, EditTaskState.DONE, videoId = "abc")))
+        compose.onNodeWithText("已完成，點一下開始取圖").assertIsDisplayed()
+        assertEquals(palette.accent, taskStatusColor(EditTaskState.DONE, palette))
+        assertEquals(palette.textDim, taskStatusColor(EditTaskState.PROCESSING, palette))
+        compose.onNodeWithTag("doneDot", useUnmergedTree = true).assertIsDisplayed()
+        compose.onAllNodes(hasProgressBar).assertCountEquals(0)
+    }
+
+    @Test fun 其他狀態沒有主色圓點() {
+        show(tasks = listOf(task(1, EditTaskState.PROCESSING), task(2, EditTaskState.UPLOADING, progress = 5)))
+        compose.onAllNodes(hasTestTag("doneDot"), useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    @Test fun 失敗原因一行_上傳那一步失敗也有重試() {
+        val retried = mutableListOf<Long>()
+        show(
+            tasks = listOf(task(3, EditTaskState.FAILED, failReason = "沒有網路連線", failedStep = EditTaskStep.UPLOAD)),
+            onRetryTask = { retried += it },
+        )
+        compose.onNodeWithText("失敗：沒有網路連線").assertIsDisplayed()
+        assertEquals(palette.danger, taskStatusColor(EditTaskState.FAILED, palette))
+        compose.onNodeWithText("重試").performClick()
+        assertEquals(listOf(3L), retried)
+    }
+
+    @Test fun 上傳中與處理中沒有重試也沒有勾選框() {
+        show(tasks = listOf(task(1, EditTaskState.UPLOADING, progress = 5), task(2, EditTaskState.PROCESSING)))
+        compose.onNodeWithText("重試").assertDoesNotExist()
+        compose.onAllNodes(isToggleable()).assertCountEquals(0)
+    }
+
+    @Test fun 長按上傳中有取消_確認框寫取消上傳() {
+        val cancelled = mutableListOf<Long>()
+        show(tasks = listOf(task(4, EditTaskState.UPLOADING, title = "傳著的", progress = 30)), onCancelTask = { cancelled += it })
+        longPress("傳著的")
+        compose.onNodeWithText("刪除任務").assertDoesNotExist()
+        compose.onNodeWithText("取消").performClick()
+        compose.onNodeWithText("取消上傳？").assertIsDisplayed()
+        compose.onNodeWithText("已經上傳的部分會作廢。").assertIsDisplayed()
+        assertEquals(emptyList<Long>(), cancelled)
+
+        compose.onNodeWithText("取消上傳").performClick()
+        assertEquals(listOf(4L), cancelled)
+    }
+
+    @Test fun 取消上傳選繼續上傳什麼都沒發生() {
+        val cancelled = mutableListOf<Long>()
+        show(tasks = listOf(task(4, EditTaskState.UPLOADING, title = "傳著的", progress = 30)), onCancelTask = { cancelled += it })
+        longPress("傳著的")
+        compose.onNodeWithText("取消").performClick()
+        compose.onNodeWithText("繼續上傳").performClick()
+        assertEquals(emptyList<Long>(), cancelled)
+        compose.onNodeWithText("取消上傳？").assertDoesNotExist()
+    }
+
+    @Test fun 長按處理中有取消_確認框寫取消這個任務() {
+        val cancelled = mutableListOf<Long>()
+        show(tasks = listOf(task(5, EditTaskState.PROCESSING, title = "等著的", videoId = "abc")), onCancelTask = { cancelled += it })
+        longPress("等著的")
+        compose.onNodeWithText("刪除任務").assertDoesNotExist()
+        compose.onNodeWithText("取消").performClick()
+        compose.onNodeWithText("取消這個任務？").assertIsDisplayed()
+        compose.onNodeWithText("影片仍在你的 YouTube 頻道，可以到 YouTube 工作室刪除。").assertIsDisplayed()
+        assertEquals(emptyList<Long>(), cancelled)
+
+        compose.onNodeWithText("取消任務").performClick()
+        assertEquals(listOf(5L), cancelled)
+    }
+
+    @Test fun 取消任務選繼續等待什麼都沒發生() {
+        val cancelled = mutableListOf<Long>()
+        show(tasks = listOf(task(5, EditTaskState.PROCESSING, title = "等著的")), onCancelTask = { cancelled += it })
+        longPress("等著的")
+        compose.onNodeWithText("取消").performClick()
+        compose.onNodeWithText("繼續等待").performClick()
+        assertEquals(emptyList<Long>(), cancelled)
+        compose.onNodeWithText("取消這個任務？").assertDoesNotExist()
+    }
+
+    @Test fun 長按已完成有刪除任務_有影片編號的多一行() {
+        val deleted = mutableListOf<Long>()
+        show(tasks = listOf(task(6, EditTaskState.DONE, title = "傳完的", videoId = "abc")), onDeleteTask = { deleted += it })
+        longPress("傳完的")
+        compose.onNodeWithText("取消").assertDoesNotExist()
+        compose.onNodeWithText("刪除任務").performClick()
+        compose.onNodeWithText("刪除這個任務？").assertIsDisplayed()
+        compose.onNodeWithText("影片仍在你的 YouTube 頻道，可以到 YouTube 工作室刪除。").assertIsDisplayed()
+        compose.onNodeWithText("app 裡輸出的影片會一起刪掉。").assertDoesNotExist()
+        compose.onNodeWithText("刪除").performClick()
+        assertEquals(listOf(6L), deleted)
+    }
+
+    @Test fun 沒有影片編號的失敗任務刪除確認沒有YouTube那一行() {
+        show(tasks = listOf(task(7, EditTaskState.FAILED, title = "壞了的", failReason = "沒有網路連線", failedStep = EditTaskStep.UPLOAD)))
+        longPress("壞了的")
+        compose.onNodeWithText("刪除任務").performClick()
+        compose.onNodeWithText("刪除這個任務？").assertIsDisplayed()
+        compose.onNodeWithText("影片仍在你的 YouTube 頻道，可以到 YouTube 工作室刪除。").assertDoesNotExist()
+    }
+
+    @Test fun 處理失敗的任務有影片編號_刪除確認有YouTube那一行() {
+        show(tasks = listOf(task(7, EditTaskState.FAILED, title = "壞了的", failReason = "YouTube 還沒產生縮圖", failedStep = EditTaskStep.STORYBOARD, videoId = "abc")))
+        longPress("壞了的")
+        compose.onNodeWithText("刪除任務").performClick()
+        compose.onNodeWithText("影片仍在你的 YouTube 頻道，可以到 YouTube 工作室刪除。").assertIsDisplayed()
+    }
+
+    @Test fun 取消確認框開著時輸出轉成上傳_框消失且不會用輸出的說法取消() {
+        val cancelled = mutableListOf<Long>()
+        val tasks = androidx.compose.runtime.mutableStateOf(listOf(task(4, EditTaskState.RENDERING, title = "跑著的", progress = 99)))
+        compose.setContent {
+            VideoshotTheme {
+                ClipHomeScreen(
+                    onNewClip = {}, tasks = tasks.value, thumbLoader = MediaThumbLoader(decode = { null }),
+                    onCancelTask = { cancelled += it },
+                )
+            }
+        }
+        longPress("跑著的")
+        compose.onNodeWithText("取消").performClick()
+        compose.onNodeWithText("取消導出？").assertIsDisplayed()
+
+        tasks.value = listOf(task(4, EditTaskState.UPLOADING, title = "跑著的", progress = 1))
+        compose.waitForIdle()
+
+        compose.onNodeWithText("取消導出？").assertDoesNotExist()
+        compose.onNodeWithText("取消上傳？").assertDoesNotExist()
+        assertEquals(emptyList<Long>(), cancelled)
+    }
+
+    @Test fun 取消確認框開著時等待轉成輸出_框留著() {
+        val tasks = androidx.compose.runtime.mutableStateOf(listOf(task(4, EditTaskState.QUEUED, title = "等著的")))
+        compose.setContent {
+            VideoshotTheme {
+                ClipHomeScreen(onNewClip = {}, tasks = tasks.value, thumbLoader = MediaThumbLoader(decode = { null }))
+            }
+        }
+        longPress("等著的")
+        compose.onNodeWithText("取消").performClick()
+        tasks.value = listOf(task(4, EditTaskState.RENDERING, title = "等著的", progress = 1))
+        compose.waitForIdle()
+        compose.onNodeWithText("取消導出？").assertIsDisplayed()
     }
 }

@@ -16,6 +16,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import com.xenyaa.videoshot.ui.common.VsActionDock
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
@@ -48,6 +49,14 @@ class AppShellTest {
         for (label in listOf("照片", "取圖", "相簿", "帳號")) {
             compose.onNodeWithText(label).assertIsDisplayed()
         }
+    }
+
+    @Test
+    fun 剪輯紅點數字傳到導覽列() {
+        compose.setContent {
+            VideoshotTheme { AppShell(nav = NavState(), onSelectTab = {}, clipBadge = 4) { Text("內容") } }
+        }
+        compose.onNodeWithContentDescription("剪輯，4 個已完成").assertIsDisplayed()
     }
 
     @Test

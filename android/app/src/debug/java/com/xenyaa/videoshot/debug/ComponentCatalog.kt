@@ -144,6 +144,10 @@ private fun BottomNavSection() = Section("底部導覽") {
     VsBottomNav(current = home, onSelect = { home = it }, accountInitial = null)
     var account by remember { mutableStateOf(Tab.ACCOUNT) }
     VsBottomNav(current = account, onSelect = { account = it }, accountInitial = 'S')
+    // 剪輯格的紅點：已完成、等著開始取圖的個數（1～9 照寫，超過 9 寫 9+）
+    var withBadge by remember { mutableStateOf(Tab.CLIP) }
+    VsBottomNav(current = withBadge, onSelect = { withBadge = it }, accountInitial = null, clipBadge = 3)
+    VsBottomNav(current = withBadge, onSelect = { withBadge = it }, accountInitial = 'S', clipBadge = 12)
 }
 
 @Composable

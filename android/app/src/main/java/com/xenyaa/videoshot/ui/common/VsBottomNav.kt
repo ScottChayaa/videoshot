@@ -5,7 +5,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -26,6 +29,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.invisibleToUser
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -48,10 +53,18 @@ private fun iconOf(tab: Tab): ImageVector = when (tab) {
     Tab.ACCOUNT -> VsIcons.Person
 }
 
+/** 剪輯格紅點上的字：沒有（0 以下）不畫、1～9 照寫、超過 9 寫「9+」。 */
+internal fun navBadgeText(count: Int): String? = when {
+    count <= 0 -> null
+    count > 9 -> "9+"
+    else -> count.toString()
+}
+
 /**
  * 底部導覽（原型 `styles.css`「底部導覽」）。
  *
  * 取圖格用實心主色方塊——它是主要動作，但**不是紅色**（手冊 §零，紅色只留給刪除）。
+ * 剪輯格右上角的紅點（[clipBadge]）是「已上傳完成、等著開始取圖」的個數，只算已完成；TalkBack 唸「剪輯，N 個已完成」。
  * 帳號格連結 Google 帳號後換成 Google 頭像（[accountAvatar]），還沒抓到就用頭像字母（設計文件決定 4），文字一律「帳號」。
  */
 @Composable
@@ -61,6 +74,7 @@ fun VsBottomNav(
     accountInitial: Char?,
     modifier: Modifier = Modifier,
     accountAvatar: ImageBitmap? = null,
+    clipBadge: Int = 0,
 ) {
     Column(modifier.fillMaxWidth().background(AppTheme.colors.surface).navigationBarsPadding()) {
         // 上緣分隔線用一個實體像素（最細）；Dp.Hairline 會讓分隔線的版面高度是 0，改成明確換算
@@ -72,6 +86,7 @@ fun VsBottomNav(
                     selected = tab == current,
                     accountInitial = accountInitial,
                     accountAvatar = accountAvatar,
+                    badge = if (tab == Tab.CLIP) clipBadge else 0,
                     onClick = { onSelect(tab) },
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                 )
@@ -86,9 +101,11 @@ private fun NavItem(
     selected: Boolean,
     accountInitial: Char?,
     accountAvatar: ImageBitmap?,
+    badge: Int,
     onClick: () -> Unit,
     modifier: Modifier,
 ) {
+    val badgeText = navBadgeText(badge)
     val isCapture = tab == Tab.CAPTURE
     val color = when {
         isCapture || selected -> AppTheme.colors.accent
@@ -133,9 +150,33 @@ private fun NavItem(
 
                 else -> Icon(iconOf(tab), null, tint = color, modifier = Modifier.size(24.dp))
             }
+            if (badgeText != null) {
+                // 紅點只是視覺：數字從無障礙樹拿掉，唸的內容由下面的標籤文字負責
+                Box(
+                    Modifier.align(Alignment.TopEnd).offset(x = 10.dp, y = (-4).dp)
+                        .defaultMinSize(minWidth = 16.dp, minHeight = 16.dp)
+                        .clip(CircleShape)
+                        .background(AppTheme.colors.accent)
+                        .padding(horizontal = 4.dp)
+                        .semantics { invisibleToUser() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        badgeText,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = AppTheme.colors.accentInk,
+                    )
+                }
+            }
         }
         Text(
             tab.label,
+            modifier = if (badgeText != null) {
+                // 唸實際個數（紅點上寫 9+ 也唸 12）；取代掉「剪輯」兩字，合併後的格子只剩這一句
+                Modifier.clearAndSetSemantics { contentDescription = "${tab.label}，$badge 個已完成" }
+            } else {
+                Modifier
+            },
             style = MaterialTheme.typography.labelMedium.copy(
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
             ),

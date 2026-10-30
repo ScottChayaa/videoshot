@@ -342,6 +342,20 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
     // 下次回來先顯示舊的、再被新的蓋掉（不會先閃一下空狀態）
     var clipTasks by remember { mutableStateOf<List<EditTask>>(emptyList()) }
     val clipLifecycle = LocalLifecycleOwner.current.lifecycle
+    // 導覽列【剪輯】的紅點：已完成任務的個數，app 在前景時一直收集（資料庫的 count 查詢，變了才推新值）
+    var clipBadge by remember { mutableIntStateOf(0) }
+    LaunchedEffect(container) {
+        clipLifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            try {
+                container.clipDeps.cacheRepo.doneEditTaskCount().collect { clipBadge = it }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // 讀不出來就不畫紅點（維持上一個數字）；任務本身不受影響
+                Log.w("VsClip", "讀取已完成任務個數失敗", e)
+            }
+        }
+    }
     LaunchedEffect(onClipHome, container) {
         if (!onClipHome) return@LaunchedEffect
         clipLifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -911,6 +925,7 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
             onSelectTab = { foldersVm.clearSelection(); nav = nav.select(it) },
             snackbarHostState = snackbarHostState, accountInitial = avatarInitialOf(accountState.linkedAccount?.displayName),
             accountAvatar = accountState.avatar,
+            clipBadge = clipBadge,
             // 照片頁、相簿畫面、封存相簿畫面多選時藏起底部導覽，由各自畫面的動作列取代
             fullscreen = fullscreen.active,
             showBottomNav = !fullscreen.active && !(

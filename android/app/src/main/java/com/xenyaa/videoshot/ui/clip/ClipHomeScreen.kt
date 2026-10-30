@@ -36,7 +36,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -51,6 +53,7 @@ import com.xenyaa.videoshot.ui.common.VsEmptyState
 import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
+import com.xenyaa.videoshot.ui.theme.Palette
 import com.xenyaa.videoshot.ui.theme.focusRing
 
 /** 剪輯頁「編輯中」那一列要顯示的草稿摘要。 */
@@ -63,8 +66,6 @@ fun ClipDraft.toSummary() = ClipDraftSummary(
     durationMs = timeline.durationMs,
 )
 
-private val IN_PROGRESS = setOf(EditTaskState.QUEUED, EditTaskState.RENDERING)
-
 /** 沒有真的縮圖來源時用的載入器（解碼一律失敗，縮圖位置是中性色塊）；測試與預覽不必傳。 */
 private val NoThumbs = MediaThumbLoader(decode = { null })
 
@@ -72,7 +73,7 @@ private val NoThumbs = MediaThumbLoader(decode = { null })
  * 剪輯分頁（底部導覽第三格）。沒有草稿也沒有任務時是空狀態；否則由上到下是：
  * 「編輯中」草稿列（點了接著編輯，長按或右側 ⋯ 選單可以【放棄】）→ 導出任務（[tasks] 照傳進來的順序，新的在前）→【新增剪輯】。
  *
- * 任務列：點了進導出中畫面；等待中與輸出中的長按選單是【取消】，完成與失敗的是【刪除任務】，
+ * 任務列：點了進導出中畫面；等待中、輸出中、上傳中、YouTube 處理中的長按選單是【取消】，輸出完成、已完成與失敗的是【刪除任務】，
  * 兩者都要確認才通知呼叫端；失敗列另有【重試】。
  *
  * 【新增剪輯】只通知呼叫端，「選方向」的抽屜由 [AppRoot] 掛（見 [OrientationSheet]）。
@@ -94,8 +95,9 @@ fun ClipHomeScreen(
 ) {
     // null＝沒在問；false＝從草稿列放棄；true＝按了【新增剪輯】、確認放棄後接著新增
     var confirmDiscard by remember { mutableStateOf<Boolean?>(null) }
-    // 任務列的確認框：存任務編號，內容（要不要多一句）每次從最新的任務清單查；任務消失了框也跟著消失
+    // 任務列的確認框：存任務編號（取消再存開框當下的說法），內容（要不要多一句）每次從最新的任務清單查；任務消失了框也跟著消失
     var confirmCancelId by remember { mutableStateOf<Long?>(null) }
+    var confirmCancelKind by remember { mutableStateOf<CancelKind?>(null) }
     var confirmDeleteId by remember { mutableStateOf<Long?>(null) }
 
     Column(modifier.fillMaxSize()) {
@@ -124,7 +126,7 @@ fun ClipHomeScreen(
                         task = task,
                         thumbLoader = thumbLoader,
                         onOpen = { onOpenTask(task.id) },
-                        onCancel = { confirmCancelId = task.id },
+                        onCancel = { confirmCancelId = task.id; confirmCancelKind = task.state.cancelKind() },
                         onDelete = { confirmDeleteId = task.id },
                         onRetry = { onRetryTask(task.id) },
                     )
@@ -151,19 +153,24 @@ fun ClipHomeScreen(
         )
     }
 
-    // 確認框開著時任務可能剛好結束：取消只對進行中的任務有意義（否則會刪掉剛做好的成品），刪除只對已結束的
+    // 確認框開著時任務可能剛好換了階段或結束：取消只對進行中、而且還是開框時那個階段的任務有意義
+    // （否則會拿「取消導出」的說法取消正在上傳的，或刪掉剛做好的成品），刪除只對已結束的
     val cancelling = tasks.firstOrNull { it.id == confirmCancelId }
-    if (cancelling != null && cancelling.state in IN_PROGRESS) {
-        CancelExportDialog(
+    val cancelKind = confirmCancelKind
+    if (cancelling != null && cancelKind != null && cancelling.state.cancelKind() == cancelKind) {
+        CancelTaskDialog(
+            kind = cancelKind,
             onConfirm = { confirmCancelId = null; onCancelTask(cancelling.id) },
             onDismiss = { confirmCancelId = null },
         )
     }
     val deleting = tasks.firstOrNull { it.id == confirmDeleteId }
-    if (deleting != null && deleting.state !in IN_PROGRESS) {
+    if (deleting != null && deleting.state.cancelKind() == null) {
         DeleteTaskDialog(
             // 沒存進相簿的完成品只在 app 裡：刪任務會連影片一起刪，要講清楚
             alsoDeletesVideo = deleting.state == EditTaskState.RENDERED && deleting.galleryUri == null,
+            // 已經上傳過的（有影片編號）刪任務不會刪 YouTube 上的影片
+            stillOnYoutube = deleting.videoId != null,
             onConfirm = { confirmDeleteId = null; onDeleteTask(deleting.id) },
             onDismiss = { confirmDeleteId = null },
         )
@@ -236,13 +243,23 @@ fun DiscardClipDraftDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
     )
 }
 
-/** 刪除任務的確認框；[alsoDeletesVideo]＝完成品只存在 app 裡（沒存進相簿）。 */
+/** 刪除任務的確認框；[alsoDeletesVideo]＝完成品只存在 app 裡（沒存進相簿）；[stillOnYoutube]＝已經上傳過，影片仍在 YouTube 頻道。 */
 @Composable
-fun DeleteTaskDialog(alsoDeletesVideo: Boolean, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+fun DeleteTaskDialog(
+    alsoDeletesVideo: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    stillOnYoutube: Boolean = false,
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("刪除這個任務？") },
-        text = if (alsoDeletesVideo) ({ Text("app 裡輸出的影片會一起刪掉。") }) else null,
+        text = if (alsoDeletesVideo || stillOnYoutube) ({
+            Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
+                if (alsoDeletesVideo) Text("app 裡輸出的影片會一起刪掉。")
+                if (stillOnYoutube) Text(STILL_ON_YOUTUBE)
+            }
+        }) else null,
         confirmButton = { TextButton(onClick = onConfirm) { Text("刪除", color = AppTheme.colors.danger) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
     )
@@ -265,7 +282,7 @@ private fun TaskRow(
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(12.dp)
-    val inProgress = task.state in IN_PROGRESS
+    val inProgress = task.state.cancelKind() != null
     val colors = AppTheme.colors
     Row(
         modifier
@@ -299,20 +316,19 @@ private fun TaskRow(
                     EditTaskState.QUEUED -> "等待中"
                     EditTaskState.RENDERING -> "輸出影片中 ${task.progress}%"
                     EditTaskState.RENDERED -> if (task.galleryUri != null) "已存到相簿" else "輸出完成"
-                    // 上傳的三個狀態先放文字，畫面正式的樣子是 Task 9 的事
                     EditTaskState.UPLOADING -> "上傳中 ${task.progress}%"
                     EditTaskState.PROCESSING -> "YouTube 處理中"
                     EditTaskState.DONE -> "已完成，點一下開始取圖"
                     EditTaskState.FAILED -> "失敗：${task.failReason ?: "輸出失敗"}"
                 },
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (task.state == EditTaskState.FAILED) colors.danger else colors.textDim,
+                color = taskStatusColor(task.state, colors),
                 // 一行：失敗原因太長就截斷（完整的在導出畫面），列高跟其他列一樣
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 2.dp),
             )
-            if (task.state == EditTaskState.RENDERING) {
+            if (task.state == EditTaskState.RENDERING || task.state == EditTaskState.UPLOADING) {
                 LinearProgressIndicator(
                     progress = { task.progress.coerceIn(0, 100) / 100f },
                     modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
@@ -323,6 +339,8 @@ private fun TaskRow(
         }
         when (task.state) {
             EditTaskState.RENDERED -> Icon(VsIcons.Play, contentDescription = null, tint = colors.accent)
+            // 已完成：右邊一顆主色圓點（只是視覺，文字已經說了）
+            EditTaskState.DONE -> Box(Modifier.size(10.dp).testTag("doneDot").background(colors.accent, CircleShape))
             EditTaskState.FAILED -> VsButton("重試", onRetry, variant = ButtonVariant.Secondary)
             else -> Unit
         }
@@ -343,6 +361,13 @@ private fun TaskRow(
             }
         }
     }
+}
+
+/** 任務列狀態文字的顏色：失敗紅字、已完成主色字（提醒「點一下開始取圖」），其餘是次要文字色。 */
+internal fun taskStatusColor(state: EditTaskState, colors: Palette): Color = when (state) {
+    EditTaskState.FAILED -> colors.danger
+    EditTaskState.DONE -> colors.accent
+    else -> colors.textDim
 }
 
 /** 任務列左邊的方形縮圖（時間軸第一段的素材）；還沒載入時是中性色塊。 */

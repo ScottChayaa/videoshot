@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.xenyaa.videoshot.ui.shell.Tab
@@ -24,8 +25,8 @@ import org.robolectric.annotation.GraphicsMode
 class VsBottomNavTest {
     @get:Rule val compose = createComposeRule()
 
-    private fun show(current: Tab = Tab.HOME, initial: Char? = null, onSelect: (Tab) -> Unit = {}) {
-        compose.setContent { VideoshotTheme { VsBottomNav(current, onSelect, initial) } }
+    private fun show(current: Tab = Tab.HOME, initial: Char? = null, onSelect: (Tab) -> Unit = {}, clipBadge: Int = 0) {
+        compose.setContent { VideoshotTheme { VsBottomNav(current, onSelect, initial, clipBadge = clipBadge) } }
     }
 
     @Test fun 五格依序是照片取圖剪輯相簿帳號() {
@@ -73,5 +74,47 @@ class VsBottomNavTest {
         assertEquals('林', avatarInitialOf("林小明"))
         assertNull(avatarInitialOf(""))
         assertNull(avatarInitialOf(null))
+    }
+
+    @Test fun 紅點數字_沒有或負數不畫_1到9照寫_超過9寫9加() {
+        assertNull(navBadgeText(0))
+        assertNull(navBadgeText(-1))
+        assertEquals("1", navBadgeText(1))
+        assertEquals("9", navBadgeText(9))
+        assertEquals("9+", navBadgeText(10))
+        assertEquals("9+", navBadgeText(12))
+    }
+
+    @Test fun 有已完成時剪輯格畫紅點數字() {
+        show(clipBadge = 3)
+        compose.onNodeWithText("3", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test fun 超過9個時紅點寫9加() {
+        show(clipBadge = 12)
+        compose.onNodeWithText("9+", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test fun 沒有已完成時不畫紅點() {
+        show(clipBadge = 0)
+        compose.onNodeWithText("0", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText("剪輯").assertIsDisplayed()
+    }
+
+    @Test fun 紅點的TalkBack文字() {
+        show(clipBadge = 3)
+        compose.onNodeWithContentDescription("剪輯，3 個已完成").assertIsDisplayed()
+    }
+
+    @Test fun 超過9個時TalkBack唸實際個數() {
+        show(clipBadge = 12)
+        compose.onNodeWithContentDescription("剪輯，12 個已完成").assertIsDisplayed()
+    }
+
+    @Test fun 有紅點時點剪輯格仍回報剪輯分頁() {
+        var picked: Tab? = null
+        show(onSelect = { picked = it }, clipBadge = 3)
+        compose.onNodeWithContentDescription("剪輯，3 個已完成").performClick()
+        assertEquals(Tab.CLIP, picked)
     }
 }

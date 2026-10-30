@@ -547,6 +547,8 @@ class AppContainer(context: Context) : AppRootDeps {
             override fun enqueueExport(taskId: Long) = enqueueClipExport(appContext, taskId)
             override fun enqueueStoryboardPoll(taskId: Long) =
                 com.xenyaa.videoshot.publish.enqueueStoryboardPoll(appContext, taskId, delayMs = 0L)
+            override fun cancelStoryboardPoll(taskId: Long) =
+                com.xenyaa.videoshot.publish.cancelStoryboardPoll(appContext, taskId)
             override suspend fun beginUploadAuth(activity: Activity): UploadAuthStep = uploadAuth.begin(activity)
             override suspend fun afterUploadAuthConsent(activity: Activity, step: UploadAuthStep, data: Intent): UploadAuthStep =
                 uploadAuth.afterConsent(activity, step, data)

@@ -34,6 +34,7 @@ import com.xenyaa.videoshot.media.MediaLibrary
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import com.xenyaa.videoshot.data.repo.model.EditTaskState
+import com.xenyaa.videoshot.data.repo.model.EditTaskStep
 import com.xenyaa.videoshot.media.MediaItem
 import com.xenyaa.videoshot.media.MediaThumbLoader
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
@@ -64,13 +65,15 @@ class ClipExportScreenTest {
         skipped: Int = 0,
         galleryUri: String? = null,
         autoUpload: Boolean = true,
+        failedStep: EditTaskStep? = null,
+        videoId: String? = null,
     ): EditTask {
         val timeline = Timeline(listOf(Segment(7, 0, 30_000), Segment(8, 0, 18_000)))
         return EditTask(
             id = 1, state = state, progress = progress, title = "我的旅行",
             draft = ClipDraft(ClipOrientation.PORTRAIT, listOf(source(7), source(8)), EditHistory(timeline)),
             autoUpload = autoUpload, failReason = failReason, skippedSources = skipped,
-            galleryUri = galleryUri, createdAt = 0,
+            galleryUri = galleryUri, createdAt = 0, failedStep = failedStep, videoId = videoId,
         )
     }
 
@@ -257,6 +260,107 @@ class ClipExportScreenTest {
 
         compose.onNodeWithContentDescription("返回").performClick()
         assertEquals(true, back)
+    }
+
+    // ── 上傳到 YouTube（階段 21）──
+
+    @Test
+    fun 上傳中標題與取消上傳() {
+        var cancelled = 0
+        show(task(EditTaskState.UPLOADING, progress = 63), onCancel = { cancelled++ })
+
+        compose.onNodeWithText("上傳中…").assertIsDisplayed()
+        // 縮圖上大字百分比（同輸出中的畫法），縮圖不能點
+        compose.onNode(hasText("63%") and hasAnyAncestor(hasTestTag("exportThumb"))).assertIsDisplayed()
+        compose.onNodeWithTag("exportThumb").assertRangeInfoEquals(ProgressBarRangeInfo(0.63f, 0f..1f))
+        compose.onNodeWithTag("exportThumb").assertHasNoClickAction()
+        // 勾選框只在等待中、輸出中出現
+        noNode("完成後自動上傳到 YouTube")
+        noNode("取消導出")
+
+        compose.onNodeWithText("取消上傳").performClick()
+        compose.onNodeWithText("取消上傳？").assertIsDisplayed()
+        compose.onNodeWithText("已經上傳的部分會作廢。").assertIsDisplayed()
+        assertEquals(0, cancelled)
+
+        compose.onNodeWithText("繼續上傳").performClick()
+        noNode("取消上傳？")
+        assertEquals(0, cancelled)
+
+        compose.onNodeWithText("取消上傳").performClick()
+        compose.onNode(hasText("取消上傳") and hasAnyAncestor(isDialog())).performClick()
+        assertEquals(1, cancelled)
+    }
+
+    @Test
+    fun 處理中的小字與取消任務() {
+        var cancelled = 0
+        show(task(EditTaskState.PROCESSING, videoId = "abc"), onCancel = { cancelled++ })
+
+        compose.onNodeWithText("YouTube 處理中…").assertIsDisplayed()
+        compose.onNodeWithText("等 YouTube 產生縮圖，通常幾分鐘內完成").assertIsDisplayed()
+        compose.onNodeWithTag("exportThumb").assertHasNoClickAction()
+        noNode("完成後自動上傳到 YouTube")
+        noNode("取消導出")
+        noNode("取消上傳")
+
+        compose.onNodeWithText("取消任務").performClick()
+        compose.onNodeWithText("取消這個任務？").assertIsDisplayed()
+        compose.onNodeWithText("影片仍在你的 YouTube 頻道，可以到 YouTube 工作室刪除。").assertIsDisplayed()
+        assertEquals(0, cancelled)
+
+        compose.onNodeWithText("繼續等待").performClick()
+        noNode("取消這個任務？")
+        assertEquals(0, cancelled)
+
+        compose.onNodeWithText("取消任務").performClick()
+        compose.onNode(hasText("取消任務") and hasAnyAncestor(isDialog())).performClick()
+        assertEquals(1, cancelled)
+    }
+
+    @Test
+    fun 已完成的文字() {
+        show(task(EditTaskState.DONE, videoId = "abc"))
+
+        compose.onNodeWithText("已上傳到 YouTube（非公開）").assertIsDisplayed()
+        compose.onNodeWithText("我的旅行・0:48").assertIsDisplayed()
+        compose.onNodeWithText("開始取圖在下一個階段加入").assertIsDisplayed()
+        compose.onNodeWithTag("exportThumb").assertHasNoClickAction()
+        noNode("完成後自動上傳到 YouTube")
+        noNode("取消任務")
+        noNode("取消上傳")
+        noNode("播放檢查")
+    }
+
+    private fun failedShows(step: EditTaskStep?, title: String) {
+        show(task(EditTaskState.FAILED, failReason = "某個原因", failedStep = step))
+        compose.onNodeWithText(title).assertIsDisplayed()
+        compose.onNodeWithText("某個原因").assertIsDisplayed()
+        compose.onNodeWithText("重試").assertIsDisplayed()
+    }
+
+    @Test fun 失敗標題依步驟_輸出() = failedShows(EditTaskStep.RENDER, "影片輸出失敗")
+
+    @Test fun 失敗標題依步驟_上傳() = failedShows(EditTaskStep.UPLOAD, "影片上傳失敗")
+
+    @Test fun 失敗標題依步驟_處理() = failedShows(EditTaskStep.STORYBOARD, "YouTube 處理失敗")
+
+    @Test fun 舊資料沒記步驟的失敗當成輸出() = failedShows(null, "影片輸出失敗")
+
+    @Test
+    fun 取消確認框開著時輸出轉成上傳_框消失() {
+        val shown = androidx.compose.runtime.mutableStateOf(task(EditTaskState.RENDERING, progress = 99))
+        var cancelled = 0
+        compose.setContent { VideoshotTheme { ClipExportScreen(shown.value, loader, {}, {}, { cancelled++ }, {}, {}) } }
+        compose.onNodeWithText("取消導出").performClick()
+        compose.onNodeWithText("取消導出？").assertIsDisplayed()
+
+        shown.value = task(EditTaskState.UPLOADING, progress = 1)
+        compose.waitForIdle()
+
+        noNode("取消導出？")
+        noNode("取消上傳？")
+        assertEquals(0, cancelled)
     }
 
     // ── 導覽入口（ClipExportRoute）：勾選框打勾前先授權 ──

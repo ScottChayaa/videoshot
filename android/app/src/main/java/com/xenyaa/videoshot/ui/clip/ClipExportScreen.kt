@@ -61,6 +61,7 @@ import com.xenyaa.videoshot.data.repo.CacheRepo
 import com.xenyaa.videoshot.data.repo.model.EditTask
 import com.xenyaa.videoshot.data.repo.model.EditTaskState
 import com.xenyaa.videoshot.data.repo.model.EditTaskStep
+import com.xenyaa.videoshot.edit.failedTitle
 import com.xenyaa.videoshot.media.MediaThumbLoader
 import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.TopBarNav
@@ -130,14 +131,17 @@ fun ClipExportRoute(
 }
 
 /**
- * 取消一個任務（導出中畫面與剪輯頁的任務列共用）：取消正在跑的工作（等套用完；排隊中的不動）→ 刪任務 →
+ * 取消一個任務（導出中畫面與剪輯頁的任務列共用）：收掉等縮圖的輪詢（處理中的任務才有）→
+ * 取消正在跑的工作（等套用完；排隊中的不動）→ 刪任務 →
  * 再查一次（刪之前剛好輪到它開始跑的話，它已經讀到任務、會一路輸出完）→ 刪 app 裡的資料夾 →
- * 補排被連帶取消的後面幾個任務。補排不管前面成不成功都做（已排著的不動）。
+ * 補排被連帶取消的後面幾個任務。補排不管前面成不成功都做（已排著的不動），而且一定在刪任務之後：
+ * 補排最後會把「處理中」的任務排回輪詢，順序反了會把剛收掉的輪詢排回去。
  * 排隊中的工作留著，輪到時讀不到任務就直接結束。
  */
 internal suspend fun cancelExportTask(deps: ClipDeps, taskId: Long) {
     try {
         guarded("取消輸出") {
+            deps.cancelStoryboardPoll(taskId)
             deps.cancelExport(taskId)
             deps.cacheRepo.deleteEditTask(taskId)
             deps.cancelExport(taskId)
@@ -150,12 +154,13 @@ internal suspend fun cancelExportTask(deps: ClipDeps, taskId: Long) {
 }
 
 /**
- * 刪掉一個已經結束（完成或失敗）的任務：先刪任務、再刪 app 裡的成品資料夾（相簿裡的不動），最後補排一次。
+ * 刪掉一個已經結束（已完成或失敗）的任務：收掉輪詢（失敗在處理那一步時可能還排著）、先刪任務、再刪 app 裡的成品資料夾（相簿裡的不動），最後補排一次。
  * 先刪任務：中途掛掉最多留下沒人指到的檔案，不會留下指向已刪成品的任務。
  */
 internal suspend fun deleteExportTask(deps: ClipDeps, taskId: Long) {
     try {
         guarded("刪除任務") {
+            deps.cancelStoryboardPoll(taskId)
             deps.cacheRepo.deleteEditTask(taskId)
             deps.deleteExportFiles(taskId)
             deps.dismissExportResult(taskId)
@@ -211,8 +216,9 @@ internal suspend fun guarded(what: String, block: suspend () -> Unit) {
 /**
  * 導出中畫面（階段 20）：頂欄「導出」＋返回；成品第一格的縮圖；依任務狀態顯示
  * 等待中／輸出中（縮圖疊上大的百分比、亮的部分隨進度往右，加提示）／
- * 完成（點縮圖或【播放檢查】、存相簿後的【播放】全螢幕播放）／失敗（原因與【重試】）。
- * 「完成後自動上傳到 YouTube」勾選框與【取消導出】只在等待中與輸出中顯示。
+ * 完成（點縮圖或【播放檢查】、存相簿後的【播放】全螢幕播放）／上傳中（同輸出中的畫法）／YouTube 處理中／已完成／
+ * 失敗（標題依失敗的步驟、原因與【重試】）。
+ * 「完成後自動上傳到 YouTube」勾選框只在等待中與輸出中顯示；底部的取消鈕依階段是【取消導出】【取消上傳】【取消任務】。
  *
  * 前一次輸出殘留的略過個數與相簿位置（重試之後、完成之前還留在任務上）只在 [EditTaskState.RENDERED] 才看。
  */
@@ -226,8 +232,10 @@ fun ClipExportScreen(
     onRetry: () -> Unit,
     onPlay: () -> Unit,
 ) {
-    var confirmCancel by rememberSaveable { mutableStateOf(false) }
-    val inProgress = task.state == EditTaskState.QUEUED || task.state == EditTaskState.RENDERING
+    // 開確認框當下是哪一種取消；任務換了階段（例如輸出完開始上傳）框就不再成立，不會拿舊說法取消新階段
+    var confirmCancel by rememberSaveable { mutableStateOf<CancelKind?>(null) }
+    val cancelKind = task.state.cancelKind()
+    val inProgress = cancelKind == CancelKind.EXPORT
 
     Column(Modifier.fillMaxSize().background(AppTheme.colors.bg).statusBarsPadding().navigationBarsPadding()) {
         VsTopBar("導出", nav = TopBarNav.Back(onBack))
@@ -243,7 +251,7 @@ fun ClipExportScreen(
             ExportThumb(
                 task,
                 thumbLoader,
-                progress = if (task.state == EditTaskState.RENDERING) task.progress.coerceIn(0, 100) else null,
+                progress = if (task.state == EditTaskState.RENDERING || task.state == EditTaskState.UPLOADING) task.progress.coerceIn(0, 100) else null,
                 onClick = if (task.state == EditTaskState.RENDERED) onPlay else null,
             )
 
@@ -277,10 +285,34 @@ fun ClipExportScreen(
                     }
                     VsButton(if (saved) "播放" else "播放檢查", onClick = onPlay)
                 }
-                // 上傳的三個狀態還沒有畫面，是 Task 9 的事
-                EditTaskState.UPLOADING, EditTaskState.PROCESSING, EditTaskState.DONE -> Unit
+                // 縮圖上的大字百分比同輸出中；out.mp4 正在傳，縮圖不能點
+                EditTaskState.UPLOADING -> StatusTitle("上傳中…")
+                EditTaskState.PROCESSING -> {
+                    StatusTitle("YouTube 處理中…")
+                    Text(
+                        "等 YouTube 產生縮圖，通常幾分鐘內完成",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = AppTheme.colors.textDim,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+                EditTaskState.DONE -> {
+                    StatusTitle("已上傳到 YouTube（非公開）")
+                    Text(
+                        "${task.title}・${formatDuration(task.durationMs)}",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = AppTheme.colors.textDim,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        "開始取圖在下一個階段加入",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = AppTheme.colors.textDim,
+                        textAlign = TextAlign.Center,
+                    )
+                }
                 EditTaskState.FAILED -> {
-                    StatusTitle("影片輸出失敗")
+                    StatusTitle(failedTitle(task.failedStep))
                     Text(
                         task.failReason ?: "輸出失敗",
                         style = MaterialTheme.typography.bodyLarge,
@@ -291,20 +323,63 @@ fun ClipExportScreen(
                 }
             }
 
-            if (inProgress) {
-                AutoUploadCheckbox(task.autoUpload, onAutoUploadChange)
-                VsButton("取消導出", onClick = { confirmCancel = true }, variant = ButtonVariant.DangerQuiet)
+            // 勾選框只在等待中、輸出中出現（上傳中以後 out.mp4 已經在傳或已刪，改了也沒用）
+            if (inProgress) AutoUploadCheckbox(task.autoUpload, onAutoUploadChange)
+            if (cancelKind != null) {
+                VsButton(cancelKind.buttonText, onClick = { confirmCancel = cancelKind }, variant = ButtonVariant.DangerQuiet)
             }
         }
     }
 
-    if (confirmCancel && inProgress) {
-        CancelExportDialog(
-            onConfirm = { confirmCancel = false; onCancel() },
-            onDismiss = { confirmCancel = false },
+    val asking = confirmCancel
+    if (asking != null && asking == cancelKind) {
+        CancelTaskDialog(
+            kind = asking,
+            onConfirm = { confirmCancel = null; onCancel() },
+            onDismiss = { confirmCancel = null },
         )
     }
 }
+
+/** 取消任務的三種說法：輸出（等待中、輸出中）、上傳中、等 YouTube 處理中。 */
+internal enum class CancelKind(val buttonText: String) {
+    EXPORT("取消導出"),
+    UPLOAD("取消上傳"),
+    PROCESSING("取消任務"),
+}
+
+/** 這個狀態的任務可以取消嗎、用哪一種說法；已結束的（輸出完成、已完成、失敗）是 null，只能刪除。 */
+internal fun EditTaskState.cancelKind(): CancelKind? = when (this) {
+    EditTaskState.QUEUED, EditTaskState.RENDERING -> CancelKind.EXPORT
+    EditTaskState.UPLOADING -> CancelKind.UPLOAD
+    EditTaskState.PROCESSING -> CancelKind.PROCESSING
+    EditTaskState.RENDERED, EditTaskState.DONE, EditTaskState.FAILED -> null
+}
+
+/** 依 [kind] 選取消確認框：導出中畫面與剪輯頁的任務列共用。 */
+@Composable
+internal fun CancelTaskDialog(kind: CancelKind, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    when (kind) {
+        CancelKind.EXPORT -> CancelExportDialog(onConfirm, onDismiss)
+        CancelKind.UPLOAD -> AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("取消上傳？") },
+            text = { Text("已經上傳的部分會作廢。") },
+            confirmButton = { TextButton(onClick = onConfirm) { Text("取消上傳", color = AppTheme.colors.danger) } },
+            dismissButton = { TextButton(onClick = onDismiss) { Text("繼續上傳") } },
+        )
+        CancelKind.PROCESSING -> AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("取消這個任務？") },
+            text = { Text(STILL_ON_YOUTUBE) },
+            confirmButton = { TextButton(onClick = onConfirm) { Text("取消任務", color = AppTheme.colors.danger) } },
+            dismissButton = { TextButton(onClick = onDismiss) { Text("繼續等待") } },
+        )
+    }
+}
+
+/** 影片已經在使用者的 YouTube 頻道上（取消處理中、刪除有影片編號的任務時提醒）。 */
+internal const val STILL_ON_YOUTUBE = "影片仍在你的 YouTube 頻道，可以到 YouTube 工作室刪除。"
 
 /** 取消導出的確認框：導出中畫面與剪輯頁的任務列共用。 */
 @Composable

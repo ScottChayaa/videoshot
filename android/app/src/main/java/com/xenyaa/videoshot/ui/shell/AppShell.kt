@@ -36,6 +36,8 @@ fun AppShell(
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     accountInitial: Char? = null,
     accountAvatar: ImageBitmap? = null,
+    /** 剪輯格紅點的數字（已完成、等著開始取圖的任務個數；0＝不畫）。 */
+    clipBadge: Int = 0,
     /**
      * false＝藏起底部導覽（照片頁多選時，換成頁面自己的動作列，不然兩列疊在一起很怪）。
      * 藏起來時內容不墊系統導覽列的高度，由頁面自己的動作列 `navigationBarsPadding()` 鋪到螢幕底。
@@ -61,7 +63,7 @@ fun AppShell(
         modifier = modifier,
         containerColor = if (fullscreen) Color.Black else AppTheme.colors.bg,
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        bottomBar = { if (showBottomNav) VsBottomNav(current = nav.tab, onSelect = onSelectTab, accountInitial = accountInitial, accountAvatar = accountAvatar) },
+        bottomBar = { if (showBottomNav) VsBottomNav(current = nav.tab, onSelect = onSelectTab, accountInitial = accountInitial, accountAvatar = accountAvatar, clipBadge = clipBadge) },
         contentWindowInsets = if (fullscreen) {
             WindowInsets(0)
         } else if (showBottomNav) {
