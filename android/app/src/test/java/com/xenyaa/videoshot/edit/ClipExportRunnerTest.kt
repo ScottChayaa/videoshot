@@ -506,6 +506,23 @@ class ClipExportRunnerTest {
         assertTrue(notifier.failed.isEmpty())
     }
 
+    @Test fun `上傳中的任務不輸出也不刪out_mp4`() = runTest {
+        // 上傳途中被殺、重開後工作從頭跑：成品要留著給上傳接著傳，不能重新輸出（審查重點 1）
+        val id = start()
+        repo.setEditTaskReadyToUpload(id, 0, 1L)
+        repo.setEditTaskProgress(id, EditTaskState.UPLOADING, 40, 1L)
+        val out = outFor(id).apply { parentFile!!.mkdirs(); writeText("rendered") }
+        val before = task(id)!!
+
+        runner().run(id)
+
+        assertEquals(0, exporter.calls)
+        assertTrue(out.exists())
+        assertEquals("rendered", out.readText())
+        assertEquals(before, task(id))
+        assertTrue(notifier.progress.isEmpty())
+    }
+
     @Test fun `被中斷留在輸出中的任務可以重新輸出`() = runTest {
         val id = start()
         repo.setEditTaskProgress(id, EditTaskState.RENDERING, 60, 1L)
