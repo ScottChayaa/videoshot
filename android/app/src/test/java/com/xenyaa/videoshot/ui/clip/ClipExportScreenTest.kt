@@ -280,7 +280,7 @@ class ClipExportScreenTest {
 
         compose.onNodeWithText("取消上傳").performClick()
         compose.onNodeWithText("取消上傳？").assertIsDisplayed()
-        compose.onNodeWithText("已經上傳的部分會作廢。").assertIsDisplayed()
+        compose.onNodeWithText("YouTube 工作室裡可能會留下一支沒傳完的影片，可以到那裡刪除。").assertIsDisplayed()
         assertEquals(0, cancelled)
 
         compose.onNodeWithText("繼續上傳").performClick()
@@ -309,7 +309,7 @@ class ClipExportScreenTest {
 
         compose.onNodeWithText("取消上傳").performClick()
         compose.onNodeWithText("取消上傳？").assertIsDisplayed()
-        compose.onNodeWithText("已經上傳的部分會作廢。").assertIsDisplayed()
+        compose.onNodeWithText("YouTube 工作室裡可能會留下一支沒傳完的影片，可以到那裡刪除。").assertIsDisplayed()
         compose.onNode(hasText("取消上傳") and hasAnyAncestor(isDialog())).performClick()
         assertEquals(1, cancelled)
     }

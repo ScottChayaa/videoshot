@@ -29,6 +29,7 @@ class VideoshotApp : Application(), Configuration.Provider {
                         runTask = { id -> container.runClipTask(id) },
                         poll = { id -> container.storyboardPoller.poll(id) },
                         notifyCanResume = { task -> container.clipExportNotifier.canResumeUpload(task) },
+                        dismissResult = { id -> container.clipExportNotifier.dismissResult(id) },
                         now = { System.currentTimeMillis() },
                     ),
                 )

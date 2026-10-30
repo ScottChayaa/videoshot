@@ -75,7 +75,7 @@ class ClipExportWorker(
 
 /**
  * 把剪輯任務的依賴接進 [ClipExportWorker]、[StoryboardPollWorker] 與 [QuotaResumeWorker] 的建構子——WorkManager 自己不知道怎麼生出它們。
- * [poll] 是 `StoryboardPoller.poll`；[notifyCanResume] 見 [ClipExportWorker]。
+ * [poll] 是 `StoryboardPoller.poll`；[notifyCanResume] 見 [ClipExportWorker]；[dismissResult] 收掉一個任務的結果通知（見 [QuotaResumeWorker]）。
  */
 class ClipExportWorkerFactory(
     private val repo: CacheRepo,
@@ -83,6 +83,7 @@ class ClipExportWorkerFactory(
     private val runTask: suspend (Long) -> Unit,
     private val poll: suspend (Long) -> Unit,
     private val notifyCanResume: (EditTask) -> Unit = {},
+    private val dismissResult: (Long) -> Unit = {},
     private val now: () -> Long,
 ) : WorkerFactory() {
     override fun createWorker(
@@ -93,7 +94,7 @@ class ClipExportWorkerFactory(
         ClipExportWorker::class.java.name ->
             ClipExportWorker(appContext, workerParameters, repo, foregroundInfoFor, runTask, now, notifyCanResume)
         StoryboardPollWorker::class.java.name -> StoryboardPollWorker(appContext, workerParameters, poll)
-        QuotaResumeWorker::class.java.name -> QuotaResumeWorker(appContext, workerParameters, repo, now)
+        QuotaResumeWorker::class.java.name -> QuotaResumeWorker(appContext, workerParameters, repo, now, dismissResult)
         else -> null
     }
 }
@@ -131,16 +132,16 @@ suspend fun cancelClipExport(context: Context, taskId: Long) {
 /**
  * 把沒有工作的未完成任務（app 被殺、手機重開、之前系統不讓開前景服務）排回 `clip-export` 串上：
  * 輸出中的改回等待中（從頭輸出）、上傳中的原樣排回去（從存著的上傳網址接著傳）。
- * 先處理等每日上限重置的任務（[ensureQuotaResumes]：已過重置時間的改回上傳中、跟著排回串上，還沒到的補排等待工作），
+ * 先處理等每日上限重置的任務（[ensureQuotaResumes]：已過重置時間的改回上傳中、跟著排回串上並交給 [onQuotaResumed]，還沒到的補排等待工作），
  * 最後把處理中、沒有輪詢工作的任務補排等縮圖（[ensureStoryboardPolls]）。
  * 在 app 第一次回到前景時呼叫——這時才開得了前景服務。已經排著或在跑的不動。
  *
  * 不會把正在跑的串換掉：[cancelClipExport] 只取消正在跑的串頭（整串跟著結束），
  * 串的末端是「已取消」或「失敗」時整串都已經結束了。
  */
-suspend fun resumeClipExports(context: Context, repo: CacheRepo, now: Long) {
+suspend fun resumeClipExports(context: Context, repo: CacheRepo, now: Long, onQuotaResumed: (Long) -> Unit = {}) {
     val manager = WorkManager.getInstance(context)
-    ensureQuotaResumes(context, repo, now)
+    ensureQuotaResumes(context, repo, now, onQuotaResumed)
     for (id in repo.pendingEditTaskIds()) {
         val scheduled = manager.getWorkInfosByTagFlow(clipExportTag(id)).first().any { !it.state.isFinished }
         if (scheduled) continue

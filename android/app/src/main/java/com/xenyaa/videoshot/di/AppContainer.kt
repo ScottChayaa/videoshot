@@ -556,7 +556,8 @@ class AppContainer(context: Context) : AppRootDeps {
             override suspend fun afterUploadAuthConsent(activity: Activity, step: UploadAuthStep, data: Intent): UploadAuthStep =
                 uploadAuth.afterConsent(activity, step, data)
             override suspend fun cancelExport(taskId: Long) = cancelClipExport(appContext, taskId)
-            override suspend fun resumeExports() = resumeClipExports(appContext, cacheRepo, now())
+            override suspend fun resumeExports() =
+                resumeClipExports(appContext, cacheRepo, now(), onQuotaResumed = clipExportNotifier::dismissResult)
             override suspend fun deleteExportFiles(taskId: Long) =
                 withContext(Dispatchers.IO) { deleteEditTaskDir(appContext.filesDir, taskId) }
             override fun viewingExport(taskId: Long?) { clipExportNotifier.viewingTaskId = taskId }

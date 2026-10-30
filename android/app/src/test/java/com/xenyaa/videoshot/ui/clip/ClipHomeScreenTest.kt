@@ -490,7 +490,7 @@ class ClipHomeScreenTest {
         compose.onNodeWithText("刪除任務").assertDoesNotExist()
         compose.onNodeWithText("取消").performClick()
         compose.onNodeWithText("取消上傳？").assertIsDisplayed()
-        compose.onNodeWithText("已經上傳的部分會作廢。").assertIsDisplayed()
+        compose.onNodeWithText("YouTube 工作室裡可能會留下一支沒傳完的影片，可以到那裡刪除。").assertIsDisplayed()
         assertEquals(emptyList<Long>(), cancelled)
 
         compose.onNodeWithText("取消上傳").performClick()
@@ -615,7 +615,7 @@ class ClipHomeScreenTest {
         compose.onNodeWithText("刪除任務").assertDoesNotExist()
         compose.onNodeWithText("取消").performClick()
         compose.onNodeWithText("取消上傳？").assertIsDisplayed()
-        compose.onNodeWithText("已經上傳的部分會作廢。").assertIsDisplayed()
+        compose.onNodeWithText("YouTube 工作室裡可能會留下一支沒傳完的影片，可以到那裡刪除。").assertIsDisplayed()
         assertEquals(emptyList<Long>(), cancelled)
 
         compose.onNodeWithText("取消上傳").performClick()

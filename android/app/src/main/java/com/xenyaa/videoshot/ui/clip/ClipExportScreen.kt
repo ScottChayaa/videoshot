@@ -377,7 +377,7 @@ internal fun CancelTaskDialog(kind: CancelKind, onConfirm: () -> Unit, onDismiss
         CancelKind.UPLOAD -> AlertDialog(
             onDismissRequest = onDismiss,
             title = { Text("取消上傳？") },
-            text = { Text("已經上傳的部分會作廢。") },
+            text = { Text("YouTube 工作室裡可能會留下一支沒傳完的影片，可以到那裡刪除。") },
             confirmButton = { TextButton(onClick = onConfirm) { Text("取消上傳", color = AppTheme.colors.danger) } },
             dismissButton = { TextButton(onClick = onDismiss) { Text("繼續上傳") } },
         )

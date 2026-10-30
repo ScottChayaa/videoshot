@@ -136,25 +136,32 @@ private val NavSaver = Saver<NavState, String>(
  */
 @Composable
 fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Unit) {
-    // app 回到前景：把沒有輸出工作的未完成任務補排（被殺、重開機、之前系統不讓開前景服務），
-    // 再刪掉 app 裡對不到任務的成品資料夾（規格第十九節「資料」）。
-    // 放在所有 return 之前，不管首次使用閘門擋不擋都要做；只在第一次組合時做一次（這時 app 在前景，開得了前景服務）
-    LaunchedEffect(container) {
-        try {
-            container.clipDeps.resumeExports()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Throwable) {
-            // 補排失敗不能把 app 炸掉；任務留在原狀態，下次打開 app 再補
-            Log.w("VsClip", "補排輸出失敗", e)
-        }
-        try {
-            container.clipDeps.cleanupExportFiles()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Throwable) {
-            // 清不掉只是多佔空間，下次打開 app 再清
-            Log.w("VsClip", "清理輸出資料夾失敗", e)
+    // app 每次回到前景（STARTED）：把沒有輸出工作的未完成任務補排（被殺、重開機、之前系統不讓開前景服務——
+    // 例如每日上傳上限在 app 背景時重置，接回去的上傳開不了前景服務，Activity 還活著時點通知或從桌面回來也要接著傳；
+    // 已經排著的不動，重複呼叫是安全的）。第一次再刪掉 app 裡對不到任務的成品資料夾（規格第十九節「資料」）。
+    // 放在所有 return 之前，不管首次使用閘門擋不擋都要做；只在前景做（這時開得了前景服務）
+    val rootLifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(container, rootLifecycle) {
+        var cleaned = false
+        rootLifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            try {
+                container.clipDeps.resumeExports()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // 補排失敗不能把 app 炸掉；任務留在原狀態，下次回到前景再補
+                Log.w("VsClip", "補排輸出失敗", e)
+            }
+            if (cleaned) return@repeatOnLifecycle
+            cleaned = true
+            try {
+                container.clipDeps.cleanupExportFiles()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // 清不掉只是多佔空間，下次打開 app 再清
+                Log.w("VsClip", "清理輸出資料夾失敗", e)
+            }
         }
     }
     // 播放器全螢幕時底部導覽也要藏起來（規格第六節「全螢幕與畫面方向」）

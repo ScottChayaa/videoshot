@@ -927,6 +927,34 @@ class AppRootClipTest {
     }
 
     @Test
+    fun 畫面還在時每次回到前景都再補排_清理只做一次() {
+        val clip = FakeClipDeps(full)
+        val owner = object : androidx.lifecycle.LifecycleOwner {
+            val registry = androidx.lifecycle.LifecycleRegistry.createUnsafe(this).apply { currentState = androidx.lifecycle.Lifecycle.State.RESUMED }
+            override val lifecycle: androidx.lifecycle.Lifecycle get() = registry
+        }
+        compose.setContent {
+            androidx.compose.runtime.CompositionLocalProvider(androidx.lifecycle.compose.LocalLifecycleOwner provides owner) {
+                VideoshotTheme { AppRoot(deps(clip)) {} }
+            }
+        }
+        compose.waitForIdle()
+        assertEquals(listOf("resume"), clip.exportCalls)
+
+        // 按 Home 到背景：不補排（開不了前景服務）
+        compose.runOnUiThread { owner.registry.currentState = androidx.lifecycle.Lifecycle.State.CREATED }
+        compose.waitForIdle()
+        assertEquals(listOf("resume"), clip.exportCalls)
+
+        // Activity 還活著時點通知或從桌面回來：回到 STARTED 就再補排（例如額度重置後卡在上傳中的任務）
+        compose.runOnUiThread { owner.registry.currentState = androidx.lifecycle.Lifecycle.State.STARTED }
+        compose.runOnUiThread { owner.registry.currentState = androidx.lifecycle.Lifecycle.State.RESUMED }
+        compose.waitForIdle()
+        assertEquals(listOf("resume", "resume"), clip.exportCalls)
+        assertEquals(1, clip.cleanups)
+    }
+
+    @Test
     fun 剪輯頁列出任務_有任務就沒有空狀態() {
         val clip = FakeClipDeps(full)
         clip.withTask("我的旅行")

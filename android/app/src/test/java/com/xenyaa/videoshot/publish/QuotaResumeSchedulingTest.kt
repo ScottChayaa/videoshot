@@ -66,6 +66,9 @@ class QuotaResumeSchedulingTest {
     private val repo = FakeCacheRepo()
     private var nowMs = 0L
 
+    /** 被收掉結果通知（「隔天會自動接著上傳」）的任務。 */
+    private val dismissed = CopyOnWriteArrayList<Long>()
+
     @Before
     fun setUp() {
         exported.clear()
@@ -73,7 +76,8 @@ class QuotaResumeSchedulingTest {
         val factory = object : WorkerFactory() {
             override fun createWorker(appContext: Context, workerClassName: String, workerParameters: WorkerParameters): ListenableWorker? =
                 when (workerClassName) {
-                    QuotaResumeWorker::class.java.name -> QuotaResumeWorker(appContext, workerParameters, repo) { nowMs }
+                    QuotaResumeWorker::class.java.name ->
+                        QuotaResumeWorker(appContext, workerParameters, repo, { nowMs }, dismissResult = { dismissed += it })
                     ClipExportWorker::class.java.name -> HangingExport(appContext, workerParameters)
                     else -> null
                 }
@@ -150,6 +154,8 @@ class QuotaResumeSchedulingTest {
         assertNull(task.failReason)
         assertEquals("https://upload/session", task.uploadUrl) // 從存著的網址接著傳
         assertTrue(exportInfos(id).any { !it.state.isFinished })
+        // 接回時收掉「隔天會自動接著上傳」那則通知，不跟上傳中的說法矛盾
+        assertEquals(listOf(id), dismissed.toList())
     }
 
     @Test
@@ -165,6 +171,7 @@ class QuotaResumeSchedulingTest {
         waitUntil { quotaInfos(id).single().state == WorkInfo.State.SUCCEEDED }
         assertTrue(exportInfos(id).isEmpty())
         assertNull(repo.editTask(id).first())
+        assertTrue(dismissed.isEmpty())
     }
 
     @Test
@@ -172,9 +179,10 @@ class QuotaResumeSchedulingTest {
         val hitAt = 10_000L
         val id = waitingTask(hitAt)
 
-        resumeClipExports(context, repo, nextQuotaResetMs(hitAt) + 1)
+        resumeClipExports(context, repo, nextQuotaResetMs(hitAt) + 1) { dismissed += it }
 
         assertEquals(EditTaskState.UPLOADING, repo.editTask(id).first()!!.state)
+        assertEquals(listOf(id), dismissed.toList()) // 收掉「隔天會自動接著上傳」
         assertTrue(exportInfos(id).any { !it.state.isFinished })
         waitUntil { exported.toList() == listOf(id) }
     }
@@ -185,7 +193,7 @@ class QuotaResumeSchedulingTest {
         val id = waitingTask(hitAt)
         val now = hitAt + 1_000L
 
-        resumeClipExports(context, repo, now) // 例如重開機、強制停止後等待工作被清掉
+        resumeClipExports(context, repo, now) { dismissed += it } // 例如重開機、強制停止後等待工作被清掉
 
         val task = repo.editTask(id).first()!!
         assertEquals(EditTaskState.WAITING_QUOTA, task.state)
@@ -194,6 +202,7 @@ class QuotaResumeSchedulingTest {
         val info = quotaInfos(id).single()
         assertTrue(!info.state.isFinished)
         assertEquals(nextQuotaResetMs(hitAt) - now, info.initialDelayMillis)
+        assertTrue(dismissed.isEmpty()) // 還在等，通知留著
     }
 
     @Test
