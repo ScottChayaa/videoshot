@@ -16,6 +16,8 @@
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <!-- 剪輯選素材（規格第十九節）；不用系統挑選器，因為它給的 URI 不能刪除 -->
     <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+    <!-- 剪輯完成後刪原檔時不跳系統確認視窗（Android 12 起，使用者在設定的「媒體管理」裡給；規格第十九節「完成後」） -->
+    <uses-permission android:name="android.permission.MANAGE_MEDIA" tools:ignore="ProtectedPermissions" />
     <!-- 剪輯輸出（規格第十九節）：背景輸出用前景服務，通知欄顯示進度與結果。Android 15 起類型是 mediaProcessing，14 以下是 dataSync -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />

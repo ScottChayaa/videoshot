@@ -8,6 +8,8 @@ import com.xenyaa.videoshot.media.MediaFilter
 import com.xenyaa.videoshot.media.MediaItem
 import com.xenyaa.videoshot.media.MediaLibrary
 import com.xenyaa.videoshot.media.MediaThumbLoader
+import com.xenyaa.videoshot.media.MediaDeleter
+import com.xenyaa.videoshot.media.NoMediaDeleter
 import com.xenyaa.videoshot.publish.UploadAuthStep
 
 /**
@@ -17,6 +19,9 @@ import com.xenyaa.videoshot.publish.UploadAuthStep
 interface ClipDeps {
     val mediaLibrary: MediaLibrary
     val mediaThumbLoader: MediaThumbLoader
+
+    /** 上傳完成後刪除用到的原檔。預設不能刪，既有的測試替身不必改；`AppContainer` 覆寫。 */
+    val mediaDeleter: MediaDeleter get() = NoMediaDeleter
 
     /** 目前的 Android API 等級（判定權限用）。 */
     fun sdkInt(): Int

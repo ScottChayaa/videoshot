@@ -25,7 +25,9 @@ import com.xenyaa.videoshot.publish.enqueueStoryboardPoll
 import com.xenyaa.videoshot.backup.GoogleAuthRevoked
 import com.xenyaa.videoshot.data.repo.model.EditTaskState
 import java.util.concurrent.TimeUnit
+import com.xenyaa.videoshot.media.MediaDeleter
 import com.xenyaa.videoshot.media.MediaLibrary
+import com.xenyaa.videoshot.media.MediaStoreDeleter
 import com.xenyaa.videoshot.media.MediaStoreSaver
 import com.xenyaa.videoshot.media.MediaStoreLibrary
 import com.xenyaa.videoshot.media.MediaThumbLoader
@@ -534,6 +536,7 @@ class AppContainer(context: Context) : AppRootDeps {
         )
         object : ClipDeps {
             override val mediaLibrary: MediaLibrary = MediaStoreLibrary(resolver, Dispatchers.IO)
+            override val mediaDeleter: MediaDeleter = MediaStoreDeleter(appContext, Build.VERSION.SDK_INT, Dispatchers.IO)
             override val mediaThumbLoader = MediaThumbLoader(
                 decode = mediaStoreThumbDecoder(resolver, Dispatchers.IO),
                 maxEntries = mediaEntries,
