@@ -3,7 +3,7 @@
 [← 回索引](README.md)
 
 - **日期**：2026-10-31
-- **狀態**：app 端完成並實機走查；錄示範影片、在 Cloud Console 送審由 scott 做（[計畫](../superpowers/plans/2026-10-31-階段23-送Google審核.md) Task 4、5）
+- **狀態**：app 端完成並實機驗證（含真的以公開、私人上傳）；錄示範影片、在 Cloud Console 送審由 scott 做（[計畫](../superpowers/plans/2026-10-31-階段23-送Google審核.md) Task 4、5）
 - **計畫**：[`2026-10-31-階段23-送Google審核.md`](../superpowers/plans/2026-10-31-階段23-送Google審核.md)
 
 ## 做了什麼
@@ -31,7 +31,12 @@
   - 裝新版後 `cache.db` 升到 v6，舊的已完成任務照樣顯示「已上傳到 YouTube（非公開）」與階段 22 的刪除問句。
   - 導出抽屜：公開狀態預設非公開；點私人出現小字；點「YouTube 服務條款」用 Chrome 開到 `youtube.com/t/terms`。測完放棄這次的剪輯草稿（scott 原本沒有剪輯草稿），沒按【開始】、沒上傳。
   - 帳號頁最下面有「隱私權政策」，點了用 Chrome 開到 `videoshot.scottchayaa.com/privacy`（還是 10/26 那一版，網站還沒部署）。
-- **沒在實機驗的**：真的以公開、私人上傳（要上傳到 scott 的頻道，沒做）、私人影片的已完成畫面與【刪除原檔】【保留】。
+- **實機上傳（scott 同意，2026-10-31）**：推 2 張測試圖（`Pictures/vstest/`）剪成 0:06 直式，各上傳一支：
+  - 公開「videoshot public test」（`oz9huF9q7Co`）：約 1 分鐘變已完成，畫面「已上傳到 YouTube（公開）」＋刪除問句＋【刪除並開始取圖】【保留並開始取圖】；不登入抓 watch page 是 `isUnlisted: false`、可播放、有 storyboard。
+  - 私人「videoshot private test」（`7kTq4qHx6xI`）：上傳完不經過「YouTube 處理中」直接已完成，畫面「已上傳到 YouTube（私人）」＋「私人影片無法在 app 裡取圖」＋刪除問句＋【刪除原檔】【保留】；不登入抓 watch page 是 `LOGIN_REQUIRED`「Private video」。
+  - 按【刪除原檔】：媒體管理權限已開，不跳系統視窗，2 張測試圖真的刪掉，任務移除、回剪輯頁，沒進取圖精靈。
+  - 公開那支的任務用【⋯】→【刪除任務】移除；任務數回到測試前的 12 個，scott 的取圖草稿（FHLYFlFHhQw 第二步）沒動。兩支影片還在 scott 的頻道，要到 YouTube 工作室刪。
+- **沒在實機驗的**：私人影片的【保留】與【完成】（只有單元測試）。
 - 最終審查：作者自審（沒有另外派審查代理）。
 
 ## 教訓
