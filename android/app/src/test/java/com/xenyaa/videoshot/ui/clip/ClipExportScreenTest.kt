@@ -1,5 +1,9 @@
 package com.xenyaa.videoshot.ui.clip
 
+import com.xenyaa.videoshot.wizard.OtherDraft
+import com.xenyaa.videoshot.media.MediaDeleter
+import android.content.IntentSender
+import android.content.Intent
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.test.assertCountEquals
@@ -567,5 +571,122 @@ class ClipExportScreenTest {
 
         assertEquals(0, calls.size)
         assertEquals(false, autoUploadOf(id))
+    }
+
+    // ── 已完成的任務：別支草稿 → 系統刪除視窗 → 進取圖精靈（ClipExportRoute） ──
+
+    private val entered = mutableListOf<Pair<String, Long>>()
+    private var existingUris = setOf<String>()
+
+    /** 刪除用的假實作：能刪、查得到的只有 [existingUris]；系統視窗在 Robolectric 叫不出來，回 null。 */
+    private val doneDeps = object : ClipDeps by routeDeps {
+        override val mediaDeleter = object : MediaDeleter {
+            override val canDelete = true
+            override suspend fun existing(uris: List<String>) = uris.filter { it in existingUris }
+            override fun deleteRequest(uris: List<String>): IntentSender? = null
+            override fun suggestManageMedia() = false
+            override fun manageMediaSettingsIntent(): Intent? = null
+        }
+    }
+
+    /** 照片 1、2 與影片 3；照片 2 的段落刪光了（不算這次用到的）。 */
+    private fun doneDraft() = ClipDraft(
+        ClipOrientation.PORTRAIT,
+        listOf(
+            ClipSource(1, "content://media/1", SourceKind.PHOTO, 0, null, 1080, 1920, 0),
+            ClipSource(2, "content://media/2", SourceKind.PHOTO, 0, null, 1080, 1920, 0),
+            source(3),
+        ),
+        EditHistory(Timeline(listOf(Segment(1, 0, 3_000), Segment(3, 0, 10_000)))),
+    )
+
+    private fun showDoneRoute(other: OtherDraft?): Long {
+        val id = runBlocking {
+            val id = repo.startEditTask(doneDraft(), "我的旅行", true, 100)
+            repo.setEditTaskUploaded(id, "yt123", 200)
+            repo.setEditTaskDone(id, 300)
+            id
+        }
+        compose.setContent {
+            VideoshotTheme {
+                ClipExportRoute(
+                    taskId = id, deps = doneDeps, scope = rememberCoroutineScope(),
+                    onBack = {}, onGone = {}, onPlay = {},
+                    authorize = { UploadAuthResult.GRANTED },
+                    onNotice = {},
+                    otherDraft = { other },
+                    onEnterWizard = { videoId, taskId -> entered += videoId to taskId },
+                )
+            }
+        }
+        compose.waitForIdle()
+        return id
+    }
+
+    @Test
+    fun 已完成_素材數用usedSources且只算還在的() {
+        existingUris = setOf("content://media/3")
+        showDoneRoute(other = null)
+
+        compose.onNodeWithText("要刪除這次用到的 1 支影片嗎？").assertIsDisplayed()
+    }
+
+    @Test
+    fun 已完成_有別支草稿時先問_取消什麼都不動() {
+        existingUris = setOf("content://media/1", "content://media/3")
+        val id = showDoneRoute(other = OtherDraft("宜蘭兩天一夜"))
+
+        compose.onNodeWithText("保留並開始取圖").performClick()
+        compose.onNodeWithText("取圖還有未完成的「宜蘭兩天一夜」，要放棄它嗎？").assertIsDisplayed()
+        compose.onNodeWithText("取消").performClick()
+        compose.waitForIdle()
+
+        noNode("取圖還有未完成的「宜蘭兩天一夜」，要放棄它嗎？")
+        assertEquals(emptyList<Pair<String, Long>>(), entered)
+        assertEquals(EditTaskState.DONE, runBlocking { repo.editTask(id).first()!!.state })
+    }
+
+    @Test
+    fun 已完成_放棄並繼續後進精靈() {
+        existingUris = setOf("content://media/1")
+        val id = showDoneRoute(other = OtherDraft("宜蘭兩天一夜"))
+
+        compose.onNodeWithText("保留並開始取圖").performClick()
+        compose.onNodeWithText("放棄並繼續").performClick()
+        compose.waitForIdle()
+
+        assertEquals(listOf("yt123" to id), entered)
+    }
+
+    @Test
+    fun 已完成_沒標題的草稿用影片兩個字() {
+        existingUris = setOf("content://media/1")
+        showDoneRoute(other = OtherDraft(null))
+
+        compose.onNodeWithText("保留並開始取圖").performClick()
+        compose.onNodeWithText("取圖還有未完成的影片，要放棄它嗎？").assertIsDisplayed()
+    }
+
+    @Test
+    fun 已完成_刪除時拿不到系統視窗照樣進精靈() {
+        existingUris = setOf("content://media/1", "content://media/3")
+        val id = showDoneRoute(other = null)
+
+        compose.onNodeWithText("刪除並開始取圖").performClick()
+        compose.waitForIdle()
+
+        assertEquals(listOf("yt123" to id), entered)
+    }
+
+    @Test
+    fun 已完成_連點只進一次() {
+        existingUris = setOf("content://media/1")
+        showDoneRoute(other = null)
+
+        compose.onNodeWithText("保留並開始取圖").performClick()
+        compose.onNodeWithText("保留並開始取圖").performClick()
+        compose.waitForIdle()
+
+        assertEquals(1, entered.size)
     }
 }

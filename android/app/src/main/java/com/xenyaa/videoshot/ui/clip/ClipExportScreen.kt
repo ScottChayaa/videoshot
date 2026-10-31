@@ -1,6 +1,14 @@
 package com.xenyaa.videoshot.ui.clip
 
 import android.util.Log
+import com.xenyaa.videoshot.wizard.OtherDraft
+import com.xenyaa.videoshot.core.timeline.usedSources
+import com.xenyaa.videoshot.core.timeline.SourceKind
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -87,6 +95,10 @@ private class ExportTaskHolder(val task: EditTask?)
  * [scope] 要比這個畫面活得久（`AppRoot` 的 scope）：刪掉任務後這個畫面就離開組合了，補排不能跟著被取消。
  * 刪掉任務之後 [onGone] 由任務流變成 null 觸發，這裡不另外呼叫，避免退兩層。
  * 勾選框打勾、上傳失敗後【重試】都先 [authorize]（見 [YoutubeAuthorizer]）；使用者沒給授權用 [onNotice] 提示。
+ *
+ * 已完成的任務（規格第十九節「完成後」）：數這次用到、還在手機裡的素材（回到畫面時重數，從設定開完媒體管理權限回來也看得到）；
+ * 按了按鈕先問 [otherDraft]（精靈有別支影片的草稿），再跳系統刪除視窗（不論結果），最後 [onEnterWizard]。
+ * 進到第二步之後才移除任務，由呼叫端做（進不了第二步任務要留著）。
  */
 @Composable
 fun ClipExportRoute(
@@ -98,6 +110,8 @@ fun ClipExportRoute(
     onPlay: () -> Unit,
     authorize: suspend () -> UploadAuthResult,
     onNotice: (String) -> Unit,
+    otherDraft: (videoId: String) -> OtherDraft? = { null },
+    onEnterWizard: (videoId: String, taskId: Long) -> Unit = { _, _ -> },
 ) {
     val repo: CacheRepo = deps.cacheRepo
     // 停在這個畫面時結果直接看得到，不另外跳通知（橫幅會蓋住頂欄）；退到背景或離開就恢復
@@ -111,6 +125,49 @@ fun ClipExportRoute(
     if (task == null) {
         LaunchedEffect(taskId) { onGone() }
         return
+    }
+    val deleter = deps.mediaDeleter
+    var resumes by remember { mutableIntStateOf(0) }
+    LifecycleResumeEffect(Unit) {
+        resumes++
+        onPauseOrDispose {}
+    }
+    val isDone = task.state == EditTaskState.DONE
+    val cleanup by produceState<DoneCount?>(null, taskId, isDone, resumes) {
+        if (!isDone) return@produceState
+        val used = task.draft.usedSources()
+        val existing = runCatching { deleter.existing(used.map { it.uri }) }.getOrDefault(emptyList()).toSet()
+        val kept = used.filter { it.uri in existing }
+        value = DoneCount(
+            DoneCleanup(
+                photos = kept.count { it.kind == SourceKind.PHOTO },
+                videos = kept.count { it.kind == SourceKind.VIDEO },
+                canDelete = deleter.canDelete,
+                suggestManageMedia = deleter.suggestManageMedia(),
+            ),
+            kept.map { it.uri },
+        )
+    }
+    // 按下去到進精靈之間只處理一次；問別支草稿時記下按的是哪一個（null＝沒在問）
+    var busy by remember { mutableStateOf(false) }
+    var pendingDelete by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    var draftTitle by rememberSaveable { mutableStateOf<String?>(null) }
+    val enter = { task.videoId?.let { onEnterWizard(it, taskId) } }
+    // 系統刪除視窗按允許或拒絕都照樣進第二步（拒絕＝不刪）
+    val deleteLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { enter() }
+    val context = LocalContext.current
+    fun proceed(delete: Boolean) {
+        val sender = if (delete) deleter.deleteRequest(cleanup?.uris.orEmpty()) else null
+        if (sender == null) {
+            enter()
+            return
+        }
+        try {
+            deleteLauncher.launch(IntentSenderRequest.Builder(sender).build())
+        } catch (e: Exception) {
+            Log.w("VsClip", "跳不出系統刪除視窗", e)
+            enter()
+        }
     }
     ClipExportScreen(
         task = task,
@@ -129,8 +186,39 @@ fun ClipExportRoute(
         onCancel = { scope.launch { cancelExportTask(deps, taskId) } },
         onRetry = { scope.launch { retryExportTask(deps, taskId, authorize) { onNotice(NO_AUTH_CANT_UPLOAD) } } },
         onPlay = onPlay,
+        done = cleanup?.cleanup,
+        onStartCapture = start@{ delete ->
+            val videoId = task.videoId ?: return@start
+            if (busy) return@start
+            busy = true
+            val other = otherDraft(videoId)
+            if (other == null) proceed(delete) else {
+                draftTitle = other.title
+                pendingDelete = delete
+            }
+        },
+        onOpenManageMedia = {
+            deleter.manageMediaSettingsIntent()?.let { intent ->
+                runCatching { context.startActivity(intent) }.onFailure { Log.w("VsClip", "開不了媒體管理設定", it) }
+            }
+        },
     )
+    pendingDelete?.let { delete ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null; busy = false },
+            title = { Text(draftTitle?.let { "取圖還有未完成的「$it」，要放棄它嗎？" } ?: "取圖還有未完成的影片，要放棄它嗎？") },
+            confirmButton = {
+                TextButton(onClick = { pendingDelete = null; proceed(delete) }) {
+                    Text("放棄並繼續", color = AppTheme.colors.danger)
+                }
+            },
+            dismissButton = { TextButton(onClick = { pendingDelete = null; busy = false }) { Text("取消") } },
+        )
+    }
 }
+
+/** 已完成畫面要的數字，加上要交給系統刪除視窗的網址（還在手機裡的那些）。 */
+private class DoneCount(val cleanup: DoneCleanup, val uris: List<String>)
 
 /**
  * 取消一個任務（導出中畫面與剪輯頁的任務列共用）：收掉等縮圖的輪詢（處理中的任務才有）與等每日上限重置的工作（等待明天上傳的才有）→

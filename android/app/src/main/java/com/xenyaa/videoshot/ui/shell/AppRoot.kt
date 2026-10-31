@@ -918,6 +918,14 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
                 onPlay = { nav = nav.push(Dest.ClipResult(dest.taskId)) },
                 authorize = youtubeAuthorizer::authorize,
                 onNotice = { message -> scope.launch { snackbarHostState.showSnackbar(message) } },
+                otherDraft = wizardVm::otherDraft,
+                // 已完成的任務接回取圖精靈第二步（規格第十九節「完成後」）：照原片播放【繼續取圖】的走法切到取圖分頁；
+                // 真的進到第二步才移除任務（紅點跟著減一），沒網路停在第一步時任務留著、下次再點
+                onEnterWizard = { videoId, taskId ->
+                    val popped = if (nav.current is Dest.ClipExport) nav.pop() ?: nav else nav
+                    nav = popped.select(Tab.CAPTURE)
+                    scope.launch { if (wizardVm.openFromClip(videoId)) deleteExportTask(container.clipDeps, taskId) }
+                },
             )
             SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
         }
