@@ -38,6 +38,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -383,6 +384,39 @@ class WizardViewModel(
         }
         openRecent(videoId)
     }
+
+    /**
+     * 剪輯「已完成」的任務要開 [videoId] 之前先問：精靈手上有沒有**別支**影片的草稿（規格第十九節「完成後」）。
+     * 還沒接上的（[pendingDraft]、[resuming]）與記憶體裡已經開著、離開過第一步的都算；同一支不算。
+     */
+    fun otherDraft(videoId: String): OtherDraft? {
+        val payload = pendingDraft ?: resuming
+        if (payload != null) return if (payload.videoId == videoId) null else OtherDraft(payload.meta?.title)
+        val video = _loaded.value
+        if (hasDraft && video != null && video.videoId != videoId) return OtherDraft(video.page.meta?.title)
+        return null
+    }
+
+    /**
+     * 從剪輯「已完成」的任務直接開 [videoId] 的第二步（跳過第一步；使用者已經同意放棄別支草稿）。
+     * 別支的草稿**先清完**才開這支 —— `clearDraft` 是整列刪，晚一步會把這支剛存的草稿一起清掉。
+     * 在 [viewModelScope] 裡跑完，呼叫端的 scope 被取消也不會停在一半。
+     * @return 進到第二步回 true；抓不到影片回 false（原因已經顯示在第一步）
+     */
+    suspend fun openFromClip(videoId: String): Boolean = viewModelScope.async {
+        val others = setOfNotNull(_loaded.value?.videoId, pendingDraft?.videoId, resuming?.videoId) - videoId
+        resumeJob?.cancel()
+        resumeJob = null
+        resuming = null
+        _resumeError.value = null
+        pendingDraft = null
+        resumeOnEnter = null
+        hasDraft = false
+        _status.value = Step1Status.Idle
+        resetToStart()
+        others.forEach { runCatching { data.clearDraft(it) } }
+        openRecentAndAwait(videoId) != null
+    }.await()
 
     fun openRecent(videoId: String) {
         // 使用者自己開了一支影片：還沒接上的草稿（續做時沒網路而留下的）就不再自動接上，

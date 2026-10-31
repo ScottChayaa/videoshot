@@ -112,6 +112,9 @@ data class Suggestions(val places: List<String> = emptyList(), val tags: List<St
 /** 完成之後要告訴外殼的兩件事：捲到哪個月份、加了幾張。 */
 data class Finished(val eventDate: String, val count: Int)
 
+/** 精靈手上別支影片的草稿（剪輯開新影片前要先問要不要放棄它）；[title] 是 null＝舊草稿沒存影片資訊。 */
+data class OtherDraft(val title: String?)
+
 /**
  * 截圖失敗的原因。**不是一個 boolean** —— 畫面要講得出為什麼：
  * 廣告是「等一下再試」、黑畫面是「這一格截不到，改用相簿」，兩者的處置完全不同。
