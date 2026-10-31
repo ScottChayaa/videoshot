@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import com.xenyaa.videoshot.data.repo.model.EditTaskState
 import com.xenyaa.videoshot.data.repo.model.EditTaskStep
+import com.xenyaa.videoshot.data.repo.model.UploadPrivacy
 import com.xenyaa.videoshot.media.MediaItem
 import com.xenyaa.videoshot.media.MediaThumbLoader
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
@@ -71,6 +72,7 @@ class ClipExportScreenTest {
         autoUpload: Boolean = true,
         failedStep: EditTaskStep? = null,
         videoId: String? = null,
+        privacy: UploadPrivacy = UploadPrivacy.UNLISTED,
     ): EditTask {
         val timeline = Timeline(listOf(Segment(7, 0, 30_000), Segment(8, 0, 18_000)))
         return EditTask(
@@ -78,6 +80,7 @@ class ClipExportScreenTest {
             draft = ClipDraft(ClipOrientation.PORTRAIT, listOf(source(7), source(8)), EditHistory(timeline)),
             autoUpload = autoUpload, failReason = failReason, skippedSources = skipped,
             galleryUri = galleryUri, createdAt = 0, failedStep = failedStep, videoId = videoId,
+            privacy = privacy,
         )
     }
 
@@ -368,11 +371,11 @@ class ClipExportScreenTest {
     private val startCaptures = mutableListOf<Boolean>()
     private var manageMediaClicks = 0
 
-    private fun showDone(done: DoneCleanup?) {
+    private fun showDone(done: DoneCleanup?, privacy: UploadPrivacy = UploadPrivacy.UNLISTED) {
         compose.setContent {
             VideoshotTheme {
                 ClipExportScreen(
-                    task(EditTaskState.DONE, videoId = "abc"), loader, {}, {}, {}, {}, {},
+                    task(EditTaskState.DONE, videoId = "abc", privacy = privacy), loader, {}, {}, {}, {}, {},
                     done = done,
                     onStartCapture = { startCaptures += it },
                     onOpenManageMedia = { manageMediaClicks++ },
@@ -391,6 +394,37 @@ class ClipExportScreenTest {
         compose.onNodeWithText("保留並開始取圖").assertIsDisplayed()
         noNode("開始取圖在下一個階段加入")
         noNode("不想每次確認？")
+        noNode("開始取圖")
+    }
+
+    @Test
+    fun 已完成_標題照公開狀態() {
+        showDone(DoneCleanup(photos = 1, videos = 0, canDelete = true, suggestManageMedia = false), UploadPrivacy.PUBLIC)
+
+        compose.onNodeWithText("已上傳到 YouTube（公開）").assertIsDisplayed()
+        noNode("私人影片無法在 app 裡取圖")
+    }
+
+    @Test
+    fun 已完成_私人影片不開始取圖() {
+        showDone(DoneCleanup(photos = 1, videos = 1, canDelete = true, suggestManageMedia = false), UploadPrivacy.PRIVATE)
+
+        compose.onNodeWithText("已上傳到 YouTube（私人）").assertIsDisplayed()
+        compose.onNodeWithText("私人影片無法在 app 裡取圖").assertIsDisplayed()
+        compose.onNodeWithText("要刪除這次用到的 1 張照片、1 支影片嗎？").assertIsDisplayed()
+        compose.onNodeWithText("刪除原檔").performClick()
+        compose.onNodeWithText("保留").performClick()
+        assertEquals(listOf(true, false), startCaptures)
+        noNode("刪除並開始取圖")
+        noNode("保留並開始取圖")
+    }
+
+    @Test
+    fun 已完成_私人影片素材都不在時只有完成() {
+        showDone(DoneCleanup(photos = 0, videos = 0, canDelete = true, suggestManageMedia = false), UploadPrivacy.PRIVATE)
+
+        compose.onNodeWithText("完成").performClick()
+        assertEquals(listOf(false), startCaptures)
         noNode("開始取圖")
     }
 
@@ -600,9 +634,9 @@ class ClipExportScreenTest {
         EditHistory(Timeline(listOf(Segment(1, 0, 3_000), Segment(3, 0, 10_000)))),
     )
 
-    private fun showDoneRoute(other: OtherDraft?): Long {
+    private fun showDoneRoute(other: OtherDraft?, privacy: UploadPrivacy = UploadPrivacy.UNLISTED): Long {
         val id = runBlocking {
-            val id = repo.startEditTask(doneDraft(), "我的旅行", true, 100)
+            val id = repo.startEditTask(doneDraft(), "我的旅行", true, 100, privacy)
             repo.setEditTaskUploaded(id, "yt123", 200)
             repo.setEditTaskDone(id, 300)
             id
@@ -688,5 +722,18 @@ class ClipExportScreenTest {
         compose.waitForIdle()
 
         assertEquals(1, entered.size)
+    }
+
+    @Test
+    fun 已完成_私人影片按保留就移除任務不進精靈也不問草稿() {
+        existingUris = setOf("content://media/1")
+        val id = showDoneRoute(other = OtherDraft("宜蘭兩天一夜"), privacy = UploadPrivacy.PRIVATE)
+
+        compose.onNodeWithText("保留").performClick()
+        compose.waitForIdle()
+
+        noNode("取圖還有未完成的「宜蘭兩天一夜」，要放棄它嗎？")
+        assertEquals(emptyList<Pair<String, Long>>(), entered)
+        assertEquals(null, runBlocking { repo.editTask(id).first() })
     }
 }

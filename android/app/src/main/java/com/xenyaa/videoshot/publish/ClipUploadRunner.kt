@@ -12,6 +12,7 @@ import com.xenyaa.videoshot.data.repo.CacheRepo
 import com.xenyaa.videoshot.data.repo.model.EditTask
 import com.xenyaa.videoshot.data.repo.model.EditTaskState
 import com.xenyaa.videoshot.data.repo.model.EditTaskStep
+import com.xenyaa.videoshot.data.repo.model.UploadPrivacy
 import com.xenyaa.videoshot.edit.ClipExportNotifier
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -117,7 +118,7 @@ class ClipUploadRunner(
                 val sessionUrl = url
                 when {
                     sessionUrl == null -> {
-                        val newUrl = uploader.startSession(accessToken, youtubeTitle(task.title), size)
+                        val newUrl = uploader.startSession(accessToken, youtubeTitle(task.title), size, task.privacy)
                         // 先存網址再傳：之後被殺或斷網才能從這個工作階段接著傳
                         repo.setEditTaskUploadUrl(id, newUrl, now())
                         url = newUrl
@@ -215,11 +216,19 @@ class ClipUploadRunner(
         }
     }
 
-    /** 拿到影片編號：先記下（之後被殺也不會重傳）、再刪成品、排第一次等縮圖。任務已被刪就不排。 */
+    /**
+     * 拿到影片編號：先記下（之後被殺也不會重傳）、再刪成品、排第一次等縮圖。任務已被刪就不排。
+     * 私人影片不登入抓不到縮圖，不等：直接算完成。
+     */
     private suspend fun uploaded(taskId: Long, videoId: String, out: File) {
         repo.setEditTaskUploaded(taskId, videoId, now())
         out.delete()
-        if (repo.editTask(taskId).first() == null) return
+        val task = repo.editTask(taskId).first() ?: return
+        if (task.privacy == UploadPrivacy.PRIVATE) {
+            repo.setEditTaskDone(taskId, now())
+            repo.editTask(taskId).first()?.let(notifier::done)
+            return
+        }
         schedulePoll(taskId, FIRST_POLL_DELAY_MS)
     }
 

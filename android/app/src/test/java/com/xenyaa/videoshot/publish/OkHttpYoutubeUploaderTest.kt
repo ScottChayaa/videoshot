@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.publish
 
 import com.xenyaa.videoshot.core.backup.UploadChunk
 import com.xenyaa.videoshot.core.publish.UploadErrorKind
+import com.xenyaa.videoshot.data.repo.model.UploadPrivacy
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
@@ -54,6 +55,16 @@ class OkHttpYoutubeUploaderTest {
     private fun sessionUrl() = server.url("/session/abc").toString()
 
     @Test
+    fun 開工作階段送使用者選的公開狀態() = runBlocking {
+        for ((privacy, expected) in listOf(UploadPrivacy.PUBLIC to "public", UploadPrivacy.PRIVATE to "private")) {
+            server.enqueue(MockResponse.Builder().code(200).addHeader("Location", sessionUrl()).build())
+            uploader.startSession("tok", "t", 1L, privacy)
+            val body = Json.parseToJsonElement(server.takeRequest(5, TimeUnit.SECONDS)!!.body!!.utf8()).jsonObject
+            assertEquals(expected, body["status"]!!.jsonObject["privacyStatus"]!!.jsonPrimitive.content)
+        }
+    }
+
+    @Test
     fun 開工作階段送非公開與清洗後的標題() = runBlocking {
         server.enqueue(MockResponse.Builder().code(200).addHeader("Location", sessionUrl()).build())
 
@@ -72,7 +83,7 @@ class OkHttpYoutubeUploaderTest {
         assertEquals("a＜b＞", snippet["title"]!!.jsonPrimitive.content)
         assertEquals("", snippet["description"]!!.jsonPrimitive.content)
         assertEquals("22", snippet["categoryId"]!!.jsonPrimitive.content)
-        assertEquals("unlisted", status["privacyStatus"]!!.jsonPrimitive.content)
+        assertEquals("unlisted", status["privacyStatus"]!!.jsonPrimitive.content) // 沒指定就是非公開
         assertFalse(status["selfDeclaredMadeForKids"]!!.jsonPrimitive.boolean)
     }
 

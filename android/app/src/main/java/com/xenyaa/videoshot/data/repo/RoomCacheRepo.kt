@@ -15,6 +15,7 @@ import com.xenyaa.videoshot.data.repo.model.EditTask
 import com.xenyaa.videoshot.data.repo.model.EditTaskState
 import com.xenyaa.videoshot.data.repo.model.EditTaskStep
 import com.xenyaa.videoshot.data.repo.model.FacetRef
+import com.xenyaa.videoshot.data.repo.model.UploadPrivacy
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
@@ -75,7 +76,13 @@ class RoomCacheRepo(
 
     override suspend fun clearClipDraft() = withContext(io) { db.editDraftDao().clear() }
 
-    override suspend fun startEditTask(draft: ClipDraft, title: String, autoUpload: Boolean, now: Long): Long = withContext(io) {
+    override suspend fun startEditTask(
+        draft: ClipDraft,
+        title: String,
+        autoUpload: Boolean,
+        now: Long,
+        privacy: UploadPrivacy,
+    ): Long = withContext(io) {
         val task = draft.copy(history = EditHistory(draft.timeline)).let {
             EditTaskEntity(
                 id = 0,
@@ -91,6 +98,7 @@ class RoomCacheRepo(
                 galleryUri = null,
                 createdAt = now,
                 updatedAt = now,
+                privacy = privacy.apiValue,
             )
         }
         db.useWriterConnection { transactor ->
@@ -235,5 +243,6 @@ private fun EditTaskEntity.toTask(): EditTask? {
         uploadUrl = uploadUrl,
         videoId = videoId,
         updatedAt = updatedAt,
+        privacy = UploadPrivacy.fromDb(privacy),
     )
 }

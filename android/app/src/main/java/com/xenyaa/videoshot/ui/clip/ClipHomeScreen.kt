@@ -107,7 +107,7 @@ fun ClipHomeScreen(
                 message = "把手機裡的照片和影片剪成一支片",
                 modifier = Modifier.fillMaxWidth().padding(top = AppTheme.spacing.s6),
                 icon = VsIcons.Clapperboard,
-                secondary = "上傳到你的 YouTube（非公開）後，就能用取圖精靈挑畫面",
+                secondary = "上傳到你的 YouTube 後，就能用取圖精靈挑畫面",
                 actionText = "新增剪輯",
                 onAction = onNewClip,
             )

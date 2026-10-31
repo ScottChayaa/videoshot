@@ -15,6 +15,7 @@ import com.xenyaa.videoshot.data.repo.FakeCacheRepo
 import com.xenyaa.videoshot.data.repo.model.EditTask
 import com.xenyaa.videoshot.data.repo.model.EditTaskState
 import com.xenyaa.videoshot.data.repo.model.EditTaskStep
+import com.xenyaa.videoshot.data.repo.model.UploadPrivacy
 import com.xenyaa.videoshot.edit.ClipExportNotifier
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
@@ -85,9 +86,12 @@ class ClipUploadRunnerTest {
         }
         private var sessions = 0
 
-        override suspend fun startSession(token: String, title: String, sizeBytes: Long): String {
+        val privacies = mutableListOf<UploadPrivacy>()
+
+        override suspend fun startSession(token: String, title: String, sizeBytes: Long, privacy: UploadPrivacy): String {
             calls += "start"
             starts += Triple(token, title, sizeBytes)
+            privacies += privacy
             return startScript.removeFirstOrNull()?.invoke() ?: "https://upload/session-${++sessions}"
         }
 
@@ -109,9 +113,10 @@ class ClipUploadRunnerTest {
         val progress = mutableListOf<Int>()
         val failed = mutableListOf<Pair<EditTask, String>>()
         val waiting = mutableListOf<EditTask>()
+        val done = mutableListOf<EditTask>()
         override fun progress(task: EditTask, percent: Int) { progress += percent }
         override fun finished(task: EditTask) = throw AssertionError("上傳不該呼叫 finished")
-        override fun done(task: EditTask) = throw AssertionError("上傳不該呼叫 done")
+        override fun done(task: EditTask) { done += task }
         override fun failed(task: EditTask, reason: String) { failed += task to reason }
         override fun waitingQuota(task: EditTask) { waiting += task }
     }
@@ -158,8 +163,13 @@ class ClipUploadRunnerTest {
     )
 
     /** 建一個上傳中的任務，成品是 20 MiB 的稀疏檔（分成 0、8、16 MiB 起的三段）。 */
-    private suspend fun start(title: String = "我的片", url: String? = null, size: Long = SIZE): Long {
-        val id = repo.startEditTask(draft, title, true, 1L)
+    private suspend fun start(
+        title: String = "我的片",
+        url: String? = null,
+        size: Long = SIZE,
+        privacy: UploadPrivacy = UploadPrivacy.UNLISTED,
+    ): Long {
+        val id = repo.startEditTask(draft, title, true, 1L, privacy)
         repo.setEditTaskReadyToUpload(id, 0, 2L)
         if (url != null) repo.setEditTaskUploadUrl(id, url, 2L)
         repo.urlWrites.clear()
@@ -202,6 +212,31 @@ class ClipUploadRunnerTest {
         assertFalse(outFor(id).exists())
         assertEquals(listOf(id to 30_000L), polls)
         assertTrue(notifier.failed.isEmpty())
+    }
+
+    @Test fun `私人影片送出私人、傳完直接完成不等縮圖`() = runTest {
+        val id = start(privacy = UploadPrivacy.PRIVATE)
+
+        runner().run(id)
+
+        assertEquals(listOf(UploadPrivacy.PRIVATE), uploader.privacies)
+        val t = task(id)!!
+        assertEquals(EditTaskState.DONE, t.state)
+        assertEquals(VIDEO_ID, t.videoId)
+        assertFalse(outFor(id).exists())
+        assertEquals(emptyList<Pair<Long, Long>>(), polls) // 私人影片抓不到縮圖，不等
+        assertEquals(listOf(id), notifier.done.map { it.id })
+    }
+
+    @Test fun `沒選的舊任務照非公開上傳並等縮圖`() = runTest {
+        val id = start()
+
+        runner().run(id)
+
+        assertEquals(listOf(UploadPrivacy.UNLISTED), uploader.privacies)
+        assertEquals(EditTaskState.PROCESSING, task(id)!!.state)
+        assertEquals(1, polls.size)
+        assertEquals(emptyList<EditTask>(), notifier.done)
     }
 
     @Test fun `有上傳網址時從查到的位元組接著傳`() = runTest {

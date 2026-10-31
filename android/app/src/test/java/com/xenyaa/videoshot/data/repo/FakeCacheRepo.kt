@@ -8,6 +8,7 @@ import com.xenyaa.videoshot.data.repo.model.EditTask
 import com.xenyaa.videoshot.data.repo.model.EditTaskState
 import com.xenyaa.videoshot.data.repo.model.EditTaskStep
 import com.xenyaa.videoshot.data.repo.model.FacetRef
+import com.xenyaa.videoshot.data.repo.model.UploadPrivacy
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -76,7 +77,7 @@ open class FakeCacheRepo : CacheRepo {
     override suspend fun currentClipDraft(): ClipDraft? = clipDraft
     override suspend fun clearClipDraft() { clipDraft = null }
 
-    override suspend fun startEditTask(draft: ClipDraft, title: String, autoUpload: Boolean, now: Long): Long {
+    override suspend fun startEditTask(draft: ClipDraft, title: String, autoUpload: Boolean, now: Long, privacy: UploadPrivacy): Long {
         val id = nextTaskId++
         val task = EditTask(
             id = id,
@@ -89,6 +90,7 @@ open class FakeCacheRepo : CacheRepo {
             skippedSources = 0,
             galleryUri = null,
             createdAt = now,
+            privacy = privacy,
         )
         tasks.update { it + task }
         clipDraft = null

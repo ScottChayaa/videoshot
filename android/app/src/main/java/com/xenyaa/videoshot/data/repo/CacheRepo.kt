@@ -7,6 +7,7 @@ import com.xenyaa.videoshot.data.repo.model.EditTask
 import com.xenyaa.videoshot.data.repo.model.EditTaskState
 import com.xenyaa.videoshot.data.repo.model.EditTaskStep
 import com.xenyaa.videoshot.data.repo.model.FacetRef
+import com.xenyaa.videoshot.data.repo.model.UploadPrivacy
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -48,7 +49,13 @@ interface CacheRepo {
      * @param autoUpload 輸出完成後是否自動上傳到 YouTube。
      * @param now Unix 毫秒。@return 新任務的編號。
      */
-    suspend fun startEditTask(draft: ClipDraft, title: String, autoUpload: Boolean, now: Long): Long
+    suspend fun startEditTask(
+        draft: ClipDraft,
+        title: String,
+        autoUpload: Boolean,
+        now: Long,
+        privacy: UploadPrivacy = UploadPrivacy.UNLISTED,
+    ): Long
 
     /** 全部任務，新的在前。內容解不開的任務（理論上不會有）不列。 */
     fun editTasks(): Flow<List<EditTask>>

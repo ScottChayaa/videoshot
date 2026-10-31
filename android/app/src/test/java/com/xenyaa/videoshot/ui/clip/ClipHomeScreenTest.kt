@@ -103,7 +103,7 @@ class ClipHomeScreenTest {
         show()
         compose.onNodeWithText("剪輯").assertIsDisplayed()
         compose.onNodeWithText("把手機裡的照片和影片剪成一支片").assertIsDisplayed()
-        compose.onNodeWithText("上傳到你的 YouTube（非公開）後，就能用取圖精靈挑畫面").assertIsDisplayed()
+        compose.onNodeWithText("上傳到你的 YouTube 後，就能用取圖精靈挑畫面").assertIsDisplayed()
         compose.onNodeWithText("新增剪輯").assertIsDisplayed()
     }
 

@@ -31,11 +31,27 @@ enum class EditTaskStep {
 }
 
 /**
+ * 上傳到 YouTube 的公開狀態；[apiValue] 是 `videos.insert` 的 `status.privacyStatus`，也是資料庫裡存的值。
+ * 順序就是導出抽屜的選項順序，預設 [UNLISTED]。
+ */
+enum class UploadPrivacy(val apiValue: String, val label: String) {
+    UNLISTED("unlisted", "非公開"),
+    PUBLIC("public", "公開"),
+    PRIVATE("private", "私人");
+
+    companion object {
+        /** 不認識的字串（理論上不會有）當成非公開。 */
+        fun fromDb(value: String): UploadPrivacy = entries.firstOrNull { it.apiValue == value } ?: UNLISTED
+    }
+}
+
+/**
  * 一個背景輸出任務（cache.db 的 `edit_task`）。
  * [draft] 是按下【開始】當下的剪輯草稿，復原與重做紀錄已經清掉、只留目前的時間軸。
  * [galleryUri] 有值代表輸出後存進了相簿（只會出現在 [EditTaskState.RENDERED]）。
  * [failedStep] 只在 [EditTaskState.FAILED] 有意義（舊資料沒記就是 null，當成輸出）；
  * [uploadUrl] 是 YouTube 可續傳上傳的工作階段網址（上傳中才有）；[videoId] 是上傳完成後 YouTube 給的影片編號。
+ * [privacy] 是導出時選的公開狀態；[UploadPrivacy.PRIVATE] 上傳完直接算完成（私人影片抓不到縮圖，接不回取圖）。
  */
 data class EditTask(
     val id: Long,
@@ -59,6 +75,7 @@ data class EditTask(
      * [EditTaskState.WAITING_QUOTA] 期間也不更新（它是撞到上限的時間，重置時間從它算）
      */
     val updatedAt: Long = createdAt,
+    val privacy: UploadPrivacy = UploadPrivacy.UNLISTED,
 ) {
     val durationMs: Long get() = draft.timeline.durationMs
 }

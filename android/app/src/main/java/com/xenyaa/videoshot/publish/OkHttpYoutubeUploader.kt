@@ -4,6 +4,7 @@ import com.xenyaa.videoshot.core.backup.UploadChunk
 import com.xenyaa.videoshot.core.backup.parseReceivedBytes
 import com.xenyaa.videoshot.core.publish.UploadErrorKind
 import com.xenyaa.videoshot.core.publish.classifyUploadError
+import com.xenyaa.videoshot.data.repo.model.UploadPrivacy
 import java.io.File
 import java.io.RandomAccessFile
 import java.io.IOException
@@ -40,7 +41,12 @@ class OkHttpYoutubeUploader(
     private val baseUrl: String = "https://www.googleapis.com",
 ) : YoutubeUploader {
 
-    override suspend fun startSession(token: String, title: String, sizeBytes: Long): String = withContext(io) {
+    override suspend fun startSession(
+        token: String,
+        title: String,
+        sizeBytes: Long,
+        privacy: UploadPrivacy,
+    ): String = withContext(io) {
         val metadata = buildJsonObject {
             putJsonObject("snippet") {
                 put("title", title)
@@ -48,7 +54,7 @@ class OkHttpYoutubeUploader(
                 put("categoryId", "22")
             }
             putJsonObject("status") {
-                put("privacyStatus", "unlisted")
+                put("privacyStatus", privacy.apiValue)
                 put("selfDeclaredMadeForKids", false)
             }
         }

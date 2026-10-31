@@ -70,6 +70,7 @@ import com.xenyaa.videoshot.data.repo.CacheRepo
 import com.xenyaa.videoshot.data.repo.model.EditTask
 import com.xenyaa.videoshot.data.repo.model.EditTaskState
 import com.xenyaa.videoshot.data.repo.model.EditTaskStep
+import com.xenyaa.videoshot.data.repo.model.UploadPrivacy
 import com.xenyaa.videoshot.edit.failedTitle
 import com.xenyaa.videoshot.media.MediaThumbLoader
 import com.xenyaa.videoshot.publish.REASON_QUOTA
@@ -99,6 +100,7 @@ private class ExportTaskHolder(val task: EditTask?)
  * 已完成的任務（規格第十九節「完成後」）：數這次用到、還在手機裡的素材（回到畫面時重數，從設定開完媒體管理權限回來也看得到）；
  * 按了按鈕先問 [otherDraft]（精靈有別支影片的草稿），再跳系統刪除視窗（不論結果），最後 [onEnterWizard]。
  * 進到第二步之後才移除任務，由呼叫端做（進不了第二步任務要留著）。
+ * 私人影片接不回取圖：不問別支草稿，刪除視窗之後直接移除任務（畫面由 [onGone] 離開）。
  */
 @Composable
 fun ClipExportRoute(
@@ -152,7 +154,11 @@ fun ClipExportRoute(
     var busy by remember { mutableStateOf(false) }
     var pendingDelete by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var draftTitle by rememberSaveable { mutableStateOf<String?>(null) }
-    val enter = { task.videoId?.let { onEnterWizard(it, taskId) } }
+    val capture = task.privacy != UploadPrivacy.PRIVATE
+    val enter = {
+        if (capture) task.videoId?.let { onEnterWizard(it, taskId) }
+        else scope.launch { guarded("移除任務") { deleteExportTask(deps, taskId) } }
+    }
     // 系統刪除視窗按允許或拒絕都照樣進第二步（拒絕＝不刪）
     val deleteLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { enter() }
     val context = LocalContext.current
@@ -191,7 +197,7 @@ fun ClipExportRoute(
             val videoId = task.videoId ?: return@start
             if (busy) return@start
             busy = true
-            val other = otherDraft(videoId)
+            val other = if (capture) otherDraft(videoId) else null
             if (other == null) proceed(delete) else {
                 draftTitle = other.title
                 pendingDelete = delete
@@ -402,15 +408,24 @@ fun ClipExportScreen(
                     )
                 }
                 EditTaskState.DONE -> {
-                    StatusTitle("已上傳到 YouTube（非公開）")
+                    StatusTitle("已上傳到 YouTube（${task.privacy.label}）")
                     Text(
                         "${task.title}・${formatDuration(task.durationMs)}",
                         style = MaterialTheme.typography.bodyLarge,
                         color = AppTheme.colors.textDim,
                         textAlign = TextAlign.Center,
                     )
+                    val capture = task.privacy != UploadPrivacy.PRIVATE
+                    if (!capture) {
+                        Text(
+                            "私人影片無法在 app 裡取圖",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = AppTheme.colors.textDim,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
                     // 還在數素材時先不畫問句與按鈕（幾毫秒），免得先出現【開始取圖】又換成兩個按鈕
-                    if (done != null) DoneActions(done, onStartCapture, onOpenManageMedia)
+                    if (done != null) DoneActions(done, capture, onStartCapture, onOpenManageMedia)
                 }
                 EditTaskState.FAILED -> {
                     StatusTitle(failedTitle(task.failedStep))
@@ -448,12 +463,20 @@ fun ClipExportScreen(
  */
 data class DoneCleanup(val photos: Int, val videos: Int, val canDelete: Boolean, val suggestManageMedia: Boolean)
 
-/** 問要不要刪原檔與兩個按鈕；沒得刪（素材都不在、或手機太舊）只剩【開始取圖】。 */
+/**
+ * 問要不要刪原檔與兩個按鈕；沒得刪（素材都不在、或手機太舊）只剩【開始取圖】。
+ * 私人影片（[capture] 是 false）接不回取圖，按鈕改成【刪除原檔】【保留】，沒得刪時是【完成】。
+ */
 @Composable
-private fun DoneActions(done: DoneCleanup, onStartCapture: (delete: Boolean) -> Unit, onOpenManageMedia: () -> Unit) {
+private fun DoneActions(
+    done: DoneCleanup,
+    capture: Boolean,
+    onStartCapture: (delete: Boolean) -> Unit,
+    onOpenManageMedia: () -> Unit,
+) {
     val prompt = clipDeletePrompt(done.photos, done.videos)?.takeIf { done.canDelete }
     if (prompt == null) {
-        VsButton("開始取圖", onClick = { onStartCapture(false) })
+        VsButton(if (capture) "開始取圖" else "完成", onClick = { onStartCapture(false) })
         return
     }
     Text(prompt, style = MaterialTheme.typography.bodyLarge, color = AppTheme.colors.text, textAlign = TextAlign.Center)
@@ -465,8 +488,8 @@ private fun DoneActions(done: DoneCleanup, onStartCapture: (delete: Boolean) -> 
             textAlign = TextAlign.Center,
         )
     }
-    VsButton("刪除並開始取圖", onClick = { onStartCapture(true) })
-    VsButton("保留並開始取圖", onClick = { onStartCapture(false) }, variant = ButtonVariant.Secondary)
+    VsButton(if (capture) "刪除並開始取圖" else "刪除原檔", onClick = { onStartCapture(true) })
+    VsButton(if (capture) "保留並開始取圖" else "保留", onClick = { onStartCapture(false) }, variant = ButtonVariant.Secondary)
     if (done.suggestManageMedia) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("不想每次確認？", style = MaterialTheme.typography.bodyMedium, color = AppTheme.colors.textDim)

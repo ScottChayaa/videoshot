@@ -224,7 +224,7 @@ class AppRootClipTest {
                 override suspend fun saveClipDraft(draft: com.xenyaa.videoshot.core.timeline.ClipDraft, now: Long) = Unit
                 override suspend fun currentClipDraft(): com.xenyaa.videoshot.core.timeline.ClipDraft? = null
                 override suspend fun clearClipDraft() = Unit
-                override suspend fun startEditTask(draft: com.xenyaa.videoshot.core.timeline.ClipDraft, title: String, autoUpload: Boolean, now: Long): Long = 0L
+                override suspend fun startEditTask(draft: com.xenyaa.videoshot.core.timeline.ClipDraft, title: String, autoUpload: Boolean, now: Long, privacy: com.xenyaa.videoshot.data.repo.model.UploadPrivacy): Long = 0L
                 override fun editTasks(): kotlinx.coroutines.flow.Flow<List<com.xenyaa.videoshot.data.repo.model.EditTask>> = kotlinx.coroutines.flow.flowOf(emptyList())
                 override fun editTask(id: Long): kotlinx.coroutines.flow.Flow<com.xenyaa.videoshot.data.repo.model.EditTask?> = kotlinx.coroutines.flow.flowOf(null)
                 override suspend fun pendingEditTaskIds(): List<Long> = emptyList()
@@ -799,7 +799,7 @@ class AppRootClipTest {
     @Test
     fun 建立任務失敗留在編輯畫面草稿還在() {
         val repo = object : com.xenyaa.videoshot.data.repo.FakeCacheRepo() {
-            override suspend fun startEditTask(draft: ClipDraft, title: String, autoUpload: Boolean, now: Long): Long =
+            override suspend fun startEditTask(draft: ClipDraft, title: String, autoUpload: Boolean, now: Long, privacy: com.xenyaa.videoshot.data.repo.model.UploadPrivacy): Long =
                 throw IllegalStateException("資料庫被鎖住")
         }
         val clip = FakeClipDeps(full, repo).withDraft()
@@ -835,9 +835,9 @@ class AppRootClipTest {
         }
         var failFirst = true
         val repo = object : com.xenyaa.videoshot.data.repo.FakeCacheRepo() {
-            override suspend fun startEditTask(draft: ClipDraft, title: String, autoUpload: Boolean, now: Long): Long {
+            override suspend fun startEditTask(draft: ClipDraft, title: String, autoUpload: Boolean, now: Long, privacy: com.xenyaa.videoshot.data.repo.model.UploadPrivacy): Long {
                 if (failFirst) { failFirst = false; throw IllegalStateException("資料庫被鎖住") }
-                return super.startEditTask(draft, title, autoUpload, now)
+                return super.startEditTask(draft, title, autoUpload, now, privacy)
             }
         }
         val clip = FakeClipDeps(full, repo).withDraft().apply { notificationMissing = true }

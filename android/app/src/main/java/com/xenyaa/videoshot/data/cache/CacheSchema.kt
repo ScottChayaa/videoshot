@@ -46,6 +46,13 @@ val CACHE_MIGRATION_4_5: Migration = object : Migration(4, 5) {
     }
 }
 
+/** v5→v6：`edit_task` 加導出時選的公開狀態，舊任務當成非公開。欄位定義照抄 `6.json`，原因同上。 */
+val CACHE_MIGRATION_5_6: Migration = object : Migration(5, 6) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("ALTER TABLE `edit_task` ADD COLUMN `privacy` TEXT NOT NULL DEFAULT 'unlisted'")
+    }
+}
+
 /** cache.db 的遷移清單。它不進備份，沒有備份相容性的問題（規格第四節）。 */
 val CACHE_MIGRATIONS: Array<Migration> =
-    arrayOf(CACHE_MIGRATION_1_2, CACHE_MIGRATION_2_3, CACHE_MIGRATION_3_4, CACHE_MIGRATION_4_5)
+    arrayOf(CACHE_MIGRATION_1_2, CACHE_MIGRATION_2_3, CACHE_MIGRATION_3_4, CACHE_MIGRATION_4_5, CACHE_MIGRATION_5_6)

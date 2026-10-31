@@ -15,6 +15,7 @@ import com.xenyaa.videoshot.data.cache.CacheDatabase
 import com.xenyaa.videoshot.data.repo.RoomCacheRepo
 import com.xenyaa.videoshot.data.repo.model.EditTaskState
 import com.xenyaa.videoshot.data.repo.model.FacetRef
+import com.xenyaa.videoshot.data.repo.model.UploadPrivacy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -180,6 +181,46 @@ class CacheMigrationTest {
             assertEquals("https://upload/7", repo.editTask(7).first()!!.uploadUrl)
         } finally {
             v4db.close()
+        }
+    }
+
+    @Test fun v5升到v6舊任務當成非公開() = runTest {
+        val file = File(tmp.root, "cache-v5.db")
+        // v5 的建表 SQL 一字不差取自 app/schemas/com.xenyaa.videoshot.data.cache.CacheDatabase/5.json
+        BundledSQLiteDriver().open(file.path).let { c ->
+            try {
+                c.execSQL("CREATE TABLE IF NOT EXISTS `thumb_state` (`video_id` TEXT NOT NULL, `sb_level` INTEGER NOT NULL, `frame_index` INTEGER NOT NULL, `state` TEXT NOT NULL, `attempts` INTEGER NOT NULL, `next_try_at` INTEGER NOT NULL, `lost_reason` TEXT, PRIMARY KEY(`video_id`, `sb_level`, `frame_index`))")
+                c.execSQL("CREATE TABLE IF NOT EXISTS `draft` (`video_id` TEXT NOT NULL, `step` INTEGER NOT NULL, `payload` TEXT NOT NULL, `updated_at` INTEGER NOT NULL, `id` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                c.execSQL("CREATE TABLE IF NOT EXISTS `facet_recent` (`kind` INTEGER NOT NULL, `ref_id` INTEGER NOT NULL, `used_at` INTEGER NOT NULL, PRIMARY KEY(`kind`, `ref_id`))")
+                c.execSQL("CREATE TABLE IF NOT EXISTS `edit_draft` (`orientation` TEXT NOT NULL, `payload` TEXT NOT NULL, `updated_at` INTEGER NOT NULL, `id` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                c.execSQL("CREATE TABLE IF NOT EXISTS `edit_task` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `state` TEXT NOT NULL, `progress` INTEGER NOT NULL, `title` TEXT NOT NULL, `orientation` TEXT NOT NULL, `duration_ms` INTEGER NOT NULL, `payload` TEXT NOT NULL, `auto_upload` INTEGER NOT NULL, `fail_reason` TEXT, `skipped_sources` INTEGER NOT NULL, `gallery_uri` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `failed_step` TEXT, `upload_url` TEXT, `video_id` TEXT)")
+                val payload = ClipDraftCodec.encode(
+                    newClipDraft(
+                        ClipOrientation.PORTRAIT,
+                        listOf(ClipSource(1, "content://media/1", SourceKind.PHOTO, 1000, null, 1080, 1920, 0)),
+                    )
+                )
+                c.execSQL("INSERT INTO edit_task VALUES (7, 'uploading', 40, '上傳中', 'PORTRAIT', 3000, '${payload.replace("'", "''")}', 1, NULL, 0, NULL, 50, 60, NULL, 'https://upload/7', NULL)")
+                c.execSQL("PRAGMA user_version = 5")
+            } finally {
+                c.close()
+            }
+        }
+        val v5db = Room.databaseBuilder(InstrumentationRegistry.getInstrumentation().targetContext, CacheDatabase::class.java, file.path)
+            .setDriver(BundledSQLiteDriver())
+            .addMigrations(*CACHE_MIGRATIONS)
+            .build()
+        try {
+            val repo = RoomCacheRepo(v5db, Dispatchers.IO)
+            val old = repo.editTask(7).first()!!
+            assertEquals(EditTaskState.UPLOADING, old.state)
+            assertEquals("https://upload/7", old.uploadUrl)
+            assertEquals(UploadPrivacy.UNLISTED, old.privacy)
+            // 新欄位可以寫可以讀
+            val id = repo.startEditTask(old.draft, "私人的", autoUpload = true, now = 9, privacy = UploadPrivacy.PRIVATE)
+            assertEquals(UploadPrivacy.PRIVATE, repo.editTask(id).first()!!.privacy)
+        } finally {
+            v5db.close()
         }
     }
 }

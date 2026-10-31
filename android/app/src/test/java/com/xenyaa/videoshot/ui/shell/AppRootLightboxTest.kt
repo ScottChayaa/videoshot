@@ -126,7 +126,7 @@ class AppRootLightboxTest {
         override suspend fun saveClipDraft(draft: com.xenyaa.videoshot.core.timeline.ClipDraft, now: Long) = Unit
         override suspend fun currentClipDraft(): com.xenyaa.videoshot.core.timeline.ClipDraft? = null
         override suspend fun clearClipDraft() = Unit
-        override suspend fun startEditTask(draft: com.xenyaa.videoshot.core.timeline.ClipDraft, title: String, autoUpload: Boolean, now: Long): Long = 0L
+        override suspend fun startEditTask(draft: com.xenyaa.videoshot.core.timeline.ClipDraft, title: String, autoUpload: Boolean, now: Long, privacy: com.xenyaa.videoshot.data.repo.model.UploadPrivacy): Long = 0L
         override fun editTasks(): kotlinx.coroutines.flow.Flow<List<com.xenyaa.videoshot.data.repo.model.EditTask>> = kotlinx.coroutines.flow.flowOf(emptyList())
         override fun editTask(id: Long): kotlinx.coroutines.flow.Flow<com.xenyaa.videoshot.data.repo.model.EditTask?> = kotlinx.coroutines.flow.flowOf(null)
         override suspend fun pendingEditTaskIds(): List<Long> = emptyList()

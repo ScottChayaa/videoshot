@@ -56,6 +56,7 @@ import com.xenyaa.videoshot.core.player.isLandscapeVideo
 import com.xenyaa.videoshot.data.repo.model.FolderNode
 import com.xenyaa.videoshot.data.repo.model.ShotPatch
 import com.xenyaa.videoshot.data.repo.model.ShotRow
+import com.xenyaa.videoshot.data.repo.model.UploadPrivacy
 import com.xenyaa.videoshot.ui.account.AccountScreen
 import com.xenyaa.videoshot.ui.account.AccountViewModel
 import com.xenyaa.videoshot.ui.account.AiRangeScreen
@@ -826,18 +827,18 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
             var exportSheetOpen by rememberSaveable { mutableStateOf(false) }
             var exportStarting by remember { mutableStateOf(false) }
             // 等通知權限的對話框回來之後才開始建立任務，標題先放在這裡
-            var pendingExportTitle by remember { mutableStateOf<String?>(null) }
+            var pendingExport by remember { mutableStateOf<Pair<String, UploadPrivacy>?>(null) }
 
             // 先要 YouTube 授權 → 建立輸出任務（同時清掉草稿）→ 排工作 → 換成導出中畫面。建立失敗：留在編輯畫面、抽屜不關、草稿還在。
             // 授權被拒照樣建任務，只是不打勾自動上傳；授權服務叫不動（離線、Play 服務出錯）照樣打勾、不提示
-            fun startExport(title: String) {
+            fun startExport(title: String, privacy: UploadPrivacy) {
                 val draft = editorVm.state.value.draft ?: return
                 if (exportStarting) return
                 exportStarting = true
                 scope.launch {
                     try {
                         val autoUpload = youtubeAuthorizer.authorize() != UploadAuthResult.DECLINED
-                        val taskId = container.clipDeps.cacheRepo.startEditTask(draft, title, autoUpload = autoUpload, now = container.clipDeps.now())
+                        val taskId = container.clipDeps.cacheRepo.startEditTask(draft, title, autoUpload = autoUpload, now = container.clipDeps.now(), privacy = privacy)
                         try {
                             container.clipDeps.enqueueExport(taskId)
                         } catch (e: CancellationException) {
@@ -866,9 +867,9 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
 
             // Android 13 起通知要先要權限：第一次按【開始】問一次，不管結果都繼續（沒有通知只是看不到進度）
             val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-                pendingExportTitle?.let { title ->
-                    pendingExportTitle = null
-                    startExport(title)
+                pendingExport?.let { (title, privacy) ->
+                    pendingExport = null
+                    startExport(title, privacy)
                 }
             }
 
@@ -887,13 +888,13 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
                     orientation = exportDraft.orientation,
                     durationMs = exportDraft.timeline.durationMs,
                     defaultTitle = remember { defaultClipTitle(exportDraft.usedSources(), ZoneId.systemDefault()) },
-                    onStart = { title ->
+                    onStart = { title, privacy ->
                         if (container.clipDeps.notificationPermissionMissing() && !notificationAsked) {
                             notificationAsked = true
-                            pendingExportTitle = title
+                            pendingExport = title to privacy
                             notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                         } else {
-                            startExport(title)
+                            startExport(title, privacy)
                         }
                     },
                     onDismiss = { exportSheetOpen = false },

@@ -107,4 +107,6 @@ data class EditTaskEntity(
     @ColumnInfo(name = "upload_url") val uploadUrl: String? = null,
     /** 上傳完成後 YouTube 給的影片編號 */
     @ColumnInfo(name = "video_id") val videoId: String? = null,
+    /** 'unlisted' | 'public' | 'private'（對應 `UploadPrivacy`），導出時選的 */
+    @ColumnInfo(name = "privacy", defaultValue = "unlisted") val privacy: String = "unlisted",
 )
