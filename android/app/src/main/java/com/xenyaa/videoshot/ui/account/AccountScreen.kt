@@ -28,6 +28,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -37,11 +38,13 @@ import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.core.format.formatBytes
 import com.xenyaa.videoshot.core.similarity.FilterStrength
 import com.xenyaa.videoshot.data.repo.model.AccountStats
+import com.xenyaa.videoshot.ui.common.PRIVACY_POLICY_URL
 import com.xenyaa.videoshot.ui.common.VsListRow
 import com.xenyaa.videoshot.ui.common.VsSettingDivider
 import com.xenyaa.videoshot.ui.common.VsSettingGroup
 import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.ui.common.avatarInitialOf
+import com.xenyaa.videoshot.ui.common.openSafely
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.shell.AccountSection
 import com.xenyaa.videoshot.ui.theme.AppTheme
@@ -114,6 +117,13 @@ fun AccountScreen(
                         icon = VsIcons.Tag,
                         onClick = { onOpenSection(AccountSection.TAGS) },
                     )
+                }
+            }
+            // YouTube API 開發者政策：隱私權政策要在 app 裡隨時看得到
+            item {
+                val uriHandler = LocalUriHandler.current
+                VsSettingGroup {
+                    VsListRow("隱私權政策", icon = VsIcons.Notes, onClick = { uriHandler.openSafely(PRIVACY_POLICY_URL) })
                 }
             }
         }

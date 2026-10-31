@@ -1,9 +1,10 @@
 package com.xenyaa.videoshot.ui.clip
 
-import androidx.compose.ui.test.assertIsNotSelected
+import android.content.Intent
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -20,6 +21,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -135,5 +138,17 @@ class ExportSheetTest {
         compose.onNodeWithText("開始").performClick()
 
         assertEquals(listOf("videoshot 2026/10/18"), started)
+    }
+
+    @Test
+    fun 點服務條款開YouTube服務條款() {
+        show()
+
+        compose.onNodeWithText("上傳即表示同意 YouTube 服務條款").performClick()
+
+        // 抽屜是另一個視窗，自己帶連結處理器（換不掉）：改看實際送出去的 Intent
+        val intent = shadowOf(RuntimeEnvironment.getApplication()).nextStartedActivity
+        assertEquals(Intent.ACTION_VIEW, intent.action)
+        assertEquals("https://www.youtube.com/t/terms", intent.dataString)
     }
 }

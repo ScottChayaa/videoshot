@@ -1,5 +1,8 @@
 package com.xenyaa.videoshot.ui.account
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -7,6 +10,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.xenyaa.videoshot.backup.LinkedGoogleAccount
 import com.xenyaa.videoshot.data.repo.model.AccountStats
 import com.xenyaa.videoshot.ui.shell.AccountSection
@@ -31,9 +35,16 @@ class AccountScreenTest {
         storageUsageBytes = 12_345_678L,
     )
 
+    private val opened = mutableListOf<String>()
+    private val uriHandler = object : UriHandler {
+        override fun openUri(uri: String) { opened += uri }
+    }
+
     private fun setContent(state: AccountState, onOpenSection: (AccountSection) -> Unit = {}, onOpenStat: () -> Unit = {}) {
         compose.setContent {
-            VideoshotTheme { AccountScreen(state = state, onOpenSection = onOpenSection, onOpenStat = onOpenStat) }
+            CompositionLocalProvider(LocalUriHandler provides uriHandler) {
+                VideoshotTheme { AccountScreen(state = state, onOpenSection = onOpenSection, onOpenStat = onOpenStat) }
+            }
         }
     }
 
@@ -133,5 +144,14 @@ class AccountScreenTest {
         setContent(state, onOpenSection = { opened = it })
         compose.onNodeWithText("標籤管理").performClick()
         assert(opened == AccountSection.TAGS)
+    }
+
+    @Test
+    fun 點隱私權政策開網站的隱私權政策() {
+        setContent(state)
+
+        compose.onNodeWithText("隱私權政策").performScrollTo().performClick()
+
+        assert(opened == listOf("https://videoshot.scottchayaa.com/privacy")) { "實際開了 $opened" }
     }
 }

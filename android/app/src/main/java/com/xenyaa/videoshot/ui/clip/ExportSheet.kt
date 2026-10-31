@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.clip
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -15,7 +16,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import com.xenyaa.videoshot.core.timeline.ClipOrientation
 import com.xenyaa.videoshot.data.repo.model.UploadPrivacy
 import com.xenyaa.videoshot.edit.exportSummary
@@ -24,11 +30,14 @@ import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsRadioRow
 import com.xenyaa.videoshot.ui.common.VsSheetHeader
 import com.xenyaa.videoshot.ui.common.VsTextField
+import com.xenyaa.videoshot.ui.common.YOUTUBE_TERMS_URL
+import com.xenyaa.videoshot.ui.common.openSafely
 import com.xenyaa.videoshot.ui.theme.AppTheme
 
 /**
  * 編輯畫面【導出】的確認抽屜：一行摘要（長度・方向・會不會成為 Shorts，超過上限時紅字說明）、
- * 標題欄（預設標題由呼叫端給）、公開狀態（非公開／公開／私人，預設非公開；選私人時提醒接不回取圖）、【開始】。
+ * 標題欄（預設標題由呼叫端給）、公開狀態（非公開／公開／私人，預設非公開；選私人時提醒接不回取圖）、
+ * 「上傳即表示同意 YouTube 服務條款」（點了開條款）、【開始】。
  *
  * 【開始】在超過上限或標題（修剪空白後）是空的時候停用；回報的標題已修剪過空白。
  * 抽屜由呼叫端關（[onStart] 之後把開關狀態設回 false），這裡不自己關——建立任務可能失敗，失敗時抽屜要留著。
@@ -83,6 +92,19 @@ fun ExportSheet(
                         color = AppTheme.colors.textDim,
                     )
                 }
+                // YouTube API 開發者政策：上傳的 app 要告知使用者同意 YouTube 服務條款、並給連結
+                val uriHandler = LocalUriHandler.current
+                Text(
+                    buildAnnotatedString {
+                        append("上傳即表示同意 ")
+                        withStyle(SpanStyle(color = AppTheme.colors.accent)) { append("YouTube 服務條款") }
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppTheme.colors.textDim,
+                    modifier = Modifier
+                        .clickable(role = Role.Button) { uriHandler.openSafely(YOUTUBE_TERMS_URL) }
+                        .padding(vertical = AppTheme.spacing.s2),
+                )
                 VsButton(
                     text = "開始",
                     onClick = { onStart(trimmed, privacy) },
