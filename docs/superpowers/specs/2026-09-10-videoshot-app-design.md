@@ -1391,6 +1391,7 @@ hero（底不染色，就是頁面底色；夕陽漸層只在頭像圓圈上）�
 | **AI 分析**（圖示：星芒） | 往前 N 秒／往後 M 秒；顯示但不生效，標示「第四步上線後生效」 |
 | **地點管理**（圖示：定位針） | 全部地點 ＋ 使用張數（含 0 張的；每列圖示是定位針、「N 張」在同一行右側）；改名／編輯 aliases／合併／刪除 |
 | **標籤管理**（圖示：標籤） | 全部標籤 ＋ 使用張數（每列圖示是 `#`、「N 張」在同一行右側）；改名／編輯 aliases／合併／刪除 |
+| **隱私權政策**（圖示：文件，自成一組放最下面） | 用瀏覽器開 `https://videoshot.scottchayaa.com/privacy`（YouTube API 開發者政策要求 app 裡隨時看得到隱私權政策，2026-10-31） |
 
 - **「查詢 · Gemini 金鑰」那一列階段 17 起隱藏**（描述查詢暫停，金鑰沒有用途）；`GeminiKeyScreen` 與 Keystore 加密邏輯保留，重新開放時接回去即可。
 - 取圖的過濾強度是三列單選；AI 分析的往前／往後秒數是 −／＋ 步進器（到上下限時對應鈕停用）；縮圖回填進度有細進度條。
@@ -1827,13 +1828,13 @@ appProperties 完全對得上。結論已寫回第十節。
 
 ---
 
-## 十九、剪輯：自己的照片與影片 → YouTube → 取圖（階段 18～22 已完成，階段 23 規劃中）
+## 十九、剪輯：自己的照片與影片 → YouTube → 取圖（階段 18～22 已完成，階段 23 進行中）
 
 > 2026-10-26 與 scott 定案。**階段 18 完成入口與選素材、階段 19 完成編輯畫面與草稿、階段 20 完成導出、階段 21 完成上傳到 YouTube 與等 storyboard、階段 22 完成「完成後」（刪原檔、接回取圖精靈）**；手動上傳相簿裡現有的影片還在規劃中，其餘是現況。各階段完成時把這一節改成現況，並同步改第三～六節、第九節裡受影響的段落（導覽列、模組、資料表、檔案佈局）。
 
 ### 定位
 
-圖庫只收 YouTube 影片畫面（第一節）。自己拍的照片與影片要進圖庫，走的路是：**在 app 裡剪成一支影片 → 以「非公開」上傳到使用者自己的 YouTube 頻道 → 接回取圖精靈第二步**。
+圖庫只收 YouTube 影片畫面（第一節）。自己拍的照片與影片要進圖庫，走的路是：**在 app 裡剪成一支影片 → 上傳到使用者自己的 YouTube 頻道（預設非公開） → 接回取圖精靈第二步**。
 所以剪輯不是另一條入庫路徑（第三節原則 2 不變），而是**替取圖精靈產生一支影片**；也不下載任何影片（原則 3 不變）。
 
 它是 app 完整體驗的一環，**不是專業剪輯軟體**：第一版只有排列、分割、刪除，以及復原／重做。
@@ -1863,7 +1864,7 @@ flowchart TD
   舊版存下來的導覽狀態沒有剪輯格時，補上剪輯的根頁，不重置成首頁。
 - **紅點數字**（階段 21）：「已完成」（等著開始取圖）的任務數，主色圓底、掛在【剪輯】那一格圖示的右上角（1～9 照寫，超過 9 顯示 9+）；失敗、處理中、等待明天上傳都不算。app 在前景時跟著資料庫即時變。
   TalkBack 把這一格唸成「剪輯，N 個已完成」（唸實際個數），紅點上的數字不另外唸。處理完（見「完成後」，階段 22）就減一。
-- **剪輯頁**：頂欄標題「剪輯」。沒有草稿時是空狀態——「把手機裡的照片和影片剪成一支片」、副標「上傳到你的 YouTube（非公開）後，就能用取圖精靈挑畫面」與【新增剪輯】。
+- **剪輯頁**：頂欄標題「剪輯」。沒有草稿時是空狀態——「把手機裡的照片和影片剪成一支片」、副標「上傳到你的 YouTube 後，就能用取圖精靈挑畫面」與【新增剪輯】。
   **有草稿時**（階段 19）：上方是「編輯中」那一列（第二行「直式・3 個素材・0:32」），點了回編輯畫面；長按或右邊的【⋯】選單有【放棄】。下方是次要按鈕【新增剪輯】，按了先問「放棄目前編輯中的剪輯？」（「時間軸和復原紀錄都會清掉，手機裡的照片和影片不受影響。」【放棄】【取消】），從選單放棄也是同一個確認框。
   任務清單從階段 20 起，「編輯中」那一列到時放在清單最上面。
 - 任務列顯示（階段 20 起）：第一格畫面的縮圖、標題、長度、直式／橫式、狀態（見「背景任務」）。
@@ -1948,7 +1949,8 @@ flowchart TD
   - **長度上限**：直式 3 分鐘、橫式 10 分鐘（scott，2026-10-26）。**超過就不能導出**：同一行變紅「3:48・直式・超過上限 48 秒，請先刪掉一些段落」，【開始】停用。
     直式超過 3 分鐘維持擋下，不允許成為一般影片（scott，2026-10-29）；照 scott 的原則「Shorts 維持 3 分鐘內」。
   - **標題**（欄位標籤「標題」）：自動帶入「videoshot 起日～訖日」（素材拍攝日期的範圍）——寫法「videoshot 2026/10/20～10/27」，同一天「videoshot 2026/10/18」，跨年「videoshot 2025/12/30～2026/01/02」。可以改，不可留空（空白時【開始】停用）。說明欄不提供，上傳時留空。
-  - 標題下一行小字：以「非公開」上傳到你的 YouTube（scott 要求「非公開」加括號提醒）。公開狀態固定非公開，不提供選項。
+  - **公開狀態**（標籤「公開狀態」，單選列）：非公開（預設）／公開／私人。選私人時下面多一行小字「私人影片無法在 app 裡取圖」（私人影片不登入抓不到 watch page 與 storyboard）。YouTube API 開發者政策要求讓使用者選公開狀態（2026-10-31 scott 決定加，原本固定非公開）。
+  - 小字「上傳即表示同意 YouTube 服務條款」（「YouTube 服務條款」用主色），整行可點、用瀏覽器開 `https://www.youtube.com/t/terms`（同一份政策要求）；手機上沒有能開網頁的 app 時什麼都不做。
   - 【開始】→ 草稿清掉、轉成背景任務，進「導出中」畫面（見下）；之後可以馬上新增下一支剪輯。Android 13 以上第一次按【開始】時先要通知權限，拒絕也照常執行；接著走 YouTube 授權（見「Google 授權與 YouTube 權限」）。
 - **不設最短長度**：原本擔心太短的影片 YouTube 不產生 storyboard（第二節「`no_storyboard`」）、取圖精靈接不上。2026-10-30 實測（專案 `videoshot`）1.1、1.9、3、9 秒四支，都在進「YouTube 處理中」後第一次查詢（約 30 秒）就有 storyboard。
   這麼短的片 storyboard 只有最低一層 L0（48×27，2026-10-31 發現），取圖精靈改用它，見「完成後」最後一段。
@@ -1982,7 +1984,7 @@ flowchart TD
 - 上傳中（階段 21）：「上傳中…」＋縮圖上大字百分比（同輸出中的畫法，縮圖不能點），底部【取消上傳】。
 - 等待明天上傳：標題「等待明天上傳」＋小字原因（見「每日上限」的兩句），沒有百分比、沒有【重試】，底部【取消上傳】。
 - YouTube 處理中：「YouTube 處理中…」＋小字「等 YouTube 產生縮圖，通常幾分鐘內完成」，底部【取消任務】。
-- 已完成：「已上傳到 YouTube（非公開）」＋「〈標題〉・0:48」，下面是刪除原檔的提醒與【刪除並開始取圖】【保留並開始取圖】（或只有【開始取圖】），見「完成後」。
+- 已完成：「已上傳到 YouTube（〈公開狀態〉）」＋「〈標題〉・0:48」，下面是刪除原檔的提醒與【刪除並開始取圖】【保留並開始取圖】（或只有【開始取圖】），見「完成後」。私人影片多一行小字「私人影片無法在 app 裡取圖」，按鈕是【刪除原檔】【保留】（或只有【完成】）。
 - 失敗：標題依失敗的步驟「影片輸出失敗」「影片上傳失敗」「YouTube 處理失敗」（舊資料沒記步驟當輸出）＋紅字原因＋【重試】。
 - 按返回或 Home 都可以離開，背景繼續；之後從剪輯頁點那一列，回到同一個畫面，進度照跑。
 
@@ -2021,10 +2023,11 @@ flowchart TD
   沒打勾的存進相簿 `Movies/videoshot/〈標題〉.mp4`（`/ \ : * ? " < > |` 換成 `-`，過長依位元組截斷），存好就刪掉 app 裡那份。
   上傳的任務拿到影片編號就刪掉 `out.mp4`（見「上傳」）；階段 20 留下的「輸出完成」舊任務一直留到任務被刪除。
 - **上傳**（階段 21，`publish/ClipUploadRunner.kt`）：跟輸出同一個背景工作——有勾的輸出完改成「上傳中」，接著上傳。
-  - YouTube Data API 的 `videos.insert` 可續傳上傳（`uploadType=resumable`、`part=snippet,status`）：標題是任務標題清洗過的（`<`、`>` 換成全形 `＜`、`＞`，YouTube 不收角括號；去頭尾空白；超過 100 個字截斷，表情符號不切半；空的用「videoshot」），說明空白、類別 22、**非公開**（`unlisted`）、不是為兒童打造。直式 3 分鐘內的由 YouTube 自己歸成 Shorts（2026-10-30 實測在工作室的 Shorts 分頁）。
+  - YouTube Data API 的 `videos.insert` 可續傳上傳（`uploadType=resumable`、`part=snippet,status`）：標題是任務標題清洗過的（`<`、`>` 換成全形 `＜`、`＞`，YouTube 不收角括號；去頭尾空白；超過 100 個字截斷，表情符號不切半；空的用「videoshot」），說明空白、類別 22、公開狀態照導出時選的（`unlisted`／`public`／`private`，舊任務是 `unlisted`）、不是為兒童打造。直式 3 分鐘內的由 YouTube 自己歸成 Shorts（2026-10-30 實測在工作室的 Shorts 分頁）。
   - **工作階段網址一拿到就先存進任務**（`upload_url`）再開始傳。之後斷網、app 被殺、系統停掉工作、授權失效，下次都先用 `Content-Range: bytes */總長` 問 YouTube 收到幾個位元組再接著傳，**不重新輸出、不從 0 重傳**；問到已經收完就直接拿影片編號，YouTube 上不會多一支。
   - 一段 8 MiB（YouTube 要求 256 KiB 的倍數）；百分比有變才寫進任務與通知，接著傳時進度不先退回 0。
   - **拿到 `videoId` 先寫進任務、改成「YouTube 處理中」，再刪 `out.mp4`**、排第一次查 storyboard（30 秒後）。寫進去之前被殺，重開後的查詢會拿到同一個編號。
+  - **私人影片不等 storyboard**：拿到 `videoId`、刪掉 `out.mp4` 後直接改成「已完成」並通知（私人影片不登入抓不到 watch page，等了也只會失敗）。
   - **斷網**：在工作裡等「驗證過」的網路（真的連得上網際網路，不是要登入的 Wi-Fi）回來，最多 10 分鐘，回來後依退避 1、2、4、8、16 秒重試；等不到、或網路說回來了卻連續 5 次連不上，失敗「沒有網路連線」（【重試】接著傳）。行動網路也傳，不限 Wi-Fi。
   - 伺服器暫時錯誤（5xx、408、429，或一段傳完 YouTube 收到的位元組卻沒前進）：退避 1、2、4、8、16 秒，5 次還不行就「上傳失敗」。
   - 存取權杖被拒（401）：清掉快取裡的舊權杖、重拿一次再試，還是被拒就「Google 授權已失效，請按重試重新授權」；拿權杖時發現被撤銷也是這句。拿權杖時其他錯（離線、Play 服務出錯）當成斷網：等網路回來再拿一次，還是不行才「上傳失敗」。
@@ -2067,7 +2070,7 @@ flowchart TD
 
 點一個「已完成」的任務進導出中畫面（scott，2026-10-31：提醒就放在這裡，不另外跳框）：
 
-1. **提醒**：「已上傳到 YouTube（非公開）」＋「〈標題〉・0:48」下面問「要刪除這次用到的 3 張照片、2 支影片嗎？」（只有一種素材就只寫那一種），還在的影片 ≥ 1 時加小字「整支影片會刪除，包括剪掉的部分」。
+1. **提醒**：「已上傳到 YouTube（〈公開狀態〉）」＋「〈標題〉・0:48」下面問「要刪除這次用到的 3 張照片、2 支影片嗎？」（只有一種素材就只寫那一種），還在的影片 ≥ 1 時加小字「整支影片會刪除，包括剪掉的部分」。
    按鈕【刪除並開始取圖】【保留並開始取圖】；**左上角返回＝不處理**，任務留在已完成。
    - 只算**還在手機裡**的素材（這次用到的＝時間軸上還留著段落的）；**全都已不在**時不問刪除，只有一個【開始取圖】（scott，2026-10-31）。
    - **Android 9、10 不提供刪除**（系統的批次刪除視窗 Android 11 才有），只有【開始取圖】（scott，2026-10-31）。
@@ -2092,8 +2095,8 @@ flowchart TD
 - 背景上傳時用 `AuthorizationClient.authorize` 靜默拿存取權杖；需要使用者重新同意（例如權限被移除）就失敗在上傳那步，【重試】時在前景重新授權後接著傳。
 - 【中斷連結】同時撤銷 `drive.appdata` 與 `youtube.upload`。
 - `youtube.upload` 是**敏感範圍**：專案的 OAuth 審核通過前，第一次授權會出現「Google 尚未驗證這個應用程式」，最多 100 個使用者。審核是階段 23，要錄示範影片（第十節）。
-- **送審（階段 23）**：驗證中心要「範圍說明」與「示範影片」。示範影片要把手機語言切成英文，從開 app 錄到導出、Google 授權畫面（完整看得到申請的權限）、上傳完成，最好再打開 YouTube 工作室看到非公開影片；影片以非公開上傳到 YouTube 後貼連結。範圍說明草稿：
-  > videoshot lets users turn photos and videos on their own phone into a short video inside the app. When the user taps Export, the app uses youtube.upload to upload that video to the user's own YouTube channel as an unlisted video, so the user can then pick frames from it inside the app. The app only uploads the video the user just created and explicitly chose to export; it never reads, modifies or deletes the user's other videos, and no data is sent to any server of ours.
+- **送審（階段 23）**：驗證中心要「範圍說明」與「示範影片」。示範影片要把手機語言切成英文，從開 app 錄到導出、Google 授權畫面（完整看得到申請的權限）、上傳完成，最好再打開 YouTube 工作室看到非公開影片；影片以非公開上傳到 YouTube 後貼連結（腳本見[階段 23 計畫](../plans/2026-10-31-階段23-送Google審核.md) Task 4）。範圍說明（2026-10-31 定稿）：
+  > videoshot is an Android app that lets users combine photos and videos stored on their own phone into a short video. When the user taps Start in the Export panel, after entering a title and choosing a visibility (Unlisted by default, Public or Private), the app uses youtube.upload to upload that one video to the user's own YouTube channel. Once YouTube has processed an Unlisted or Public video, the user can browse its frames in the app and save still frames to a personal photo library on the phone. The app only uploads the video the user just created and explicitly chose to export. It never reads, modifies or deletes the user's other videos or channel data, and no Google user data is sent to any server we operate. youtube.upload is the narrowest scope that allows videos.insert; youtube and youtube.force-ssl would grant read and write access we do not need.
 - 上傳到的是這個 Google 帳號的預設頻道；帳號沒有頻道時 API 回 `youtubeSignupRequired`，任務失敗並說明「這個 Google 帳號還沒有 YouTube 頻道」。
 - 2026-10-26 實測（舊專案 `mypass-470608`，電腦版 OAuth client）：未審核專案上傳的影片**沒有被強制改成私人**，維持非公開；處理完約 1 分鐘出現 storyboard，不登入也抓得到——與 `videos.insert` 官方文件現在的寫法一致（修訂紀錄沒有記載這條限制何時解除）。
 - 2026-10-30 實機（專案 `videoshot`，未審核，Android 版 app）：第一次授權出現「Google 尚未驗證這個應用程式」，scott 按允許後可以上傳；上傳的 9 支都維持非公開（直式的在 Shorts 分頁）。上傳中關掉網路、在 Google 帳戶移除 videoshot 的權限，網路恢復後 7 秒內任務失敗「Google 授權已失效，請按重試重新授權」，【重試】跳授權畫面、同意後接著傳。
@@ -2124,8 +2127,11 @@ edit_task ── 背景任務（cache.db v4，階段 20；v5，階段 21 加最�
   ├─ created_at / updated_at   處理中、等待明天上傳期間不寫 updated_at（它分別是等 storyboard 的起算點、撞到上限的時間）
   ├─ failed_step     'render' | 'upload' | 'storyboard'：失敗在哪一步（沒記的舊資料當 'render'）
   ├─ upload_url      可續傳上傳的工作階段網址：開好就存；上傳完、失敗在輸出、網址失效時清掉
-  └─ video_id        上傳完成後 YouTube 給的影片編號
+  ├─ video_id        上傳完成後 YouTube 給的影片編號
+  └─ privacy         'unlisted' | 'public' | 'private'：導出時選的公開狀態（預設 'unlisted'）
 ```
+
+v5→v6 只對 `edit_task` 加 `privacy`（`ADD COLUMN … NOT NULL DEFAULT 'unlisted'`，舊任務當成非公開）。
 
 v4→v5 只對 `edit_task` 加後三欄（`ADD COLUMN`，都可為 null）；`waiting_quota` 是後來加的狀態值，`state` 是文字欄，不必升版本。
 【重試】只對失敗的任務，依 `failed_step` 回到那一步的開頭並清掉原因與步驟：`render` → `queued`（進度 0，從頭輸出）、`upload` → `uploading`（進度與上傳網址不動，接著傳）、`storyboard` → `processing`（`updated_at` 設成現在，重新計時）。
