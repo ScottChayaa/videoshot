@@ -35,17 +35,28 @@ object Storyboard {
                 rows = numbers[4],
                 intervalMs = numbers[5],
                 sigh = fields[7],
+                name = fields[6],
             )
         }
         if (levels.isEmpty()) return null
         return StoryboardSpec(baseUrl, sqp, levels)
     }
 
-    /** 取指定層級；不存在時退回最高可用的層級。intervalMs、cols、rows、frameCount 任一為 0 的層級不可用。 */
-    fun pickLevel(spec: StoryboardSpec, preferred: Int = 3): StoryboardLevel? {
-        val usable = spec.levels.filter { it.intervalMs > 0 && it.cols > 0 && it.rows > 0 && it.frameCount > 0 }
-        if (usable.isEmpty()) return null
-        return usable.find { it.level == preferred } ?: usable.last()
+    /**
+     * 取指定層級；不存在時退回最高可用的層級。cols、rows、frameCount 任一為 0 的層級不可用。
+     *
+     * intervalMs 為 0 的層級（L0）只在沒有別的層級時才選：很短的片（實測 3～11 秒）YouTube 只給 L0，
+     * 100 格平均分布在整支片（2026-10-31）。給了 [durationSec] 就用片長換算它的間隔；沒給時間隔維持 0，
+     * 只能拿來定位格子、不能換算時間。
+     */
+    fun pickLevel(spec: StoryboardSpec, preferred: Int = 3, durationSec: Double = 0.0): StoryboardLevel? {
+        val usable = spec.levels.filter { it.cols > 0 && it.rows > 0 && it.frameCount > 0 }
+        val timed = usable.filter { it.intervalMs > 0 }
+        timed.find { it.level == preferred }?.let { return it }
+        timed.lastOrNull()?.let { return it }
+        val untimed = usable.lastOrNull() ?: return null
+        if (durationSec <= 0.0) return untimed
+        return untimed.copy(intervalMs = max(1, (durationSec * 1000.0 / untimed.frameCount).roundToInt()))
     }
 
     /**
@@ -95,7 +106,7 @@ object Storyboard {
     fun frameTimeSec(level: StoryboardLevel, frameIndex: Int): Double = frameIndex * level.intervalMs / 1000.0
 
     fun sheetUrl(spec: StoryboardSpec, level: StoryboardLevel, sheetIndex: Int): String {
-        val path = spec.baseUrl.replace("\$L", level.level.toString()).replace("\$N", "M$sheetIndex")
+        val path = spec.baseUrl.replace("\$L", level.level.toString()).replace("\$N", level.name.replace("\$M", sheetIndex.toString()))
         return "$path?sqp=${spec.sqp}&sigh=${level.sigh}"
     }
 }

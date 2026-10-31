@@ -402,4 +402,23 @@ class BackfillManagerTest {
         assertEquals(LEVEL1.level, capturedRelocatedSourceLevel) // 讀取座標用新挑到的層級
         assertEquals("ok", cache.thumbState("v1", 9, 2)!!.state)
     }
+
+    /** 很短的片只有沒計時的 L0（2026-10-31）：別的層級的 shot 換算不到 L0 的格子，不可以全都對到第 0 格。 */
+    @Test
+    fun 層級不見而只剩沒計時的L0時照樣走退避() = runTest {
+        library = object : FakeLibraryRepo() {
+            override suspend fun shotsOfVideo(videoId: String) = listOf(shotRow(1, "v1", 2, 3, atSec = 4.2))
+        }
+        cache = FakeCacheRepo()
+        cache.putThumbStates(listOf(ThumbStateEntity("v1", 3, 2, "missing", 0, 0L, null)))
+        thumbs = FakeThumbs()
+        val onlyL0 = "https://i.ytimg.com/sb/v1/x|48#27#100#10#10#0#default#s"
+        watchPageAnswer = { WatchPage(FetchResult.OK, VideoMeta("v1", "t", "c", "2026-01-01T00:00:00Z", 10, "unlisted", true), onlyL0) }
+        relocatedAnswer = HarvestResult(written = listOf(ThumbKey("v1", 3, 2)), failed = emptyList(), degradedToCover = false)
+
+        manager().runBatch()
+
+        assertEquals(null, capturedRelocatedFrames)
+        assertEquals(1, cache.thumbState("v1", 3, 2)!!.attempts)
+    }
 }

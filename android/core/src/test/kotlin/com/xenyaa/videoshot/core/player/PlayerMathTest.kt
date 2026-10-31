@@ -70,6 +70,11 @@ class PlayerMathTest {
         assertEquals(2, previewLevelOf(spec)!!.level)
     }
 
+    @Test fun 只有沒計時的_L0_時沒有預覽() {
+        val spec = StoryboardSpec("b", "q", listOf(level(0).copy(intervalMs = 0)))
+        assertNull(previewLevelOf(spec))
+    }
+
     @Test fun 沒有_L2_就退回最高可用層級() {
         val spec = StoryboardSpec("b", "q", listOf(level(0), level(1)))
         assertEquals(1, previewLevelOf(spec)!!.level)

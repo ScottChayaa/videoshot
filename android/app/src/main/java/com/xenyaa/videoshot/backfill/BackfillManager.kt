@@ -208,7 +208,10 @@ class BackfillManager(
         entries: List<ThumbStateEntity>,
     ) {
         val picked = Storyboard.pickLevel(spec, preferred = originalLevel)
-        if (picked == null) { markRetryOrGiveUp(entries); return }
+        // 只剩沒計時的 L0 時，別的層級的 shot 換算不到它的格子（at_sec 對不上），等下次再試
+        if (picked == null || (picked.level != originalLevel && picked.intervalMs == 0)) {
+            markRetryOrGiveUp(entries); return
+        }
 
         val result: HarvestResult
         if (picked.level == originalLevel) {

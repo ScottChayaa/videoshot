@@ -34,4 +34,20 @@ class FramePlanOfTest {
         val (plan, _) = framePlanOf("v1", page(durationSec = 179, durationMs = 0))
         assertEquals(90, plan.frameCount)
     }
+
+    // l1deHCTkRBo 的真實數字：10 秒左右的剪輯，YouTube 只給 L0（100 格、間隔寫 0）
+    @Test
+    fun 很短的片只有L0時用L0並依片長換算時間() {
+        val onlyL0 = WatchPage(
+            FetchResult.OK,
+            VideoMeta("v1", "t", "c", "2026-01-01", 11, "unlisted", true, durationMs = 10_500),
+            "https://i.ytimg.com/sb/v1/storyboard3_L\$L/\$N.jpg?sqp=q|48#27#100#10#10#0#default#rs\$a",
+        )
+        val (plan, level) = framePlanOf("v1", onlyL0)
+        assertEquals(0, level!!.level)
+        assertEquals(0, plan.level)
+        assertEquals(100, plan.frameCount)
+        assertEquals(0.105, plan.atSec[1], 1e-9)
+        assertEquals(true, plan.lowQuality)
+    }
 }

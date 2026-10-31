@@ -36,9 +36,23 @@ class StoryboardFrameTest {
     }
 
     @Test
-    fun `intervalMs 為 0 的 L0 不會被選到`() {
+    fun `有計時的層級時不選 intervalMs 為 0 的 L0`() {
+        assertEquals(3, Storyboard.pickLevel(spec, preferred = 0)!!.level)
+    }
+
+    // 很短的片（實測 3～11 秒）YouTube 只給 L0：100 格平均分布在整支片，spec 的間隔寫 0（2026-10-31）
+    @Test
+    fun `只有 L0 時選 L0，沒給片長就不換算間隔`() {
         val onlyL0 = StoryboardSpec("x", "", listOf(spec.levels[0]))
-        assertNull(Storyboard.pickLevel(onlyL0))
+        val picked = Storyboard.pickLevel(onlyL0)!!
+        assertEquals(0, picked.level)
+        assertEquals(0, picked.intervalMs)
+    }
+
+    @Test
+    fun `只有 L0 時用片長換算間隔`() {
+        val onlyL0 = StoryboardSpec("x", "", listOf(spec.levels[0]))
+        assertEquals(105, Storyboard.pickLevel(onlyL0, durationSec = 10.5)!!.intervalMs)
     }
 
     // ---- frameAt ----
@@ -138,6 +152,12 @@ class StoryboardFrameTest {
         assertTrue(url, url.contains("/storyboard3_L3/M1.jpg"))
         assertTrue(url, url.contains("sigh=rs\$AOn4CLAF8rkqvc6h6mM0WUjOJy55DJC1vA"))
         assertTrue(url, url.contains("sqp=-oaymwENSDfyq4qpAwVwAcABBqLzl_8DBgjTpKzTBg=="))
+    }
+
+    @Test
+    fun `L0 的 sheet 檔名是 default`() {
+        val url = Storyboard.sheetUrl(spec, spec.levels[0], 0)
+        assertTrue(url, url.contains("/storyboard3_L0/default.jpg"))
     }
 
     // ---- frameCountWithin ----

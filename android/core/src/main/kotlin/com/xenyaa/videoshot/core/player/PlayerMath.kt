@@ -47,5 +47,6 @@ fun nearestFrameIndex(atSec: List<Double>, sec: Double): Int? =
 fun playerMaxHeightDp(windowWidthDp: Float, windowHeightDp: Float): Float? =
     if (windowWidthDp > windowHeightDp) windowHeightDp * LANDSCAPE_MAX_HEIGHT_FRACTION else null
 
-/** 詳情頁預覽用的層級：比第二步的 L3 低一階，檔案小、下載快。 */
-fun previewLevelOf(spec: StoryboardSpec): StoryboardLevel? = Storyboard.pickLevel(spec, preferred = 2)
+/** 詳情頁預覽用的層級：比第二步的 L3 低一階，檔案小、下載快。只有沒計時的 L0 時沒有預覽（換算不出時間）。 */
+fun previewLevelOf(spec: StoryboardSpec): StoryboardLevel? =
+    Storyboard.pickLevel(spec, preferred = 2)?.takeIf { it.intervalMs > 0 }

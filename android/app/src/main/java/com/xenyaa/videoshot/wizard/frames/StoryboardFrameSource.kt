@@ -34,7 +34,7 @@ import java.io.File
  */
 fun framePlanOf(videoId: String, page: WatchPage): Pair<FramePlan, StoryboardLevel?> {
     val spec = page.storyboardSpec?.let { Storyboard.parse(it) }
-    val level = spec?.let { Storyboard.pickLevel(it) }
+    val level = spec?.let { Storyboard.pickLevel(it, durationSec = durationSecOf(page)) }
     if (level == null) {
         return FramePlan(videoId, level = 3, atSec = emptyList(), lowQuality = false) to null
     }
@@ -51,10 +51,13 @@ fun framePlanOf(videoId: String, page: WatchPage): Pair<FramePlan, StoryboardLev
  * 縮圖牆的格數：spec 一律多給一格、時間點超過片長，那一格不上牆（2026-10-20）。
  * 片長優先用精確的毫秒數；讀不到（沒有 `streamingData`、舊版草稿）才退回四捨五入過的整數秒。
  */
-fun frameCountOf(level: StoryboardLevel, page: WatchPage): Int {
-    val meta = page.meta ?: return level.frameCount
-    val durationSec = if (meta.durationMs > 0) meta.durationMs / 1000.0 else meta.durationSec.toDouble()
-    return Storyboard.frameCountWithin(level, durationSec)
+fun frameCountOf(level: StoryboardLevel, page: WatchPage): Int =
+    Storyboard.frameCountWithin(level, durationSecOf(page))
+
+/** 片長（秒）；讀不到回 0。 */
+private fun durationSecOf(page: WatchPage): Double {
+    val meta = page.meta ?: return 0.0
+    return if (meta.durationMs > 0) meta.durationMs / 1000.0 else meta.durationSec.toDouble()
 }
 
 /**

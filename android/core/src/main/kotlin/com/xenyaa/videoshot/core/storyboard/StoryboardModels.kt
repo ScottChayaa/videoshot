@@ -10,6 +10,8 @@ data class StoryboardLevel(
     val rows: Int,
     val intervalMs: Int,
     val sigh: String,
+    /** sheet 檔名的樣板（spec 的 nameReplacement）：L1～L3 是 `M$M`（$M 換成 sheet 編號），L0 是 `default`。 */
+    val name: String = "M\$M",
 )
 
 data class StoryboardSpec(
