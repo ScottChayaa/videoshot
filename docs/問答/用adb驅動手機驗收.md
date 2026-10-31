@@ -58,6 +58,20 @@
   adb shell wm size reset && adb shell wm density reset
   ```
 
+- 開 app 用 `adb shell am start -n com.xenyaa.videoshot/.MainActivity`；開發測試版有兩個桌面圖示，`monkey -p` 可能打開「元件總覽」
+- 測「沒網路」要 Wi-Fi 與行動數據一起關，再 `ping` 確認真的斷了；行動數據的設定值讀起來是 0 也可能還連得上：
+
+  ```bash
+  adb shell svc wifi disable && adb shell svc data disable
+  adb shell svc data enable && adb shell svc wifi enable
+  ```
+
+- 從開發機改 app 裡的檔案（例如換掉 `cache.db`）：先 `am force-stop`，推到 `/data/local/tmp`、`chmod 644`，再用 `run-as` 複製；整串指令要包在 `adb shell "…"` 裡，`sh -c` 後面用單引號，不然引號會被拆開：
+
+  ```bash
+  adb shell "run-as com.xenyaa.videoshot sh -c 'cp /data/local/tmp/x.db /data/data/com.xenyaa.videoshot/files/cache.db; rm -f /data/data/com.xenyaa.videoshot/files/cache.db-wal /data/data/com.xenyaa.videoshot/files/cache.db-shm'"
+  ```
+
 - 判斷影片有沒有在出聲：`adb shell dumpsys audio` 看 app 的 media player 是不是 started；要讀 `<video>` 的實際狀態見[這題](讀WebView裡影片的狀態.md)
 
 ## 做不到的
