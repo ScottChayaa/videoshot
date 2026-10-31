@@ -353,12 +353,100 @@ class ClipExportScreenTest {
 
         compose.onNodeWithText("已上傳到 YouTube（非公開）").assertIsDisplayed()
         compose.onNodeWithText("我的旅行・0:48").assertIsDisplayed()
-        compose.onNodeWithText("開始取圖在下一個階段加入").assertIsDisplayed()
+        noNode("開始取圖在下一個階段加入")
         compose.onNodeWithTag("exportThumb").assertHasNoClickAction()
         noNode("完成後自動上傳到 YouTube")
         noNode("取消任務")
         noNode("取消上傳")
         noNode("播放檢查")
+    }
+
+    private val startCaptures = mutableListOf<Boolean>()
+    private var manageMediaClicks = 0
+
+    private fun showDone(done: DoneCleanup?) {
+        compose.setContent {
+            VideoshotTheme {
+                ClipExportScreen(
+                    task(EditTaskState.DONE, videoId = "abc"), loader, {}, {}, {}, {}, {},
+                    done = done,
+                    onStartCapture = { startCaptures += it },
+                    onOpenManageMedia = { manageMediaClicks++ },
+                )
+            }
+        }
+    }
+
+    @Test
+    fun 已完成_問句與兩個按鈕() {
+        showDone(DoneCleanup(photos = 3, videos = 2, canDelete = true, suggestManageMedia = false))
+
+        compose.onNodeWithText("要刪除這次用到的 3 張照片、2 支影片嗎？").assertIsDisplayed()
+        compose.onNodeWithText("整支影片會刪除，包括剪掉的部分").assertIsDisplayed()
+        compose.onNodeWithText("刪除並開始取圖").assertIsDisplayed()
+        compose.onNodeWithText("保留並開始取圖").assertIsDisplayed()
+        noNode("開始取圖在下一個階段加入")
+        noNode("不想每次確認？")
+        noNode("開始取圖")
+    }
+
+    @Test
+    fun 已完成_只有照片不顯示整支影片小字() {
+        showDone(DoneCleanup(photos = 3, videos = 0, canDelete = true, suggestManageMedia = false))
+
+        compose.onNodeWithText("要刪除這次用到的 3 張照片嗎？").assertIsDisplayed()
+        noNode("整支影片會刪除，包括剪掉的部分")
+    }
+
+    @Test
+    fun 已完成_按刪除與保留帶對的參數() {
+        showDone(DoneCleanup(photos = 1, videos = 1, canDelete = true, suggestManageMedia = false))
+
+        compose.onNodeWithText("刪除並開始取圖").performClick()
+        compose.onNodeWithText("保留並開始取圖").performClick()
+        assertEquals(listOf(true, false), startCaptures)
+    }
+
+    @Test
+    fun 已完成_沒開媒體管理權限時有那一行且按了呼叫onOpenManageMedia() {
+        showDone(DoneCleanup(photos = 1, videos = 0, canDelete = true, suggestManageMedia = true))
+
+        compose.onNodeWithText("不想每次確認？").assertIsDisplayed()
+        compose.onNodeWithText("開啟媒體管理權限").performClick()
+        assertEquals(1, manageMediaClicks)
+    }
+
+    @Test
+    fun 已完成_素材都不在只有開始取圖() {
+        showDone(DoneCleanup(photos = 0, videos = 0, canDelete = true, suggestManageMedia = true))
+
+        compose.onNodeWithText("開始取圖").performClick()
+        assertEquals(listOf(false), startCaptures)
+        noNode("刪除並開始取圖")
+        noNode("保留並開始取圖")
+        noNode("不想每次確認？")
+        compose.onAllNodes(hasText("要刪除", substring = true)).assertCountEquals(0)
+    }
+
+    @Test
+    fun 已完成_不能刪只有開始取圖() {
+        showDone(DoneCleanup(photos = 3, videos = 2, canDelete = false, suggestManageMedia = false))
+
+        compose.onNodeWithText("開始取圖").assertIsDisplayed()
+        noNode("刪除並開始取圖")
+        noNode("保留並開始取圖")
+        compose.onAllNodes(hasText("要刪除", substring = true)).assertCountEquals(0)
+    }
+
+    @Test
+    fun 已完成_還在數時不畫按鈕() {
+        showDone(null)
+
+        compose.onNodeWithText("已上傳到 YouTube（非公開）").assertIsDisplayed()
+        compose.onNodeWithText("我的旅行・0:48").assertIsDisplayed()
+        noNode("開始取圖")
+        noNode("刪除並開始取圖")
+        noNode("保留並開始取圖")
     }
 
     private fun failedShows(step: EditTaskStep?, title: String) {

@@ -57,6 +57,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xenyaa.videoshot.core.timeline.ClipOrientation
+import com.xenyaa.videoshot.core.timeline.clipDeletePrompt
 import com.xenyaa.videoshot.data.repo.CacheRepo
 import com.xenyaa.videoshot.data.repo.model.EditTask
 import com.xenyaa.videoshot.data.repo.model.EditTaskState
@@ -234,6 +235,9 @@ fun ClipExportScreen(
     onCancel: () -> Unit,
     onRetry: () -> Unit,
     onPlay: () -> Unit,
+    done: DoneCleanup? = null,
+    onStartCapture: (delete: Boolean) -> Unit = {},
+    onOpenManageMedia: () -> Unit = {},
 ) {
     // 開確認框當下是哪一種取消；任務換了階段（例如輸出完開始上傳）框就不再成立，不會拿舊說法取消新階段
     var confirmCancel by rememberSaveable { mutableStateOf<CancelKind?>(null) }
@@ -317,12 +321,8 @@ fun ClipExportScreen(
                         color = AppTheme.colors.textDim,
                         textAlign = TextAlign.Center,
                     )
-                    Text(
-                        "開始取圖在下一個階段加入",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = AppTheme.colors.textDim,
-                        textAlign = TextAlign.Center,
-                    )
+                    // 還在數素材時先不畫問句與按鈕（幾毫秒），免得先出現【開始取圖】又換成兩個按鈕
+                    if (done != null) DoneActions(done, onStartCapture, onOpenManageMedia)
                 }
                 EditTaskState.FAILED -> {
                     StatusTitle(failedTitle(task.failedStep))
@@ -351,6 +351,39 @@ fun ClipExportScreen(
             onConfirm = { confirmCancel = null; onCancel() },
             onDismiss = { confirmCancel = null },
         )
+    }
+}
+
+/**
+ * 已完成任務的收尾（規格第十九節「完成後」）：[photos]、[videos] 是這次用到、而且還在手機裡的素材數；
+ * [canDelete] 是這台手機能不能用系統刪除視窗（Android 11 起）；[suggestManageMedia] 是要不要提示開媒體管理權限。
+ */
+data class DoneCleanup(val photos: Int, val videos: Int, val canDelete: Boolean, val suggestManageMedia: Boolean)
+
+/** 問要不要刪原檔與兩個按鈕；沒得刪（素材都不在、或手機太舊）只剩【開始取圖】。 */
+@Composable
+private fun DoneActions(done: DoneCleanup, onStartCapture: (delete: Boolean) -> Unit, onOpenManageMedia: () -> Unit) {
+    val prompt = clipDeletePrompt(done.photos, done.videos)?.takeIf { done.canDelete }
+    if (prompt == null) {
+        VsButton("開始取圖", onClick = { onStartCapture(false) })
+        return
+    }
+    Text(prompt, style = MaterialTheme.typography.bodyLarge, color = AppTheme.colors.text, textAlign = TextAlign.Center)
+    if (done.videos > 0) {
+        Text(
+            "整支影片會刪除，包括剪掉的部分",
+            style = MaterialTheme.typography.bodyMedium,
+            color = AppTheme.colors.textDim,
+            textAlign = TextAlign.Center,
+        )
+    }
+    VsButton("刪除並開始取圖", onClick = { onStartCapture(true) })
+    VsButton("保留並開始取圖", onClick = { onStartCapture(false) }, variant = ButtonVariant.Secondary)
+    if (done.suggestManageMedia) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("不想每次確認？", style = MaterialTheme.typography.bodyMedium, color = AppTheme.colors.textDim)
+            TextButton(onClick = onOpenManageMedia) { Text("開啟媒體管理權限") }
+        }
     }
 }
 
