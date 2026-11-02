@@ -114,6 +114,7 @@ class WizardDraftTest {
         manualImages = { videoId -> ManualImageStore(File(tmp.root, videoId)) },
         captureFor = { capture },
         today = { "2026-09-15" },
+        compute = dispatcher,
     )
 
     @Test

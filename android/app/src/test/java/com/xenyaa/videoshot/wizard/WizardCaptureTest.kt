@@ -88,6 +88,7 @@ class WizardCaptureTest {
             strength = flowOf(FilterStrength.MEDIUM),
             manualImages = { ManualImageStore(manualDir) },
             captureFor = { capture },
+            compute = dispatcher,
         )
         vm.submit("aqz-KE-bpKQ")
         advanceUntilIdle()

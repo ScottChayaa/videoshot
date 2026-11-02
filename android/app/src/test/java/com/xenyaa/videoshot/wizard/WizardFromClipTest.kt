@@ -80,6 +80,7 @@ class WizardFromClipTest {
         manualImages = { videoId -> ManualImageStore(File(tmp.root, videoId)) },
         captureFor = { null },
         today = { "2026-10-31" },
+        compute = dispatcher,
     )
 
     private val meta = DraftMeta("宜蘭兩天一夜", "ch", "2025-07-12T10:00:00-07:00", 600, "public", true)
