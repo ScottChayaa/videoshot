@@ -3,14 +3,14 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- 「回到那一刻」：圓環是影片的時間，左側圓角實心三角箭頭表示往回轉，尾端漸淡；右上角橘點是存下的那一刻。圖形縮 0.8 倍放進安全區（半徑 33），被裁成圓形也不會切到。 -->
-    <group android:pivotX="54" android:pivotY="54" android:scaleX="0.8" android:scaleY="0.8" android:translateX="5.6" android:translateY="3.2">
-        <path android:pathData="M25,50A25,25 0 1,1 66.07,69.15" android:strokeColor="#FFFFFF" android:strokeWidth="7" />
-        <path android:pathData="M66.07,69.15A25,25 0 0,1 53.48,74.76" android:strokeColor="#FFFFFF" android:strokeWidth="7" android:strokeAlpha="0.75" />
-        <path android:pathData="M53.48,74.76A25,25 0 0,1 40.63,73.18" android:strokeColor="#FFFFFF" android:strokeWidth="7" android:strokeAlpha="0.5" />
-        <path android:pathData="M40.63,73.18A25,25 0 0,1 30.85,66.07" android:strokeColor="#FFFFFF" android:strokeWidth="7" android:strokeAlpha="0.28" />
-        <path android:pathData="M25,63.79L17.09,52.4L32.91,52.4Z" android:fillColor="#FFFFFF" android:strokeColor="#FFFFFF" android:strokeWidth="4.8" android:strokeLineJoin="round" />
-        <path android:pathData="M55.67,30.85a10.4,10.4 0 1,0 20.8,0a10.4,10.4 0 1,0 -20.8,0Z" android:fillColor="#0B5F8A" />
-        <path android:pathData="M57.42,30.85a8.65,8.65 0 1,0 17.3,0a8.65,8.65 0 1,0 -17.3,0Z" android:fillColor="#F0A04B" />
+    <!-- 「浮島」：太陽、一大一小兩座圓角的山（後山淡、前山亮），山下四層往下縮、左右錯開的岩層。圖形以 100×100 繪製，縮 0.8 倍放進安全區（半徑 33），被裁成圓形也不會切到。 -->
+    <group android:scaleX="0.8" android:scaleY="0.8" android:translateX="13.2" android:translateY="11.6">
+        <path android:pathData="M66.5,28a5.5,5.5 0 1,0 11,0a5.5,5.5 0 1,0 -11,0Z" android:fillColor="#F4E5A4" />
+        <path android:pathData="M26.05,58.11L42.05,33.11A3.5,3.5 0 0,1 47.95,33.11L63.95,58.11A3.5,3.5 0 0,1 61,63.5L29,63.5A3.5,3.5 0 0,1 26.05,58.11Z" android:fillColor="#8E99D2" />
+        <path android:pathData="M46,60L61,39L74,60Z" android:fillColor="#EDEBF8" android:strokeColor="#EDEBF8" android:strokeWidth="7" android:strokeLineJoin="round" />
+        <path android:pathData="M25,60h52a2,2 0 0,1 0,4h-52a2,2 0 0,1 0,-4Z" android:fillColor="#3F4C8A" />
+        <path android:pathData="M29,66.5h38a2,2 0 0,1 0,4h-38a2,2 0 0,1 0,-4Z" android:fillColor="#3F4C8A" />
+        <path android:pathData="M42,73h24a2,2 0 0,1 0,4h-24a2,2 0 0,1 0,-4Z" android:fillColor="#3F4C8A" />
+        <path android:pathData="M44,79.5h10a2,2 0 0,1 0,4h-10a2,2 0 0,1 0,-4Z" android:fillColor="#3F4C8A" />
     </group>
 </vector>

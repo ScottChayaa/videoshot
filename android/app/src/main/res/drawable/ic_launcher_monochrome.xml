@@ -3,13 +3,14 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Android 13 主題圖示：系統只看形狀、自己上色。同前景，但橘點沒有底色外圈（單色時分不出來）。 -->
-    <group android:pivotX="54" android:pivotY="54" android:scaleX="0.8" android:scaleY="0.8" android:translateX="5.6" android:translateY="3.2">
-        <path android:pathData="M25,50A25,25 0 1,1 66.07,69.15" android:strokeColor="#FFFFFF" android:strokeWidth="7" />
-        <path android:pathData="M66.07,69.15A25,25 0 0,1 53.48,74.76" android:strokeColor="#FFFFFF" android:strokeWidth="7" android:strokeAlpha="0.75" />
-        <path android:pathData="M53.48,74.76A25,25 0 0,1 40.63,73.18" android:strokeColor="#FFFFFF" android:strokeWidth="7" android:strokeAlpha="0.5" />
-        <path android:pathData="M40.63,73.18A25,25 0 0,1 30.85,66.07" android:strokeColor="#FFFFFF" android:strokeWidth="7" android:strokeAlpha="0.28" />
-        <path android:pathData="M25,63.79L17.09,52.4L32.91,52.4Z" android:fillColor="#FFFFFF" android:strokeColor="#FFFFFF" android:strokeWidth="4.8" android:strokeLineJoin="round" />
-        <path android:pathData="M57.42,30.85a8.65,8.65 0 1,0 17.3,0a8.65,8.65 0 1,0 -17.3,0Z" android:fillColor="#FFFFFF" />
+    <!-- Android 13 主題圖示：系統只看形狀、自己上色。同前景，後山改半透明來分前後（單色時分不出顏色）。 -->
+    <group android:scaleX="0.8" android:scaleY="0.8" android:translateX="13.2" android:translateY="11.6">
+        <path android:pathData="M66.5,28a5.5,5.5 0 1,0 11,0a5.5,5.5 0 1,0 -11,0Z" android:fillColor="#FFFFFF" />
+        <path android:pathData="M26.05,58.11L42.05,33.11A3.5,3.5 0 0,1 47.95,33.11L63.95,58.11A3.5,3.5 0 0,1 61,63.5L29,63.5A3.5,3.5 0 0,1 26.05,58.11Z" android:fillColor="#FFFFFF" android:fillAlpha="0.45" />
+        <path android:pathData="M46,60L61,39L74,60Z" android:fillColor="#FFFFFF" android:strokeColor="#FFFFFF" android:strokeWidth="7" android:strokeLineJoin="round" />
+        <path android:pathData="M25,60h52a2,2 0 0,1 0,4h-52a2,2 0 0,1 0,-4Z" android:fillColor="#FFFFFF" />
+        <path android:pathData="M29,66.5h38a2,2 0 0,1 0,4h-38a2,2 0 0,1 0,-4Z" android:fillColor="#FFFFFF" />
+        <path android:pathData="M42,73h24a2,2 0 0,1 0,4h-24a2,2 0 0,1 0,-4Z" android:fillColor="#FFFFFF" />
+        <path android:pathData="M44,79.5h10a2,2 0 0,1 0,4h-10a2,2 0 0,1 0,-4Z" android:fillColor="#FFFFFF" />
     </group>
 </vector>
