@@ -1435,7 +1435,8 @@ storyboard 縮圖、`cache.db`、草稿、設定值、Gemini 金鑰都不備份�
   - OAuth client：`videoshot-android`（Android，套件 `com.xenyaa.videoshot`＋開發金鑰 SHA-1）、`videoshot-signin-audience`（網頁應用程式，只當 Credential Manager 的 ID token 受眾，值在 `strings.xml` 的 `google_signin_web_client_id`）、`videoshot-pc`（電腦版，只供開發機測試）。
   - 已啟用 Google Drive API、YouTube Data API v3；資料存取列了 `drive.appdata` 與 `youtube.upload`。
   - **品牌**：名稱 videoshot、首頁 `https://videoshot.scottchayaa.com`、隱私權政策 `https://videoshot.scottchayaa.com/privacy`、授權網域 `scottchayaa.com`（Search Console 已驗證）、聯絡信箱 mmx112945@gmail.com；品牌驗證已通過（2026-10-26）。網站原始碼在 repo 的 `site/`，以 Cloudflare Workers 靜態資源部署（在 `site/` 執行 `wrangler deploy`）。
-  - **標誌**：「回到那一刻」圓環（白色圓環、左側圓角實心三角箭頭往回轉、尾端漸淡、右上角橘點；深海藍底），與 app 桌面圖示、網站同一個圖形。第一版的六瓣雞蛋花被品牌審核以「標誌無法識別品牌」退件（推測太像 Google 相簿的多色風車，且網站上沒有出現），2026-10-26 換掉。
+  - **標誌**：品牌頁目前是「回到那一刻」圓環（白色圓環、左側圓角實心三角箭頭往回轉、尾端漸淡、右上角橘點；深海藍底）。第一版的六瓣雞蛋花被品牌審核以「標誌無法識別品牌」退件（推測太像 Google 相簿的多色風車，且網站上沒有出現），2026-10-26 換掉。
+    app 桌面圖示與網站 2026-11-03 已換成「浮島」（深夜空靛底、前後兩座圓角山、淡黃太陽、山下四層錯開的岩層，見 `drawable/ic_launcher_*.xml`、`site/public/logo.svg`）；**品牌頁的標誌還沒換**，換了可能要重新審核，時機由 scott 決定（⏳）。
   - 原本與 mypassword 共用專案（`mypass-470608`）；為了品牌設定不互相影響而搬出來。**舊專案 appDataFolder 裡的備份在新專案看不到**（當時只有開發測試資料，scott 確認可以捨棄）。
 - **OAuth client 所屬的 Google Cloud 專案要長期沿用。** appDataFolder 以「Google 帳號＋Cloud 專案」為界，
   跟 OAuth client 的類型或個別 client 無關——**已實測確認**（2026-09-28）：同一個 Cloud 專案下，
@@ -1717,6 +1718,7 @@ OAuth client 綁定 APK 的簽章憑證，**debug 與 release 用不同的憑證
 | 項目 | 位置 | 何時確認 |
 |---|---|---|
 | 手動上傳相簿裡現有影片的入口放哪裡 | 第十九節「背景任務」 | 排到那個階段時 |
+| Google 品牌頁的標誌何時換成「浮島」（換了可能重新審核） | 第十節「品牌」 | scott 決定，避開階段 23 送審 |
 | 回填節流參數 | 第十一節 | 回填階段 |
 | **廣告偵測 `.ad-showing` 是否有效** | 第五節、第十二節 | POC 未能觸發廣告。**階段 4c 已實作**（偵測得到就擋、偵測不到不擋流程），但驗收整輪仍未遇到廣告，**依舊未驗證**。embed 的 DOM 是行動版，但播放器容器**確實帶 `ytp-*` 類名**，所以選擇器仍有機會成立 —— 要實際觸發廣告才算數 |
 | 首頁月份標籤：換行 vs 橫向捲動 | 第六節 | 暫定橫向捲動（沿用原型） |
