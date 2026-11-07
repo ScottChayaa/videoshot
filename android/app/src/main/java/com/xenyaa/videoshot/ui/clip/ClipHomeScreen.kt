@@ -104,7 +104,7 @@ fun ClipHomeScreen(
     Column(modifier.fillMaxSize()) {
         val empty = draft == null && tasks.isEmpty()
         VsTopBar("剪輯", actions = {
-            if (!empty) VsButton("新增剪輯", { if (draft != null) confirmDiscard = true else onNewClip() })
+            if (!empty) VsButton("新增剪輯", { if (draft != null) confirmDiscard = true else onNewClip() }, compact = true)
         })
         if (empty) {
             VsEmptyState(

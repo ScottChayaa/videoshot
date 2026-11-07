@@ -205,6 +205,7 @@ private fun ButtonSection() = Section("按鈕") {
         VsIconButton(VsIcons.Scissors, "截圖", onClick = {}, enabled = false)
     }
     VsButton("完成", onClick = {}, dimmed = true)
+    VsButton("新增剪輯", onClick = {}, compact = true)
     Row {
         VsFieldButton(VsIcons.ImagesCheck, "全選", onClick = {})
         VsFieldButton(VsIcons.Calendar, "時間", onClick = {}, done = true)

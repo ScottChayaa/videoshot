@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,6 +31,7 @@ enum class ButtonVariant { Primary, Secondary, Quiet, Danger, DangerQuiet }
  * 按壓、停用與語意，外觀全部由這裡指定。
  *
  * [dimmed]：外觀同停用、但按得下去 —— 給「還不能做，按了要說為什麼」的情況（取圖第三步的【完成】）。
+ * [compact]：放在頂欄右側用的小尺寸（看起來 34dp 高、15 字級）。觸控範圍仍由 Material 的最小互動尺寸撐到 48dp。
  */
 @Composable
 fun VsButton(
@@ -40,20 +42,22 @@ fun VsButton(
     icon: ImageVector? = null,
     enabled: Boolean = true,
     dimmed: Boolean = false,
+    compact: Boolean = false,
 ) {
     VsButtonBase(
         onClick = onClick,
         variant = variant,
         enabled = enabled,
         dimmed = dimmed,
-        contentPadding = PaddingValues(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s2),
-        modifier = modifier.defaultMinSize(minHeight = AppTheme.spacing.tap),
+        contentPadding = if (compact) PaddingValues(horizontal = AppTheme.spacing.s3)
+        else PaddingValues(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s2),
+        modifier = if (compact) modifier.height(34.dp) else modifier.defaultMinSize(minHeight = AppTheme.spacing.tap),
     ) {
         if (icon != null) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(AppTheme.spacing.s2))
         }
-        Text(text, style = MaterialTheme.typography.labelLarge) // 17 Medium
+        Text(text, style = if (compact) MaterialTheme.typography.titleSmall else MaterialTheme.typography.labelLarge) // 15／17 Medium
     }
 }
 

@@ -136,7 +136,7 @@ private fun ColumnScope.EditorBody(
             preview.pause()
         }
     }
-    VsTopBar("編輯", nav = TopBarNav.Back(onBack), actions = { VsButton("導出", onExport, enabled = !state.isEmpty) })
+    VsTopBar("編輯", nav = TopBarNav.Back(onBack), actions = { VsButton("導出", onExport, enabled = !state.isEmpty, compact = true) })
 
     Box(Modifier.weight(1f).fillMaxWidth().background(ClipColors.preview), contentAlignment = Alignment.Center) {
         ClipPreviewSurface(preview, draft.orientation, showVideo = !state.isEmpty)
