@@ -5,12 +5,12 @@
     android:viewportHeight="108">
     <!-- 「浮島」：太陽、一大一小兩座圓角的山（後山淡、前山亮），山下四層往下縮、左右錯開的岩層。圖形以 100×100 繪製，縮 0.8 倍放進安全區（半徑 33），被裁成圓形也不會切到。 -->
     <group android:scaleX="0.8" android:scaleY="0.8" android:translateX="13.2" android:translateY="11.6">
-        <path android:pathData="M66.5,28a5.5,5.5 0 1,0 11,0a5.5,5.5 0 1,0 -11,0Z" android:fillColor="#F4E5A4" />
-        <path android:pathData="M26.05,58.11L42.05,33.11A3.5,3.5 0 0,1 47.95,33.11L63.95,58.11A3.5,3.5 0 0,1 61,63.5L29,63.5A3.5,3.5 0 0,1 26.05,58.11Z" android:fillColor="#8E99D2" />
-        <path android:pathData="M46,60L61,39L74,60Z" android:fillColor="#EDEBF8" android:strokeColor="#EDEBF8" android:strokeWidth="7" android:strokeLineJoin="round" />
-        <path android:pathData="M25,60h52a2,2 0 0,1 0,4h-52a2,2 0 0,1 0,-4Z" android:fillColor="#3F4C8A" />
-        <path android:pathData="M29,66.5h38a2,2 0 0,1 0,4h-38a2,2 0 0,1 0,-4Z" android:fillColor="#3F4C8A" />
-        <path android:pathData="M42,73h24a2,2 0 0,1 0,4h-24a2,2 0 0,1 0,-4Z" android:fillColor="#3F4C8A" />
-        <path android:pathData="M44,79.5h10a2,2 0 0,1 0,4h-10a2,2 0 0,1 0,-4Z" android:fillColor="#3F4C8A" />
+        <path android:pathData="M66.5,28a5.5,5.5 0 1,0 11,0a5.5,5.5 0 1,0 -11,0Z" android:fillColor="#FFF0B4" />
+        <path android:pathData="M26.05,58.11L42.05,33.11A3.5,3.5 0 0,1 47.95,33.11L63.95,58.11A3.5,3.5 0 0,1 61,63.5L29,63.5A3.5,3.5 0 0,1 26.05,58.11Z" android:fillColor="#D5E2FF" />
+        <path android:pathData="M46,60L61,39L74,60Z" android:fillColor="#F3F6FC" android:strokeColor="#F3F6FC" android:strokeWidth="7" android:strokeLineJoin="round" />
+        <path android:pathData="M25,60h52a2,2 0 0,1 0,4h-52a2,2 0 0,1 0,-4Z" android:fillColor="#254B9B" />
+        <path android:pathData="M29,66.5h38a2,2 0 0,1 0,4h-38a2,2 0 0,1 0,-4Z" android:fillColor="#254B9B" />
+        <path android:pathData="M42,73h24a2,2 0 0,1 0,4h-24a2,2 0 0,1 0,-4Z" android:fillColor="#254B9B" />
+        <path android:pathData="M44,79.5h10a2,2 0 0,1 0,4h-10a2,2 0 0,1 0,-4Z" android:fillColor="#254B9B" />
     </group>
 </vector>
