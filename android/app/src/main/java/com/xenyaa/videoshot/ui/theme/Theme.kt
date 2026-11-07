@@ -27,8 +27,8 @@ object AppTheme {
  * 把語意色映射到 Material3 的 ColorScheme，讓 Button／Chip／TextField 這些現成元件
  * **不必逐個覆寫顏色**就跟著色系走（取圖精靈那幾個畫面因此也一起換色）。
  */
-fun Palette.toColorScheme(): ColorScheme {
-    return lightColorScheme().copy(
+fun Palette.toColorScheme(base: ColorScheme = lightColorScheme()): ColorScheme {
+    return base.copy(
         primary = accent,
         onPrimary = accentInk,
         primaryContainer = accentWeak,

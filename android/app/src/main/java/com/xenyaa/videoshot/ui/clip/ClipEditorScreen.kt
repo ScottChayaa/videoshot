@@ -25,7 +25,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.buildAnnotatedString
@@ -41,6 +40,7 @@ import com.xenyaa.videoshot.ui.common.VsIconButton
 import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
+import com.xenyaa.videoshot.ui.theme.ClipColors
 import com.xenyaa.videoshot.ui.theme.OnDarkColors
 
 /**
@@ -138,7 +138,7 @@ private fun ColumnScope.EditorBody(
     }
     VsTopBar("編輯", nav = TopBarNav.Back(onBack), actions = { VsButton("導出", onExport, enabled = !state.isEmpty) })
 
-    Box(Modifier.weight(1f).fillMaxWidth().background(Color.Black), contentAlignment = Alignment.Center) {
+    Box(Modifier.weight(1f).fillMaxWidth().background(ClipColors.preview), contentAlignment = Alignment.Center) {
         ClipPreviewSurface(preview, draft.orientation, showVideo = !state.isEmpty)
         if (failed) {
             // 停住時畫面留著最後一格，字要墊一層半透明黑底才看得清楚
@@ -176,7 +176,7 @@ private fun ColumnScope.EditorBody(
     }
 
     // 時間軸用深色底（跟一般剪輯軟體一樣）
-    Box(Modifier.fillMaxWidth().background(AppTheme.colors.lightboxBg).padding(vertical = AppTheme.spacing.s2)) {
+    Box(Modifier.fillMaxWidth().background(ClipColors.timeline).padding(vertical = AppTheme.spacing.s2)) {
         if (state.isEmpty) {
             EmptyTimeline(state.canUndo)
         } else {

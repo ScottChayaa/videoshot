@@ -50,6 +50,7 @@ import com.xenyaa.videoshot.media.MediaItem
 import com.xenyaa.videoshot.media.MediaKind
 import com.xenyaa.videoshot.media.MediaThumbLoader
 import com.xenyaa.videoshot.ui.theme.AppTheme
+import com.xenyaa.videoshot.ui.theme.ClipColors
 import com.xenyaa.videoshot.ui.theme.OnDarkColors
 import com.xenyaa.videoshot.ui.theme.focusRing
 import kotlin.math.ceil
@@ -184,9 +185,9 @@ internal fun ClipSource.toMediaItem(): MediaItem = MediaItem(
 
 /**
  * 時間軸條：水平一排，1 秒 40dp，段與段之間 2dp；上方是時間刻度（每秒一刻、每 [RULER_LABEL_EVERY_S] 秒標時間）。
- * 底色由呼叫端給深色（跟一般剪輯軟體一樣），刻度與播放頭用 [OnDarkColors]。
+ * 底色由呼叫端給深色（跟一般剪輯軟體一樣），刻度用 [OnDarkColors]、播放頭用 [ClipColors.playhead]。
  *
- * 播放頭是畫面正中間一條固定的白色直線，時間軸在它底下捲動：[playheadMs] 決定捲到哪裡。
+ * 播放頭是畫面正中間一條固定的直線，時間軸在它底下捲動：[playheadMs] 決定捲到哪裡。
  * 左右拖整條＝[onSeek]（拖曳距離換回毫秒）；開始拖的時候先呼叫 [onDragStart]（呼叫端用來暫停播放）。
  * 點一段＝[onSelect]（index），點已選的那段＝[onSelect]（null）。已選的段有 2dp 主色外框；
  * 每段用該素材的縮圖鋪滿、裁切；縮圖還沒載好時是半透明白底。
@@ -268,7 +269,7 @@ fun ClipTimelineStrip(
                     }
                 }
                 // 播放頭：固定在正中間，不跟著捲動；純裝飾，位置由時間顯示唸出
-                Box(Modifier.fillMaxHeight().background(OnDarkColors.primary))
+                Box(Modifier.fillMaxHeight().background(ClipColors.playhead))
             },
             modifier = Modifier.fillMaxSize().drawBehind { drawRuler(geometry, originDp, widthDp, textMeasurer, labelStyle) },
         ) { measurables, constraints ->

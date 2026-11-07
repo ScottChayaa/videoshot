@@ -26,6 +26,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.xenyaa.videoshot.ui.theme.ClipTheme
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
@@ -186,7 +187,8 @@ class ClipResultScreenTest {
         lateinit var view: View
         compose.setContent {
             view = LocalView.current
-            VideoshotTheme { if (visible) ClipResultContent(FakeResultPlayback(), onBack = {}, surface = {}) }
+            // 狀態列由 ClipTheme 負責（AppRoot 把成品播放包在裡面）；enabled 切換跟剪輯首頁進出分頁的情況一樣
+            VideoshotTheme { ClipTheme(enabled = visible) { if (visible) ClipResultContent(FakeResultPlayback(), onBack = {}, surface = {}) } }
         }
         val controller = compose.runOnIdle {
             WindowCompat.getInsetsController((view.context as Activity).window, view).apply { isAppearanceLightStatusBars = true }

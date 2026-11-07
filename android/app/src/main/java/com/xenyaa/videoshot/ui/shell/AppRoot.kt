@@ -114,6 +114,7 @@ import com.xenyaa.videoshot.player.ClipSource
 import com.xenyaa.videoshot.player.LocalPlayerFullscreen
 import com.xenyaa.videoshot.ui.play.PlayScreen
 import com.xenyaa.videoshot.ui.play.PlayViewModel
+import com.xenyaa.videoshot.ui.theme.ClipTheme
 import com.xenyaa.videoshot.wizard.WizardScreen
 import com.xenyaa.videoshot.wizard.WizardViewModel
 import kotlinx.coroutines.CancellationException
@@ -781,8 +782,8 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
             )
         }
 
-        // 選素材與編輯畫面：全螢幕、沒有底部導覽（同 Dest.Play）
-        is Dest.ClipPicker -> ClipPickerRoute(
+        // 選素材與編輯畫面：全螢幕、沒有底部導覽（同 Dest.Play）。剪輯分頁的畫面一律用剪輯暗色（ClipTheme）
+        is Dest.ClipPicker -> ClipTheme { ClipPickerRoute(
             vm = clipVm!!,
             clipDeps = container.clipDeps,
             entryPending = clipEntryPending,
@@ -818,9 +819,9 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
                     }
                 }
             },
-        )
+        ) }
 
-        is Dest.ClipEditor -> Box(Modifier.fillMaxSize()) {
+        is Dest.ClipEditor -> ClipTheme { Box(Modifier.fillMaxSize()) {
             val editorVm = clipEditorVm!!
             val editorState by editorVm.state.collectAsStateWithLifecycle()
             // 導出確認抽屜：開關跟著這個畫面（離開畫面就一起丟掉）；開著的時候失敗訊息要顯示在抽屜裡
@@ -906,10 +907,10 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
                     Modifier.align(Alignment.BottomCenter).navigationBarsPadding(),
                 )
             }
-        }
+        } }
 
         // 導出中畫面：全螢幕、沒有底部導覽；任務被取消（刪掉）就退回剪輯頁，播放成品進 Dest.ClipResult
-        is Dest.ClipExport -> Box(Modifier.fillMaxSize()) {
+        is Dest.ClipExport -> ClipTheme { Box(Modifier.fillMaxSize()) {
             ClipExportRoute(
                 taskId = dest.taskId,
                 deps = container.clipDeps,
@@ -929,16 +930,17 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
                 },
             )
             SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
-        }
+        } }
 
         // 成品播放：全螢幕、沒有底部導覽（同 Dest.Play）；返回回到導出中畫面
-        is Dest.ClipResult -> ClipResultRoute(
+        is Dest.ClipResult -> ClipTheme { ClipResultRoute(
             taskId = dest.taskId,
             cacheRepo = container.clipDeps.cacheRepo,
             onBack = { nav.pop()?.let { nav = it } },
-        )
+        ) }
 
-        Dest.Root, is Dest.Folder, Dest.ArchivedFolders, is Dest.AccountSetting -> AppShell(nav = nav,
+        // 剪輯首頁連同底部導覽用剪輯暗色；其他分頁 enabled = false、沿用使用者的色系（組合結構不變）
+        Dest.Root, is Dest.Folder, Dest.ArchivedFolders, is Dest.AccountSetting -> ClipTheme(enabled = onClipHome) { AppShell(nav = nav,
             onSelectTab = { foldersVm.clearSelection(); nav = nav.select(it) },
             snackbarHostState = snackbarHostState, accountInitial = avatarInitialOf(accountState.linkedAccount?.displayName),
             accountAvatar = accountState.avatar,
@@ -1293,12 +1295,12 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
                     )
                 }
             }
-        }
+        } }
     }
 
     // 剪輯頁【新增剪輯】的選方向抽屜：掛在 nav 的 when 外面（剪輯分頁在 AppShell 分支裡，
     // 抽屜不屬於任何一支分支）。選完把「這是新的一次選素材」記下來，選素材畫面進來時據此清掉上一次的選取
-    if (choosingOrientation) {
+    if (choosingOrientation) ClipTheme {
         OrientationSheet(
             onPick = { orientation ->
                 choosingOrientation = false
