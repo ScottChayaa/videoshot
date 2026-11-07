@@ -1,0 +1,911 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>videoshot 介面配色</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* 版面：上方切換「一般畫面／剪輯」，左邊調色（預設、分組顏色、對比、存檔），右邊幾支手機即時預覽 */
+:root {
+  --pg-bg: #F3F3F6; --pg-panel: #FFFFFF; --pg-fg: #1C1D23; --pg-muted: #5E616E; --pg-line: #E2E3E9; --pg-accent: #2F4A86; --pg-chip: #ECEDF2; --pg-bad-bg: #F7DCD8; --pg-bad-fg: #8A2A22; --pg-good-fg: #1F6B4A;
+  --sans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --pg-bg: #111216; --pg-panel: #1A1B21; --pg-fg: #ECECF1; --pg-muted: #A1A4B2; --pg-line: #2C2E38; --pg-accent: #9FB2E8; --pg-chip: #24262F; --pg-bad-bg: #4A2422; --pg-bad-fg: #FFC9C2; --pg-good-fg: #8FDDB6; color-scheme: dark } }
+:root[data-theme="dark"] { --pg-bg: #111216; --pg-panel: #1A1B21; --pg-fg: #ECECF1; --pg-muted: #A1A4B2; --pg-line: #2C2E38; --pg-accent: #9FB2E8; --pg-chip: #24262F; --pg-bad-bg: #4A2422; --pg-bad-fg: #FFC9C2; --pg-good-fg: #8FDDB6; color-scheme: dark }
+* { box-sizing: border-box }
+[hidden] { display: none !important }
+body { margin: 0; background: var(--pg-bg); color: var(--pg-fg); font-family: var(--sans); font-size: 14px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 48px }
+.wrap { max-width: 1480px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px }
+header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between }
+header h1 { font-size: 22px; font-weight: 700; margin: 0; text-wrap: balance }
+header p { margin: 2px 0 0; color: var(--pg-muted) }
+.modes { display: inline-flex; padding: 3px; border-radius: 11px; background: var(--pg-chip); gap: 2px }
+.modes button { font: inherit; font-size: 14px; font-weight: 500; border: 0; border-radius: 9px; padding: 7px 16px; background: transparent; color: var(--pg-muted); cursor: pointer }
+.modes button[aria-selected="true"] { background: var(--pg-panel); color: var(--pg-fg); box-shadow: 0 1px 2px rgba(0,0,0,.12) }
+.grid { display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 1fr); gap: 20px; align-items: start }
+@media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr) } }
+.panel { background: var(--pg-panel); border: 1px solid var(--pg-line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0 }
+@media (min-width: 901px) { .ctrl { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); max-height: calc(100vh - 24px); overflow-y: auto } }
+.panel h2 { font-size: 13px; font-weight: 500; color: var(--pg-muted); letter-spacing: .06em; margin: 0 }
+.panel h3 { font-size: 13px; font-weight: 700; margin: 6px 0 0; color: var(--pg-fg) }
+.presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px }
+.preset { display: flex; flex-direction: column; gap: 6px; padding: 6px; border: 1px solid var(--pg-line); border-radius: 10px; background: none; color: var(--pg-fg); font: inherit; font-size: 12px; cursor: pointer; line-height: 1.3; text-align: left; position: relative; min-width: 0 }
+.preset:hover { border-color: var(--pg-muted) }
+.preset[aria-pressed="true"] { border-color: var(--pg-accent); box-shadow: 0 0 0 1px var(--pg-accent) }
+.mini { height: 40px; border-radius: 6px; padding: 5px; display: flex; flex-direction: column; gap: 3px; overflow: hidden }
+.mini .card { flex: 1; border-radius: 4px; border: 1px solid; display: flex; align-items: center; gap: 4px; padding: 0 4px }
+.mini .bar { height: 3px; border-radius: 2px; flex: 1 }
+.mini .btn { width: 16px; height: 9px; border-radius: 3px }
+.preset .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 14px }
+.preset .del { position: absolute; bottom: 4px; right: 4px; font-size: 13px; line-height: 1; color: var(--pg-muted); padding: 2px 4px; border-radius: 6px }
+.preset .del:hover { color: var(--pg-fg); background: var(--pg-line) }
+.colors { display: flex; flex-direction: column; gap: 8px }
+.crow { display: grid; grid-template-columns: 30px minmax(0, 1fr) 88px auto; align-items: center; gap: 4px 10px }
+.crow .swatch { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--pg-line); display: block }
+.crow .lab { display: flex; flex-direction: column; line-height: 1.3; min-width: 0 }
+.crow .lab label { font-weight: 500 }
+.crow .lab span { font-size: 11.5px; color: var(--pg-muted) }
+.crow input[type=text] { font-family: var(--mono); font-size: 12.5px; width: 100%; height: 30px; padding: 0 7px; border: 1px solid var(--pg-line); border-radius: 8px; background: var(--pg-bg); color: var(--pg-fg) }
+.crow input[aria-invalid="true"] { border-color: #D2493F }
+.crow .pick { font: inherit; font-size: 12px; height: 30px; width: 34px; padding: 0; border-radius: 8px; border: 1px solid var(--pg-line); background: var(--pg-bg); color: var(--pg-fg); cursor: pointer; display: grid; place-items: center }
+.crow .pick:hover, .crow .pick[aria-expanded="true"] { border-color: var(--pg-accent) }
+.crow .pick svg { width: 16px; height: 16px }
+.picker { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--pg-line); border-radius: 10px; background: var(--pg-bg); margin-top: 4px }
+.picker[hidden] { display: none }
+.sv { position: relative; height: 140px; border-radius: 8px; cursor: crosshair; touch-action: none;
+  background-image: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent) }
+.sv .dot { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.45); pointer-events: none }
+.hue { -webkit-appearance: none; appearance: none; width: 100%; height: 14px; border-radius: 7px; margin: 0; cursor: pointer;
+  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00) }
+.hue::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 1px solid rgba(0,0,0,.4) }
+.hue::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 1px solid rgba(0,0,0,.4) }
+.picker .pl { font-size: 12px; color: var(--pg-muted) }
+.sw { display: flex; flex-wrap: wrap; gap: 6px }
+.sw button { width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--pg-line); cursor: pointer; padding: 0 }
+.picker .done { align-self: flex-end }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center }
+.actions input { font: inherit; font-size: 13px; height: 34px; padding: 0 10px; border: 1px solid var(--pg-line); border-radius: 9px; background: var(--pg-bg); color: var(--pg-fg); flex: 1 1 140px; min-width: 0 }
+button.b { font: inherit; font-size: 13px; padding: 6px 12px; height: 34px; border-radius: 9px; border: 1px solid var(--pg-line); background: var(--pg-bg); color: var(--pg-fg); cursor: pointer; white-space: nowrap }
+button.b:hover { border-color: var(--pg-accent) }
+button.b.primary { background: var(--pg-accent); border-color: var(--pg-accent); color: var(--pg-panel) }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--pg-accent); outline-offset: 2px }
+.msg { font-size: 12px; color: var(--pg-muted) }
+pre.out { font-family: var(--mono); font-size: 11.5px; line-height: 1.5; background: var(--pg-bg); border: 1px solid var(--pg-line); border-radius: 8px; padding: 8px 10px; margin: 0; white-space: pre; overflow-x: auto; max-height: 220px; user-select: all }
+details summary { cursor: pointer; font-size: 13px; color: var(--pg-muted) }
+.contrast { display: flex; gap: 6px; flex-wrap: wrap }
+.contrast .sum { width: 100%; font-size: 12.5px; font-weight: 500 }
+.contrast .sum.ok { color: var(--pg-good-fg) }
+.contrast .sum.bad { color: var(--pg-bad-fg) }
+.cbadge { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; background: var(--pg-chip); font-variant-numeric: tabular-nums }
+.cbadge.low { background: var(--pg-bad-bg); color: var(--pg-bad-fg) }
+.note { font-size: 12px; color: var(--pg-muted); margin: 0 }
+
+.stage { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; min-width: 0 }
+.shot { display: flex; flex-direction: column; gap: 8px; align-items: center; min-width: 0; max-width: 100% }
+.shot > .cap { font-size: 12.5px; color: var(--pg-muted) }
+
+/* ── 手機預覽：只用 --c-*（使用者調的顏色），不跟這頁的淺色／深色走 ── */
+.ph { width: 360px; max-width: 100%; height: 760px; border-radius: 34px; border: 7px solid #15161A; overflow: hidden; background: var(--c-bg); color: var(--c-text);
+  display: flex; flex-direction: column; font-family: var(--sans); font-size: 15px; line-height: 1.45; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,.18) }
+.sbar { height: 26px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; font-size: 12px; font-weight: 700; background: var(--c-bg); color: var(--c-text); font-variant-numeric: tabular-nums }
+.sbar i { display: inline-flex; gap: 4px; font-style: normal }
+.sbar i b { display: inline-block; width: 14px; height: 9px; border-radius: 2px; background: currentColor; opacity: .85 }
+.scr { flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; min-height: 0; scrollbar-width: thin }
+.ico { width: 22px; height: 22px; flex: none; display: block }
+.tb { flex: none; display: flex; align-items: center; height: 61px; padding: 0 6px 0 16px; background: var(--c-bg); border-bottom: 1px solid var(--c-border); gap: 2px }
+.tb.nodiv { border-bottom-color: transparent }
+.tb.back { padding-left: 4px }
+.tb .t { flex: 1; font-size: 24px; font-weight: 700; color: var(--c-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.tb .t.s { font-size: 17px }
+.ib { width: 44px; height: 44px; border-radius: 8px; display: grid; place-items: center; color: var(--c-textDim); position: relative; flex: none }
+.ib.tx { color: var(--c-text) }
+.ib.on { color: var(--c-accent) }
+.ib .bd { position: absolute; top: 5px; right: 3px; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px; background: var(--c-accent); color: var(--c-accentInk); font-size: 11px; font-weight: 700; line-height: 16px; text-align: center; box-shadow: 0 0 0 1.5px var(--c-bg) }
+.ib .bd.dot { min-width: 0; width: 9px; height: 9px; padding: 0; top: 9px; right: 9px }
+.ib.off { color: var(--c-textFaint); opacity: .7 }
+.nav { flex: none; background: var(--c-surface); border-top: 1px solid var(--c-border); display: grid; grid-template-columns: repeat(5, 1fr); height: 60px; padding-bottom: 2px }
+.nav > div { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--c-textDim); font-size: 12px; font-weight: 500; position: relative }
+.nav > div.sel { color: var(--c-accent); font-weight: 700 }
+.nav .icw { height: 26px; display: grid; place-items: center; position: relative }
+.nav .cap { width: 30px; height: 26px; border-radius: 8px; background: var(--c-accent); color: var(--c-accentInk); display: grid; place-items: center }
+.nav .cap .ico { width: 20px; height: 20px }
+.nav .ava { width: 24px; height: 24px; border-radius: 50%; background: var(--c-accent); color: var(--c-accentInk); font-size: 12px; font-weight: 700; display: grid; place-items: center }
+.nav .ico { width: 24px; height: 24px }
+.nav .nb { position: absolute; top: -4px; left: calc(50% + 4px); min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--c-accent); color: var(--c-accentInk); font-size: 11px; font-weight: 700; line-height: 16px; text-align: center }
+.pad { padding: 16px; display: flex; flex-direction: column; gap: 16px }
+.grp { display: flex; flex-direction: column; gap: 8px }
+.st { font-size: 15px; font-weight: 700; color: var(--c-textDim) }
+.st.full { padding: 8px 16px 0 }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.frame { border-radius: 10px; overflow: hidden; outline: 1px dashed var(--c-border); outline-offset: 2px }
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 8px; font-size: 13px; line-height: 18px; background: color-mix(in srgb, var(--c-text) 4%, transparent); color: var(--c-text); white-space: nowrap }
+.chip .ico { width: 15px; height: 15px }
+.chip.pl .ico { color: var(--c-place) }
+.chip.tg .ico { color: var(--c-tag) }
+.chip .n { color: var(--c-textDim) }
+.chip.on { background: var(--c-accent); color: var(--c-accentInk) }
+.chip.on .ico, .chip.on .n { color: var(--c-accentInk) }
+.chip.mn { padding: 2px 6px; font-size: 12px; line-height: 16px; gap: 3px }
+.chip.mn .ico { width: 13px; height: 13px }
+.chip.ring { box-shadow: 0 0 0 2px var(--c-focus) }
+.skel { display: flex; flex-wrap: wrap; gap: 8px }
+.skel span, .sk { height: 26px; border-radius: 8px; background: var(--c-border); position: relative; overflow: hidden }
+.sk { height: auto }
+@media (prefers-reduced-motion: no-preference) {
+  .skel span::after, .sk::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--c-surface) 75%, transparent), transparent); transform: translateX(-100%); animation: sh 1.6s infinite }
+  @keyframes sh { to { transform: translateX(100%) } }
+}
+.skgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px }
+.skgrid .sk { aspect-ratio: 1; border-radius: 0 }
+.shd { display: flex; align-items: center; height: 52px; border-bottom: 1px solid var(--c-border); gap: 8px; background: var(--c-surface); padding: 0 8px 0 16px; border-radius: 10px 10px 0 0 }
+.shd .t { flex: 1; font-size: 17px; font-weight: 700; color: var(--c-text) }
+.ta { font-size: 15px; font-weight: 500; color: var(--c-accent); padding: 0 8px }
+.ta.off { color: var(--c-textFaint) }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid transparent; font-size: 15px; font-weight: 500; white-space: nowrap }
+.btn .ico { width: 18px; height: 18px }
+.btn.pri { background: var(--c-accent); color: var(--c-accentInk) }
+.btn.sec { background: var(--c-surface); color: var(--c-text); border-color: var(--c-borderStrong) }
+.btn.qt { background: transparent; color: var(--c-textDim) }
+.btn.dg { background: var(--c-danger); color: var(--c-dangerInk) }
+.btn.dq { background: var(--c-surface); color: var(--c-danger); border-color: var(--c-borderStrong) }
+.btn.off { background: var(--c-surface2); color: var(--c-textFaint); border-color: var(--c-border) }
+.btn.sm { height: 36px; padding: 0 12px; font-size: 15px }
+.btn.blk { width: 100% }
+.icb { width: 44px; height: 44px; border-radius: 8px; border: 1px solid var(--c-borderStrong); background: var(--c-surface); color: var(--c-text); display: grid; place-items: center }
+.icb.off { background: var(--c-surface2); color: var(--c-textFaint); border-color: var(--c-border) }
+.fbs { display: flex }
+.fb { width: 48px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding-top: 4px; font-size: 12px; color: var(--c-textDim) }
+.fb .w { position: relative; color: var(--c-accent) }
+.fb .ok { position: absolute; top: -4px; right: -7px; width: 13px; height: 13px; border-radius: 50%; background: var(--c-ok); box-shadow: 0 0 0 1.5px var(--c-surface); display: grid; place-items: center; color: #fff }
+.fb .ok .ico { width: 9px; height: 9px }
+.fb.off, .fb.off .w { color: var(--c-textFaint) }
+.lr { display: flex; align-items: center; gap: 16px; min-height: 56px; padding: 10px 16px; color: var(--c-text) }
+.lr > .ico:first-child { color: var(--c-textDim) }
+.lr .tx { flex: 1; min-width: 0; display: flex; flex-direction: column }
+.lr .tt { font-size: 17px; color: var(--c-text) }
+.lr .ss { font-size: 15px; color: var(--c-textDim); margin-top: 2px }
+.lr .chev { color: var(--c-textFaint); width: 18px; height: 18px }
+.lr.dgr .tt, .lr.dgr > .ico:first-child { color: var(--c-danger) }
+.lr .val { font-size: 15px; color: var(--c-textDim) }
+.inset { margin: 0 -16px }
+.empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 8px; text-align: center }
+.empty > .ico { width: 34px; height: 34px; color: var(--c-textFaint) }
+.empty .m { font-size: 17px; color: var(--c-textDim) }
+.empty .m2 { font-size: 15px; color: var(--c-textDim); margin-top: -4px }
+.tf { display: flex; flex-direction: column; gap: 6px }
+.tf .lb { font-size: 15px; font-weight: 500; color: var(--c-textDim); display: flex; align-items: center; gap: 6px }
+.tf .lb.ac { color: var(--c-accent) }
+.tf .lb.ac::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--c-accent) }
+.tf .bx { height: 48px; border-radius: 8px; border: 1px solid var(--c-borderStrong); background: var(--c-surface); display: flex; align-items: center; gap: 8px; padding: 0 12px; font-size: 17px; color: var(--c-text) }
+.tf .bx .ph2 { color: var(--c-textFaint) }
+.tf .bx .ph2.mx { color: var(--c-textDim) }
+.tf .bx > .ico { color: var(--c-textDim); width: 20px; height: 20px }
+.tf .bx.fo { border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accentWeak) }
+.tf .bx.fo .cur { width: 2px; height: 22px; background: var(--c-accent); margin-left: -6px }
+.tf .bx.dn { height: 40px; background: var(--c-surface2); border-color: var(--c-border); font-size: 15px }
+.tf .bx.er { border-color: var(--c-warn) }
+.tf .sup { font-size: 13px; color: var(--c-textDim) }
+.tf .sup.er { color: var(--c-warn) }
+.tabs { display: flex; background: var(--c-bg); border-bottom: 1px solid var(--c-border) }
+.tabs div { flex: 1; text-align: center; padding: 12px 0 11px; font-size: 17px; color: var(--c-textDim); position: relative }
+.tabs div.on { color: var(--c-text); font-weight: 700 }
+.tabs div.on::after { content: ""; position: absolute; left: 22%; right: 22%; bottom: -1px; height: 3px; border-radius: 2px; background: var(--c-accent) }
+.pill { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 12px; border-radius: 8px; font-size: 13px; background: color-mix(in srgb, var(--c-text) 4%, transparent); color: var(--c-text); border: 1px solid transparent }
+.pill .ico { width: 15px; height: 15px }
+.pill.on { background: var(--c-accent); color: var(--c-accentInk) }
+.pill.qt { background: transparent }
+.pill.off { opacity: .5 }
+.sel { display: flex; flex-direction: column; gap: 6px }
+.sel .lb { font-size: 15px; font-weight: 500; color: var(--c-textDim) }
+.sel .bx { height: 48px; border-radius: 8px; border: 1px solid var(--c-borderStrong); background: var(--c-surface); display: flex; align-items: center; padding: 0 12px; font-size: 17px; color: var(--c-text) }
+.sel .bx span { flex: 1 }
+.sel .bx .ico { color: var(--c-textDim); width: 18px; height: 18px }
+.sgt { font-size: 15px; color: var(--c-textDim); padding: 16px 16px 8px }
+.sg { background: var(--c-surface); border-top: 1px solid var(--c-border); border-bottom: 1px solid var(--c-border) }
+.sg .dv { height: 1px; background: var(--c-border); margin-left: 16px }
+.sgn { font-size: 15px; color: var(--c-textDim); padding: 8px 16px 0 }
+.rd { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--c-borderStrong); display: grid; place-items: center; flex: none }
+.rd.on { border-color: var(--c-accent) }
+.rd.on::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--c-accent) }
+.stp { display: flex; align-items: center; gap: 4px }
+.stp b { min-width: 48px; text-align: center; font-size: 17px; color: var(--c-text); font-variant-numeric: tabular-nums }
+.stp span { width: 36px; height: 36px; border-radius: 8px; background: var(--c-surface2); border: 1px solid var(--c-border); color: var(--c-accent); display: grid; place-items: center; font-size: 20px; font-weight: 500 }
+.stp span.off { opacity: .4 }
+.dock { flex: none; background: var(--c-surface); border-top: 1px solid var(--c-border); display: flex; align-items: center; gap: 12px; padding: 8px 16px }
+.dock .s { flex: 1; font-size: 15px; color: var(--c-textDim) }
+.dock .btn { flex: 1 }
+.dock .s + .btn { flex: none }
+.banner { display: flex; gap: 10px; padding: 12px; border-radius: 12px; background: var(--c-warnWeak); color: var(--c-warn); font-size: 15px; align-items: flex-start }
+.banner .ico { width: 20px; height: 20px; margin-top: 1px }
+.mh { display: flex; align-items: baseline; gap: 8px; padding: 12px 16px 6px }
+.mh b { font-size: 17px; color: var(--c-text) }
+.mh span { font-size: 13px; color: var(--c-textDim) }
+.mchips { display: flex; gap: 6px; padding: 0 16px 8px; flex-wrap: wrap }
+.pgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px }
+.pgrid > div { aspect-ratio: 1; position: relative }
+.hero { display: flex; align-items: center; gap: 16px; padding: 20px 16px }
+.hero .av { width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, var(--c-hero1), var(--c-hero2)); color: #fff; font-size: 28px; font-weight: 700; display: grid; place-items: center; flex: none }
+.hero b { display: block; font-size: 20px; color: var(--c-text) }
+.hero span { font-size: 15px; color: var(--c-textDim) }
+.lbx { background: var(--c-lightbox) }
+.lbtop { display: flex; justify-content: space-between; padding: 8px 6px; color: #fff }
+.lbtop .ib { color: #fff }
+.lbimg { flex: 1; display: grid; place-items: center; padding: 0 0 20px }
+.lbimg div { width: 100%; aspect-ratio: 16/9 }
+.lbinfo { padding: 16px; color: rgba(255,255,255,.8); font-size: 15px; display: flex; flex-direction: column; gap: 8px }
+.lbinfo b { color: #fff; font-size: 17px }
+.lbinfo .chip { background: rgba(255,255,255,.12); color: #fff }
+/* 照片（固定的漸層，不參與配色） */
+.g1 { background: linear-gradient(160deg, #7FC4E8, #2E6FA3 60%, #E8D6A8 61%, #D9C08A) }
+.g2 { background: linear-gradient(170deg, #F8B26A, #E0604E 45%, #5A2E4F) }
+.g3 { background: linear-gradient(150deg, #A8D59A, #3F7E4F 55%, #23452E) }
+.g4 { background: linear-gradient(200deg, #1B2A4A, #3E5D8F 50%, #F4D58D 51%, #C98B3C) }
+.g5 { background: radial-gradient(circle at 30% 30%, #FFE7B0, #E89A5C 40%, #7A3B2E) }
+.g6 { background: linear-gradient(180deg, #B9E3F2, #6BB7D6 50%, #0E7490 51%, #0B4F6C) }
+.g7 { background: linear-gradient(135deg, #D9D3E8, #8B7FB0 60%, #3C335A) }
+.g8 { background: linear-gradient(170deg, #CFE8D8, #7FB59A 50%, #6D5A43 51%, #4A3B2A) }
+.g9 { background: linear-gradient(190deg, #2B2238, #6C3F6E 50%, #F29E7A) }
+.g10 { background: linear-gradient(160deg, #F2F0E6, #C9BFA6 55%, #8A7A5C) }
+.g11 { background: radial-gradient(circle at 70% 40%, #FFF2C4, #9AC7E0 45%, #3A6B8C) }
+.g12 { background: linear-gradient(140deg, #3A3A3A, #8A8A8A 50%, #D8D2C6) }
+/* 剪輯 */
+.ecard { margin: 0 16px; border-radius: 12px; border: 1px solid var(--c-border); background: var(--c-surface); padding: 12px; display: flex; align-items: center; gap: 12px }
+.ecard > .ico { color: var(--c-accent) }
+.ecard .tx { flex: 1; display: flex; flex-direction: column; line-height: 1.35 }
+.ecard .tx b { font-size: 17px; font-weight: 500; color: var(--c-text) }
+.ecard .tx span { font-size: 13px; color: var(--c-textDim) }
+.tlist { margin: 0 16px; border-radius: 12px; border: 1px solid var(--c-border); background: var(--c-surface); overflow: hidden }
+.task { display: flex; align-items: center; gap: 12px; padding: 12px }
+.task + .task { border-top: 1px solid var(--c-border) }
+.task .th { width: 56px; height: 56px; border-radius: 8px; flex: none }
+.task .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px }
+.task .tx b { font-size: 17px; font-weight: 500; color: var(--c-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.task .tx span { font-size: 13px; color: var(--c-textDim); font-variant-numeric: tabular-nums }
+.task .tx span.ac { color: var(--c-accent) }
+.task .tx span.dg { color: var(--c-danger) }
+.task .tx span.okc { color: var(--c-ok) }
+.task .more { color: var(--c-textDim) }
+.task .dotc { width: 10px; height: 10px; border-radius: 50%; background: var(--c-accent); flex: none }
+.prog { height: 4px; border-radius: 2px; background: var(--c-surface2); overflow: hidden; margin-top: 2px }
+.prog i { display: block; height: 100%; background: var(--c-accent); border-radius: 2px }
+.lbl2 { font-size: 13px; font-weight: 700; color: var(--c-textDim); padding: 16px 16px 8px; letter-spacing: .04em }
+.mgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding-top: 2px }
+.mgrid > div { aspect-ratio: 1; position: relative }
+.mgrid .sb { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(255,255,255,.92); background: rgba(0,0,0,.18) }
+.mgrid .sb.on { border-color: rgba(255,255,255,.92); background: var(--c-accent); color: var(--c-accentInk); font-size: 12px; font-weight: 700; display: grid; place-items: center }
+.mgrid .du { position: absolute; bottom: 5px; right: 5px; padding: 0 5px; border-radius: 4px; background: rgba(0,0,0,.55); color: #fff; font-size: 11px; font-variant-numeric: tabular-nums }
+.mgrid > div.picked::after { content: ""; position: absolute; inset: 0; box-shadow: inset 0 0 0 3px var(--c-accent) }
+.pv { flex: 1; min-height: 0; overflow: hidden; background: var(--c-preview); display: grid; place-items: center; padding: 14px 0 }
+.pv .fr { height: 100%; aspect-ratio: 9/16; max-height: 250px; border-radius: 2px; position: relative }
+.pv .fr span { position: absolute; left: 10px; right: 10px; bottom: 12px; color: #fff; font-size: 13px; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,.6) }
+.ctl { flex: none; display: flex; align-items: center; gap: 4px; padding: 6px 8px; background: var(--c-bg) }
+.ctl .time { flex: 1; font-size: 15px; color: var(--c-textDim); font-variant-numeric: tabular-nums; padding-left: 4px }
+.ctl .time b { color: var(--c-text); font-weight: 500 }
+.ctl .playb { width: 44px; height: 44px; border-radius: 50%; background: var(--c-accent); color: var(--c-accentInk); display: grid; place-items: center }
+.ctl .playb .ico { width: 20px; height: 20px }
+.tl { flex: none; background: var(--c-timeline); padding: 8px 0 10px; position: relative; overflow: hidden }
+.ruler { position: relative; height: 22px; margin: 0 0 4px }
+.ruler span { position: absolute; top: 0; font-size: 11px; line-height: 14px; color: var(--c-textDim); transform: translateX(-50%); font-variant-numeric: tabular-nums }
+.ruler i { position: absolute; bottom: 0; width: 1px; height: 5px; background: var(--c-textFaint) }
+.ruler i.l { height: 8px; background: var(--c-textDim) }
+.strip { display: flex; gap: 2px; height: 58px; padding: 0 0 0 40px }
+.seg { height: 100%; border-radius: 6px; position: relative; flex: none; overflow: hidden }
+.seg .k { position: absolute; left: 4px; bottom: 4px; padding: 0 4px; border-radius: 3px; background: rgba(0,0,0,.5); color: #fff; font-size: 10px; line-height: 14px }
+.seg.on { box-shadow: inset 0 0 0 2px var(--c-accent); overflow: visible }
+.seg.on::before, .seg.on::after { content: ""; position: absolute; top: 0; bottom: 0; width: 10px; background: var(--c-accent); border-radius: 6px 0 0 6px; left: -2px }
+.seg.on::after { left: auto; right: -2px; border-radius: 0 6px 6px 0 }
+.phd { position: absolute; top: 4px; bottom: 30px; left: 138px; width: 2px; background: var(--c-playhead); border-radius: 1px }
+.phd::before { content: ""; position: absolute; top: 0; left: 50%; width: 10px; height: 10px; border-radius: 2px 2px 50% 50%; background: var(--c-playhead); transform: translateX(-50%) }
+.tlbar { display: flex; justify-content: space-between; padding: 6px 16px 0; font-size: 11px; color: var(--c-textDim); font-variant-numeric: tabular-nums }
+.tlbar .ov { color: var(--c-danger) }
+.tlempty { height: 128px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; padding: 0 16px }
+.tlempty b { font-size: 15px; font-weight: 500; color: var(--c-text) }
+.tlempty span { font-size: 13px; color: var(--c-textDim); display: inline-flex; align-items: center; gap: 2px }
+.tlempty .ico { width: 15px; height: 15px }
+.pad .ecard, .pad .tlist { margin: 0 }
+.scrim { position: absolute; inset: 0; background: rgba(0,0,0,.62) }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--c-surface); border-radius: 16px 16px 0 0; display: flex; flex-direction: column; padding-bottom: 12px }
+.sheet .hd { width: 32px; height: 4px; border-radius: 2px; background: var(--c-borderStrong); margin: 8px auto 0 }
+.sheet .shd { border-radius: 0 }
+.sheet .bd2 { padding: 12px 16px 0; display: flex; flex-direction: column; gap: 12px }
+.sheet .fine { font-size: 13px; color: var(--c-textDim); text-align: center }
+.sheet .fine a { color: var(--c-accent); text-decoration: none }
+.rrow { display: flex; align-items: center; gap: 14px; padding: 10px 0 }
+.rrow .tx { flex: 1; display: flex; flex-direction: column }
+.rrow .tx b { font-size: 17px; font-weight: 400; color: var(--c-text) }
+.rrow .tx span { font-size: 13px; color: var(--c-textDim) }
+.rrow .tx span.wn { color: var(--c-warn) }
+.exp { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 16px }
+.exp .big { width: 200px; aspect-ratio: 9/16; max-height: 330px; border-radius: 10px; position: relative; overflow: hidden }
+.exp .big .dim { position: absolute; top: 0; bottom: 0; right: 0; width: 38%; background: rgba(0,0,0,.6) }
+.exp .big b { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; text-shadow: 0 2px 8px rgba(0,0,0,.5) }
+.exp .st2 { font-size: 15px; color: var(--c-text); text-align: center }
+.exp .hint2 { font-size: 13px; color: var(--c-textDim); text-align: center; margin-top: -10px }
+.exp .ok2 { display: flex; align-items: center; gap: 6px; color: var(--c-ok); font-size: 15px }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>videoshot 介面配色</h1>
+      <p>改左邊的顏色，右邊的手機畫面同時更新。一般畫面與剪輯畫面各有一套配色。</p>
+    </div>
+    <div class="modes" role="tablist" aria-label="要調哪一套配色">
+      <button type="button" role="tab" id="tab-app" data-mode="app">一般畫面</button>
+      <button type="button" role="tab" id="tab-clip" data-mode="clip">剪輯（暗色）</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="panel ctrl" aria-label="調色">
+      <h2>預設配色</h2>
+      <div class="presets" id="presets"></div>
+      <div id="colors" class="colors"></div>
+      <h2>對比檢查</h2>
+      <div class="contrast" id="contrast" aria-live="polite"></div>
+      <h2>存檔與匯出</h2>
+      <div class="actions">
+        <input type="text" id="saveName" placeholder="名稱（可留空）" maxlength="16" autocomplete="off">
+        <button class="b primary" id="save" type="button">存成我的配色</button>
+      </div>
+      <div class="actions">
+        <button class="b" id="copy" type="button">複製色碼</button>
+        <span class="msg" id="msg" aria-live="polite"></span>
+      </div>
+      <details>
+        <summary>色碼內容</summary>
+        <pre class="out" id="out"></pre>
+      </details>
+      <p class="note" id="note"></p>
+    </section>
+
+    <section class="stage" id="stage" aria-label="預覽"></section>
+  </div>
+</div>
+
+<script>
+/* ── 兩套配色的欄位 ── */
+const MODES = {
+  app: {
+    store: 'videoshot-ui-palettes-app',
+    note: '「我的配色」只存在這個瀏覽器。複製色碼後貼回對話，我就照這組改 app 的色系檔。淡底、焦點框、遮罩這幾個沒列出來的顏色會從上面推出來。',
+    groups: [
+      ['頁面與背景', [
+        ['bg', '頁面底色', '每一頁的底、頂欄'],
+        ['surface', '卡片與抽屜', '設定群組、底部導覽、抽屜、按鈕底'],
+        ['surface2', '次層底', '精簡輸入框、停用按鈕、步進器'],
+      ]],
+      ['卡片框與分隔線', [
+        ['border', '分隔線與細框', '頂欄底線、群組上下框、骨架屏'],
+        ['borderStrong', '元件外框', '次要按鈕、輸入框、單選圈'],
+      ]],
+      ['文字', [
+        ['text', '主文字', '標題、內文'],
+        ['textDim', '次要文字', '說明、副標、沒選的分頁'],
+        ['textFaint', '極次要文字', '提示字、箭頭、停用'],
+      ]],
+      ['元件主色', [
+        ['accent', '主色', '主要按鈕、已選、導覽選取'],
+        ['accentInk', '主色上的字', '主要按鈕與已選膠囊的字'],
+        ['accentWeak', '主色淡底', '輸入框聚焦的光暈'],
+      ]],
+      ['語意色', [
+        ['danger', '破壞色', '只用在刪除、放棄'],
+        ['dangerInk', '破壞色上的字', '紅色按鈕的字'],
+        ['warn', '警示色', '輸入錯誤、提醒'],
+        ['warnWeak', '警示淡底', '提醒橫幅的底'],
+        ['ok', '完成色', '欄位已填的小勾'],
+      ]],
+      ['種類色與其他', [
+        ['place', '地點', '小膠囊的圖釘（不隨色系變）'],
+        ['tag', '標籤', '小膠囊的 #（不隨色系變）'],
+        ['hero1', '頭像漸層起點', '帳號頁頭像'],
+        ['hero2', '頭像漸層終點', '帳號頁頭像'],
+        ['lightbox', '看大圖的底', '必須不透明'],
+      ]],
+    ],
+    presets: [
+      { n: '夕陽海灘（現在）', bg: '#F5F4F1', surface: '#FFFFFF', surface2: '#FAF9F7', border: '#E6E3DE', borderStrong: '#CFCBC4', text: '#1F2A35', textDim: '#4A5562', textFaint: '#6B7480', accent: '#0B5F8A', accentInk: '#FFFFFF', accentWeak: '#E7EEF3', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#B5482A', hero2: '#C96F22', lightbox: '#0B0B12' },
+      { n: '新年', bg: '#FDF3E7', surface: '#FFFFFF', surface2: '#FBF1E3', border: '#EADCC8', borderStrong: '#D9C4A5', text: '#2B1A12', textDim: '#5A4636', textFaint: '#7A6450', accent: '#8A5E10', accentInk: '#FFFFFF', accentWeak: '#FCF1DC', danger: '#C0173A', dangerInk: '#FFFFFF', warn: '#9A4A07', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#C1121F', hero2: '#E8B33D', lightbox: '#12100E' },
+      { n: '天空藍（跟圖示）', bg: '#F3F6FC', surface: '#FFFFFF', surface2: '#F7F9FD', border: '#DFE6F2', borderStrong: '#C3CFE3', text: '#18233A', textDim: '#45526B', textFaint: '#65718A', accent: '#2F5BC0', accentInk: '#FFFFFF', accentWeak: '#E5ECFA', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#254B9B', hero2: '#638BE2', lightbox: '#0B0E16' },
+      { n: '森林苔綠', bg: '#F3F5F1', surface: '#FFFFFF', surface2: '#F8FAF6', border: '#E0E5DC', borderStrong: '#C6CEC0', text: '#1E2A22', textDim: '#48554B', textFaint: '#67736A', accent: '#2F6B4F', accentInk: '#FFFFFF', accentWeak: '#E4EFE8', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#1F7A3A', place: '#0E8FA3', tag: '#8C6D46', hero1: '#2F6B4F', hero2: '#7E8E2E', lightbox: '#0C110E' },
+      { n: '石墨中性', bg: '#F4F4F5', surface: '#FFFFFF', surface2: '#FAFAFA', border: '#E4E4E7', borderStrong: '#CBCBD0', text: '#1C1C21', textDim: '#4A4A52', textFaint: '#6B6B74', accent: '#2D2D33', accentInk: '#FFFFFF', accentWeak: '#EBEBEE', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#3A3A44', hero2: '#6A6A78', lightbox: '#0A0A0B' },
+      { n: '奶茶咖啡', bg: '#F7F1EA', surface: '#FFFDF9', surface2: '#FBF6EF', border: '#E9DFD2', borderStrong: '#D5C6B3', text: '#2E241C', textDim: '#5C4D40', textFaint: '#76675A', accent: '#6B4E2E', accentInk: '#FFFFFF', accentWeak: '#F3EADF', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0E8FA3', tag: '#8C6D46', hero1: '#6B4E2E', hero2: '#B07A3A', lightbox: '#120F0C' },
+    ],
+  },
+  clip: {
+    store: 'videoshot-ui-palettes-clip',
+    note: '「我的配色」只存在這個瀏覽器。剪輯的暗色系 app 裡還沒有，複製色碼貼回對話，我再照這組做剪輯畫面的色系。',
+    groups: [
+      ['頁面與背景', [
+        ['bg', '頁面底色', '剪輯首頁、選素材、控制列'],
+        ['surface', '卡片與抽屜', '任務卡片、底部導覽、導出抽屜'],
+        ['surface2', '次層底', '縮圖佔位、進度條的軌道'],
+        ['preview', '預覽區底', '編輯時影片四周'],
+        ['timeline', '時間軸底', '編輯畫面下方的時間軸'],
+      ]],
+      ['卡片框與分隔線', [
+        ['border', '分隔線與細框', '卡片框、頂欄底線、任務之間'],
+        ['borderStrong', '元件外框', '次要按鈕、輸入框、單選圈'],
+      ]],
+      ['文字', [
+        ['text', '主文字', '標題、任務名稱'],
+        ['textDim', '次要文字', '狀態、時間、刻度數字'],
+        ['textFaint', '極次要文字', '提示字、細刻度'],
+      ]],
+      ['元件主色', [
+        ['accent', '主色', '主要按鈕、選取的片段、進度'],
+        ['accentInk', '主色上的字', '主要按鈕與選取序號的字'],
+        ['accentWeak', '主色淡底', '輸入框聚焦的光暈'],
+        ['playhead', '播放頭', '時間軸上目前的位置'],
+      ]],
+      ['語意色', [
+        ['danger', '破壞色', '刪除、失敗、超過長度'],
+        ['dangerInk', '破壞色上的字', '紅色按鈕的字'],
+        ['warn', '警示色', '私人影片的提醒'],
+        ['ok', '完成色', '上傳完成'],
+      ]],
+    ],
+    presets: [
+      { n: '剪輯台石墨', bg: '#121316', surface: '#1B1C20', surface2: '#26282D', preview: '#000000', timeline: '#0B0C0E', border: '#2C2E34', borderStrong: '#41444C', text: '#ECEDEF', textDim: '#A3A6AE', textFaint: '#80848D', accent: '#4C9BFF', accentInk: '#08111F', accentWeak: '#1C2B40', playhead: '#FFD23F', danger: '#FF5A6A', dangerInk: '#1A0B0E', warn: '#F5B63F', ok: '#3DD68C' },
+      { n: '午夜藍', bg: '#0E1320', surface: '#161D2E', surface2: '#212B40', preview: '#05070C', timeline: '#0A0F1A', border: '#263049', borderStrong: '#3A4766', text: '#E8EDF7', textDim: '#9EA9C0', textFaint: '#7D89A4', accent: '#6E9BFF', accentInk: '#0A1020', accentWeak: '#1E2B4A', playhead: '#F4E5A4', danger: '#FF6B7A', dangerInk: '#1E0A0E', warn: '#F5B63F', ok: '#45D39A' },
+      { n: '暗房琥珀', bg: '#141210', surface: '#1D1A17', surface2: '#2A2622', preview: '#000000', timeline: '#0D0C0B', border: '#302B26', borderStrong: '#4A433B', text: '#EEEAE5', textDim: '#ADA59B', textFaint: '#8A8277', accent: '#F2A65A', accentInk: '#1A1008', accentWeak: '#3A2A1A', playhead: '#FFFFFF', danger: '#FF6464', dangerInk: '#1C0909', warn: '#F2C94C', ok: '#7BD88F' },
+      { n: '青綠監看', bg: '#0F1414', surface: '#172020', surface2: '#212D2D', preview: '#000000', timeline: '#0A0E0E', border: '#263333', borderStrong: '#3A4D4D', text: '#E6F0EE', textDim: '#9DB2AE', textFaint: '#7A8F8B', accent: '#3FD1B5', accentInk: '#06201B', accentWeak: '#16352F', playhead: '#FFE066', danger: '#FF6B7A', dangerInk: '#1E0A0E', warn: '#F5B63F', ok: '#9BDB6A' },
+      { n: '純黑螢幕', bg: '#000000', surface: '#111113', surface2: '#1C1C1F', preview: '#000000', timeline: '#0A0A0B', border: '#242427', borderStrong: '#3A3A3F', text: '#F2F2F3', textDim: '#A5A5AB', textFaint: '#808086', accent: '#E8E8EA', accentInk: '#0A0A0B', accentWeak: '#29292C', playhead: '#FFD23F', danger: '#FF5A6A', dangerInk: '#1A0B0E', warn: '#F5B63F', ok: '#3DD68C' },
+      { n: '紫羅蘭', bg: '#131220', surface: '#1C1A2E', surface2: '#28253F', preview: '#07060E', timeline: '#0D0C18', border: '#2D2A47', borderStrong: '#443F66', text: '#ECEAF7', textDim: '#A8A4C6', textFaint: '#857FA6', accent: '#9D8CFF', accentInk: '#120D2A', accentWeak: '#2B2650', playhead: '#FFD86B', danger: '#FF6B8A', dangerInk: '#1F0A10', warn: '#F5B63F', ok: '#4FD69C' },
+    ],
+  },
+};
+
+/* ── 色彩工具 ── */
+const hexToRgb = h => { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+const rgbToHex = a => '#' + a.map(x => Math.round(Math.max(0, Math.min(255, x))).toString(16).padStart(2, '0')).join('').toUpperCase();
+const lum = h => hexToRgb(h).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }).reduce((s, v, j) => s + v * [.2126, .7152, .0722][j], 0);
+const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
+const mix = (a, b, t) => { const x = hexToRgb(a), y = hexToRgb(b); return rgbToHex(x.map((v, i) => v + (y[i] - v) * t)); };
+function hsvToHex(h, s, v) {
+  const f = n => { const k = (n + h / 60) % 6; return v - v * s * Math.max(0, Math.min(k, 4 - k, 1)); };
+  return rgbToHex([f(5), f(3), f(1)].map(x => x * 255));
+}
+function hexToHsv(hex) {
+  const [r, g, b] = hexToRgb(hex).map(x => x / 255);
+  const mx = Math.max(r, g, b), d = mx - Math.min(r, g, b);
+  let h = 0;
+  if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return { h: (h * 60 + 360) % 360, s: mx ? d / mx : 0, v: mx };
+}
+
+/* ── 圖示（線條，24×24） ── */
+const P = {
+  filter: '<path d="M4 5h16l-6 7.5V19l-4 2v-8.5z"/>',
+  calendar: '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  back: '<path d="M15 18l-6-6 6-6"/>',
+  close: '<path d="M18 6 6 18M6 6l12 12"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z M13.5 6.5l4 4"/>',
+  trash: '<path d="M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/>',
+  images: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="9.5" r="1.8"/><path d="M3 17l5-5 4 4 2.5-2.5L21 19"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  clap: '<path d="M4 10h16v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z M4 10l-.6-3.2a1 1 0 0 1 .8-1.2l13.6-2.4a1 1 0 0 1 1.2.8L19.6 7 M8 5.2l2 3.6M13 4.3l2 3.6"/>',
+  folder: '<path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2h8.5A1.5 1.5 0 0 1 21 9.5v8A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/>',
+  user: '<circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>',
+  pin: '<path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>',
+  hash: '<path d="M5 9h15M4 15h15M10 4 8 20M16 4l-2 16"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3"/>',
+  cloud: '<path d="M7 19a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 10.5a4.25 4.25 0 0 1-.5 8.5z"/>',
+  right: '<path d="M9 6l6 6-6 6"/>',
+  down: '<path d="M6 9l6 6 6-6"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  play: '<path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/>',
+  undo: '<path d="M9 15 4 10l5-5"/><path d="M4 10h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+  redo: '<path d="M15 15l5-5-5-5"/><path d="M20 10H9.5a5.5 5.5 0 0 0 0 11H13"/>',
+  sliders: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
+  imgplus: '<path d="M20 12.5V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6.5"/><path d="M4 16l4.5-4.5 4 4 2-2L20 18M18 3v6M15 6h6"/>',
+  tag: '<path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1 1 0 0 1 0 1.4l-7.3 7.3a1 1 0 0 1-1.4 0z"/><circle cx="8" cy="8" r="1.4"/>',
+  notes: '<path d="M5 6h14M5 10.5h14M5 15h9M5 19.5h6"/>',
+  allcheck: '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12.5l3 3 5.5-6"/>',
+  scissors: '<circle cx="6" cy="6.5" r="2.5"/><circle cx="6" cy="17.5" r="2.5"/><path d="M8 8.2 20 18M8 15.8 20 6"/>',
+  more: '<circle cx="12" cy="5.5" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="18.5" r="1.3" fill="currentColor"/>',
+  alert: '<path d="M12 3.5 2.8 19.5h18.4z M12 10v4.5M12 17.2v.3"/>',
+  upload: '<path d="M12 16V4M7 9l5-5 5 5M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>',
+  palette: '<path d="M12 21a9 9 0 0 1 0-18c4.97 0 9 3.58 9 8 0 2.5-2 4-4.5 4H15a2 2 0 0 0-1.5 3.3A1.5 1.5 0 0 1 12 21z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="11.5" cy="7.5" r="1"/><circle cx="16.5" cy="9.5" r="1"/>',
+};
+const I = (n, cls = '') => `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]}</svg>`;
+
+/* ── 共用畫面片段 ── */
+const sbar = () => `<div class="sbar"><span>9:41</span><i><b></b><b></b></i></div>`;
+const topbar = (t, o = {}) => `<div class="tb${o.back ? ' back' : ''}${o.nodiv ? ' nodiv' : ''}">${o.back ? `<span class="ib tx">${I(o.back)}</span>` : ''}<span class="t${o.small ? ' s' : ''}">${t}</span>${o.acts || ''}</div>`;
+const ib = (n, o = {}) => `<span class="ib${o.on ? ' on' : ''}${o.off ? ' off' : ''}">${I(n)}${o.badge ? `<span class="bd">${o.badge}</span>` : o.dot ? '<span class="bd dot"></span>' : ''}</span>`;
+function nav(sel, o = {}) {
+  const items = [['home', 'images', '照片'], ['cap', 'plus', '取圖'], ['clip', 'clap', '剪輯'], ['fold', 'folder', '相簿'], ['acc', 'user', '帳號']];
+  return `<div class="nav">${items.map(([k, ic, l]) => {
+    let icon = k === 'cap' ? `<span class="cap">${I('plus')}</span>` : k === 'acc' && o.initial ? `<span class="ava">${o.initial}</span>` : I(ic);
+    const badge = k === 'clip' && o.badge ? `<span class="nb">${o.badge}</span>` : '';
+    return `<div class="${sel === k || k === 'cap' ? 'sel' : ''}"><span class="icw">${icon}${badge}</span>${l}</div>`;
+  }).join('')}</div>`;
+}
+const chip = (t, k, o = {}) => `<span class="chip ${k}${o.on ? ' on' : ''}${o.mini ? ' mn' : ''}${o.ring ? ' ring' : ''}">${I(k === 'pl' ? 'pin' : 'hash')}${t}${o.n != null ? ` <span class="n">${o.n}</span>` : ''}</span>`;
+const btn = (t, v, o = {}) => `<span class="btn ${v}${o.cls ? ' ' + o.cls : ''}">${o.icon ? I(o.icon) : ''}${t}</span>`;
+const lr = (t, o = {}) => `<div class="lr${o.danger ? ' dgr' : ''}">${o.icon ? I(o.icon) : ''}<div class="tx"><span class="tt">${t}</span>${o.sub ? `<span class="ss">${o.sub}</span>` : ''}</div>${o.trail || ''}${o.chev ? I('right', 'chev') : ''}</div>`;
+const sec = (t, body) => `<div class="grp"><div class="st">${t}</div>${body}</div>`;
+const phone = (cap, inner, cls = '') => `<div class="shot"><div class="ph ${cls}">${inner}</div><span class="cap">${cap}</span></div>`;
+
+/* ── 一般畫面 ── */
+function appScreens() {
+  const catalog = `${sbar()}${topbar('元件總覽')}<div class="scr"><div class="pad">
+    ${sec('頂欄', `<div class="frame">${topbar('相簿')}</div>
+      <div class="frame">${topbar('加勒比海', { back: 'back', acts: ib('edit') + ib('trash') })}</div>
+      <div class="frame">${topbar('貼網址', { back: 'close', small: true })}</div>
+      <div class="frame">${topbar('照片（篩選中）', { nodiv: true, acts: ib('filter', { on: true, badge: 3 }) + ib('calendar', { on: true, dot: true }) })}</div>`)}
+    ${sec('底部導覽', `<div class="frame">${nav('home')}</div><div class="frame">${nav('clip', { initial: 'S', badge: 3 })}</div>`)}
+    ${sec('標籤小膠囊', `<div class="row">${chip('加勒比海', 'pl')}${chip('夜潛', 'tg')}</div>
+      <div class="row">${chip('夜潛', 'tg', { on: true })}${chip('加勒比海', 'pl', { n: 12 })}${chip('阿明', 'tg', { on: true, n: 3 })}</div>
+      <div class="row">${chip('加勒比海', 'pl', { mini: true })}${chip('夜潛', 'tg', { mini: true })}${chip('鍵盤焦點', 'tg', { ring: true })}</div>
+      <div class="skel">${[56, 84, 64, 100, 48, 76].map(w => `<span style="width:${w}px"></span>`).join('')}</div>
+      <div class="sk" style="width:160px;height:14px"></div>
+      <div class="skgrid">${'<div class="sk"></div>'.repeat(4)}</div>
+      <div class="frame"><div class="shd"><span class="t">篩選</span><span class="ta">清除</span></div></div>
+      <div class="frame"><div class="shd"><span class="t">篩選（沒有勾選）</span><span class="ta off">清除</span></div></div>`)}
+    ${sec('按鈕', `<div class="row">${btn('下一步', 'pri')}${btn('取消', 'sec')}${btn('稍後再說', 'qt')}</div>
+      <div class="row">${btn('刪除這張收藏', 'dg')}${btn('刪除這些收藏', 'dq')}</div>
+      <div class="row">${btn('下一步', 'off')}${btn('新增圖片', 'pri', { icon: 'plus' })}</div>
+      <div class="row"><span class="icb">${I('allcheck')}</span><span class="icb">${I('scissors')}</span><span class="icb off">${I('scissors')}</span>${btn('完成（還不能按）', 'off')}</div>
+      <div class="fbs">${[['allcheck', '全選', ''], ['calendar', '時間', 'ok'], ['pin', '地點', ''], ['tag', '標籤', ''], ['notes', '描述', 'off']].map(([ic, l, st]) =>
+        `<div class="fb${st === 'off' ? ' off' : ''}"><span class="w">${I(ic)}${st === 'ok' ? `<span class="ok">${I('check')}</span>` : ''}</span>${l}</div>`).join('')}</div>`)}
+    ${sec('清單列', `<div class="inset">${lr('備份（雲）', { icon: 'cloud', sub: '上次備份：剛剛', chev: true })}${lr('刪除全部資料', { icon: 'trash', danger: true, chev: true })}${lr('版本', { sub: '不可點的資訊列' })}</div>`)}
+    ${sec('空狀態', `<div class="empty">${I('imgplus')}<span class="m">還沒有任何收藏，先貼一個 YouTube 網址開始挑畫面</span>${btn('開始取圖', 'pri')}</div>
+      <div class="empty">${I('search')}<span class="m">沒有符合的結果</span><span class="m2">換個條件再試試</span>${btn('清除條件', 'sec')}</div>`)}
+    ${sec('輸入欄', `<div class="tf"><span class="lb">地點</span><div class="bx fo"><span class="cur"></span><span class="ph2">例如：加勒比海</span></div><span class="sup">留空就不寫入</span></div>
+      <div class="tf"><span class="lb ac">地點</span><div class="bx dn">加勒比海</div></div>
+      <div class="tf"><span class="lb">描述</span><div class="bx dn"><span class="ph2 mx">〈多個值〉</span></div></div>
+      <div class="tf"><span class="lb">時間</span><div class="bx er">12:99</div><span class="sup er">格式不對，請輸入 mm:ss</span></div>
+      <div class="tf"><div class="bx">${I('search')}<span class="ph2">用文字描述你要找的畫面</span></div></div>`)}
+    ${sec('底線分頁', `<div class="tabs inset"><div class="on">標籤與地點</div><div>用文字描述</div></div>`)}
+    ${sec('工具列小按鈕', `<div class="row"><span class="pill">全選</span><span class="pill on">${I('filter')}隱藏相似</span><span class="pill on">已選取</span><span class="pill qt">清除</span><span class="pill off">停用</span></div>`)}
+    ${sec('下拉欄位', `<div class="sel"><span class="lb">時間</span><div class="bx"><span>2026 年 9 月</span>${I('down')}</div></div>`)}
+    </div>
+    <div class="st full">設定群組</div>
+    <div class="sgt">取圖</div>
+    <div class="sg">${lr('過濾相似強度', { icon: 'sliders', sub: '中', chev: true })}<div class="dv"></div>${lr('版本', { sub: '不可點的資訊列' })}</div>
+    <div class="sgn">這是群組下方的說明文字，字 15、淺色。</div>
+    <div class="st full" style="padding-top:16px">單選列</div>
+    <div class="sgt">過濾相似強度</div>
+    <div class="sg">${[['低', '保留多一點，之後自己刪', 0], ['中', '每 3 張留 1', 1], ['高', '只留差異大的', 0]].map(([n, s, on], i) => (i ? '<div class="dv"></div>' : '') + lr(n, { sub: s, trail: `<span class="rd${on ? ' on' : ''}"></span>` })).join('')}</div>
+    <div class="st full" style="padding-top:16px">步進器</div>
+    <div class="sgt"></div>
+    <div class="sg">${lr('往後秒數', { trail: '<span class="stp"><span>−</span><b>10</b><span>＋</span></span>' })}<div class="dv"></div>${lr('已到上限', { trail: '<span class="stp"><span>−</span><b>30</b><span class="off">＋</span></span>' })}</div>
+    <div class="st full" style="padding-top:16px;padding-bottom:8px">底部動作列</div>
+    <div class="dock" style="margin-bottom:16px"><span class="s">已選 3 張</span>${btn('下一步', 'pri')}</div>
+  </div>`;
+
+  const tiles = (arr) => arr.map(g => `<div class="g${g}"></div>`).join('');
+  const home = `${sbar()}${topbar('照片', { nodiv: true, acts: ib('filter') + ib('calendar') })}<div class="scr">
+    <div class="mh"><b>2026 年 10 月</b><span>9 張</span></div>
+    <div class="mchips">${chip('加勒比海', 'pl', { mini: true })}${chip('夜潛', 'tg', { mini: true })}${chip('阿明', 'tg', { mini: true, on: true })}</div>
+    <div class="pgrid">${tiles([6, 1, 11, 4, 9, 2, 3, 8, 5])}</div>
+    <div class="mh"><b>2026 年 9 月</b><span>6 張</span></div>
+    <div class="mchips">${chip('京都', 'pl', { mini: true })}${chip('楓葉', 'tg', { mini: true })}</div>
+    <div class="pgrid">${tiles([10, 7, 12, 3, 2, 5])}</div>
+  </div>${nav('home')}`;
+
+  const account = `${sbar()}${topbar('帳號')}<div class="scr">
+    <div class="hero"><span class="av">S</span><div><b>scott</b><span>備份用的 Google 帳號</span></div></div>
+    <div style="padding:0 16px"><div class="banner">${I('alert')}<span>超過 7 天沒有備份，建議現在備份一次</span></div></div>
+    <div class="sgt">資料</div>
+    <div class="sg">${lr('備份（雲）', { icon: 'cloud', sub: '上次備份：8 天前', chev: true })}<div class="dv"></div>${lr('標籤與地點', { icon: 'tag', chev: true })}<div class="dv"></div>${lr('縮圖回填', { icon: 'images', sub: '還有 12 支影片', chev: true })}</div>
+    <div class="sgt">外觀</div>
+    <div class="sg">${lr('色系', { icon: 'palette', trail: '<span class="val">夕陽海灘</span>', chev: true })}</div>
+    <div class="sgt">危險區</div>
+    <div class="sg">${lr('刪除全部資料', { icon: 'trash', danger: true, chev: true })}</div>
+    <div class="sgn" style="padding-bottom:16px">版本 1.0.0</div>
+  </div>${nav('acc', { initial: 'S' })}`;
+
+  const lightbox = `<div class="sbar" style="background:var(--c-lightbox);color:#fff"><span>9:41</span><i><b></b><b></b></i></div><div class="scr lbx">
+    <div class="lbtop">${ib('back')}<span style="display:flex">${ib('edit')}${ib('trash')}</span></div>
+    <div class="lbimg"><div class="g6"></div></div>
+    <div class="lbinfo"><b>夜潛時遇到的魟魚</b><span>2026 年 10 月 3 日・12:48</span><div class="row"><span class="chip pl">${I('pin')}加勒比海</span><span class="chip tg">${I('hash')}夜潛</span></div></div>
+  </div>`;
+
+  return phone('元件總覽（可捲動）', catalog) + phone('照片', home) + phone('帳號', account) + phone('看大圖', lightbox);
+}
+
+/* ── 剪輯 ── */
+function timeline(o = {}) {
+  const segs = [[3, 70, '照片'], [2, 96, '影片', 1], [6, 120, '影片'], [11, 60, '照片'], [8, 90, '影片']];
+  const ruler = [0, 5, 10, 15, 20, 25].map((s, i) => `<span style="left:${40 + i * 56}px">0:${String(s).padStart(2, '0')}</span>`).join('') +
+    Array.from({ length: 31 }, (_, i) => `<i class="${i % 5 ? '' : 'l'}" style="left:${40 + i * 11.2}px"></i>`).join('');
+  return `<div class="tl"><div class="ruler">${ruler}</div><div class="strip">${segs.map(([g, w, k, on]) => `<div class="seg g${g}${on ? ' on' : ''}" style="width:${w}px"><span class="k">${k}</span></div>`).join('')}</div><span class="phd"></span>
+    <div class="tlbar"><span>第 2 段・影片・0:08</span>${o.over ? '<span class="ov">總長 3:12，超過直式上限 3:00</span>' : '<span>直式上限 3:00</span>'}</div></div>`;
+}
+const task = (g, title, status, trail) => `<div class="task"><div class="th g${g}"></div><div class="tx"><b>${title}</b>${status}</div>${trail || `<span class="more">${I('more')}</span>`}</div>`;
+
+function clipCatalog() {
+  return `${sbar()}${topbar('剪輯元件總覽')}<div class="scr"><div class="pad">
+    ${sec('頂欄', `<div class="frame">${topbar('剪輯')}</div>
+      <div class="frame">${topbar('編輯', { back: 'back', small: true, acts: `<span style="padding-right:10px">${btn('導出', 'pri', { cls: 'sm', icon: 'upload' })}</span>` })}</div>`)}
+    ${sec('底部導覽', `<div class="frame">${nav('clip', { badge: 3 })}</div>`)}
+    ${sec('卡片', `<div class="ecard">${I('clap')}<div class="tx"><b>編輯中</b><span>直式・4 段・0:42</span></div>${btn('接著編輯', 'sec', { cls: 'sm' })}</div>
+      <div class="tlist">
+        ${task(2, '輸出影片中', '<span class="ac">輸出影片中 45%</span><div class="prog"><i style="width:45%"></i></div>')}
+        ${task(6, '上傳中', '<span class="ac">上傳中 62%</span><div class="prog"><i style="width:62%"></i></div>')}
+        ${task(4, 'YouTube 處理中', '<span>等 YouTube 產生縮圖，通常幾分鐘內完成</span>')}
+        ${task(3, '已完成', '<span class="ac">已完成，點一下開始取圖</span>', '<span class="dotc"></span>')}
+        ${task(9, '失敗', '<span class="dg">失敗：網路中斷</span>', btn('重試', 'sec', { cls: 'sm' }))}
+      </div>`)}
+    ${sec('按鈕', `<div class="row">${btn('下一步', 'pri')}${btn('取消', 'sec')}${btn('稍後再說', 'qt')}</div>
+      <div class="row">${btn('刪除任務', 'dg')}${btn('取消導出', 'dq')}</div>
+      <div class="row">${btn('下一步', 'off')}${btn('新增剪輯', 'pri', { icon: 'plus' })}</div>
+      <div class="row"><span class="ctl" style="padding:0;background:none"><span class="playb">${I('play')}</span></span><span class="icb">${I('scissors')}</span>${ib('undo')}${ib('redo', { off: true })}</div>`)}
+    ${sec('輸入欄', `<div class="tf"><span class="lb">標題</span><div class="bx fo">東京三日遊<span class="cur" style="margin-left:0"></span></div></div>
+      <div class="tf"><span class="lb">標題</span><div class="bx"><span class="ph2">替這支影片取個名字</span></div></div>
+      <div class="tf"><span class="lb">標題</span><div class="bx er"></div><span class="sup er">標題不能空白</span></div>`)}
+    ${sec('分頁', `<div class="tabs inset"><div class="on">全部</div><div>照片</div><div>影片</div></div>`)}
+    ${sec('單選列', `<div><div class="rrow"><span class="rd on"></span><div class="tx"><b>不公開</b><span>知道連結的人才看得到</span></div></div>
+      <div class="rrow"><span class="rd"></span><div class="tx"><b>私人</b><span class="wn">私人影片無法在 app 裡取圖</span></div></div></div>`)}
+    ${sec('清單列（影片方向）', `<div class="inset">${lr('直式', { icon: 'images', sub: '9:16・3 分鐘內會成為 Shorts', chev: true })}${lr('橫式', { icon: 'images', sub: '16:9・最長 10 分鐘', chev: true })}</div>`)}
+    ${sec('狀態文字', `<div class="task" style="padding:0"><div class="tx">
+      <span class="okc">已上傳到 YouTube（不公開）</span><span class="dg">有 2 個素材已不存在，已略過</span><span>留在這個畫面會比較快；離開也會在背景繼續</span></div></div>`)}
+    ${sec('素材格', `<div class="mgrid inset">${[[1, 1, '0:12'], [5, 0, ''], [7, 2, '1:04']].map(([g, n, d]) => `<div class="g${g}${n ? ' picked' : ''}">${n ? `<span class="sb on">${n}</span>` : '<span class="sb"></span>'}${d ? `<span class="du">${d}</span>` : ''}</div>`).join('')}</div>`)}
+    ${sec('時間軸', `<div class="inset">${timeline()}</div><div class="inset">${timeline({ over: true })}</div>
+      <div class="inset"><div class="tl tlempty"><b>時間軸是空的</b><span>按 ${I('undo')} 復原可以找回剛刪掉的段落</span></div></div>`)}
+    ${sec('預覽區', `<div class="inset pv" style="height:150px;flex:none"><div class="fr g6" style="aspect-ratio:16/9;height:auto;width:240px"><span>加勒比海・夜潛</span></div></div>`)}
+    ${sec('空狀態', `<div class="empty">${I('images')}<span class="m">需要相片和影片的存取權</span><span class="m2">videoshot 只會讀取你選的素材</span>${btn('允許存取', 'pri')}</div>`)}
+    ${sec('抽屜標題', `<div class="frame"><div class="shd"><span class="t">影片方向</span></div></div>`)}
+    </div>
+    <div class="st full" style="padding-bottom:8px">底部動作列</div>
+    <div class="dock">${btn('分割', 'sec', { icon: 'scissors' })}${btn('刪除', 'dq', { icon: 'trash' })}</div>
+    <div class="dock" style="margin:12px 0 16px">${btn('下一步（3）', 'pri')}</div>
+  </div>`;
+}
+
+function clipScreens() {
+  const home = `${sbar()}${topbar('剪輯')}<div class="scr" style="gap:0">
+    <div style="padding:16px">${btn('新增剪輯', 'pri', { icon: 'plus', cls: 'blk' })}</div>
+    <div class="ecard">${I('clap')}<div class="tx"><b>編輯中</b><span>直式・4 段・0:42</span></div>${btn('接著編輯', 'sec', { cls: 'sm' })}</div>
+    <div class="lbl2">任務</div>
+    <div class="tlist">
+      <div class="task"><div class="th g2"></div><div class="tx"><b>東京三日遊</b><span class="ac">輸出影片中 45%</span><div class="prog"><i style="width:45%"></i></div></div><span class="more">${I('more')}</span></div>
+      <div class="task"><div class="th g6"></div><div class="tx"><b>加勒比海夜潛</b><span>YouTube 處理中</span></div><span class="more">${I('more')}</span></div>
+      <div class="task"><div class="th g3"></div><div class="tx"><b>阿里山步道</b><span class="ac">已完成，點一下開始取圖</span></div><span class="dotc"></span></div>
+      <div class="task"><div class="th g9"></div><div class="tx"><b>跨年煙火</b><span class="dg">失敗：網路中斷</span></div>${btn('重試', 'sec', { cls: 'sm' })}</div>
+      <div class="task"><div class="th g10"></div><div class="tx"><b>京都楓葉</b><span>等待明天上傳</span></div><span class="more">${I('more')}</span></div>
+    </div>
+    <div style="height:16px"></div>
+  </div>${nav('clip', { badge: 1 })}`;
+
+  const cells = [[1, 0, ''], [2, 1, '0:12'], [3, 0, ''], [4, 3, ''], [5, 0, '1:04'], [6, 0, ''], [7, 2, '0:31'], [8, 0, ''], [9, 0, ''], [10, 0, '0:08'], [11, 0, ''], [12, 0, '']];
+  const picker = `${sbar()}${topbar('選素材', { back: 'back' })}<div class="tabs"><div class="on">全部</div><div>照片</div><div>影片</div></div><div class="scr">
+    <div class="mgrid">${cells.map(([g, n, d]) => `<div class="g${g}${n ? ' picked' : ''}">${n ? `<span class="sb on">${n}</span>` : '<span class="sb"></span>'}${d ? `<span class="du">${d}</span>` : ''}</div>`).join('')}</div>
+  </div><div class="dock">${btn('下一步（3）', 'pri')}</div>`;
+
+  const editorBody = `${topbar('編輯', { back: 'back', small: true, acts: `<span style="padding-right:10px">${btn('導出', 'pri', { cls: 'sm', icon: 'upload' })}</span>` })}
+    <div class="pv"><div class="fr g2"><span>東京・淺草寺</span></div></div>
+    <div class="ctl"><span class="playb">${I('play')}</span><span class="time"><b>0:12</b> / 0:42</span>${ib('undo')}${ib('redo', { off: true })}</div>
+    ${timeline()}
+    <div class="dock">${btn('分割', 'sec', { icon: 'scissors' })}${btn('刪除', 'dq', { icon: 'trash' })}</div>`;
+  const editor = `${sbar()}<div class="scr" style="overflow:hidden">${editorBody}</div>`;
+
+  const sheet = `${sbar()}<div class="scr" style="overflow:hidden;position:relative">${editorBody}<div class="scrim"></div>
+    <div class="sheet"><span class="hd"></span><div class="shd"><span class="t">導出</span></div><div class="bd2">
+      <div class="tf"><span class="lb">標題</span><div class="bx fo">東京三日遊<span class="cur" style="margin-left:0"></span></div></div>
+      <div><div class="st" style="font-size:15px;font-weight:500">公開狀態</div>
+        <div class="rrow"><span class="rd on"></span><div class="tx"><b>不公開</b><span>知道連結的人才看得到</span></div></div>
+        <div class="rrow"><span class="rd"></span><div class="tx"><b>私人</b><span class="wn">私人影片無法在 app 裡取圖</span></div></div>
+        <div class="rrow"><span class="rd"></span><div class="tx"><b>公開</b><span>所有人都看得到</span></div></div></div>
+      ${btn('開始', 'pri', { cls: 'blk' })}
+      <span class="fine">上傳即表示同意 <a>YouTube 服務條款</a></span>
+    </div></div></div>`;
+
+  const exporting = `${sbar()}${topbar('導出', { back: 'back', small: true })}<div class="scr"><div class="exp">
+    <div class="big g2"><span class="dim"></span><b>62%</b></div>
+    <span class="st2">輸出影片中…</span><span class="hint2">留在這個畫面會比較快；離開也會在背景繼續</span>
+    <span class="ok2">${I('check')}已存到相簿</span>
+  </div></div><div class="dock">${btn('取消導出', 'dq')}</div>`;
+
+  return phone('剪輯元件總覽（可捲動）', clipCatalog()) + phone('剪輯首頁', home) + phone('選素材', picker) + phone('時間軸編輯', editor) + phone('導出抽屜', sheet) + phone('導出中', exporting);
+}
+
+/* ── 對比檢查（與 PaletteTest 同一組；剪輯多兩項時間軸） ── */
+function checks(c, mode) {
+  const list = [
+    ['主文字對底色', c.text, c.bg, 4.5], ['主文字對卡片', c.text, c.surface, 4.5], ['次要文字對底色', c.textDim, c.bg, 4.5],
+    ['極次要文字對卡片', c.textFaint, c.surface, 4.5], ['主色上的字', c.accentInk, c.accent, 4.5], ['破壞色上的字', c.dangerInk, c.danger, 4.5],
+    ['破壞色對卡片', c.danger, c.surface, 4.5], ['警示色對卡片', c.warn, c.surface, 4.5], ['完成色對卡片', c.ok, c.surface, 4.5],
+    ['主色當文字對底色', c.accent, c.bg, 4.5], ['主色當文字對卡片', c.accent, c.surface, 4.5],
+  ];
+  if (mode === 'clip') list.push(['刻度數字對時間軸', c.textDim, c.timeline, 4.5], ['播放頭對時間軸', c.playhead, c.timeline, 3]);
+  else list.push(['頭像白字對漸層', '#FFFFFF', c.hero1, 3], ['看大圖白字', '#FFFFFF', c.lightbox, 4.5]);
+  return list.map(([n, a, b, min]) => ({ n, r: ratio(a, b), min }));
+}
+function accentLikeDanger(c) {
+  const a = hexToRgb(c.accent), d = hexToRgb(c.danger);
+  return a.every((v, i) => Math.abs(v - d[i]) / 255 < .12);
+}
+
+/* ── 狀態 ── */
+const $ = id => document.getElementById(id);
+const CUR_KEY = 'videoshot-ui-current';
+let saved = {};
+try { saved = JSON.parse(localStorage.getItem(CUR_KEY) || '{}') || {}; } catch (e) { saved = {}; }
+const mine = {};
+for (const m in MODES) {
+  try { mine[m] = JSON.parse(localStorage.getItem(MODES[m].store) || '[]') || []; } catch (e) { mine[m] = []; }
+}
+const fieldsOf = m => MODES[m].groups.flatMap(g => g[1].map(f => f[0]));
+const state = {};
+for (const m in MODES) {
+  const base = { ...MODES[m].presets[0] };
+  const s = saved[m];
+  if (s) fieldsOf(m).forEach(k => { if (/^#[0-9A-F]{6}$/i.test(s[k] || '')) base[k] = s[k].toUpperCase(); });
+  state[m] = base;
+}
+let mode = location.hash === '#clip' ? 'clip' : location.hash === '#app' ? 'app' : (saved.mode === 'clip' ? 'clip' : 'app');
+let pk = null;
+const cur = () => state[mode];
+function persist() { try { localStorage.setItem(CUR_KEY, JSON.stringify({ mode, app: state.app, clip: state.clip })); } catch (e) {} }
+
+/* ── 左側：欄位 ── */
+function buildColors() {
+  const M = MODES[mode];
+  const all = M.presets.concat(mine[mode]);
+  $('colors').innerHTML = M.groups.map(([gname, fields]) => `<h3>${gname}</h3>` + fields.map(([k, name, hint]) => {
+    const used = [...new Set(all.map(p => (p[k] || '').toUpperCase()).filter(Boolean))];
+    return `<div class="crow">
+      <span class="swatch" id="c-${k}"></span>
+      <span class="lab"><label for="h-${k}">${name}</label><span>${hint}</span></span>
+      <input type="text" id="h-${k}" spellcheck="false" autocomplete="off" maxlength="7">
+      <button type="button" class="pick" id="pb-${k}" aria-expanded="false" aria-controls="pk-${k}" aria-label="${name}的調色盤">${I('palette')}</button>
+      <div class="picker" id="pk-${k}" hidden>
+        <div class="sv" id="sv-${k}" aria-label="${name}的深淺與鮮豔度"><span class="dot" id="dot-${k}"></span></div>
+        <input type="range" class="hue" id="hue-${k}" min="0" max="359" step="1" aria-label="${name}的色相">
+        <span class="pl">其他配色用過的${name}</span>
+        <div class="sw">${used.map(c => `<button type="button" style="background:${c}" data-c="${c}" aria-label="${c}"></button>`).join('')}</div>
+        <button type="button" class="b done" data-done>完成</button>
+      </div>
+    </div>`;
+  }).join('')).join('');
+
+  fieldsOf(mode).forEach(k => {
+    $('pb-' + k).addEventListener('click', () => openPicker(k));
+    const pkEl = $('pk-' + k), sv = $('sv-' + k);
+    pkEl.querySelector('[data-done]').addEventListener('click', () => openPicker(k));
+    pkEl.querySelector('.sw').addEventListener('click', e => {
+      const c = e.target.dataset.c; if (!c) return;
+      cur()[k] = c; Object.assign(pk, hexToHsv(c)); update(false, true);
+    });
+    $('hue-' + k).addEventListener('input', e => { pk.h = +e.target.value; fromPicker(); });
+    const move = e => {
+      const r = sv.getBoundingClientRect();
+      pk.s = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+      pk.v = 1 - Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+      fromPicker();
+    };
+    sv.addEventListener('pointerdown', e => { sv.setPointerCapture(e.pointerId); move(e); });
+    sv.addEventListener('pointermove', e => { if (sv.hasPointerCapture(e.pointerId)) move(e); });
+    $('h-' + k).addEventListener('input', e => {
+      let v = e.target.value.trim(); if (v[0] !== '#') v = '#' + v;
+      const ok = /^#[0-9a-fA-F]{6}$/.test(v);
+      e.target.setAttribute('aria-invalid', ok ? 'false' : 'true');
+      if (ok) { cur()[k] = v.toUpperCase(); update(true); }
+    });
+  });
+}
+function syncPicker() {
+  if (!pk) return;
+  const k = pk.k;
+  $('sv-' + k).style.backgroundColor = hsvToHex(pk.h, 1, 1);
+  $('dot-' + k).style.left = (pk.s * 100) + '%';
+  $('dot-' + k).style.top = ((1 - pk.v) * 100) + '%';
+  $('dot-' + k).style.background = cur()[k];
+  $('hue-' + k).value = Math.round(pk.h);
+}
+function openPicker(k) {
+  const was = pk && pk.k;
+  if (pk) { $('pk-' + pk.k).hidden = true; $('pb-' + pk.k).setAttribute('aria-expanded', 'false'); pk = null; }
+  if (was === k) return;
+  pk = { k, ...hexToHsv(cur()[k]) };
+  $('pk-' + k).hidden = false; $('pb-' + k).setAttribute('aria-expanded', 'true');
+  syncPicker();
+}
+function fromPicker() { cur()[pk.k] = hsvToHex(pk.h, pk.s, pk.v); update(false, true); }
+
+/* ── 左側：預設 ── */
+const same = (a, b) => fieldsOf(mode).every(k => (a[k] || '').toUpperCase() === (b[k] || '').toUpperCase());
+function miniOf(p) {
+  return `<span class="mini" style="background:${p.bg}"><span class="card" style="background:${p.surface};border-color:${p.border}"><span class="bar" style="background:${p.text}"></span><span class="btn" style="background:${p.accent}"></span></span>` +
+    `<span class="card" style="background:${p.surface};border-color:${p.border}"><span class="bar" style="background:${p.textDim};flex:.6"></span><span class="btn" style="background:${p.danger};width:9px"></span></span></span>`;
+}
+function renderPresets() {
+  const all = MODES[mode].presets.map((p, idx) => ({ p, idx, own: false })).concat(mine[mode].map((p, idx) => ({ p, idx, own: true })));
+  $('presets').innerHTML = all.map(({ p, idx, own }) => `
+    <button type="button" class="preset" data-own="${own}" data-idx="${idx}" aria-pressed="${same(p, cur())}">
+      ${miniOf(p)}<span class="nm">${p.n}</span>${own ? `<span class="del" role="button" aria-label="刪除 ${p.n}" data-del="${idx}">×</span>` : ''}
+    </button>`).join('');
+}
+$('presets').addEventListener('click', e => {
+  const del = e.target.closest('[data-del]');
+  if (del) {
+    mine[mode].splice(+del.dataset.del, 1);
+    try { localStorage.setItem(MODES[mode].store, JSON.stringify(mine[mode])); } catch (err) {}
+    renderPresets(); return;
+  }
+  const b = e.target.closest('.preset'); if (!b) return;
+  const src = b.dataset.own === 'true' ? mine[mode][+b.dataset.idx] : MODES[mode].presets[+b.dataset.idx];
+  fieldsOf(mode).forEach(k => { if (src[k]) cur()[k] = src[k].toUpperCase(); });
+  update();
+});
+$('save').addEventListener('click', () => {
+  const n = $('saveName').value.trim() || ('自訂 ' + (mine[mode].length + 1));
+  const rec = { n }; fieldsOf(mode).forEach(k => rec[k] = cur()[k]);
+  mine[mode].push(rec);
+  try { localStorage.setItem(MODES[mode].store, JSON.stringify(mine[mode])); } catch (err) {}
+  $('saveName').value = '';
+  $('msg').textContent = '已存成「' + n + '」';
+  buildColors(); update();
+});
+
+/* ── 匯出 ── */
+const kc = h => 'Color(0xFF' + h.slice(1).toUpperCase() + ')';
+const ka = (h, a) => 'Color(0x' + a + h.slice(1).toUpperCase() + ')';
+function outText() {
+  const c = cur();
+  if (mode === 'app') {
+    return [
+      '// 一般畫面（Palette）',
+      `bg = ${kc(c.bg)},`, `surface = ${kc(c.surface)},`, `surface2 = ${kc(c.surface2)},`, `border = ${kc(c.border)},`, `borderStrong = ${kc(c.borderStrong)},`,
+      `text = ${kc(c.text)},`, `textDim = ${kc(c.textDim)},`, `textFaint = ${kc(c.textFaint)},`,
+      `accent = ${kc(c.accent)},`, `accentInk = ${kc(c.accentInk)},`, `accentWeak = ${kc(c.accentWeak)},`, `accentLine = ${kc(mix(c.accent, c.surface, .68))},`,
+      `hero1 = ${kc(c.hero1)},`, `hero2 = ${kc(c.hero2)},`,
+      `danger = ${kc(c.danger)},`, `dangerInk = ${kc(c.dangerInk)},`, `dangerWeak = ${kc(mix(c.danger, c.surface, .9))},`,
+      `warn = ${kc(c.warn)},`, `warnWeak = ${kc(c.warnWeak)},`, `ok = ${kc(c.ok)},`, `okWeak = ${kc(mix(c.ok, c.surface, .88))},`,
+      `overlay = ${ka(c.text, '6B')},`, `scrim = Color(0x9E000000),`, `lightboxBg = ${kc(c.lightbox)},`, `focusRing = ${ka(c.accent, '8C')},`,
+      '', '// 種類色（KindColors）', `place = ${kc(c.place)}`, `tag = ${kc(c.tag)}`,
+    ].join('\n');
+  }
+  return ['// 剪輯（暗色）', ...fieldsOf('clip').map(k => `${k} = ${kc(c[k])},`)].join('\n');
+}
+$('copy').addEventListener('click', () => {
+  const t = outText();
+  const fallback = () => { $('out').closest('details').open = true; const r = document.createRange(); r.selectNodeContents($('out')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $('msg').textContent = '請按 Ctrl+C 複製'; };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(() => { $('msg').textContent = '已複製'; }, fallback);
+  else fallback();
+});
+
+/* ── 套用 ── */
+function applyVars() {
+  const c = cur(), st = $('stage');
+  fieldsOf(mode).forEach(k => st.style.setProperty('--c-' + k, c[k]));
+  st.style.setProperty('--c-focus', c.accent + '8C');
+}
+function update(fromText, picked) {
+  const c = cur();
+  fieldsOf(mode).forEach(k => {
+    $('c-' + k).style.background = c[k];
+    if (!fromText) { $('h-' + k).value = c[k]; $('h-' + k).setAttribute('aria-invalid', 'false'); }
+  });
+  if (pk && !picked) Object.assign(pk, hexToHsv(c[pk.k]));
+  syncPicker();
+  applyVars();
+  renderPresets();
+  $('out').textContent = outText();
+  const res = checks(c, mode);
+  const low = res.filter(x => x.r < x.min);
+  const red = accentLikeDanger(c);
+  const bad = low.length + (red ? 1 : 0);
+  $('contrast').innerHTML = `<span class="sum ${bad ? 'bad' : 'ok'}">${bad ? `${bad} 項沒過` : `${res.length + 1} 項全過`}</span>` +
+    res.map(x => `<span class="cbadge${x.r < x.min ? ' low' : ''}">${x.n} ${x.r.toFixed(1)}${x.r < x.min ? `（要 ${x.min}）` : ''}</span>`).join('') +
+    `<span class="cbadge${red ? ' low' : ''}">${red ? '主色太像破壞色' : '主色與破壞色分得開'}</span>`;
+  persist();
+}
+function setMode(m) {
+  mode = m;
+  if (pk) pk = null;
+  document.querySelectorAll('.modes button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.mode === m)));
+  $('note').textContent = MODES[m].note;
+  $('stage').innerHTML = m === 'app' ? appScreens() : clipScreens();
+  buildColors();
+  update();
+}
+document.querySelectorAll('.modes button').forEach(b => b.addEventListener('click', () => { if (b.dataset.mode !== mode) { $('msg').textContent = ''; setMode(b.dataset.mode); } }));
+setMode(mode);
+</script>
