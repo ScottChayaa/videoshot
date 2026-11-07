@@ -1686,6 +1686,9 @@ OAuth client 綁定 APK 的簽章憑證，**debug 與 release 用不同的憑證
 - **沒有深色模式**：app 打開就是使用者選的色系，不受手機淺色／深色設定影響——不讀 `isSystemInDarkTheme()`、
   Material3 底層一律用淺色 `ColorScheme`、`themes.xml` 關掉 `forceDarkAllowed`（擋系統與 MIUI 的強制反色）、
   系統列圖示固定深色（`SystemBarStyle.light`）。舊版存在 DataStore 的 `night_mode` 鍵已不讀取，留著無害。
+- **剪輯分頁固定用暗色配色**（2026-11-08，`ClipTheme.kt`）：剪輯首頁連同底部導覽、方向與導出抽屜、選素材、編輯、導出中、播放成品
+  都用同一套暗色，不隨使用者選的色系變，也不在色系清單裡；切到其他分頁就回到使用者的色系。在這些畫面上系統列圖示換成白的、離開時還原。
+  色值來自調色盤頁（`mockups/palette/` 的剪輯模式）；預覽區底、時間軸底、播放頭（黃 `#FFD23F`）是剪輯專用的三個顏色（`ClipColors`）。
 - 單元測試與整合測試
 
 ### 明確排除
