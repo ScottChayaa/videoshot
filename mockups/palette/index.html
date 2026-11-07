@@ -21,8 +21,9 @@ header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; 
 header h1 { font-size: 22px; font-weight: 700; margin: 0; text-wrap: balance }
 header p { margin: 2px 0 0; color: var(--pg-muted) }
 .modes { display: inline-flex; padding: 3px; border-radius: 11px; background: var(--pg-chip); gap: 2px }
-.modes button { font: inherit; font-size: 14px; font-weight: 500; border: 0; border-radius: 9px; padding: 7px 16px; background: transparent; color: var(--pg-muted); cursor: pointer }
-.modes button[aria-selected="true"] { background: var(--pg-panel); color: var(--pg-fg); box-shadow: 0 1px 2px rgba(0,0,0,.12) }
+.modes button { font: inherit; font-size: 14px; font-weight: 500; border: 0; border-radius: 9px; padding: 7px 16px; background: transparent; color: var(--pg-fg); cursor: pointer }
+.modes button:hover { background: var(--pg-line) }
+.modes button[aria-selected="true"] { background: var(--pg-accent); color: var(--pg-panel); font-weight: 700 }
 .grid { display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 1fr); gap: 20px; align-items: start }
 @media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr) } }
 .panel { background: var(--pg-panel); border: 1px solid var(--pg-line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0 }

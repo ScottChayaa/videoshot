@@ -127,6 +127,7 @@ text-decoration:none;color:#224}a:hover{background:#f4f6ff}b{display:block;font-
 small{color:#667}</style></head><body>
 <h1>videoshot mockups</h1>
 <a href="/uiux-v2/login.html"><b>UI 原型</b><small>假資料，驗收版面與互動 · 需先登入 · 另有驗收操作手冊</small></a>
+<a href="/palette/"><b>介面配色</b><small>調一般畫面與剪輯暗色的配色，即時預覽元件總覽與各畫面</small></a>
 <a href="/probe/"><b>storyboard 縮圖探測工具</b><small>打真的 YouTube，驗證縮圖解析與儲存量試算</small></a>
 <a href="/uiux-v2/%E9%A9%97%E6%94%B6%E6%93%8D%E4%BD%9C%E6%89%8B%E5%86%8A.md"><b>驗收操作手冊</b><small>逐頁檢查清單</small></a>
 </body></html>`;
@@ -210,4 +211,5 @@ createServer(async (req, res) => {
   console.log(`  mockups   → http://localhost:${PORT}/`);
   console.log(`  UI 原型   → http://localhost:${PORT}/uiux-v2/login.html`);
   console.log(`  探測工具  → http://localhost:${PORT}/probe/`);
+  console.log(`  介面配色  → http://localhost:${PORT}/palette/`);
 });
