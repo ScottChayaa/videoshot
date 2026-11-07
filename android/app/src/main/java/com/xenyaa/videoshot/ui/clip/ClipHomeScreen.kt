@@ -71,7 +71,8 @@ private val NoThumbs = MediaThumbLoader(decode = { null })
 
 /**
  * 剪輯分頁（底部導覽第三格）。沒有草稿也沒有任務時是空狀態；否則由上到下是：
- * 「編輯中」草稿列（點了接著編輯，長按或右側 ⋯ 選單可以【放棄】）→ 導出任務（[tasks] 照傳進來的順序，新的在前）→【新增剪輯】。
+ * 「編輯中」草稿列（點了接著編輯，長按或右側 ⋯ 選單可以【放棄】）→ 導出任務（[tasks] 照傳進來的順序，新的在前）；
+ * 【新增剪輯】在頂列右上方（空狀態時改由空狀態的按鈕負責，不重複出現）。
  *
  * 任務列：點了進導出中畫面；等待中、輸出中、上傳中、等待明天上傳、YouTube 處理中的長按選單是【取消】，輸出完成、已完成與失敗的是【刪除任務】，
  * 兩者都要確認才通知呼叫端；失敗列另有【重試】。
@@ -101,8 +102,11 @@ fun ClipHomeScreen(
     var confirmDeleteId by remember { mutableStateOf<Long?>(null) }
 
     Column(modifier.fillMaxSize()) {
-        VsTopBar("剪輯")
-        if (draft == null && tasks.isEmpty()) {
+        val empty = draft == null && tasks.isEmpty()
+        VsTopBar("剪輯", actions = {
+            if (!empty) VsButton("新增剪輯", { if (draft != null) confirmDiscard = true else onNewClip() })
+        })
+        if (empty) {
             VsEmptyState(
                 message = "把手機裡的照片和影片剪成一支片",
                 modifier = Modifier.fillMaxWidth().padding(top = AppTheme.spacing.s6),
@@ -129,13 +133,6 @@ fun ClipHomeScreen(
                         onCancel = { confirmCancelId = task.id; confirmCancelKind = task.state.cancelKind() },
                         onDelete = { confirmDeleteId = task.id },
                         onRetry = { onRetryTask(task.id) },
-                    )
-                }
-                item(key = "new") {
-                    VsButton(
-                        "新增剪輯",
-                        { if (draft != null) confirmDiscard = true else onNewClip() },
-                        variant = ButtonVariant.Secondary,
                     )
                 }
             }

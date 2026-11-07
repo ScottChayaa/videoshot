@@ -378,13 +378,13 @@ class ClipHomeScreenTest {
         compose.onNodeWithText("新增剪輯").assertIsDisplayed()
     }
 
-    @Test fun 順序是編輯中_任務_新增剪輯() {
+    @Test fun 新增剪輯在頂列_下面依序是編輯中與任務() {
         show(draft = summary, tasks = listOf(task(1, EditTaskState.QUEUED, title = "任務甲")))
+        val newTop = compose.onNodeWithText("新增剪輯").getUnclippedBoundsInRoot().top
         val draftTop = compose.onNodeWithText("編輯中").getUnclippedBoundsInRoot().top
         val taskTop = compose.onNodeWithText("任務甲").getUnclippedBoundsInRoot().top
-        val newTop = compose.onNodeWithText("新增剪輯").getUnclippedBoundsInRoot().top
+        assertTrue(newTop < draftTop)
         assertTrue(draftTop < taskTop)
-        assertTrue(taskTop < newTop)
     }
 
     @Test fun 任務順序照傳進來的順序() {
