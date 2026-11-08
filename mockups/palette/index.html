@@ -292,7 +292,7 @@ details summary { cursor: pointer; font-size: 13px; color: var(--pg-muted) }
 .mgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding-top: 2px }
 .mgrid > div { aspect-ratio: 1; position: relative }
 .mgrid .sb { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(255,255,255,.92); background: rgba(0,0,0,.18) }
-.mgrid .sb.on { border-color: rgba(255,255,255,.92); background: var(--c-accent); color: var(--c-accentInk); font-size: 12px; font-weight: 700; display: grid; place-items: center }
+.mgrid .sb.on { border-color: rgba(255,255,255,.92); background: var(--c-selectedMark); color: #fff; font-size: 12px; font-weight: 700; display: grid; place-items: center }
 .mgrid .du { position: absolute; bottom: 5px; right: 5px; padding: 0 5px; border-radius: 4px; background: rgba(0,0,0,.55); color: #fff; font-size: 11px; font-variant-numeric: tabular-nums }
 .mgrid > div.picked::after { content: ""; position: absolute; inset: 0; box-shadow: inset 0 0 0 3px var(--c-accent) }
 .pv { flex: 1; min-height: 0; overflow: hidden; background: var(--c-preview); display: grid; place-items: center; padding: 14px 0 }
@@ -465,6 +465,7 @@ const MODES = {
         ['accentInk', '主色上的字', '主要按鈕與選取序號的字'],
         ['accentWeak', '主色淡底', '輸入框聚焦的光暈'],
         ['playhead', '播放頭', '時間軸上目前的位置'],
+        ['selectedMark', '已選序號', '選素材左上的序號圓（白字）'],
       ]],
       ['語意色', [
         ['danger', '破壞色', '刪除、失敗、超過長度'],
@@ -474,12 +475,12 @@ const MODES = {
       ]],
     ],
     presets: [
-      { n: '剪輯台石墨', bg: '#121316', surface: '#1B1C20', surface2: '#26282D', preview: '#000000', timeline: '#0B0C0E', border: '#2C2E34', borderStrong: '#41444C', text: '#ECEDEF', textDim: '#A3A6AE', textFaint: '#80848D', accent: '#4C9BFF', accentInk: '#08111F', accentWeak: '#1C2B40', playhead: '#FFD23F', danger: '#FF5A6A', dangerInk: '#1A0B0E', warn: '#F5B63F', ok: '#3DD68C' },
-      { n: '午夜藍', bg: '#0E1320', surface: '#161D2E', surface2: '#212B40', preview: '#05070C', timeline: '#0A0F1A', border: '#263049', borderStrong: '#3A4766', text: '#E8EDF7', textDim: '#9EA9C0', textFaint: '#7D89A4', accent: '#6E9BFF', accentInk: '#0A1020', accentWeak: '#1E2B4A', playhead: '#F4E5A4', danger: '#FF6B7A', dangerInk: '#1E0A0E', warn: '#F5B63F', ok: '#45D39A' },
-      { n: '暗房琥珀', bg: '#141210', surface: '#1D1A17', surface2: '#2A2622', preview: '#000000', timeline: '#0D0C0B', border: '#302B26', borderStrong: '#4A433B', text: '#EEEAE5', textDim: '#ADA59B', textFaint: '#8A8277', accent: '#F2A65A', accentInk: '#1A1008', accentWeak: '#3A2A1A', playhead: '#FFFFFF', danger: '#FF6464', dangerInk: '#1C0909', warn: '#F2C94C', ok: '#7BD88F' },
-      { n: '青綠監看', bg: '#0F1414', surface: '#172020', surface2: '#212D2D', preview: '#000000', timeline: '#0A0E0E', border: '#263333', borderStrong: '#3A4D4D', text: '#E6F0EE', textDim: '#9DB2AE', textFaint: '#7A8F8B', accent: '#3FD1B5', accentInk: '#06201B', accentWeak: '#16352F', playhead: '#FFE066', danger: '#FF6B7A', dangerInk: '#1E0A0E', warn: '#F5B63F', ok: '#9BDB6A' },
-      { n: '純黑螢幕', bg: '#000000', surface: '#111113', surface2: '#1C1C1F', preview: '#000000', timeline: '#0A0A0B', border: '#242427', borderStrong: '#3A3A3F', text: '#F2F2F3', textDim: '#A5A5AB', textFaint: '#808086', accent: '#E8E8EA', accentInk: '#0A0A0B', accentWeak: '#29292C', playhead: '#FFD23F', danger: '#FF5A6A', dangerInk: '#1A0B0E', warn: '#F5B63F', ok: '#3DD68C' },
-      { n: '紫羅蘭', bg: '#131220', surface: '#1C1A2E', surface2: '#28253F', preview: '#07060E', timeline: '#0D0C18', border: '#2D2A47', borderStrong: '#443F66', text: '#ECEAF7', textDim: '#A8A4C6', textFaint: '#857FA6', accent: '#9D8CFF', accentInk: '#120D2A', accentWeak: '#2B2650', playhead: '#FFD86B', danger: '#FF6B8A', dangerInk: '#1F0A10', warn: '#F5B63F', ok: '#4FD69C' },
+      { n: '剪輯台石墨', bg: '#121316', surface: '#1B1C20', surface2: '#26282D', preview: '#000000', timeline: '#0B0C0E', border: '#2C2E34', borderStrong: '#41444C', text: '#ECEDEF', textDim: '#A3A6AE', textFaint: '#80848D', accent: '#4C9BFF', accentInk: '#08111F', accentWeak: '#1C2B40', playhead: '#FFD23F', danger: '#FF5A6A', dangerInk: '#1A0B0E', warn: '#F5B63F', ok: '#3DD68C', selectedMark: '#1A73E8' },
+      { n: '午夜藍', bg: '#0E1320', surface: '#161D2E', surface2: '#212B40', preview: '#05070C', timeline: '#0A0F1A', border: '#263049', borderStrong: '#3A4766', text: '#E8EDF7', textDim: '#9EA9C0', textFaint: '#7D89A4', accent: '#6E9BFF', accentInk: '#0A1020', accentWeak: '#1E2B4A', playhead: '#F4E5A4', danger: '#FF6B7A', dangerInk: '#1E0A0E', warn: '#F5B63F', ok: '#45D39A', selectedMark: '#1A73E8' },
+      { n: '暗房琥珀', bg: '#141210', surface: '#1D1A17', surface2: '#2A2622', preview: '#000000', timeline: '#0D0C0B', border: '#302B26', borderStrong: '#4A433B', text: '#EEEAE5', textDim: '#ADA59B', textFaint: '#8A8277', accent: '#F2A65A', accentInk: '#1A1008', accentWeak: '#3A2A1A', playhead: '#FFFFFF', danger: '#FF6464', dangerInk: '#1C0909', warn: '#F2C94C', ok: '#7BD88F', selectedMark: '#1A73E8' },
+      { n: '青綠監看', bg: '#0F1414', surface: '#172020', surface2: '#212D2D', preview: '#000000', timeline: '#0A0E0E', border: '#263333', borderStrong: '#3A4D4D', text: '#E6F0EE', textDim: '#9DB2AE', textFaint: '#7A8F8B', accent: '#3FD1B5', accentInk: '#06201B', accentWeak: '#16352F', playhead: '#FFE066', danger: '#FF6B7A', dangerInk: '#1E0A0E', warn: '#F5B63F', ok: '#9BDB6A', selectedMark: '#1A73E8' },
+      { n: '純黑螢幕', bg: '#000000', surface: '#111113', surface2: '#1C1C1F', preview: '#000000', timeline: '#0A0A0B', border: '#242427', borderStrong: '#3A3A3F', text: '#F2F2F3', textDim: '#A5A5AB', textFaint: '#808086', accent: '#E8E8EA', accentInk: '#0A0A0B', accentWeak: '#29292C', playhead: '#FFD23F', danger: '#FF5A6A', dangerInk: '#1A0B0E', warn: '#F5B63F', ok: '#3DD68C', selectedMark: '#1A73E8' },
+      { n: '紫羅蘭', bg: '#131220', surface: '#1C1A2E', surface2: '#28253F', preview: '#07060E', timeline: '#0D0C18', border: '#2D2A47', borderStrong: '#443F66', text: '#ECEAF7', textDim: '#A8A4C6', textFaint: '#857FA6', accent: '#9D8CFF', accentInk: '#120D2A', accentWeak: '#2B2650', playhead: '#FFD86B', danger: '#FF6B8A', dangerInk: '#1F0A10', warn: '#F5B63F', ok: '#4FD69C', selectedMark: '#1A73E8' },
     ],
   },
 };
@@ -749,7 +750,7 @@ function checks(c, mode) {
     ['破壞色對卡片', c.danger, c.surface, 4.5], ['警示色對卡片', c.warn, c.surface, 4.5], ['完成色對卡片', c.ok, c.surface, 4.5],
     ['主色當文字對底色', c.accent, c.bg, 4.5], ['主色當文字對卡片', c.accent, c.surface, 4.5],
   ];
-  if (mode === 'clip') list.push(['刻度數字對時間軸', c.textDim, c.timeline, 4.5], ['播放頭對時間軸', c.playhead, c.timeline, 3]);
+  if (mode === 'clip') list.push(['刻度數字對時間軸', c.textDim, c.timeline, 4.5], ['播放頭對時間軸', c.playhead, c.timeline, 3], ['序號白字對已選色', '#FFFFFF', c.selectedMark, 3]);
   else list.push(['頭像白字對漸層', '#FFFFFF', c.hero1, 3], ['看大圖白字', '#FFFFFF', c.lightbox, 4.5], ['進度條對黑底', c.progress, '#000000', 3], ['已選白勾對已選色', '#FFFFFF', c.selected, 3], ['完成白勾對完成勾勾', '#FFFFFF', c.done, 3]);
   return list.map(([n, a, b, min]) => ({ n, r: ratio(a, b), min }));
 }

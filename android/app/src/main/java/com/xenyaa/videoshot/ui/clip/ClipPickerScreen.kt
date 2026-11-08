@@ -232,7 +232,7 @@ private fun MediaCell(item: MediaItem, order: Int?, loader: MediaThumbLoader, on
 }
 
 /**
- * 左上的序號圓。外觀比照 `VsSelectedBadge`（白邊、主色底），裡面的打勾換成數字。
+ * 左上的序號圓。外觀比照 `VsSelectedBadge`（白邊、已選色藍底、白字），裡面的打勾換成數字。
  * 純裝飾：語意由整格的「已選第 N 個」負責，這裡清掉才不會唸兩次。
  */
 @Composable
@@ -245,13 +245,13 @@ private fun OrderBadge(order: Int, modifier: Modifier = Modifier) {
             .background(Color.White.copy(alpha = 0.92f))
             .padding(2.dp)
             .clip(CircleShape)
-            .background(AppTheme.colors.accent)
+            .background(AppTheme.colors.selectedMark)
             .clearAndSetSemantics {},
         contentAlignment = Alignment.Center,
     ) {
         Text(
             order.toString(),
-            color = AppTheme.colors.accentInk,
+            color = Color.White,
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, lineHeight = 11.sp),
         )
     }
