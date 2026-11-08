@@ -45,11 +45,12 @@ import androidx.compose.ui.layout.ContentScale
 /** 帳號名稱 → 導覽列／帳號頁頭像的字母。取不到字就回 null，畫人像圖示。 */
 fun avatarInitialOf(displayName: String?): Char? = displayName?.trim()?.firstOrNull()?.uppercaseChar()
 
-private fun iconOf(tab: Tab): ImageVector = when (tab) {
-    Tab.HOME -> VsIcons.Image
+/** 選中的那一格換成填滿版，一眼看得出在哪一頁（取圖本來就是實心方塊、帳號是頭像，不換）。 */
+private fun iconOf(tab: Tab, selected: Boolean): ImageVector = when (tab) {
+    Tab.HOME -> if (selected) VsIcons.ImageFilled else VsIcons.Image
     Tab.CAPTURE -> VsIcons.Plus
-    Tab.CLIP -> VsIcons.Clapperboard
-    Tab.FOLDERS -> VsIcons.Folder
+    Tab.CLIP -> if (selected) VsIcons.ClapperboardFilled else VsIcons.Clapperboard
+    Tab.FOLDERS -> if (selected) VsIcons.FolderFilled else VsIcons.Folder
     Tab.ACCOUNT -> VsIcons.Person
 }
 
@@ -129,7 +130,7 @@ private fun NavItem(
                         .clip(RoundedCornerShape(AppTheme.radii.sm))
                         .background(AppTheme.colors.accent),
                     contentAlignment = Alignment.Center,
-                ) { Icon(iconOf(tab), null, tint = AppTheme.colors.accentInk, modifier = Modifier.size(20.dp)) }
+                ) { Icon(iconOf(tab, selected), null, tint = AppTheme.colors.accentInk, modifier = Modifier.size(20.dp)) }
 
                 tab == Tab.ACCOUNT && accountAvatar != null -> Image(
                     accountAvatar,
@@ -151,7 +152,7 @@ private fun NavItem(
                     )
                 }
 
-                else -> Icon(iconOf(tab), null, tint = color, modifier = Modifier.size(24.dp))
+                else -> Icon(iconOf(tab, selected), null, tint = color, modifier = Modifier.size(24.dp))
             }
             if (badgeText != null) {
                 // 紅點只是視覺：數字從無障礙樹清掉（同帳號頭像字母），唸的內容由下面的標籤文字負責

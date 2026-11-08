@@ -1,6 +1,7 @@
 package com.xenyaa.videoshot.ui.icons
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -43,6 +44,35 @@ private fun strokeIcon(name: String, vararg pathData: String): ImageVector =
         }
     }.build()
 
+/**
+ * 填滿版（底部導覽選中那一格用）：[solid] 填滿再描一圈同樣的線，外框跟線條版一樣大；
+ * [holes] 從填滿裡挖掉（even-odd）；[lines] 照線條版畫在上面。
+ */
+private fun filledIcon(name: String, solid: String, holes: String = "", vararg lines: String): ImageVector =
+    ImageVector.Builder(
+        name = name,
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f,
+    ).apply {
+        addPath(
+            pathData = PathParser().parsePathString("$solid $holes").toNodes(),
+            pathFillType = PathFillType.EvenOdd,
+            fill = SolidColor(Color.Black),
+        )
+        for (d in listOf(solid) + lines) {
+            addPath(
+                pathData = PathParser().parsePathString(d).toNodes(),
+                fill = null,
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 2f,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            )
+        }
+    }.build()
+
 object VsIcons {
 
     val Home: ImageVector by lazy {
@@ -59,6 +89,15 @@ object VsIcons {
         )
     }
 
+    /** [Image] 的填滿版：實心框，太陽與山挖空。 */
+    val ImageFilled: ImageVector by lazy {
+        filledIcon(
+            "image-filled",
+            solid = "M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z",
+            holes = "M6.5 9a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0z M7.5 19 L14.8 11.7 a1 1 0 0 1 1.4 0 L19 14.5 V19 z",
+        )
+    }
+
     val Search: ImageVector by lazy {
         // 原型的 <circle cx=11 cy=11 r=8> 改寫成兩段半圓弧
         strokeIcon("search", "M3 11a8 8 0 1 0 16 0a8 8 0 1 0 -16 0", "m21 21-4.3-4.3")
@@ -70,6 +109,14 @@ object VsIcons {
         strokeIcon(
             "folder",
             "M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z",
+        )
+    }
+
+    /** [Folder] 的填滿版。 */
+    val FolderFilled: ImageVector by lazy {
+        filledIcon(
+            "folder-filled",
+            solid = "M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z",
         )
     }
 
@@ -364,6 +411,18 @@ object VsIcons {
             "m6.2 5.3 3.1 3.9",
             "m12.4 3.4 3.1 4",
             "M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z",
+        )
+    }
+
+    /** [Clapperboard] 的填滿版：下半部的板子填滿，上面的拍板維持線條（斜紋才看得到）。 */
+    val ClapperboardFilled: ImageVector by lazy {
+        filledIcon(
+            "clapperboard-filled",
+            "M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z",
+            "",
+            "M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z",
+            "m6.2 5.3 3.1 3.9",
+            "m12.4 3.4 3.1 4",
         )
     }
 
