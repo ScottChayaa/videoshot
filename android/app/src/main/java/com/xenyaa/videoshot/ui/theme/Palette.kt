@@ -55,6 +55,10 @@ data class Palette(
     val lightboxBg: Color,
     val focusRing: Color,
 
+    // ── 選取 ──
+    /** 已選標記（左上白邊圓＋白勾）的底色。不跟主色走：主色深的色系疊在照片上不明顯。 */
+    val selectedMark: Color,
+
     // ── 播放器 ──
     /** 進度條已播放的部分與把手。畫在影片上，不跟主色走：主色深的色系在影片上會看不見。 */
     val playerProgress: Color,

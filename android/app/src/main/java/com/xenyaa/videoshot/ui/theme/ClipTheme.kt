@@ -50,6 +50,7 @@ val ClipPalette = Palette(
     lightboxBg = Color(0xFF000000),
     focusRing = Color(0x8CE8E8EA),
 
+    selectedMark = Color(0xFF1A73E8),
     playerProgress = Color(0xFFFFFFFF),
 )
 

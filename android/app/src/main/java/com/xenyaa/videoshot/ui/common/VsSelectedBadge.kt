@@ -19,7 +19,7 @@ import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 
 /**
- * 左上 20dp 主色圓形打勾徽章，外圈 2dp 白邊（原型 .wz-cell.sel::before）。
+ * 左上 20dp 已選色（`selectedMark`，預設藍色）圓形白勾徽章，外圈 2dp 白邊（原型 .wz-cell.sel::before）。
  * 取圖第二步、第三步與照片頁多選的「已選」共用同一個外觀；語意名稱「已選」讓輔助技術不只靠顏色辨識。
  * 整格的語意已經含選取狀態時，徽章傳 null 當純裝飾，避免唸兩次。
  */
@@ -33,11 +33,11 @@ fun VsSelectedBadge(modifier: Modifier = Modifier, semanticLabel: String? = "已
             .background(Color.White.copy(alpha = 0.92f))
             .padding(2.dp)
             .clip(CircleShape)
-            .background(AppTheme.colors.accent)
+            .background(AppTheme.colors.selectedMark)
             .then(if (semanticLabel != null) Modifier.semantics { contentDescription = semanticLabel } else Modifier),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(VsIcons.Check, contentDescription = null, tint = AppTheme.colors.accentInk, modifier = Modifier.size(12.dp))
+        Icon(VsIcons.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
     }
 }
 

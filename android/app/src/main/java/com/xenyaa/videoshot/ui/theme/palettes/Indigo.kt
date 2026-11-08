@@ -45,6 +45,7 @@ private val Colors = Palette(
     lightboxBg = Color(0xFF0A0A0B),
     focusRing = Color(0x8C2D2D33),
 
+    selectedMark = Color(0xFF1A73E8),
     playerProgress = Color(0xFFFFFFFF),
 )
 

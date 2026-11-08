@@ -58,6 +58,7 @@ private val Light = Palette(
     // 焦點框跟主色同一階，65% 讓它在白底與卡片上都看得見
     focusRing = Color(0xA68A5E10),
 
+    selectedMark = Color(0xFF1A73E8),
     playerProgress = Color(0xFFFFFFFF),
 )
 
