@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.xenyaa.videoshot.core.timeline.ClipDraft
@@ -199,10 +200,10 @@ private fun DraftRow(draft: ClipDraftSummary, onOpen: () -> Unit, onDiscard: () 
     ) {
         Icon(VsIcons.Clapperboard, contentDescription = null, tint = AppTheme.colors.accent)
         Column(Modifier.weight(1f)) {
-            Text("編輯中", style = MaterialTheme.typography.bodyLarge, color = AppTheme.colors.text)
+            Text("編輯中", style = MaterialTheme.typography.bodyLarge, color = AppTheme.colors.text, fontWeight = FontWeight.Medium)
             Text(
                 "${if (draft.orientation == ClipOrientation.PORTRAIT) "直式" else "橫式"}・${draft.sourceCount} 個素材・${formatDuration(draft.durationMs)}",
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = AppTheme.colors.textDim,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -263,7 +264,7 @@ fun DeleteTaskDialog(
 }
 
 /**
- * 一個導出任務的列：縮圖（第一段素材）＋標題＋狀態文字；右側是 ▶︎（完成）、【重試】（失敗）和 ⋯ 選單。
+ * 一個導出任務的列：縮圖（第一段素材）＋標題＋狀態文字（已完成前面有綠勾）；右側是 ▶︎（輸出完成）、【重試】（失敗）和 ⋯ 選單。
  * 前一次輸出留在任務上的相簿位置只在「輸出完成」才看（重試後它還在，但那時狀態是等待中）。
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -305,27 +306,37 @@ private fun TaskRow(
                 task.title,
                 style = MaterialTheme.typography.bodyLarge,
                 color = colors.text,
+                fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                when (task.state) {
-                    EditTaskState.QUEUED -> "等待中"
-                    EditTaskState.RENDERING -> "輸出影片中 ${task.progress}%"
-                    EditTaskState.RENDERED -> if (task.galleryUri != null) "已存到相簿" else "輸出完成"
-                    EditTaskState.UPLOADING -> "上傳中 ${task.progress}%"
-                    EditTaskState.WAITING_QUOTA -> "等待明天上傳"
-                    EditTaskState.PROCESSING -> "YouTube 處理中"
-                    EditTaskState.DONE -> "已完成，點一下開始取圖"
-                    EditTaskState.FAILED -> "失敗：${task.failReason ?: "輸出失敗"}"
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = taskStatusColor(task.state, colors),
-                // 一行：失敗原因太長就截斷（完整的在導出畫面），列高跟其他列一樣
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 2.dp),
-            )
+            Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (task.state == EditTaskState.DONE) {
+                    Icon(
+                        VsIcons.Check,
+                        contentDescription = null,
+                        tint = colors.ok,
+                        modifier = Modifier.size(14.dp).padding(end = 2.dp).testTag("doneCheck"),
+                    )
+                }
+                Text(
+                    when (task.state) {
+                        EditTaskState.QUEUED -> "等待中"
+                        EditTaskState.RENDERING -> "輸出影片中 ${task.progress}%"
+                        EditTaskState.RENDERED -> if (task.galleryUri != null) "已存到相簿" else "輸出完成"
+                        EditTaskState.UPLOADING -> "上傳中 ${task.progress}%"
+                        EditTaskState.WAITING_QUOTA -> "等待明天上傳"
+                        EditTaskState.PROCESSING -> "YouTube 處理中"
+                        EditTaskState.DONE -> "已完成，點一下開始取圖"
+                        EditTaskState.FAILED -> "失敗：${task.failReason ?: "輸出失敗"}"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = taskStatusColor(task.state, colors),
+                    // 一行：失敗原因太長就截斷（完整的在導出畫面），列高跟其他列一樣
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             if (task.state == EditTaskState.RENDERING || task.state == EditTaskState.UPLOADING) {
                 LinearProgressIndicator(
                     progress = { task.progress.coerceIn(0, 100) / 100f },
@@ -337,8 +348,6 @@ private fun TaskRow(
         }
         when (task.state) {
             EditTaskState.RENDERED -> Icon(VsIcons.Play, contentDescription = null, tint = colors.accent)
-            // 已完成：右邊一顆主色圓點（只是視覺，文字已經說了）
-            EditTaskState.DONE -> Box(Modifier.size(10.dp).testTag("doneDot").background(colors.accent, CircleShape))
             EditTaskState.FAILED -> VsButton("重試", onRetry, variant = ButtonVariant.Secondary)
             else -> Unit
         }
@@ -361,10 +370,10 @@ private fun TaskRow(
     }
 }
 
-/** 任務列狀態文字的顏色：失敗紅字、已完成主色字（提醒「點一下開始取圖」），其餘是次要文字色。 */
+/** 任務列狀態文字的顏色：失敗紅字、已完成綠字（提醒「點一下開始取圖」；剪輯配色的主色近白，跟標題分不開），其餘是次要文字色。 */
 internal fun taskStatusColor(state: EditTaskState, colors: Palette): Color = when (state) {
     EditTaskState.FAILED -> colors.danger
-    EditTaskState.DONE -> colors.accent
+    EditTaskState.DONE -> colors.ok
     else -> colors.textDim
 }
 

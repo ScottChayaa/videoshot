@@ -451,18 +451,18 @@ class ClipHomeScreenTest {
         compose.onAllNodes(hasProgressBar).assertCountEquals(0)
     }
 
-    @Test fun 已完成用主色字且右邊有主色圓點() {
+    @Test fun 已完成用綠字且前面有綠勾() {
         show(tasks = listOf(task(1, EditTaskState.DONE, videoId = "abc")))
         compose.onNodeWithText("已完成，點一下開始取圖").assertIsDisplayed()
-        assertEquals(palette.accent, taskStatusColor(EditTaskState.DONE, palette))
+        assertEquals(palette.ok, taskStatusColor(EditTaskState.DONE, palette))
         assertEquals(palette.textDim, taskStatusColor(EditTaskState.PROCESSING, palette))
-        compose.onNodeWithTag("doneDot", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("doneCheck", useUnmergedTree = true).assertIsDisplayed()
         compose.onAllNodes(hasProgressBar).assertCountEquals(0)
     }
 
-    @Test fun 其他狀態沒有主色圓點() {
+    @Test fun 其他狀態沒有綠勾() {
         show(tasks = listOf(task(1, EditTaskState.PROCESSING), task(2, EditTaskState.UPLOADING, progress = 5)))
-        compose.onAllNodes(hasTestTag("doneDot"), useUnmergedTree = true).assertCountEquals(0)
+        compose.onAllNodes(hasTestTag("doneCheck"), useUnmergedTree = true).assertCountEquals(0)
     }
 
     @Test fun 失敗原因一行_上傳那一步失敗也有重試() {
@@ -600,12 +600,12 @@ class ClipHomeScreenTest {
     @Test fun 等待明天上傳的任務列() {
         show(tasks = listOf(task(6, EditTaskState.WAITING_QUOTA, title = "等明天的", failReason = "系統目前上傳已超過每日配額，請隔天再繼續上傳")))
         compose.onNodeWithText("等待明天上傳").assertIsDisplayed()
-        // 不是失敗：一般字色、沒有【重試】、沒有進度條、沒有勾選框、沒有主色圓點
+        // 不是失敗：一般字色、沒有【重試】、沒有進度條、沒有勾選框、沒有綠勾
         assertEquals(palette.textDim, taskStatusColor(EditTaskState.WAITING_QUOTA, palette))
         compose.onNodeWithText("重試").assertDoesNotExist()
         compose.onAllNodes(hasProgressBar).assertCountEquals(0)
         compose.onAllNodes(isToggleable()).assertCountEquals(0)
-        compose.onAllNodes(hasTestTag("doneDot"), useUnmergedTree = true).assertCountEquals(0)
+        compose.onAllNodes(hasTestTag("doneCheck"), useUnmergedTree = true).assertCountEquals(0)
     }
 
     @Test fun 等待中可以取消_確認框寫取消上傳() {
