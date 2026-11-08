@@ -1,7 +1,6 @@
 package com.xenyaa.videoshot.ui.common
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -92,15 +91,16 @@ fun VsFieldButton(
                     Modifier
                         .align(Alignment.TopEnd)
                         .offset(x = 6.dp, y = (-4).dp)
-                        .size(13.dp)
+                        .size(16.dp)
                         // 要放在 offset 之後，量到的才是畫出來的位置
                         .testTag(FIELD_BUTTON_DONE_BADGE_TAG)
-                        .clip(CircleShape)
-                        .background(colors.ok)
-                        .border(1.5.dp, colors.surface, CircleShape),
+                        // 白圈畫在外層、綠圓縮在裡面：綠底跟白邊疊在同一條邊上的話，綠色的抗鋸齒邊緣會從白圈外透出一圈淡綠點點
+                        .background(colors.surface, CircleShape)
+                        .padding(1.5.dp)
+                        .background(colors.doneMark, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(VsIcons.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(9.dp))
+                    Icon(VsIcons.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(11.dp))
                 }
             }
         }

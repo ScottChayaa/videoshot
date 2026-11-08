@@ -158,8 +158,8 @@ details summary { cursor: pointer; font-size: 13px; color: var(--pg-muted) }
 .fbs { display: flex }
 .fb { width: 48px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding-top: 4px; font-size: 12px; color: var(--c-textDim) }
 .fb .w { position: relative; color: var(--c-accent) }
-.fb .ok { position: absolute; top: -4px; right: -7px; width: 13px; height: 13px; border-radius: 50%; background: var(--c-ok); box-shadow: 0 0 0 1.5px var(--c-surface); display: grid; place-items: center; color: #fff }
-.fb .ok .ico { width: 9px; height: 9px }
+.fb .ok { position: absolute; top: -4px; right: -7px; width: 16px; height: 16px; border-radius: 50%; background: var(--c-done); box-shadow: 0 0 0 1.5px var(--c-surface); display: grid; place-items: center; color: #fff }
+.fb .ok .ico { width: 11px; height: 11px }
 .fb.off, .fb.off .w { color: var(--c-textFaint) }
 .lr { display: flex; align-items: center; gap: 16px; min-height: 56px; padding: 10px 16px; color: var(--c-text) }
 .lr > .ico:first-child { color: var(--c-textDim) }
@@ -414,7 +414,7 @@ const MODES = {
         ['dangerInk', '破壞色上的字', '紅色按鈕與徽章的字'],
         ['warn', '警示色', '輸入錯誤、提醒'],
         ['warnWeak', '警示淡底', '提醒橫幅的底'],
-        ['ok', '完成色', '欄位已填的小勾'],
+        ['ok', '完成色', '完成的文字、上傳完成'],
       ]],
       ['種類色與其他', [
         ['place', '地點', '小膠囊的圖釘（不隨色系變）'],
@@ -425,18 +425,19 @@ const MODES = {
       ]],
       ['選取', [
         ['selected', '已選標記', '取圖第二步、第三步、照片與相簿多選的左上勾勾'],
+        ['done', '完成勾勾', '取圖第三步底部欄位填好時右上的綠勾'],
       ]],
       ['播放器', [
         ['progress', '進度條', '原片播放與取圖第二步，畫在影片上'],
       ]],
     ],
     presets: [
-      { n: '夕陽海灘（現在）', bg: '#F5F4F1', surface: '#FFFFFF', surface2: '#FAF9F7', border: '#E6E3DE', borderStrong: '#CFCBC4', text: '#1F2A35', textDim: '#4A5562', textFaint: '#6B7480', accent: '#0B5F8A', accentInk: '#FFFFFF', accentWeak: '#E7EEF3', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#B5482A', hero2: '#C96F22', lightbox: '#0B0B12', progress: '#FFFFFF', selected: '#1A73E8' },
-      { n: '新年', bg: '#FDF3E7', surface: '#FFFFFF', surface2: '#FBF1E3', border: '#EADCC8', borderStrong: '#D9C4A5', text: '#2B1A12', textDim: '#5A4636', textFaint: '#7A6450', accent: '#8A5E10', accentInk: '#FFFFFF', accentWeak: '#FCF1DC', danger: '#C0173A', dangerInk: '#FFFFFF', warn: '#9A4A07', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#C1121F', hero2: '#E8B33D', lightbox: '#12100E', progress: '#FFFFFF', selected: '#1A73E8' },
-      { n: '天空藍（跟圖示）', bg: '#F3F6FC', surface: '#FFFFFF', surface2: '#F7F9FD', border: '#DFE6F2', borderStrong: '#C3CFE3', text: '#18233A', textDim: '#45526B', textFaint: '#65718A', accent: '#2F5BC0', accentInk: '#FFFFFF', accentWeak: '#E5ECFA', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#254B9B', hero2: '#638BE2', lightbox: '#0B0E16', progress: '#FFFFFF', selected: '#1A73E8' },
-      { n: '森林苔綠', bg: '#F3F5F1', surface: '#FFFFFF', surface2: '#F8FAF6', border: '#E0E5DC', borderStrong: '#C6CEC0', text: '#1E2A22', textDim: '#48554B', textFaint: '#67736A', accent: '#2F6B4F', accentInk: '#FFFFFF', accentWeak: '#E4EFE8', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#1F7A3A', place: '#0E8FA3', tag: '#8C6D46', hero1: '#2F6B4F', hero2: '#7E8E2E', lightbox: '#0C110E', progress: '#FFFFFF', selected: '#1A73E8' },
-      { n: '石墨中性', bg: '#F4F4F5', surface: '#FFFFFF', surface2: '#FAFAFA', border: '#E4E4E7', borderStrong: '#CBCBD0', text: '#1C1C21', textDim: '#4A4A52', textFaint: '#6B6B74', accent: '#2D2D33', accentInk: '#FFFFFF', accentWeak: '#EBEBEE', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#3A3A44', hero2: '#6A6A78', lightbox: '#0A0A0B', progress: '#FFFFFF', selected: '#1A73E8' },
-      { n: '奶茶咖啡', bg: '#F7F1EA', surface: '#FFFDF9', surface2: '#FBF6EF', border: '#E9DFD2', borderStrong: '#D5C6B3', text: '#2E241C', textDim: '#5C4D40', textFaint: '#76675A', accent: '#6B4E2E', accentInk: '#FFFFFF', accentWeak: '#F3EADF', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0E8FA3', tag: '#8C6D46', hero1: '#6B4E2E', hero2: '#B07A3A', lightbox: '#120F0C', progress: '#FFFFFF', selected: '#1A73E8' },
+      { n: '夕陽海灘（現在）', bg: '#F5F4F1', surface: '#FFFFFF', surface2: '#FAF9F7', border: '#E6E3DE', borderStrong: '#CFCBC4', text: '#1F2A35', textDim: '#4A5562', textFaint: '#6B7480', accent: '#0B5F8A', accentInk: '#FFFFFF', accentWeak: '#E7EEF3', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#B5482A', hero2: '#C96F22', lightbox: '#0B0B12', progress: '#FFFFFF', selected: '#1A73E8', done: '#16A34A' },
+      { n: '新年', bg: '#FDF3E7', surface: '#FFFFFF', surface2: '#FBF1E3', border: '#EADCC8', borderStrong: '#D9C4A5', text: '#2B1A12', textDim: '#5A4636', textFaint: '#7A6450', accent: '#8A5E10', accentInk: '#FFFFFF', accentWeak: '#FCF1DC', danger: '#C0173A', dangerInk: '#FFFFFF', warn: '#9A4A07', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#C1121F', hero2: '#E8B33D', lightbox: '#12100E', progress: '#FFFFFF', selected: '#1A73E8', done: '#16A34A' },
+      { n: '天空藍（跟圖示）', bg: '#F3F6FC', surface: '#FFFFFF', surface2: '#F7F9FD', border: '#DFE6F2', borderStrong: '#C3CFE3', text: '#18233A', textDim: '#45526B', textFaint: '#65718A', accent: '#2F5BC0', accentInk: '#FFFFFF', accentWeak: '#E5ECFA', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#254B9B', hero2: '#638BE2', lightbox: '#0B0E16', progress: '#FFFFFF', selected: '#1A73E8', done: '#16A34A' },
+      { n: '森林苔綠', bg: '#F3F5F1', surface: '#FFFFFF', surface2: '#F8FAF6', border: '#E0E5DC', borderStrong: '#C6CEC0', text: '#1E2A22', textDim: '#48554B', textFaint: '#67736A', accent: '#2F6B4F', accentInk: '#FFFFFF', accentWeak: '#E4EFE8', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#1F7A3A', place: '#0E8FA3', tag: '#8C6D46', hero1: '#2F6B4F', hero2: '#7E8E2E', lightbox: '#0C110E', progress: '#FFFFFF', selected: '#1A73E8', done: '#16A34A' },
+      { n: '石墨中性', bg: '#F4F4F5', surface: '#FFFFFF', surface2: '#FAFAFA', border: '#E4E4E7', borderStrong: '#CBCBD0', text: '#1C1C21', textDim: '#4A4A52', textFaint: '#6B6B74', accent: '#2D2D33', accentInk: '#FFFFFF', accentWeak: '#EBEBEE', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#3A3A44', hero2: '#6A6A78', lightbox: '#0A0A0B', progress: '#FFFFFF', selected: '#1A73E8', done: '#16A34A' },
+      { n: '奶茶咖啡', bg: '#F7F1EA', surface: '#FFFDF9', surface2: '#FBF6EF', border: '#E9DFD2', borderStrong: '#D5C6B3', text: '#2E241C', textDim: '#5C4D40', textFaint: '#76675A', accent: '#6B4E2E', accentInk: '#FFFFFF', accentWeak: '#F3EADF', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0E8FA3', tag: '#8C6D46', hero1: '#6B4E2E', hero2: '#B07A3A', lightbox: '#120F0C', progress: '#FFFFFF', selected: '#1A73E8', done: '#16A34A' },
     ],
   },
   clip: {
@@ -749,7 +750,7 @@ function checks(c, mode) {
     ['主色當文字對底色', c.accent, c.bg, 4.5], ['主色當文字對卡片', c.accent, c.surface, 4.5],
   ];
   if (mode === 'clip') list.push(['刻度數字對時間軸', c.textDim, c.timeline, 4.5], ['播放頭對時間軸', c.playhead, c.timeline, 3]);
-  else list.push(['頭像白字對漸層', '#FFFFFF', c.hero1, 3], ['看大圖白字', '#FFFFFF', c.lightbox, 4.5], ['進度條對黑底', c.progress, '#000000', 3], ['已選白勾對已選色', '#FFFFFF', c.selected, 3]);
+  else list.push(['頭像白字對漸層', '#FFFFFF', c.hero1, 3], ['看大圖白字', '#FFFFFF', c.lightbox, 4.5], ['進度條對黑底', c.progress, '#000000', 3], ['已選白勾對已選色', '#FFFFFF', c.selected, 3], ['完成白勾對完成勾勾', '#FFFFFF', c.done, 3]);
   return list.map(([n, a, b, min]) => ({ n, r: ratio(a, b), min }));
 }
 function accentLikeDanger(c) {
@@ -893,7 +894,7 @@ function outText() {
       `hero1 = ${kc(c.hero1)},`, `hero2 = ${kc(c.hero2)},`,
       `danger = ${kc(c.danger)},`, `dangerInk = ${kc(c.dangerInk)},`, `dangerWeak = ${kc(mix(c.danger, c.surface, .9))},`,
       `warn = ${kc(c.warn)},`, `warnWeak = ${kc(c.warnWeak)},`, `ok = ${kc(c.ok)},`, `okWeak = ${kc(mix(c.ok, c.surface, .88))},`,
-      `overlay = ${ka(c.text, '6B')},`, `scrim = Color(0x9E000000),`, `lightboxBg = ${kc(c.lightbox)},`, `focusRing = ${ka(c.accent, '8C')},`, `selectedMark = ${kc(c.selected)},`, `playerProgress = ${kc(c.progress)},`,
+      `overlay = ${ka(c.text, '6B')},`, `scrim = Color(0x9E000000),`, `lightboxBg = ${kc(c.lightbox)},`, `focusRing = ${ka(c.accent, '8C')},`, `selectedMark = ${kc(c.selected)},`, `doneMark = ${kc(c.done)},`, `playerProgress = ${kc(c.progress)},`,
       '', '// 種類色（KindColors）', `place = ${kc(c.place)}`, `tag = ${kc(c.tag)}`,
     ].join('\n');
   }

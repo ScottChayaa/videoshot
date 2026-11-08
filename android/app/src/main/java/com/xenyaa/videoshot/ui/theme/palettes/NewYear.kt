@@ -59,6 +59,7 @@ private val Light = Palette(
     focusRing = Color(0xA68A5E10),
 
     selectedMark = Color(0xFF1A73E8),
+    doneMark = Color(0xFF16A34A),
     playerProgress = Color(0xFFFFFFFF),
 )
 
