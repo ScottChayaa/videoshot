@@ -3,10 +3,13 @@ package com.xenyaa.videoshot.ui.clip
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.xenyaa.videoshot.core.timeline.ClipOrientation
 import com.xenyaa.videoshot.media.MediaAccess
 import com.xenyaa.videoshot.media.MediaAccess.DENIED
 import com.xenyaa.videoshot.media.MediaAccess.FULL
@@ -32,8 +35,8 @@ class ClipPickerScreenTest {
     @get:Rule val compose = createComposeRule()
 
     private fun photo(id: Long) = MediaItem(id, "content://media/$id", MediaKind.PHOTO, 1_000L * id, null, 1080, 1920, 0)
-    private fun video(id: Long, durationMs: Long) =
-        MediaItem(id, "content://media/$id", MediaKind.VIDEO, 1_000L * id, durationMs, 1080, 1920, 0)
+    private fun video(id: Long, durationMs: Long, width: Int = 1080, height: Int = 1920, rotation: Int = 0) =
+        MediaItem(id, "content://media/$id", MediaKind.VIDEO, 1_000L * id, durationMs, width, height, rotation)
     private fun items(n: Int) = (1..n).map { photo(it.toLong()) }
 
     private fun state(
@@ -41,10 +44,12 @@ class ClipPickerScreenTest {
         filter: MediaFilter = MediaFilter.ALL,
         items: List<MediaItem>? = emptyList(),
         selected: List<Long> = emptyList(),
-    ) = ClipPickerState(access = access, filter = filter, items = items, selected = selected)
+        selectedMs: Long = 0,
+    ) = ClipPickerState(access = access, filter = filter, items = items, selected = selected, selectedMs = selectedMs)
 
     private fun show(
         state: ClipPickerState,
+        orientation: ClipOrientation = ClipOrientation.PORTRAIT,
         onRequestAccess: () -> Unit = {},
         onOpenSettings: () -> Unit = {},
         canAskAgain: Boolean = true,
@@ -56,6 +61,7 @@ class ClipPickerScreenTest {
             VideoshotTheme {
                 ClipPickerScreen(
                     state = state,
+                    orientation = orientation,
                     thumbLoader = MediaThumbLoader(decode = { null }),
                     orderOf = { id -> state.selected.indexOf(id).takeIf { it >= 0 }?.plus(1) },
                     onBack = {},
@@ -94,6 +100,48 @@ class ClipPickerScreenTest {
     @Test fun 影片格顯示長度() {
         show(state(FULL, items = listOf(video(id = 1, durationMs = 75_000))))
         compose.onNodeWithText("1:15").assertIsDisplayed()
+    }
+
+    @Test fun 影片格標出直式或橫式_旋轉過的照轉後算_正方形不標() {
+        show(
+            state(
+                FULL,
+                items = listOf(
+                    video(1, 10_000),
+                    video(2, 10_000, width = 1920, height = 1080),
+                    video(3, 10_000, width = 1920, height = 1080, rotation = 90),
+                    video(4, 10_000, width = 1080, height = 1080),
+                ),
+            ),
+        )
+        compose.onAllNodesWithContentDescription("直式影片", substring = true).assertCountEquals(2)
+        compose.onAllNodesWithContentDescription("橫式影片", substring = true).assertCountEquals(1)
+    }
+
+    @Test fun 底部顯示方向與已選總長() {
+        show(state(FULL, selected = listOf(1, 2), selectedMs = 45_000))
+        compose.onNodeWithText("直式").assertIsDisplayed()
+        compose.onNodeWithText("0:45 / 3:00").assertIsDisplayed()
+        compose.onNodeWithText("下一步（2）").assertIsEnabled()
+    }
+
+    @Test fun 直式超過3分鐘變紅字而且不能下一步() {
+        show(state(FULL, selected = listOf(1, 2), selectedMs = 192_000))
+        compose.onNodeWithText("3:12 / 3:00・超過 12 秒").assertIsDisplayed()
+        compose.onNodeWithText("下一步（2）").assertIsNotEnabled()
+    }
+
+    @Test fun 橫式上限10分鐘() {
+        show(state(FULL, selected = listOf(1), selectedMs = 300_000), orientation = ClipOrientation.LANDSCAPE)
+        compose.onNodeWithText("橫式").assertIsDisplayed()
+        compose.onNodeWithText("5:00 / 10:00").assertIsDisplayed()
+        compose.onNodeWithText("下一步（1）").assertIsEnabled()
+    }
+
+    @Test fun 剛好等於上限還可以下一步() {
+        show(state(FULL, selected = listOf(1), selectedMs = 180_000))
+        compose.onNodeWithText("3:00 / 3:00").assertIsDisplayed()
+        compose.onNodeWithText("下一步（1）").assertIsEnabled()
     }
 
     @Test fun 部分允許顯示橫幅與選取更多() {

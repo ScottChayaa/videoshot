@@ -87,6 +87,7 @@ import com.xenyaa.videoshot.ui.clip.ClipResultRoute
 import com.xenyaa.videoshot.ui.clip.toSummary
 import com.xenyaa.videoshot.ui.clip.ExportSheet
 import com.xenyaa.videoshot.ui.clip.OrientationSheet
+import com.xenyaa.videoshot.core.timeline.ClipOrientation
 import com.xenyaa.videoshot.core.timeline.defaultClipTitle
 import com.xenyaa.videoshot.core.timeline.usedSources
 import com.xenyaa.videoshot.ui.common.TopBarNav
@@ -785,6 +786,7 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
         // 選素材與編輯畫面：全螢幕、沒有底部導覽（同 Dest.Play）。剪輯分頁的畫面一律用剪輯暗色（ClipTheme）
         is Dest.ClipPicker -> ClipTheme { ClipPickerRoute(
             vm = clipVm!!,
+            orientation = dest.orientation,
             clipDeps = container.clipDeps,
             entryPending = clipEntryPending,
             onEntryHandled = { clipEntryPending = false },
@@ -1338,6 +1340,7 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
 @Composable
 private fun ClipPickerRoute(
     vm: ClipPickerViewModel,
+    orientation: ClipOrientation,
     clipDeps: ClipDeps,
     entryPending: Boolean,
     onEntryHandled: () -> Unit,
@@ -1371,6 +1374,7 @@ private fun ClipPickerRoute(
 
     ClipPickerScreen(
         state = state,
+        orientation = orientation,
         thumbLoader = clipDeps.mediaThumbLoader,
         orderOf = vm::orderOf,
         onBack = onBack,

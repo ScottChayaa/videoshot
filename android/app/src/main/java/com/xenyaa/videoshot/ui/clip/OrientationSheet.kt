@@ -26,13 +26,13 @@ fun OrientationSheet(onPick: (ClipOrientation) -> Unit, onDismiss: () -> Unit) {
             VsSheetHeader("影片方向")
             VsListRow(
                 title = "直式",
-                subtitle = "9:16・3 分鐘內會成為 Shorts",
+                subtitle = "影片時長 3 分鐘 Shorts",
                 icon = VsIcons.Smartphone,
                 onClick = { onPick(ClipOrientation.PORTRAIT) },
             )
             VsListRow(
                 title = "橫式",
-                subtitle = "16:9・最長 10 分鐘",
+                subtitle = "影片時長 10 分鐘",
                 icon = VsIcons.SmartphoneLandscape,
                 onClick = { onPick(ClipOrientation.LANDSCAPE) },
             )

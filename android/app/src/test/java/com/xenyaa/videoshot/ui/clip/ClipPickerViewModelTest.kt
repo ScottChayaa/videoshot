@@ -109,6 +109,29 @@ class ClipPickerViewModelTest {
         assertNull(vm.orderOf(20))
     }
 
+    @Test fun 已選總長照片各3秒加影片長度_切到別的分頁也算得到() = runTest {
+        val vm = vm()
+        advanceUntilIdle()
+        vm.toggle(1); vm.toggle(10); vm.toggle(2)
+        assertEquals(3_000L + 5_000L + 3_000L, vm.state.value.selectedMs)
+        vm.setFilter(MediaFilter.PHOTO)
+        advanceUntilIdle()
+        vm.toggle(2)
+        assertEquals(3_000L + 5_000L, vm.state.value.selectedMs)
+        vm.reset()
+        assertEquals(0L, vm.state.value.selectedMs)
+    }
+
+    @Test fun 被刪掉的已選素材不算進總長() = runTest {
+        val vm = vm()
+        advanceUntilIdle()
+        vm.toggle(1); vm.toggle(10)
+        library.remove(10)
+        vm.refreshAccess()
+        advanceUntilIdle()
+        assertEquals(3_000L, vm.state.value.selectedMs)
+    }
+
     @Test fun 切分頁不丟選取() = runTest {
         val vm = vm()
         vm.toggle(1); vm.toggle(2); vm.toggle(3)

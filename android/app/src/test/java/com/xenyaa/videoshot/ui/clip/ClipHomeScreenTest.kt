@@ -117,8 +117,8 @@ class ClipHomeScreenTest {
     @Test fun 選方向抽屜兩列都有說明() {
         showSheet()
         compose.onNodeWithText("影片方向").assertIsDisplayed()
-        compose.onNodeWithText("9:16・3 分鐘內會成為 Shorts").assertIsDisplayed()
-        compose.onNodeWithText("16:9・最長 10 分鐘").assertIsDisplayed()
+        compose.onNodeWithText("影片時長 3 分鐘 Shorts").assertIsDisplayed()
+        compose.onNodeWithText("影片時長 10 分鐘").assertIsDisplayed()
     }
 
     @Test fun 點直式回報直式() {

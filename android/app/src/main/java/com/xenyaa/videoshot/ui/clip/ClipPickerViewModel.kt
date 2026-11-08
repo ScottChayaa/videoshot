@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.xenyaa.videoshot.core.timeline.ClipDraft
 import com.xenyaa.videoshot.core.timeline.ClipOrientation
 import com.xenyaa.videoshot.core.timeline.ClipSource
+import com.xenyaa.videoshot.core.timeline.PHOTO_SEGMENT_MS
 import com.xenyaa.videoshot.core.timeline.SourceKind
 import com.xenyaa.videoshot.core.timeline.newClipDraft
 import com.xenyaa.videoshot.media.MediaAccess
@@ -22,12 +23,14 @@ import kotlinx.coroutines.launch
 /**
  * 選素材畫面的狀態。[access] 為 null 代表還沒判定；[items] 為 null 代表讀取中（或沒權限、沒讀過）。
  * [selected] 依點選順序排列，序號就是它在清單裡的位置加一。
+ * [selectedMs] 是已選素材排進時間軸後的總長：照片各 [PHOTO_SEGMENT_MS]、影片是它的長度（長度不明的影片建草稿時會略過，算 0）。
  */
 data class ClipPickerState(
     val access: MediaAccess? = null,
     val filter: MediaFilter = MediaFilter.ALL,
     val items: List<MediaItem>? = null,
     val selected: List<Long> = emptyList(),
+    val selectedMs: Long = 0,
 )
 
 class ClipPickerViewModel(private val deps: ClipDeps) : ViewModel() {
@@ -37,8 +40,11 @@ class ClipPickerViewModel(private val deps: ClipDeps) : ViewModel() {
 
     private var readJob: Job? = null
 
-    /** 讀過的素材各是照片還是影片：只讀單一分頁時，靠它判斷「沒出現在這個分頁」是被刪了還是本來就屬於別的分頁。 */
-    private val kinds = mutableMapOf<Long, MediaKind>()
+    /**
+     * 讀過的素材：只讀單一分頁時，靠它的種類判斷「沒出現在這個分頁」是被刪了還是本來就屬於別的分頁；
+     * 已選總長也從這裡查（已選的素材不一定在目前的分頁裡）。
+     */
+    private val known = mutableMapOf<Long, MediaItem>()
 
     init {
         refreshAccess()
@@ -63,7 +69,7 @@ class ClipPickerViewModel(private val deps: ClipDeps) : ViewModel() {
     fun toggle(id: Long) {
         _state.update { state ->
             val selected = if (id in state.selected) state.selected - id else state.selected + id
-            state.copy(selected = selected)
+            state.copy(selected = selected, selectedMs = selected.totalMs())
         }
     }
 
@@ -72,7 +78,7 @@ class ClipPickerViewModel(private val deps: ClipDeps) : ViewModel() {
 
     /** 從選方向重新進來時呼叫：清空選取、回到「全部」。 */
     fun reset() {
-        _state.update { it.copy(filter = MediaFilter.ALL, items = null, selected = emptyList()) }
+        _state.update { it.copy(filter = MediaFilter.ALL, items = null, selected = emptyList(), selectedMs = 0) }
         if (_state.value.access != MediaAccess.DENIED) load(prune = false) else readJob?.cancel()
     }
 
@@ -88,7 +94,7 @@ class ClipPickerViewModel(private val deps: ClipDeps) : ViewModel() {
         val byId = list.associateBy { it.id }
         val sources = _state.value.selected.mapNotNull { byId[it] }.map { it.toClipSource() }
         if (sources.isEmpty()) {
-            _state.update { it.copy(selected = emptyList()) }
+            _state.update { it.copy(selected = emptyList(), selectedMs = 0) }
             load(prune = false)
             return null
         }
@@ -111,7 +117,7 @@ class ClipPickerViewModel(private val deps: ClipDeps) : ViewModel() {
         val filter = _state.value.filter
         readJob = viewModelScope.launch {
             val list = deps.mediaLibrary.list(filter)
-            list.forEach { kinds[it.id] = it.kind }
+            list.forEach { known[it.id] = it }
             val present = list.mapTo(HashSet()) { it.id }
             val filterKind = filter.kind()
             _state.update { state ->
@@ -119,11 +125,16 @@ class ClipPickerViewModel(private val deps: ClipDeps) : ViewModel() {
                 // 只有「這個分頁讀得到它卻沒讀到」才算被刪：全部分頁看得到所有素材；
                 // 單一分頁只確定同種類的素材，種類沒讀過的先留著
                 val selected = if (!prune) state.selected else state.selected.filter { id ->
-                    id in present || !(filterKind == null || kinds[id] == filterKind)
+                    id in present || !(filterKind == null || known[id]?.kind == filterKind)
                 }
-                state.copy(items = list, selected = selected)
+                state.copy(items = list, selected = selected, selectedMs = selected.totalMs())
             }
         }
+    }
+
+    private fun List<Long>.totalMs(): Long = sumOf { id ->
+        val item = known[id] ?: return@sumOf 0L
+        if (item.kind == MediaKind.PHOTO) PHOTO_SEGMENT_MS else item.durationMs?.takeIf { it > 0 } ?: 0L
     }
 
     private fun MediaFilter.kind(): MediaKind? = when (this) {

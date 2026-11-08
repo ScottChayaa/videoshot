@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,6 +39,8 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xenyaa.videoshot.core.timeline.ClipOrientation
+import com.xenyaa.videoshot.edit.overLimitText
 import com.xenyaa.videoshot.media.MediaAccess
 import com.xenyaa.videoshot.media.MediaFilter
 import com.xenyaa.videoshot.media.MediaItem
@@ -52,6 +55,7 @@ import com.xenyaa.videoshot.ui.common.VsSkeletonArea
 import com.xenyaa.videoshot.ui.common.VsSkeletonBlock
 import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.ui.common.VsUnderlineTabs
+import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
 
@@ -61,6 +65,7 @@ private val GridGap = 2.dp
 
 /**
  * 剪輯的「選素材」：手機裡的照片與影片，一格一個，依點選順序編號。
+ * 底部左側是選的方向與已選總長（「1:20 / 3:00」）；總長超過 [orientation] 的上限就變紅、【下一步】停用。
  *
  * 只吃狀態與回呼：權限請求與開系統設定的 Intent 都在 [AppRoot] 那一層，這裡才能在 Robolectric 測。
  * [onRequestAccess] 同時給 DENIED 的【允許存取】與 PARTIAL 橫幅的【選取更多】用——
@@ -69,6 +74,7 @@ private val GridGap = 2.dp
 @Composable
 fun ClipPickerScreen(
     state: ClipPickerState,
+    orientation: ClipOrientation,
     thumbLoader: MediaThumbLoader,
     orderOf: (Long) -> Int?,
     onBack: () -> Unit,
@@ -118,13 +124,38 @@ fun ClipPickerScreen(
             }
         }
 
-        VsActionDock {
+        val overLimit = state.selectedMs > orientation.maxDurationMs
+        VsActionDock(status = { SelectedSummary(orientation, state.selectedMs, overLimit) }) {
             val count = state.selected.size
             VsButton(
                 text = if (count == 0) "下一步" else "下一步（$count）",
                 onClick = onNext,
-                modifier = Modifier.weight(1f),
-                enabled = count > 0,
+                enabled = count > 0 && !overLimit,
+            )
+        }
+    }
+}
+
+/**
+ * 底部左側：方向圖示＋「直式」，下一行是已選總長／上限。超過上限時第二行變紅並寫超過多少；
+ * 總長跟導出抽屜一樣進位到整秒，才對得起「超過 N 秒」。
+ */
+@Composable
+private fun SelectedSummary(orientation: ClipOrientation, selectedMs: Long, overLimit: Boolean) {
+    val portrait = orientation == ClipOrientation.PORTRAIT
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
+        Icon(if (portrait) VsIcons.Smartphone else VsIcons.SmartphoneLandscape, contentDescription = null)
+        Column {
+            Text(if (portrait) "直式" else "橫式", color = AppTheme.colors.text)
+            val limit = formatDuration(orientation.maxDurationMs)
+            Text(
+                if (overLimit) {
+                    "${formatDuration((selectedMs + 999) / 1000 * 1000)} / $limit・超過 ${overLimitText(selectedMs - orientation.maxDurationMs)}"
+                } else {
+                    "${formatDuration(selectedMs)} / $limit"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = if (overLimit) AppTheme.colors.danger else AppTheme.colors.textDim,
             )
         }
     }
@@ -186,7 +217,8 @@ private fun PartialBanner(onSelectMore: () -> Unit) {
 }
 
 /**
- * 一格素材。整格是一個語意節點：已選唸「已選第 N 個」，沒選唸種類（影片再加上長度那段文字）。
+ * 一格素材。整格是一個語意節點：已選唸「已選第 N 個」，沒選唸種類（影片再加上方向與長度那段文字）。
+ * 影片右下角是方向圖示＋長度，幫忙挑跟剪輯方向一樣的素材；正方形或量不到尺寸的影片不畫方向。
  * 縮圖以 [item] 當 key：格子捲出畫面再回來會重新要一次，載入被別人取消而得到 null 的格子因此還有機會補上。
  */
 @Composable
@@ -194,9 +226,14 @@ private fun MediaCell(item: MediaItem, order: Int?, loader: MediaThumbLoader, on
     val thumb by produceState<ImageBitmap?>(loader.peek(item.id), item.id, loader) {
         if (value == null) value = loader.load(item)
     }
+    val videoOrientation = item.videoOrientation()
     val description = when {
         order != null -> "已選第 $order 個"
-        item.kind == MediaKind.VIDEO -> "影片"
+        item.kind == MediaKind.VIDEO -> when (videoOrientation) {
+            ClipOrientation.PORTRAIT -> "直式影片"
+            ClipOrientation.LANDSCAPE -> "橫式影片"
+            null -> "影片"
+        }
         else -> "照片"
     }
     Box(
@@ -215,17 +252,26 @@ private fun MediaCell(item: MediaItem, order: Int?, loader: MediaThumbLoader, on
         }
         val duration = item.durationMs
         if (item.kind == MediaKind.VIDEO && duration != null) {
-            Text(
-                formatDuration(duration),
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White,
-                modifier = Modifier
+            Row(
+                Modifier
                     .align(Alignment.BottomEnd)
                     .padding(AppTheme.spacing.s1)
                     .clip(RoundedCornerShape(AppTheme.radii.sm / 2))
                     .background(Color.Black.copy(alpha = 0.55f))
                     .padding(horizontal = 4.dp, vertical = 1.dp),
-            )
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                if (videoOrientation != null) {
+                    Icon(
+                        if (videoOrientation == ClipOrientation.PORTRAIT) VsIcons.Smartphone else VsIcons.SmartphoneLandscape,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(12.dp),
+                    )
+                }
+                Text(formatDuration(duration), style = MaterialTheme.typography.labelSmall, color = Color.White)
+            }
         }
         if (order != null) OrderBadge(order, Modifier.align(Alignment.TopStart))
     }
@@ -254,6 +300,17 @@ private fun OrderBadge(order: Int, modifier: Modifier = Modifier) {
             color = Color.White,
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, lineHeight = 11.sp),
         )
+    }
+}
+
+/** 影片畫面的方向（套用旋轉角度後）：高大於寬是直式、寬大於高是橫式；照片、正方形或量不到尺寸回 null。 */
+internal fun MediaItem.videoOrientation(): ClipOrientation? {
+    if (kind != MediaKind.VIDEO || width <= 0 || height <= 0) return null
+    val (w, h) = if (rotation % 180 == 0) width to height else height to width
+    return when {
+        h > w -> ClipOrientation.PORTRAIT
+        w > h -> ClipOrientation.LANDSCAPE
+        else -> null
     }
 }
 
