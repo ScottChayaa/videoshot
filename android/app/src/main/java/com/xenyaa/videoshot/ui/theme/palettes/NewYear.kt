@@ -57,6 +57,8 @@ private val Light = Palette(
     lightboxBg = Color(0xFF12100E),
     // 焦點框跟主色同一階，65% 讓它在白底與卡片上都看得見
     focusRing = Color(0xA68A5E10),
+
+    playerProgress = Color(0xFFFFFFFF),
 )
 
 val NewYear = ThemeSpec(

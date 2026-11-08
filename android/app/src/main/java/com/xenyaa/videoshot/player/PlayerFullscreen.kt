@@ -9,6 +9,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
@@ -47,18 +48,32 @@ internal fun orientationFor(active: Boolean, landscape: Boolean): Int =
     if (active && landscape) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
     else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
 
-/** 把 [state] 套到 Activity：方向＋沉浸模式（從邊緣滑一下暫時叫出系統列）。 */
+/**
+ * 把 [state] 套到 Activity：方向＋沉浸模式（從邊緣滑一下暫時叫出系統列）。
+ * 直的影片只藏狀態列、留著下方的系統導覽列（返回鍵），圖示換白的才看得到黑底上的它。
+ */
 @Composable
 fun FullscreenSystemEffect(state: PlayerFullscreenState) {
     val activity = LocalContext.current.findActivity() ?: return
+    // 換成白圖示之前原本是不是深色圖示；null＝目前沒換
+    val lightNavBefore = remember { arrayOfNulls<Boolean>(1) }
     LaunchedEffect(state.active, state.landscape) {
         activity.requestedOrientation = orientationFor(state.active, state.landscape)
         val controller = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
+        val portrait = state.active && !state.landscape
         if (state.active) {
             controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            controller.hide(WindowInsetsCompat.Type.systemBars())
+            controller.hide(if (portrait) WindowInsetsCompat.Type.statusBars() else WindowInsetsCompat.Type.systemBars())
+            if (portrait) controller.show(WindowInsetsCompat.Type.navigationBars())
         } else {
             controller.show(WindowInsetsCompat.Type.systemBars())
+        }
+        if (portrait && lightNavBefore[0] == null) {
+            lightNavBefore[0] = controller.isAppearanceLightNavigationBars
+            controller.isAppearanceLightNavigationBars = false
+        } else if (!portrait) {
+            lightNavBefore[0]?.let { controller.isAppearanceLightNavigationBars = it }
+            lightNavBefore[0] = null
         }
     }
     // Activity 結束時不留任何狀態（方向本來就跟著 Activity 走，這裡只是保險）

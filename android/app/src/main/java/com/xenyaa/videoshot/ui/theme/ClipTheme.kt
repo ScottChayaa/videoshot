@@ -49,6 +49,8 @@ val ClipPalette = Palette(
     scrim = Color(0x9E000000),
     lightboxBg = Color(0xFF000000),
     focusRing = Color(0x8CE8E8EA),
+
+    playerProgress = Color(0xFFFFFFFF),
 )
 
 /** 剪輯專用、[Palette] 沒有的三個顏色。 */

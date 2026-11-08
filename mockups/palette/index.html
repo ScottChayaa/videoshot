@@ -237,6 +237,19 @@ details summary { cursor: pointer; font-size: 13px; color: var(--pg-muted) }
 .lbinfo { padding: 16px; color: rgba(255,255,255,.8); font-size: 15px; display: flex; flex-direction: column; gap: 8px }
 .lbinfo b { color: #fff; font-size: 17px }
 .lbinfo .chip { background: rgba(255,255,255,.12); color: #fff }
+/* 原片播放：影片鋪滿，控制層是半透明黑，進度條畫在影片上 */
+.pls { position: relative; background: #000 }
+.pls .plv, .pls .plo { position: absolute; inset: 0 }
+.pls .plo { background: rgba(0,0,0,.35); display: flex; flex-direction: column }
+.pls .lbtop { align-items: center; gap: 2px }
+.pls .plt { flex: 1; min-width: 0; color: #fff; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.plb { margin: auto; width: 64px; height: 64px; border-radius: 50%; background: rgba(0,0,0,.45); color: #fff; display: grid; place-items: center }
+.plb .ico { width: 30px; height: 30px }
+.plbar { padding: 0 16px 24px; display: flex; flex-direction: column; gap: 8px }
+.pltime { color: #fff; font-size: 12px; font-variant-numeric: tabular-nums }
+.pltrack { position: relative; height: 4px; background: rgba(255,255,255,.3) }
+.pltrack i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--c-progress) }
+.pltrack b { position: absolute; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--c-progress) }
 /* 照片（固定的漸層，不參與配色） */
 .g1 { background: linear-gradient(160deg, #7FC4E8, #2E6FA3 60%, #E8D6A8 61%, #D9C08A) }
 .g2 { background: linear-gradient(170deg, #F8B26A, #E0604E 45%, #5A2E4F) }
@@ -405,14 +418,17 @@ const MODES = {
         ['hero2', '頭像漸層終點', '帳號頁頭像'],
         ['lightbox', '看大圖的底', '必須不透明'],
       ]],
+      ['播放器', [
+        ['progress', '進度條', '原片播放與取圖第二步，畫在影片上'],
+      ]],
     ],
     presets: [
-      { n: '夕陽海灘（現在）', bg: '#F5F4F1', surface: '#FFFFFF', surface2: '#FAF9F7', border: '#E6E3DE', borderStrong: '#CFCBC4', text: '#1F2A35', textDim: '#4A5562', textFaint: '#6B7480', accent: '#0B5F8A', accentInk: '#FFFFFF', accentWeak: '#E7EEF3', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#B5482A', hero2: '#C96F22', lightbox: '#0B0B12' },
-      { n: '新年', bg: '#FDF3E7', surface: '#FFFFFF', surface2: '#FBF1E3', border: '#EADCC8', borderStrong: '#D9C4A5', text: '#2B1A12', textDim: '#5A4636', textFaint: '#7A6450', accent: '#8A5E10', accentInk: '#FFFFFF', accentWeak: '#FCF1DC', danger: '#C0173A', dangerInk: '#FFFFFF', warn: '#9A4A07', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#C1121F', hero2: '#E8B33D', lightbox: '#12100E' },
-      { n: '天空藍（跟圖示）', bg: '#F3F6FC', surface: '#FFFFFF', surface2: '#F7F9FD', border: '#DFE6F2', borderStrong: '#C3CFE3', text: '#18233A', textDim: '#45526B', textFaint: '#65718A', accent: '#2F5BC0', accentInk: '#FFFFFF', accentWeak: '#E5ECFA', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#254B9B', hero2: '#638BE2', lightbox: '#0B0E16' },
-      { n: '森林苔綠', bg: '#F3F5F1', surface: '#FFFFFF', surface2: '#F8FAF6', border: '#E0E5DC', borderStrong: '#C6CEC0', text: '#1E2A22', textDim: '#48554B', textFaint: '#67736A', accent: '#2F6B4F', accentInk: '#FFFFFF', accentWeak: '#E4EFE8', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#1F7A3A', place: '#0E8FA3', tag: '#8C6D46', hero1: '#2F6B4F', hero2: '#7E8E2E', lightbox: '#0C110E' },
-      { n: '石墨中性', bg: '#F4F4F5', surface: '#FFFFFF', surface2: '#FAFAFA', border: '#E4E4E7', borderStrong: '#CBCBD0', text: '#1C1C21', textDim: '#4A4A52', textFaint: '#6B6B74', accent: '#2D2D33', accentInk: '#FFFFFF', accentWeak: '#EBEBEE', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#3A3A44', hero2: '#6A6A78', lightbox: '#0A0A0B' },
-      { n: '奶茶咖啡', bg: '#F7F1EA', surface: '#FFFDF9', surface2: '#FBF6EF', border: '#E9DFD2', borderStrong: '#D5C6B3', text: '#2E241C', textDim: '#5C4D40', textFaint: '#76675A', accent: '#6B4E2E', accentInk: '#FFFFFF', accentWeak: '#F3EADF', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0E8FA3', tag: '#8C6D46', hero1: '#6B4E2E', hero2: '#B07A3A', lightbox: '#120F0C' },
+      { n: '夕陽海灘（現在）', bg: '#F5F4F1', surface: '#FFFFFF', surface2: '#FAF9F7', border: '#E6E3DE', borderStrong: '#CFCBC4', text: '#1F2A35', textDim: '#4A5562', textFaint: '#6B7480', accent: '#0B5F8A', accentInk: '#FFFFFF', accentWeak: '#E7EEF3', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#B5482A', hero2: '#C96F22', lightbox: '#0B0B12', progress: '#FFFFFF' },
+      { n: '新年', bg: '#FDF3E7', surface: '#FFFFFF', surface2: '#FBF1E3', border: '#EADCC8', borderStrong: '#D9C4A5', text: '#2B1A12', textDim: '#5A4636', textFaint: '#7A6450', accent: '#8A5E10', accentInk: '#FFFFFF', accentWeak: '#FCF1DC', danger: '#C0173A', dangerInk: '#FFFFFF', warn: '#9A4A07', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#C1121F', hero2: '#E8B33D', lightbox: '#12100E', progress: '#FFFFFF' },
+      { n: '天空藍（跟圖示）', bg: '#F3F6FC', surface: '#FFFFFF', surface2: '#F7F9FD', border: '#DFE6F2', borderStrong: '#C3CFE3', text: '#18233A', textDim: '#45526B', textFaint: '#65718A', accent: '#2F5BC0', accentInk: '#FFFFFF', accentWeak: '#E5ECFA', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#254B9B', hero2: '#638BE2', lightbox: '#0B0E16', progress: '#FFFFFF' },
+      { n: '森林苔綠', bg: '#F3F5F1', surface: '#FFFFFF', surface2: '#F8FAF6', border: '#E0E5DC', borderStrong: '#C6CEC0', text: '#1E2A22', textDim: '#48554B', textFaint: '#67736A', accent: '#2F6B4F', accentInk: '#FFFFFF', accentWeak: '#E4EFE8', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#1F7A3A', place: '#0E8FA3', tag: '#8C6D46', hero1: '#2F6B4F', hero2: '#7E8E2E', lightbox: '#0C110E', progress: '#FFFFFF' },
+      { n: '石墨中性', bg: '#F4F4F5', surface: '#FFFFFF', surface2: '#FAFAFA', border: '#E4E4E7', borderStrong: '#CBCBD0', text: '#1C1C21', textDim: '#4A4A52', textFaint: '#6B6B74', accent: '#2D2D33', accentInk: '#FFFFFF', accentWeak: '#EBEBEE', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#3A3A44', hero2: '#6A6A78', lightbox: '#0A0A0B', progress: '#FFFFFF' },
+      { n: '奶茶咖啡', bg: '#F7F1EA', surface: '#FFFDF9', surface2: '#FBF6EF', border: '#E9DFD2', borderStrong: '#D5C6B3', text: '#2E241C', textDim: '#5C4D40', textFaint: '#76675A', accent: '#6B4E2E', accentInk: '#FFFFFF', accentWeak: '#F3EADF', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0E8FA3', tag: '#8C6D46', hero1: '#6B4E2E', hero2: '#B07A3A', lightbox: '#120F0C', progress: '#FFFFFF' },
     ],
   },
   clip: {
@@ -607,7 +623,16 @@ function appScreens() {
     <div class="lbinfo"><b>夜潛時遇到的魟魚</b><span>2026 年 10 月 3 日・12:48</span><div class="row"><span class="chip pl">${I('pin')}加勒比海</span><span class="chip tg">${I('hash')}夜潛</span></div></div>
   </div>`;
 
-  return phone('元件總覽（可捲動）', catalog) + phone('照片', home) + phone('帳號', account) + phone('看大圖', lightbox);
+  const play = `<div class="sbar" style="background:#000;color:#fff"><span>9:41</span><i><b></b><b></b></i></div><div class="scr pls">
+    <div class="plv g9"></div>
+    <div class="plo">
+      <div class="lbtop">${ib('back')}<span class="plt">夜潛：加勒比海的魟魚</span>${ib('more')}</div>
+      <span class="plb">${I('play')}</span>
+      <div class="plbar"><span class="pltime">1:24 / 5:12</span><div class="pltrack"><i style="width:27%"></i><b style="left:27%"></b></div></div>
+    </div>
+  </div>`;
+
+  return phone('元件總覽（可捲動）', catalog) + phone('照片', home) + phone('帳號', account) + phone('看大圖', lightbox) + phone('原片播放', play);
 }
 
 /* ── 剪輯 ── */
@@ -715,7 +740,7 @@ function checks(c, mode) {
     ['主色當文字對底色', c.accent, c.bg, 4.5], ['主色當文字對卡片', c.accent, c.surface, 4.5],
   ];
   if (mode === 'clip') list.push(['刻度數字對時間軸', c.textDim, c.timeline, 4.5], ['播放頭對時間軸', c.playhead, c.timeline, 3]);
-  else list.push(['頭像白字對漸層', '#FFFFFF', c.hero1, 3], ['看大圖白字', '#FFFFFF', c.lightbox, 4.5]);
+  else list.push(['頭像白字對漸層', '#FFFFFF', c.hero1, 3], ['看大圖白字', '#FFFFFF', c.lightbox, 4.5], ['進度條對黑底', c.progress, '#000000', 3]);
   return list.map(([n, a, b, min]) => ({ n, r: ratio(a, b), min }));
 }
 function accentLikeDanger(c) {
@@ -859,7 +884,7 @@ function outText() {
       `hero1 = ${kc(c.hero1)},`, `hero2 = ${kc(c.hero2)},`,
       `danger = ${kc(c.danger)},`, `dangerInk = ${kc(c.dangerInk)},`, `dangerWeak = ${kc(mix(c.danger, c.surface, .9))},`,
       `warn = ${kc(c.warn)},`, `warnWeak = ${kc(c.warnWeak)},`, `ok = ${kc(c.ok)},`, `okWeak = ${kc(mix(c.ok, c.surface, .88))},`,
-      `overlay = ${ka(c.text, '6B')},`, `scrim = Color(0x9E000000),`, `lightboxBg = ${kc(c.lightbox)},`, `focusRing = ${ka(c.accent, '8C')},`,
+      `overlay = ${ka(c.text, '6B')},`, `scrim = Color(0x9E000000),`, `lightboxBg = ${kc(c.lightbox)},`, `focusRing = ${ka(c.accent, '8C')},`, `playerProgress = ${kc(c.progress)},`,
       '', '// 種類色（KindColors）', `place = ${kc(c.place)}`, `tag = ${kc(c.tag)}`,
     ].join('\n');
   }

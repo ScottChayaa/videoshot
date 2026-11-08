@@ -12,9 +12,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -157,8 +160,10 @@ fun PlayerControls(
 
     val position = dragSec ?: status.currentSec
     val fraction = if (duration > 0) (position / duration).toFloat().coerceIn(0f, 1f) else 0f
-    // 全螢幕時進度條跟控制層一起出現、一起收起，離邊緣留一段距離；時間與右下按鈕跟著往上移
-    val barBottom = if (fullscreen && showTimeline) FULLSCREEN_BAR_BOTTOM else 0.dp
+    // 全螢幕時進度條跟控制層一起出現、一起收起，離邊緣留一段距離；時間與右下按鈕跟著往上移。
+    // 直的影片全螢幕留著系統導覽列（橫的藏起來、高度是 0），要再讓開它
+    val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val barBottom = if (fullscreen && showTimeline) FULLSCREEN_BAR_BOTTOM + navBottom else 0.dp
     val barSide = if (fullscreen && showTimeline) FULLSCREEN_BAR_SIDE else 0.dp
 
     BoxWithConstraints(modifier.onFocusChanged { focused = it.hasFocus }) {
@@ -384,14 +389,14 @@ private fun ProgressBar(
         contentAlignment = Alignment.BottomStart,
     ) {
         Box(Modifier.fillMaxWidth().height(barHeight).background(OnDarkColors.tertiary.copy(alpha = 0.4f)))
-        Box(Modifier.fillMaxWidth(fraction).height(barHeight).background(AppTheme.colors.accent))
+        Box(Modifier.fillMaxWidth(fraction).height(barHeight).background(AppTheme.colors.playerProgress))
         if (thick) {
             Box(
                 Modifier
                     .offset(x = maxWidth * fraction - 6.dp, y = 4.dp)
                     .size(12.dp)
                     .clip(CircleShape)
-                    .background(AppTheme.colors.accent),
+                    .background(AppTheme.colors.playerProgress),
             )
         }
     }

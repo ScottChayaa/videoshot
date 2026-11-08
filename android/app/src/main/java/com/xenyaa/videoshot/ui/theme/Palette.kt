@@ -54,6 +54,10 @@ data class Palette(
     /** Lightbox 的底。**必須不透明**（規格第六節）。 */
     val lightboxBg: Color,
     val focusRing: Color,
+
+    // ── 播放器 ──
+    /** 進度條已播放的部分與把手。畫在影片上，不跟主色走：主色深的色系在影片上會看不見。 */
+    val playerProgress: Color,
 )
 
 /**
