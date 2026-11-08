@@ -61,6 +61,7 @@ private val Light = Palette(
     selectedMark = Color(0xFF1A73E8),
     doneMark = Color(0xFF16A34A),
     playerProgress = Color(0xFFFFFFFF),
+    playingFrame = Color(0xFFFFD23F),
 )
 
 val NewYear = ThemeSpec(

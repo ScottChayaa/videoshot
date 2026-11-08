@@ -64,6 +64,8 @@ data class Palette(
     // ── 播放器 ──
     /** 進度條已播放的部分與把手。畫在影片上，不跟主色走：主色深的色系在影片上會看不見。 */
     val playerProgress: Color,
+    /** 取圖第二步縮圖牆上「播放器目前播到這一格」的外框。不跟主色走：主色深的色系疊在照片上看不出來。 */
+    val playingFrame: Color,
 )
 
 /**

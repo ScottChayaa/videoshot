@@ -229,6 +229,8 @@ details summary { cursor: pointer; font-size: 13px; color: var(--pg-muted) }
 .ck { position: absolute; top: 8px; left: 8px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center }
 .ck.on { background: var(--c-selected); box-shadow: 0 0 0 2px rgba(255,255,255,.92); color: #fff }
 .ck.on .ico { width: 12px; height: 12px; stroke-width: 3 }
+/* 播放中格子：內緣 3px 外框 */
+.pgrid > .playing { box-shadow: inset 0 0 0 3px var(--c-playing) }
 .ck.off { border: 2px solid #fff; background: rgba(0,0,0,.2); box-shadow: 0 0 0 1px rgba(0,0,0,.45) }
 .hero { display: flex; align-items: center; gap: 16px; padding: 20px 16px }
 .hero .av { width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, var(--c-hero1), var(--c-hero2)); color: #fff; font-size: 28px; font-weight: 700; display: grid; place-items: center; flex: none }
@@ -429,15 +431,16 @@ const MODES = {
       ]],
       ['播放器', [
         ['progress', '進度條', '原片播放與取圖第二步，畫在影片上'],
+        ['playing', '播放中格子', '取圖第二步縮圖牆上，播放器目前播到那一格的外框'],
       ]],
     ],
     presets: [
-      { n: '夕陽海灘（現在）', bg: '#F5F4F1', surface: '#FFFFFF', surface2: '#FAF9F7', border: '#E6E3DE', borderStrong: '#CFCBC4', text: '#1F2A35', textDim: '#4A5562', textFaint: '#6B7480', accent: '#0B5F8A', accentInk: '#FFFFFF', accentWeak: '#E7EEF3', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#B5482A', hero2: '#C96F22', lightbox: '#0B0B12', progress: '#FFFFFF', selected: '#1A73E8', done: '#16A34A' },
-      { n: '新年', bg: '#FDF3E7', surface: '#FFFFFF', surface2: '#FBF1E3', border: '#EADCC8', borderStrong: '#D9C4A5', text: '#2B1A12', textDim: '#5A4636', textFaint: '#7A6450', accent: '#8A5E10', accentInk: '#FFFFFF', accentWeak: '#FCF1DC', danger: '#C0173A', dangerInk: '#FFFFFF', warn: '#9A4A07', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#C1121F', hero2: '#E8B33D', lightbox: '#12100E', progress: '#FFFFFF', selected: '#1A73E8', done: '#16A34A' },
-      { n: '天空藍（跟圖示）', bg: '#F3F6FC', surface: '#FFFFFF', surface2: '#F7F9FD', border: '#DFE6F2', borderStrong: '#C3CFE3', text: '#18233A', textDim: '#45526B', textFaint: '#65718A', accent: '#2F5BC0', accentInk: '#FFFFFF', accentWeak: '#E5ECFA', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#254B9B', hero2: '#638BE2', lightbox: '#0B0E16', progress: '#FFFFFF', selected: '#1A73E8', done: '#16A34A' },
-      { n: '森林苔綠', bg: '#F3F5F1', surface: '#FFFFFF', surface2: '#F8FAF6', border: '#E0E5DC', borderStrong: '#C6CEC0', text: '#1E2A22', textDim: '#48554B', textFaint: '#67736A', accent: '#2F6B4F', accentInk: '#FFFFFF', accentWeak: '#E4EFE8', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#1F7A3A', place: '#0E8FA3', tag: '#8C6D46', hero1: '#2F6B4F', hero2: '#7E8E2E', lightbox: '#0C110E', progress: '#FFFFFF', selected: '#1A73E8', done: '#16A34A' },
-      { n: '石墨中性', bg: '#F4F4F5', surface: '#FFFFFF', surface2: '#FAFAFA', border: '#E4E4E7', borderStrong: '#CBCBD0', text: '#1C1C21', textDim: '#4A4A52', textFaint: '#6B6B74', accent: '#2D2D33', accentInk: '#FFFFFF', accentWeak: '#EBEBEE', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#3A3A44', hero2: '#6A6A78', lightbox: '#0A0A0B', progress: '#FFFFFF', selected: '#1A73E8', done: '#16A34A' },
-      { n: '奶茶咖啡', bg: '#F7F1EA', surface: '#FFFDF9', surface2: '#FBF6EF', border: '#E9DFD2', borderStrong: '#D5C6B3', text: '#2E241C', textDim: '#5C4D40', textFaint: '#76675A', accent: '#6B4E2E', accentInk: '#FFFFFF', accentWeak: '#F3EADF', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0E8FA3', tag: '#8C6D46', hero1: '#6B4E2E', hero2: '#B07A3A', lightbox: '#120F0C', progress: '#FFFFFF', selected: '#1A73E8', done: '#16A34A' },
+      { n: '夕陽海灘（現在）', bg: '#F5F4F1', surface: '#FFFFFF', surface2: '#FAF9F7', border: '#E6E3DE', borderStrong: '#CFCBC4', text: '#1F2A35', textDim: '#4A5562', textFaint: '#6B7480', accent: '#0B5F8A', accentInk: '#FFFFFF', accentWeak: '#E7EEF3', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#B5482A', hero2: '#C96F22', lightbox: '#0B0B12', progress: '#FFFFFF', selected: '#1A73E8', done: '#16A34A', playing: '#FFD23F' },
+      { n: '新年', bg: '#FDF3E7', surface: '#FFFFFF', surface2: '#FBF1E3', border: '#EADCC8', borderStrong: '#D9C4A5', text: '#2B1A12', textDim: '#5A4636', textFaint: '#7A6450', accent: '#8A5E10', accentInk: '#FFFFFF', accentWeak: '#FCF1DC', danger: '#C0173A', dangerInk: '#FFFFFF', warn: '#9A4A07', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#C1121F', hero2: '#E8B33D', lightbox: '#12100E', progress: '#FFFFFF', selected: '#1A73E8', done: '#16A34A', playing: '#FFD23F' },
+      { n: '天空藍（跟圖示）', bg: '#F3F6FC', surface: '#FFFFFF', surface2: '#F7F9FD', border: '#DFE6F2', borderStrong: '#C3CFE3', text: '#18233A', textDim: '#45526B', textFaint: '#65718A', accent: '#2F5BC0', accentInk: '#FFFFFF', accentWeak: '#E5ECFA', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#254B9B', hero2: '#638BE2', lightbox: '#0B0E16', progress: '#FFFFFF', selected: '#1A73E8', done: '#16A34A', playing: '#FFD23F' },
+      { n: '森林苔綠', bg: '#F3F5F1', surface: '#FFFFFF', surface2: '#F8FAF6', border: '#E0E5DC', borderStrong: '#C6CEC0', text: '#1E2A22', textDim: '#48554B', textFaint: '#67736A', accent: '#2F6B4F', accentInk: '#FFFFFF', accentWeak: '#E4EFE8', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#1F7A3A', place: '#0E8FA3', tag: '#8C6D46', hero1: '#2F6B4F', hero2: '#7E8E2E', lightbox: '#0C110E', progress: '#FFFFFF', selected: '#1A73E8', done: '#16A34A', playing: '#FFD23F' },
+      { n: '石墨中性', bg: '#F4F4F5', surface: '#FFFFFF', surface2: '#FAFAFA', border: '#E4E4E7', borderStrong: '#CBCBD0', text: '#1C1C21', textDim: '#4A4A52', textFaint: '#6B6B74', accent: '#2D2D33', accentInk: '#FFFFFF', accentWeak: '#EBEBEE', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0EA5B7', tag: '#8C6D46', hero1: '#3A3A44', hero2: '#6A6A78', lightbox: '#0A0A0B', progress: '#FFFFFF', selected: '#1A73E8', done: '#16A34A', playing: '#FFD23F' },
+      { n: '奶茶咖啡', bg: '#F7F1EA', surface: '#FFFDF9', surface2: '#FBF6EF', border: '#E9DFD2', borderStrong: '#D5C6B3', text: '#2E241C', textDim: '#5C4D40', textFaint: '#76675A', accent: '#6B4E2E', accentInk: '#FFFFFF', accentWeak: '#F3EADF', danger: '#C62B48', dangerInk: '#FFFFFF', warn: '#8A5A0B', warnWeak: '#FAF0DC', ok: '#0F7B55', place: '#0E8FA3', tag: '#8C6D46', hero1: '#6B4E2E', hero2: '#B07A3A', lightbox: '#120F0C', progress: '#FFFFFF', selected: '#1A73E8', done: '#16A34A', playing: '#FFD23F' },
     ],
   },
   clip: {
@@ -564,7 +567,7 @@ function appScreens() {
       <div class="frame">${topbar('加勒比海', { back: 'back', acts: ib('edit') + ib('trash') })}</div>
       <div class="frame">${topbar('貼網址', { back: 'close', small: true })}</div>
       <div class="frame">${topbar('照片（篩選中）', { nodiv: true, acts: ib('filter', { on: true, badge: 3 }) + ib('calendar', { on: true, dot: true }) })}</div>`)}
-    ${sec('已選標記（取圖第二步、多選）', `<div class="pgrid">${[[1, 1], [6, 0], [9, 1]].map(([g, on]) => `<div class="g${g}"><span class="ck ${on ? 'on' : 'off'}">${on ? I('check') : ''}</span></div>`).join('')}</div>`)}
+    ${sec('已選標記與播放中格子（取圖第二步、多選）', `<div class="pgrid">${[[1, 1], [6, 0], [9, 1]].map(([g, on]) => `<div class="g${g}${g === 6 ? ' playing' : ''}"><span class="ck ${on ? 'on' : 'off'}">${on ? I('check') : ''}</span></div>`).join('')}</div>`)}
     ${sec('底部導覽', `<div class="frame">${nav('home')}</div><div class="frame">${nav('clip', { initial: 'S', badge: 3 })}</div>`)}
     ${sec('標籤小膠囊', `<div class="row">${chip('加勒比海', 'pl')}${chip('夜潛', 'tg')}</div>
       <div class="row">${chip('夜潛', 'tg', { on: true })}${chip('加勒比海', 'pl', { n: 12 })}${chip('阿明', 'tg', { on: true, n: 3 })}</div>
@@ -751,7 +754,7 @@ function checks(c, mode) {
     ['主色當文字對底色', c.accent, c.bg, 4.5], ['主色當文字對卡片', c.accent, c.surface, 4.5],
   ];
   if (mode === 'clip') list.push(['刻度數字對時間軸', c.textDim, c.timeline, 4.5], ['播放頭對時間軸', c.playhead, c.timeline, 3], ['序號白字對已選色', '#FFFFFF', c.selectedMark, 3]);
-  else list.push(['頭像白字對漸層', '#FFFFFF', c.hero1, 3], ['看大圖白字', '#FFFFFF', c.lightbox, 4.5], ['進度條對黑底', c.progress, '#000000', 3], ['已選白勾對已選色', '#FFFFFF', c.selected, 3], ['完成白勾對完成勾勾', '#FFFFFF', c.done, 3]);
+  else list.push(['頭像白字對漸層', '#FFFFFF', c.hero1, 3], ['看大圖白字', '#FFFFFF', c.lightbox, 4.5], ['進度條對黑底', c.progress, '#000000', 3], ['已選白勾對已選色', '#FFFFFF', c.selected, 3], ['完成白勾對完成勾勾', '#FFFFFF', c.done, 3], ['播放中外框對黑底', c.playing, '#000000', 3]);
   return list.map(([n, a, b, min]) => ({ n, r: ratio(a, b), min }));
 }
 function accentLikeDanger(c) {
@@ -895,7 +898,7 @@ function outText() {
       `hero1 = ${kc(c.hero1)},`, `hero2 = ${kc(c.hero2)},`,
       `danger = ${kc(c.danger)},`, `dangerInk = ${kc(c.dangerInk)},`, `dangerWeak = ${kc(mix(c.danger, c.surface, .9))},`,
       `warn = ${kc(c.warn)},`, `warnWeak = ${kc(c.warnWeak)},`, `ok = ${kc(c.ok)},`, `okWeak = ${kc(mix(c.ok, c.surface, .88))},`,
-      `overlay = ${ka(c.text, '6B')},`, `scrim = Color(0x9E000000),`, `lightboxBg = ${kc(c.lightbox)},`, `focusRing = ${ka(c.accent, '8C')},`, `selectedMark = ${kc(c.selected)},`, `doneMark = ${kc(c.done)},`, `playerProgress = ${kc(c.progress)},`,
+      `overlay = ${ka(c.text, '6B')},`, `scrim = Color(0x9E000000),`, `lightboxBg = ${kc(c.lightbox)},`, `focusRing = ${ka(c.accent, '8C')},`, `selectedMark = ${kc(c.selected)},`, `doneMark = ${kc(c.done)},`, `playerProgress = ${kc(c.progress)},`, `playingFrame = ${kc(c.playing)},`,
       '', '// 種類色（KindColors）', `place = ${kc(c.place)}`, `tag = ${kc(c.tag)}`,
     ].join('\n');
   }

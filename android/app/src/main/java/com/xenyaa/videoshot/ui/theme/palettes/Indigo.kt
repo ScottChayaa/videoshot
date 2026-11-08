@@ -48,6 +48,7 @@ private val Colors = Palette(
     selectedMark = Color(0xFF1A73E8),
     doneMark = Color(0xFF16A34A),
     playerProgress = Color(0xFFFFFFFF),
+    playingFrame = Color(0xFFFFD23F),
 )
 
 val Indigo = ThemeSpec(id = "indigo", label = "夕陽海灘（預設）", palette = Colors)

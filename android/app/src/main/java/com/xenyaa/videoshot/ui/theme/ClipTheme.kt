@@ -53,6 +53,7 @@ val ClipPalette = Palette(
     selectedMark = Color(0xFF1A73E8),
     doneMark = Color(0xFF16A34A),
     playerProgress = Color(0xFFFFFFFF),
+    playingFrame = Color(0xFFFFD23F),
 )
 
 /** 剪輯專用、[Palette] 沒有的三個顏色。 */

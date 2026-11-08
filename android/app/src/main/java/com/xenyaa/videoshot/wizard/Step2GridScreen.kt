@@ -285,7 +285,6 @@ private fun FrameCell(
     onPlay: () -> Unit,
 ) {
     val clock = formatClock(atSec)
-    val accent = AppTheme.colors.accent
     val cellShape = RectangleShape
     val scrimPill = RoundedCornerShape(AppTheme.radii.sm)
 
@@ -323,9 +322,9 @@ private fun FrameCell(
         ) {
             FrameImage(bitmapFor, frameIndex, Modifier.fillMaxSize())
 
-            // 主色外框＝播放器目前播到這一格（畫在格子內緣、疊在圖上）；選取只靠左上角打勾
+            // 黃色外框＝播放器目前播到這一格（畫在格子內緣、疊在圖上）；選取只靠左上角打勾
             if (playing) {
-                Box(Modifier.fillMaxSize().border(3.dp, accent, cellShape))
+                Box(Modifier.fillMaxSize().border(3.dp, AppTheme.colors.playingFrame, cellShape))
             }
 
             if (selected) {
