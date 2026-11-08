@@ -32,9 +32,9 @@ class VsBottomNavTest {
         compose.setContent { VideoshotTheme { VsBottomNav(current, onSelect, initial, clipBadge = clipBadge) } }
     }
 
-    @Test fun 五格依序是照片取圖剪輯相簿帳號() {
+    @Test fun 五格依序是照片剪輯取圖相簿帳號() {
         show()
-        for (label in listOf("照片", "取圖", "剪輯", "相簿", "帳號")) compose.onNodeWithText(label).assertIsDisplayed()
+        for (label in listOf("照片", "剪輯", "取圖", "相簿", "帳號")) compose.onNodeWithText(label).assertIsDisplayed()
         compose.onNodeWithText("查詢").assertDoesNotExist()
     }
 

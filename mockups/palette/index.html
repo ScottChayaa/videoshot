@@ -102,7 +102,7 @@ details summary { cursor: pointer; font-size: 13px; color: var(--pg-muted) }
 .ib { width: 44px; height: 44px; border-radius: 8px; display: grid; place-items: center; color: var(--c-textDim); position: relative; flex: none }
 .ib.tx { color: var(--c-text) }
 .ib.on { color: var(--c-accent) }
-.ib .bd { position: absolute; top: 5px; right: 3px; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px; background: var(--c-accent); color: var(--c-accentInk); font-size: 11px; font-weight: 700; line-height: 16px; text-align: center; box-shadow: 0 0 0 1.5px var(--c-bg) }
+.ib .bd { position: absolute; top: 5px; right: 3px; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px; background: var(--c-danger); color: var(--c-dangerInk); font-size: 11px; font-weight: 700; line-height: 16px; text-align: center; box-shadow: 0 0 0 1.5px var(--c-bg) }
 .ib .bd.dot { min-width: 0; width: 9px; height: 9px; padding: 0; top: 9px; right: 9px }
 .ib.off { color: var(--c-textFaint); opacity: .7 }
 .nav { flex: none; background: var(--c-surface); border-top: 1px solid var(--c-border); display: grid; grid-template-columns: repeat(5, 1fr); height: 60px; padding-bottom: 2px }
@@ -113,7 +113,7 @@ details summary { cursor: pointer; font-size: 13px; color: var(--pg-muted) }
 .nav .cap .ico { width: 20px; height: 20px }
 .nav .ava { width: 24px; height: 24px; border-radius: 50%; background: var(--c-accent); color: var(--c-accentInk); font-size: 12px; font-weight: 700; display: grid; place-items: center }
 .nav .ico { width: 24px; height: 24px }
-.nav .nb { position: absolute; top: -4px; left: calc(50% + 4px); min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--c-accent); color: var(--c-accentInk); font-size: 11px; font-weight: 700; line-height: 16px; text-align: center }
+.nav .nb { position: absolute; top: -4px; left: calc(50% + 4px); min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--c-danger); color: var(--c-dangerInk); font-size: 11px; font-weight: 700; line-height: 16px; text-align: center }
 .pad { padding: 16px; display: flex; flex-direction: column; gap: 16px }
 .grp { display: flex; flex-direction: column; gap: 8px }
 .st { font-size: 15px; font-weight: 700; color: var(--c-textDim) }
@@ -405,8 +405,8 @@ const MODES = {
         ['accentWeak', '主色淡底', '輸入框聚焦的光暈'],
       ]],
       ['語意色', [
-        ['danger', '破壞色', '只用在刪除、放棄'],
-        ['dangerInk', '破壞色上的字', '紅色按鈕的字'],
+        ['danger', '破壞色', '刪除、放棄、通知徽章'],
+        ['dangerInk', '破壞色上的字', '紅色按鈕與徽章的字'],
         ['warn', '警示色', '輸入錯誤、提醒'],
         ['warnWeak', '警示淡底', '提醒橫幅的底'],
         ['ok', '完成色', '欄位已填的小勾'],
@@ -534,7 +534,7 @@ const sbar = () => `<div class="sbar"><span>9:41</span><i><b></b><b></b></i></di
 const topbar = (t, o = {}) => `<div class="tb${o.back ? ' back' : ''}${o.nodiv ? ' nodiv' : ''}">${o.back ? `<span class="ib tx">${I(o.back)}</span>` : ''}<span class="t${o.small ? ' s' : ''}">${t}</span>${o.acts || ''}</div>`;
 const ib = (n, o = {}) => `<span class="ib${o.on ? ' on' : ''}${o.off ? ' off' : ''}">${I(n)}${o.badge ? `<span class="bd">${o.badge}</span>` : o.dot ? '<span class="bd dot"></span>' : ''}</span>`;
 function nav(sel, o = {}) {
-  const items = [['home', 'images', '照片'], ['cap', 'plus', '取圖'], ['clip', 'clap', '剪輯'], ['fold', 'folder', '相簿'], ['acc', 'user', '帳號']];
+  const items = [['home', 'images', '照片'], ['clip', 'clap', '剪輯'], ['cap', 'plus', '取圖'], ['fold', 'folder', '相簿'], ['acc', 'user', '帳號']];
   return `<div class="nav">${items.map(([k, ic, l]) => {
     let icon = k === 'cap' ? `<span class="cap">${I('plus')}</span>` : k === 'acc' && o.initial ? `<span class="ava">${o.initial}</span>` : I(ic);
     const badge = k === 'clip' && o.badge ? `<span class="nb">${o.badge}</span>` : '';

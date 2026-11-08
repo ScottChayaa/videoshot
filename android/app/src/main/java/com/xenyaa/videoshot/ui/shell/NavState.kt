@@ -6,8 +6,9 @@ import com.xenyaa.videoshot.core.timeline.ClipOrientation
 /** 底部導覽的五格（手冊 §零：每個項目都是圖示＋文字；階段 17 拿掉了「查詢」，階段 18 加上「剪輯」）。 */
 enum class Tab(val label: String) {
     HOME("照片"),
-    CAPTURE("取圖"),
+    // 剪輯在取圖前面（2026-11-08 對調）；順序就是底部導覽的順序
     CLIP("剪輯"),
+    CAPTURE("取圖"),
     FOLDERS("相簿"),
     ACCOUNT("帳號"),
 }

@@ -161,7 +161,7 @@ class NavStateTest {
 
     @Test
     fun 分頁有五格() {
-        assertEquals(listOf("照片", "取圖", "剪輯", "相簿", "帳號"), Tab.entries.map { it.label })
+        assertEquals(listOf("照片", "剪輯", "取圖", "相簿", "帳號"), Tab.entries.map { it.label })
     }
 
     @Test fun 剪輯的兩層畫面可以編碼再解回來() {

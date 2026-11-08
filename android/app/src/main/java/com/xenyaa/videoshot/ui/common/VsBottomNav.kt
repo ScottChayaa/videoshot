@@ -66,8 +66,8 @@ internal fun navBadgeText(count: Int): String? = when {
 /**
  * 底部導覽（原型 `styles.css`「底部導覽」）。
  *
- * 取圖格用實心主色方塊——它是主要動作，但**不是紅色**（手冊 §零，紅色只留給刪除）。
- * 剪輯格右上角的紅點（[clipBadge]）是「已上傳完成、等著開始取圖」的個數，只算已完成；TalkBack 唸「剪輯，N 個已完成」。
+ * 取圖格用實心主色方塊——它是主要動作，但**不是紅色**（手冊 §零，紅色只留給刪除與通知徽章）。
+ * 剪輯格右上角的紅點（[clipBadge]，2026-11-08 起真的是紅色）是「已上傳完成、等著開始取圖」的個數，只算已完成；TalkBack 唸「剪輯，N 個已完成」。
  * 帳號格連結 Google 帳號後換成 Google 頭像（[accountAvatar]），還沒抓到就用頭像字母（設計文件決定 4），文字一律「帳號」。
  */
 @Composable
@@ -159,7 +159,7 @@ private fun NavItem(
                     Modifier.align(Alignment.TopEnd).offset(x = 10.dp, y = (-4).dp)
                         .defaultMinSize(minWidth = 16.dp, minHeight = 16.dp)
                         .clip(CircleShape)
-                        .background(AppTheme.colors.accent)
+                        .background(AppTheme.colors.danger)
                         .padding(horizontal = 4.dp)
                         .clearAndSetSemantics { testTag = NAV_BADGE_TAG },
                     contentAlignment = Alignment.Center,
@@ -167,7 +167,7 @@ private fun NavItem(
                     Text(
                         badgeText,
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = AppTheme.colors.accentInk,
+                        color = AppTheme.colors.dangerInk,
                     )
                 }
             }

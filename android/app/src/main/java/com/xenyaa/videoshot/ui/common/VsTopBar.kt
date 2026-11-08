@@ -103,7 +103,7 @@ fun VsTopBar(
 /**
  * 頂欄上的 44×44 圖示鈕。
  *
- * [active]＝這顆鈕代表的條件正在生效（例如首頁的時間篩選）：圖示變主色，右上角掛一個主色徽章，
+ * [active]＝這顆鈕代表的條件正在生效（例如首頁的時間篩選）：圖示變主色，右上角掛一個紅色徽章（跟剪輯格的紅點同色），
  * 提醒畫面目前是篩選過的；這時 [tint] 不使用。[badgeCount] > 0 時徽章是數字（超過 9 寫 9+），否則是小圓點。
  * 徽章不另外唸，呼叫端用 stateDescription 唸出目前的篩選。
  */
@@ -132,14 +132,14 @@ fun TopBarIconButton(
 /** 徽章外圈用頂欄底色描一圈，跟圖示的線條分開。 */
 private val BadgeRing = 1.5.dp
 
-/** 數字徽章：高 16dp 的主色膠囊，疊在圖示右上角外面一點；沒有數字時是 8dp 的主色圓點。 */
+/** 數字徽章：高 16dp 的紅色膠囊，疊在圖示右上角外面一點；沒有數字時是 8dp 的紅色圓點。 */
 @Composable
 private fun TopBarBadge(count: Int, modifier: Modifier) {
     val colors = AppTheme.colors
     if (count > 0) {
         Text(
             if (count > 9) "9+" else count.toString(),
-            color = colors.accentInk,
+            color = colors.dangerInk,
             fontSize = 11.sp,
             lineHeight = 13.sp,
             fontWeight = FontWeight.Bold,
@@ -149,7 +149,7 @@ private fun TopBarBadge(count: Int, modifier: Modifier) {
                 .clearAndSetSemantics {}
                 .border(BadgeRing, colors.bg, CircleShape)
                 .padding(BadgeRing)
-                .background(colors.accent, CircleShape)
+                .background(colors.danger, CircleShape)
                 .defaultMinSize(minWidth = 13.dp)
                 .padding(horizontal = 3.dp),
         )
@@ -160,7 +160,7 @@ private fun TopBarBadge(count: Int, modifier: Modifier) {
                 .size(8.dp + BadgeRing * 2)
                 .border(BadgeRing, colors.bg, CircleShape)
                 .padding(BadgeRing)
-                .background(colors.accent, CircleShape),
+                .background(colors.danger, CircleShape),
         )
     }
 }
