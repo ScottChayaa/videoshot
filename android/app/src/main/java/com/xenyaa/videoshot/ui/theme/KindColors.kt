@@ -10,6 +10,6 @@ import androidx.compose.ui.graphics.Color
 object KindColors {
     /** 綠松：海水的顏色（夕陽海灘色系，2026-10-25）。 */
     val place = Color(0xFF0EA5B7)
-    /** 漂流木棕：標籤是輔助資訊，要比主色安靜；暖棕跟地點的綠松一冷一暖分得開。 */
-    val tag = Color(0xFF8C6D46)
+    /** 跟地點同色（2026-11-08；之前是漂流木棕 #8C6D46）：兩者靠圖示（地圖針／`#`）分辨。 */
+    val tag = Color(0xFF0EA5B7)
 }

@@ -101,9 +101,9 @@ class RestoreScreenTest {
         assert(dismissed && !confirmed)
     }
 
-    /** 還原失敗不是破壞性動作：原因用 warn 色，不是紅色（紅色只給取代本機收藏的【還原】）。 */
+    /** 還原失敗的原因用 warn 色（2026-11-08 起 warn 也是紅色系，不再檢查「不是紅色」）。 */
     @Test
-    fun Failed原因用warn色而不是紅色() {
+    fun Failed原因用warn色() {
         setContent(RestoreStep.Failed("雜湊不符"))
         val grid = compose.pixelsAround(compose.onNodeWithText("雜湊不符"), margin = 0)
         fun count(c: Color): Int {
@@ -113,6 +113,5 @@ class RestoreScreenTest {
         }
         val colors = Palettes.DEFAULT.palette
         assert(count(colors.warn) > 0) { "失敗原因應是 warn 色" }
-        assert(count(colors.danger) == 0) { "失敗原因不該出現紅色" }
     }
 }

@@ -104,6 +104,7 @@ class LightboxFocusTest {
 
         share.assertIsFocused()
         val ring = ringPixels(before, compose.pixelsAround(share))
-        assertTrue("分享鈕拿到焦點時要畫出焦點框（只找到 $ring 個框的像素）", ring > 50)
+        // 2026-11-08 起焦點框是炭黑半透明，在 Lightbox 黑底上很淡，門檻從 50 降到 20
+        assertTrue("分享鈕拿到焦點時要畫出焦點框（只找到 $ring 個框的像素）", ring > 20)
     }
 }

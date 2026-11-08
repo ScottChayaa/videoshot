@@ -216,13 +216,12 @@ class BackupScreenTest {
         compose.onNodeWithText("中斷連結？").assertDoesNotExist()
     }
 
-    /** 備份錯誤不是破壞性動作：用 warn 色的提示框，不是紅色（紅色只留給中斷連結等破壞性按鈕）。 */
+    /** 備份錯誤用 warn 色的提示框（2026-11-08 起 warn 也是紅色系，不再檢查「不是紅色」）。 */
     @Test
-    fun 備份錯誤用warn色而不是紅色() {
+    fun 備份錯誤用warn色() {
         show(error = "備份失敗，請稍後再試")
         val node = compose.onNodeWithText("備份失敗，請稍後再試")
         val colors = Palettes.DEFAULT.palette
         assert(count(node, colors.warn) > 0) { "錯誤文字應是 warn 色" }
-        assert(count(node, colors.danger) == 0) { "錯誤文字不該出現紅色" }
     }
 }
