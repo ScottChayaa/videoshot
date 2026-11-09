@@ -60,10 +60,10 @@ class ClipTimelineGeometryTest {
     @Test fun 刻度與時間標籤的間隔隨比例變() {
         // 預設 40：每秒一刻、每 2 秒標時間（跟原本一樣）
         assertEquals(1 to 2, rulerTickSeconds(40f) to rulerLabelSeconds(40f))
-        assertEquals(1 to 1, rulerTickSeconds(160f) to rulerLabelSeconds(160f))
+        assertEquals(1 to 1, rulerTickSeconds(80f) to rulerLabelSeconds(80f))
         assertEquals(1 to 10, rulerTickSeconds(10f) to rulerLabelSeconds(10f))
-        // 最小 1.25：刻度 10 秒一條（12.5dp）、每分鐘標一次（75dp）
-        assertEquals(10 to 60, rulerTickSeconds(1.25f) to rulerLabelSeconds(1.25f))
+        // 最小 2.5：刻度 5 秒一條（12.5dp）、每 30 秒標一次（75dp）
+        assertEquals(5 to 30, rulerTickSeconds(2.5f) to rulerLabelSeconds(2.5f))
         TIMELINE_ZOOM_LEVELS.forEach {
             val tick = rulerTickSeconds(it)
             val label = rulerLabelSeconds(it)

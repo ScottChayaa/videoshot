@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.InlineTextContent
@@ -31,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import com.xenyaa.videoshot.core.timeline.ClipDraft
 import com.xenyaa.videoshot.media.MediaAccess
@@ -95,6 +97,9 @@ fun ClipEditorScreen(
         )
     }
 }
+
+/** 播放列（播放、復原、重做）的按鈕大小。 */
+private val PlayBarButtonSize = 36.dp
 
 @Composable
 private fun ColumnScope.EditorBody(
@@ -163,10 +168,13 @@ private fun ColumnScope.EditorBody(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
     ) {
+        // 播放列的三顆比一般圖示按鈕（44dp）小一號，讓預覽多一點高度（scott 2026-11-10）
+        val small = Modifier.size(PlayBarButtonSize)
         VsIconButton(
             icon = if (playing) VsIcons.Pause else VsIcons.Play,
             contentDescription = if (playing) "暫停" else "播放",
             onClick = onPlayPause,
+            modifier = small,
             enabled = !state.isEmpty,
         )
         Text(
@@ -176,8 +184,8 @@ private fun ColumnScope.EditorBody(
             color = if (state.overLimit) AppTheme.colors.danger else AppTheme.colors.textDim,
             modifier = Modifier.weight(1f),
         )
-        VsIconButton(VsIcons.Undo, "復原", { stopPlayback(); onUndo() }, enabled = state.canUndo)
-        VsIconButton(VsIcons.Redo, "重做", { stopPlayback(); onRedo() }, enabled = state.canRedo)
+        VsIconButton(VsIcons.Undo, "復原", { stopPlayback(); onUndo() }, small, enabled = state.canUndo)
+        VsIconButton(VsIcons.Redo, "重做", { stopPlayback(); onRedo() }, small, enabled = state.canRedo)
     }
 
     // 時間軸用深色底（跟一般剪輯軟體一樣）

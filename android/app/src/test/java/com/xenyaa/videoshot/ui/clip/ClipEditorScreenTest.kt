@@ -201,11 +201,11 @@ class ClipEditorScreenTest {
         compose.onNodeWithText("分割").assertIsEnabled()
     }
 
-    @Test fun 放大最多兩次_縮小最多五次() {
+    @Test fun 放大最多一次_縮小最多四次() {
         show(state(playheadMs = 30_000))
-        repeat(2) { compose.onNodeWithText("放大").assertIsEnabled().performClick() }
+        compose.onNodeWithText("放大").assertIsEnabled().performClick()
         compose.onNodeWithText("放大").assertIsNotEnabled()
-        repeat(7) { compose.onNodeWithText("縮小").assertIsEnabled().performClick() }
+        repeat(5) { compose.onNodeWithText("縮小").assertIsEnabled().performClick() }
         compose.onNodeWithText("縮小").assertIsNotEnabled()
         compose.onNodeWithText("放大").assertIsEnabled()
     }

@@ -62,10 +62,10 @@ import kotlin.math.roundToLong
 internal const val DP_PER_SECOND = 40f
 
 /**
- * 【放大】【縮小】切換的比例（1 秒幾 dp），每一格是前一格的兩倍，最多放大兩次（[DP_PER_SECOND] 的 4 倍）、縮小五次。
- * 最小 1.25：3 分鐘的直式片整條放得進一個畫面、10 分鐘的橫式片約兩個畫面寬；最大 160：拖 1dp 約 6 毫秒，分割對得很細。
+ * 【放大】【縮小】切換的比例（1 秒幾 dp），每一格是前一格的兩倍，從預設最多放大一次、縮小四次（共 5 個級距，scott 2026-11-10）。
+ * 最小 2.5：3 分鐘的直式片大約一個畫面多一點、10 分鐘的橫式片約四個畫面寬；最大 80：拖 1dp 約 12 毫秒。
  */
-internal val TIMELINE_ZOOM_LEVELS = listOf(1.25f, 2.5f, 5f, 10f, 20f, DP_PER_SECOND, 80f, 160f)
+internal val TIMELINE_ZOOM_LEVELS = listOf(2.5f, 5f, 10f, 20f, DP_PER_SECOND, 80f)
 
 /** 段與段之間的間隔。 */
 internal const val SEGMENT_GAP_DP = 2f
