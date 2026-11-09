@@ -103,6 +103,12 @@ object VsIcons {
         strokeIcon("search", "M3 11a8 8 0 1 0 16 0a8 8 0 1 0 -16 0", "m21 21-4.3-4.3")
     }
 
+    /** 放大、縮小（Lucide `zoom-in`／`zoom-out`，圓同 [Search]）：剪輯編輯畫面調時間軸比例。 */
+    val ZoomIn: ImageVector by lazy {
+        strokeIcon("zoom-in", "M3 11a8 8 0 1 0 16 0a8 8 0 1 0 -16 0", "m21 21-4.3-4.3", "M11 8v6", "M8 11h6")
+    }
+    val ZoomOut: ImageVector by lazy { strokeIcon("zoom-out", "M3 11a8 8 0 1 0 16 0a8 8 0 1 0 -16 0", "m21 21-4.3-4.3", "M8 11h6") }
+
     val Plus: ImageVector by lazy { strokeIcon("plus", "M5 12h14", "M12 5v14") }
 
     val Folder: ImageVector by lazy {

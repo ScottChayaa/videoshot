@@ -51,6 +51,26 @@ class ClipTimelineGeometryTest {
         }
     }
 
+    @Test fun 換比例後座標跟著縮放_間隔不變() {
+        val g = TimelineGeometry(timeline, dpPerSecond = 10f)
+        assertEquals(30f + 2f, g.xDp(3000), 0.001f)
+        assertEquals(3000L, g.msAt(32f))
+    }
+
+    @Test fun 刻度與時間標籤的間隔隨比例變() {
+        // 預設 40：每秒一刻、每 2 秒標時間（跟原本一樣）
+        assertEquals(1 to 2, rulerTickSeconds(40f) to rulerLabelSeconds(40f))
+        assertEquals(1 to 1, rulerTickSeconds(160f) to rulerLabelSeconds(160f))
+        assertEquals(1 to 10, rulerTickSeconds(10f) to rulerLabelSeconds(10f))
+        // 最小 1.25：刻度 10 秒一條（12.5dp）、每分鐘標一次（75dp）
+        assertEquals(10 to 60, rulerTickSeconds(1.25f) to rulerLabelSeconds(1.25f))
+        TIMELINE_ZOOM_LEVELS.forEach {
+            val tick = rulerTickSeconds(it)
+            val label = rulerLabelSeconds(it)
+            assert(tick * it >= 8f && label * it >= 60f && label % tick == 0) { "比例 $it：刻度 $tick、標籤 $label" }
+        }
+    }
+
     @Test fun 可見範圍用二分搜尋找出() {
         val g = TimelineGeometry(timeline)
         // 內容座標 130..330 跨過第 2、3 段（第 2 段 122..322，第 3 段 324..364）

@@ -21,8 +21,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.Placeholder
@@ -32,11 +35,11 @@ import androidx.compose.ui.unit.em
 import com.xenyaa.videoshot.core.timeline.ClipDraft
 import com.xenyaa.videoshot.media.MediaAccess
 import com.xenyaa.videoshot.media.MediaThumbLoader
-import com.xenyaa.videoshot.ui.common.ButtonVariant
+import com.xenyaa.videoshot.ui.common.SelectionBarAction
 import com.xenyaa.videoshot.ui.common.TopBarNav
-import com.xenyaa.videoshot.ui.common.VsActionDock
 import com.xenyaa.videoshot.ui.common.VsButton
 import com.xenyaa.videoshot.ui.common.VsIconButton
+import com.xenyaa.videoshot.ui.common.VsSelectionBar
 import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
@@ -136,6 +139,8 @@ private fun ColumnScope.EditorBody(
             preview.pause()
         }
     }
+    // 時間軸比例是 [TIMELINE_ZOOM_LEVELS] 的第幾格；只是看的方式，不存進草稿
+    var zoom by rememberSaveable { mutableIntStateOf(TIMELINE_ZOOM_LEVELS.indexOf(DP_PER_SECOND)) }
     VsTopBar("編輯", nav = TopBarNav.Back(onBack), actions = { VsButton("導出", onExport, icon = VsIcons.Upload, enabled = !state.isEmpty, compact = true) })
 
     Box(Modifier.weight(1f).fillMaxWidth().background(ClipColors.preview), contentAlignment = Alignment.Center) {
@@ -181,6 +186,7 @@ private fun ColumnScope.EditorBody(
             EmptyTimeline(state.canUndo)
         } else {
             ClipTimelineStrip(
+                dpPerSecond = TIMELINE_ZOOM_LEVELS[zoom],
                 timeline = draft.timeline,
                 sources = draft.sources,
                 playheadMs = shownMs,
@@ -193,18 +199,21 @@ private fun ColumnScope.EditorBody(
         }
     }
 
-    VsActionDock {
-        VsButton(
-            "分割",
-            { stopPlayback(); onSplit() },
-            Modifier.weight(1f),
-            variant = ButtonVariant.Secondary,
-            icon = VsIcons.Split,
-            // 播放中，播放頭停在舊位置：能不能分割要看畫面上顯示的位置
-            enabled = if (playing) draft.timeline.canSplitAt(shownMs) else state.canSplit,
-        )
-        VsButton("刪除", { stopPlayback(); onDelete() }, Modifier.weight(1f), variant = ButtonVariant.Secondary, icon = VsIcons.Trash, enabled = state.canDelete)
-    }
+    // 底部列圖示在上、文字在下（同多選的動作列）；放大、縮小只換時間軸比例，不算編輯、不停播放
+    VsSelectionBar(
+        listOf(
+            SelectionBarAction(VsIcons.ZoomIn, "放大", { zoom++ }, enabled = !state.isEmpty && zoom < TIMELINE_ZOOM_LEVELS.lastIndex),
+            SelectionBarAction(VsIcons.ZoomOut, "縮小", { zoom-- }, enabled = !state.isEmpty && zoom > 0),
+            SelectionBarAction(
+                VsIcons.Split,
+                "分割",
+                { stopPlayback(); onSplit() },
+                // 播放中，播放頭停在舊位置：能不能分割要看畫面上顯示的位置
+                enabled = if (playing) draft.timeline.canSplitAt(shownMs) else state.canSplit,
+            ),
+            SelectionBarAction(VsIcons.Trash, "刪除", { stopPlayback(); onDelete() }, enabled = state.canDelete),
+        ),
+    )
 }
 
 /**

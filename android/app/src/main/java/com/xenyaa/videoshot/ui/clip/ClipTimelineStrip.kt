@@ -58,8 +58,14 @@ import kotlin.math.floor
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 
-/** 時間軸比例：1 秒 40dp。 */
+/** 時間軸比例的預設：1 秒 40dp。 */
 internal const val DP_PER_SECOND = 40f
+
+/**
+ * 【放大】【縮小】切換的比例（1 秒幾 dp），每一格是前一格的兩倍，最多放大兩次（[DP_PER_SECOND] 的 4 倍）、縮小五次。
+ * 最小 1.25：3 分鐘的直式片整條放得進一個畫面、10 分鐘的橫式片約兩個畫面寬；最大 160：拖 1dp 約 6 毫秒，分割對得很細。
+ */
+internal val TIMELINE_ZOOM_LEVELS = listOf(1.25f, 2.5f, 5f, 10f, 20f, DP_PER_SECOND, 80f, 160f)
 
 /** 段與段之間的間隔。 */
 internal const val SEGMENT_GAP_DP = 2f
@@ -70,17 +76,22 @@ internal val StripHeight = 64.dp
 /** 段落上方時間刻度的高度。 */
 internal val RulerHeight = 18.dp
 
-/** 時間刻度每幾秒標一次時間（1 秒 40dp，每 2 秒＝80dp 放得下「10:00」）。 */
-private const val RULER_LABEL_EVERY_S = 2
+/** 刻度每幾秒一條：刻度之間至少 8dp，縮小時才不會擠成一片。 */
+internal fun rulerTickSeconds(dpPerSecond: Float): Int =
+    listOf(1, 5, 10, 30, 60).firstOrNull { it * dpPerSecond >= 8f } ?: 60
 
-private fun dpOf(ms: Long): Float = ms * DP_PER_SECOND / 1000f
+/** 每幾秒標一次時間：落在刻度上，標籤之間至少 60dp（放得下「10:00」）。 */
+internal fun rulerLabelSeconds(dpPerSecond: Float): Int {
+    val tick = rulerTickSeconds(dpPerSecond)
+    return listOf(1, 2, 5, 10, 15, 30, 60, 120).firstOrNull { it % tick == 0 && it * dpPerSecond >= 60f } ?: 120
+}
 
 /**
  * 時間軸條的座標表：每段的起點（毫秒）與左緣、右緣（內容座標 dp，從第 1 段左緣算起）一次算好，
  * 之後查座標、找可見範圍都用二分搜尋，不必每次從頭累加。純計算，不依賴 Compose。
  * 段與段之間有 2dp 間隔，所以座標不是單純的毫秒乘比例。
  */
-internal class TimelineGeometry(timeline: Timeline) {
+internal class TimelineGeometry(timeline: Timeline, private val dpPerSecond: Float = DP_PER_SECOND) {
     private val lengths = LongArray(timeline.segments.size) { timeline.segments[it].lengthMs }
     private val startMs = LongArray(lengths.size)
     private val leftDp = FloatArray(lengths.size)
@@ -88,6 +99,8 @@ internal class TimelineGeometry(timeline: Timeline) {
 
     val count: Int get() = lengths.size
     val durationMs: Long
+
+    private fun dpOf(ms: Long): Float = ms * dpPerSecond / 1000f
 
     init {
         var start = 0L
@@ -121,7 +134,7 @@ internal class TimelineGeometry(timeline: Timeline) {
         val i = firstEndingAfter(xDp)
         if (i >= count) return durationMs
         if (xDp <= leftDp[i]) return startMs[i]
-        return startMs[i] + ((xDp - leftDp[i]) * 1000f / DP_PER_SECOND).roundToLong()
+        return startMs[i] + ((xDp - leftDp[i]) * 1000f / dpPerSecond).roundToLong()
     }
 
     /** 右緣在 [x] 右邊的第一段（全部都在左邊就回 [count]）。 */
@@ -184,7 +197,8 @@ internal fun ClipSource.toMediaItem(): MediaItem = MediaItem(
 )
 
 /**
- * 時間軸條：水平一排，1 秒 40dp，段與段之間 2dp；上方是時間刻度（每秒一刻、每 [RULER_LABEL_EVERY_S] 秒標時間）。
+ * 時間軸條：水平一排，1 秒 [dpPerSecond] dp（預設 40，可以放大縮小），段與段之間 2dp；
+ * 上方是時間刻度（間隔隨比例變，見 [rulerTickSeconds]、[rulerLabelSeconds]）。
  * 底色由呼叫端給深色（跟一般剪輯軟體一樣），刻度用 [OnDarkColors]、播放頭用 [ClipColors.playhead]。
  *
  * 播放頭是畫面正中間一條固定的直線，時間軸在它底下捲動：[playheadMs] 決定捲到哪裡。
@@ -207,9 +221,10 @@ fun ClipTimelineStrip(
     onSelect: (Int?) -> Unit,
     modifier: Modifier = Modifier,
     onDragStart: () -> Unit = {},
+    dpPerSecond: Float = DP_PER_SECOND,
 ) {
     val sourceById = remember(sources) { sources.associateBy { it.id } }
-    val geometry = remember(timeline) { TimelineGeometry(timeline) }
+    val geometry = remember(timeline, dpPerSecond) { TimelineGeometry(timeline, dpPerSecond) }
     val density = LocalDensity.current.density
     val latestGeometry by rememberUpdatedState(geometry)
     val latestPlayhead by rememberUpdatedState(playheadMs)
@@ -271,7 +286,7 @@ fun ClipTimelineStrip(
                 // 播放頭：固定在正中間，不跟著捲動；純裝飾，位置由時間顯示唸出
                 Box(Modifier.fillMaxHeight().background(ClipColors.playhead))
             },
-            modifier = Modifier.fillMaxSize().drawBehind { drawRuler(geometry, originDp, widthDp, textMeasurer, labelStyle) },
+            modifier = Modifier.fillMaxSize().drawBehind { drawRuler(geometry, dpPerSecond, originDp, widthDp, textMeasurer, labelStyle) },
         ) { measurables, constraints ->
             val height = constraints.maxHeight
             val rulerPx = RulerHeight.roundToPx()
@@ -291,25 +306,28 @@ fun ClipTimelineStrip(
 }
 
 /**
- * 時間刻度：每秒一條短刻度，每 [RULER_LABEL_EVERY_S] 秒在刻度正上方標時間。
+ * 時間刻度：每 [rulerTickSeconds] 秒一條短刻度，每 [rulerLabelSeconds] 秒在刻度正上方標時間。
  * 只畫畫面上看得到、且在總長以內的；座標照 [TimelineGeometry]（含段間 2dp），刻度才會對準段落。
  */
 private fun DrawScope.drawRuler(
     geometry: TimelineGeometry,
+    dpPerSecond: Float,
     originDp: Float,
     widthDp: Float,
     measurer: TextMeasurer,
     style: TextStyle,
 ) {
     if (geometry.count == 0) return
-    val fromS = (geometry.msAt(-originDp) / 1000).toInt()
+    val every = rulerTickSeconds(dpPerSecond)
+    val labelEvery = rulerLabelSeconds(dpPerSecond)
+    val fromS = (geometry.msAt(-originDp) / 1000).toInt() / every * every
     val toS = (geometry.msAt(widthDp - originDp) / 1000).toInt()
     val bottom = RulerHeight.toPx()
     val tick = 4.dp.toPx()
-    for (s in fromS..toS) {
+    for (s in fromS..toS step every) {
         val x = (originDp + geometry.xDp(s * 1000L)).dp.toPx()
         drawLine(OnDarkColors.tertiary, Offset(x, bottom - tick), Offset(x, bottom), strokeWidth = 1.dp.toPx())
-        if (s % RULER_LABEL_EVERY_S == 0) {
+        if (s % labelEvery == 0) {
             val label = measurer.measure(formatDuration(s * 1000L), style)
             drawText(label, topLeft = Offset(x - label.size.width / 2f, bottom - tick - label.size.height))
         }

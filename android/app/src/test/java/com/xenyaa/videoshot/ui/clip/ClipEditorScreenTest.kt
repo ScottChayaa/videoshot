@@ -201,6 +201,15 @@ class ClipEditorScreenTest {
         compose.onNodeWithText("分割").assertIsEnabled()
     }
 
+    @Test fun 放大最多兩次_縮小最多五次() {
+        show(state(playheadMs = 30_000))
+        repeat(2) { compose.onNodeWithText("放大").assertIsEnabled().performClick() }
+        compose.onNodeWithText("放大").assertIsNotEnabled()
+        repeat(7) { compose.onNodeWithText("縮小").assertIsEnabled().performClick() }
+        compose.onNodeWithText("縮小").assertIsNotEnabled()
+        compose.onNodeWithText("放大").assertIsEnabled()
+    }
+
     @Test fun 沒有紀錄時復原重做停用() {
         show(state(canUndo = false, canRedo = false))
         compose.onNodeWithContentDescription("復原").assertIsNotEnabled()
@@ -219,6 +228,8 @@ class ClipEditorScreenTest {
         compose.onNodeWithText("導出").assertIsNotEnabled()
         compose.onNodeWithText("分割").assertIsNotEnabled()
         compose.onNodeWithText("刪除").assertIsNotEnabled()
+        compose.onNodeWithText("放大").assertIsNotEnabled()
+        compose.onNodeWithText("縮小").assertIsNotEnabled()
     }
 
     @Test fun 空時間軸有復原紀錄才提示可以復原() {
