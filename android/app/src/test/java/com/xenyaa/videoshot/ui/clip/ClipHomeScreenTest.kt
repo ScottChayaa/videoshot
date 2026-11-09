@@ -99,18 +99,20 @@ class ClipHomeScreenTest {
         compose.setContent { VideoshotTheme { OrientationSheet(onPick = onPick, onDismiss = onDismiss) } }
     }
 
-    @Test fun 空狀態有說明與新增剪輯() {
+    @Test fun 空狀態有說明_新增剪輯只有頂列那一顆() {
         show()
         compose.onNodeWithText("剪輯").assertIsDisplayed()
         compose.onNodeWithText("把手機裡的照片和影片剪成一支片").assertIsDisplayed()
         compose.onNodeWithText("上傳到你的 YouTube 後，就能用取圖精靈挑畫面").assertIsDisplayed()
-        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+        // onNodeWithText 找到兩顆會失敗：空狀態不另外放按鈕
+        val newTop = compose.onNodeWithText("新增").assertIsDisplayed().getUnclippedBoundsInRoot().top
+        assertTrue(newTop < compose.onNodeWithText("把手機裡的照片和影片剪成一支片").getUnclippedBoundsInRoot().top)
     }
 
     @Test fun 點新增剪輯通知呼叫端() {
         var clicked = 0
         show(onNewClip = { clicked++ })
-        compose.onNodeWithText("新增剪輯").performClick()
+        compose.onNodeWithText("新增").performClick()
         assertEquals(1, clicked)
     }
 
@@ -146,7 +148,7 @@ class ClipHomeScreenTest {
         compose.onNodeWithText("編輯中").assertIsDisplayed()
         compose.onNodeWithText("直式・4 個素材・1:48").assertIsDisplayed()
         // 有草稿時仍然看得到新增剪輯，空狀態的說明不再出現
-        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+        compose.onNodeWithText("新增").assertIsDisplayed()
         compose.onNodeWithText("把手機裡的照片和影片剪成一支片").assertDoesNotExist()
     }
 
@@ -204,7 +206,7 @@ class ClipHomeScreenTest {
     @Test fun 有草稿時新增剪輯先問放棄_確認後先放棄再新增() {
         val calls = mutableListOf<String>()
         show(draft = summary, onNewClip = { calls += "new" }, onDiscardDraft = { calls += "discard" })
-        compose.onNodeWithText("新增剪輯").performClick()
+        compose.onNodeWithText("新增").performClick()
         compose.onNodeWithText("放棄目前編輯中的剪輯？").assertIsDisplayed()
         assertEquals(emptyList<String>(), calls)
 
@@ -215,7 +217,7 @@ class ClipHomeScreenTest {
     @Test fun 有草稿時新增剪輯取消後什麼都沒發生() {
         val calls = mutableListOf<String>()
         show(draft = summary, onNewClip = { calls += "new" }, onDiscardDraft = { calls += "discard" })
-        compose.onNodeWithText("新增剪輯").performClick()
+        compose.onNodeWithText("新增").performClick()
         compose.onNodeWithText("取消").performClick()
         assertEquals(emptyList<String>(), calls)
         compose.onNodeWithText("編輯中").assertIsDisplayed()
@@ -375,12 +377,12 @@ class ClipHomeScreenTest {
     @Test fun 有任務時不顯示空狀態() {
         show(tasks = listOf(task(1, EditTaskState.QUEUED)))
         compose.onNodeWithText("把手機裡的照片和影片剪成一支片").assertDoesNotExist()
-        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+        compose.onNodeWithText("新增").assertIsDisplayed()
     }
 
     @Test fun 新增剪輯在頂列_下面依序是編輯中與任務() {
         show(draft = summary, tasks = listOf(task(1, EditTaskState.QUEUED, title = "任務甲")))
-        val newTop = compose.onNodeWithText("新增剪輯").getUnclippedBoundsInRoot().top
+        val newTop = compose.onNodeWithText("新增").getUnclippedBoundsInRoot().top
         val draftTop = compose.onNodeWithText("編輯中").getUnclippedBoundsInRoot().top
         val taskTop = compose.onNodeWithText("任務甲").getUnclippedBoundsInRoot().top
         assertTrue(newTop < draftTop)

@@ -55,7 +55,8 @@ fun VsButton(
     ) {
         if (icon != null) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(AppTheme.spacing.s2))
+            // 小尺寸的圖示貼近文字一點（剪輯頁頂欄的【＋ 新增】）
+            Spacer(Modifier.width(if (compact) AppTheme.spacing.s1 else AppTheme.spacing.s2))
         }
         Text(text, style = if (compact) MaterialTheme.typography.titleSmall else MaterialTheme.typography.labelLarge) // 15／17 Medium
     }

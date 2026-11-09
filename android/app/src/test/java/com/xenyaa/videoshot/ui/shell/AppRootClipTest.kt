@@ -285,7 +285,7 @@ class AppRootClipTest {
     private fun openPicker(clip: ClipDeps) {
         compose.setContent { VideoshotTheme { AppRoot(deps(clip)) {} } }
         compose.onNodeWithText("剪輯").performClick()
-        compose.onNodeWithText("新增剪輯").performClick()
+        compose.onNodeWithText("新增").performClick()
         compose.onNodeWithText("直式").performClick()
         compose.waitForIdle()
     }
@@ -370,7 +370,7 @@ class AppRootClipTest {
         compose.onNodeWithText("放棄").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("編輯中").assertDoesNotExist()
-        compose.onNodeWithText("新增剪輯").performClick()
+        compose.onNodeWithText("新增").performClick()
         compose.onNodeWithText("橫式").performClick()
         compose.waitForIdle()
         compose.onAllNodesWithContentDescription("照片")[0].performClick()
@@ -397,7 +397,7 @@ class AppRootClipTest {
         // 「編輯中」仍留在畫面上（摘要是進剪輯頁時讀的）；點了續做 → 讀不到草稿 → 退回
         compose.onNodeWithText("編輯中").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+        compose.onNodeWithText("新增").assertIsDisplayed()
         compose.onNodeWithText("編輯中").assertDoesNotExist()
     }
 
@@ -417,7 +417,7 @@ class AppRootClipTest {
         compose.onNodeWithText("編輯中").assertDoesNotExist()
 
         // 再走一次：新增 → 直式 → 選素材 → 下一步
-        compose.onNodeWithText("新增剪輯").performClick()
+        compose.onNodeWithText("新增").performClick()
         compose.onNodeWithText("直式").performClick()
         compose.waitForIdle()
         compose.onAllNodesWithContentDescription("照片")[0].performClick()
@@ -426,7 +426,7 @@ class AppRootClipTest {
         compose.waitForIdle()
 
         compose.onNodeWithText("/ 0:06", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("新增剪輯").assertDoesNotExist()
+        compose.onNodeWithText("新增").assertDoesNotExist()
     }
 
     @Test
@@ -447,13 +447,13 @@ class AppRootClipTest {
         // 存檔還沒完成，使用者按返回回到剪輯頁
         compose.onNodeWithContentDescription("返回").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+        compose.onNodeWithText("新增").assertIsDisplayed()
 
         gate.complete(Unit)
         compose.waitForIdle()
 
         // 沒有被換頁：仍在剪輯頁，有底部導覽，也沒有編輯畫面
-        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+        compose.onNodeWithText("新增").assertIsDisplayed()
         compose.onNodeWithText("相簿").assertIsDisplayed()
         compose.onNodeWithText("/ 0:03", substring = true).assertDoesNotExist()
         // 再按一次系統返回是回照片分頁，不是卡在剪輯頁；草稿已存，回剪輯分頁看得到「編輯中」
@@ -555,7 +555,7 @@ class AppRootClipTest {
         compose.onNodeWithText("剪輯").performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithText("新增剪輯").performClick()
+        compose.onNodeWithText("新增").performClick()
         compose.onNodeWithText("放棄目前編輯中的剪輯？").assertIsDisplayed()
         compose.onNodeWithText("取消").performClick()
 
@@ -572,7 +572,7 @@ class AppRootClipTest {
         compose.onNodeWithText("剪輯").performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithText("新增剪輯").performClick()
+        compose.onNodeWithText("新增").performClick()
         compose.onNodeWithText("放棄").performClick()
         compose.waitForIdle()
 
@@ -614,7 +614,7 @@ class AppRootClipTest {
         compose.waitForIdle()
 
         // 畫面照常運作（沒有當掉），清不掉的草稿還在資料庫裡
-        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+        compose.onNodeWithText("新增").assertIsDisplayed()
         assertTrue(repo.currentClipDraftBlocking() != null)
     }
 
@@ -632,7 +632,7 @@ class AppRootClipTest {
         compose.onNodeWithText("下一步（1）").assertIsDisplayed()
 
         compose.onNodeWithContentDescription("返回").performClick()
-        compose.onNodeWithText("新增剪輯").performClick()
+        compose.onNodeWithText("新增").performClick()
         compose.onNodeWithText("橫式").performClick()
         compose.waitForIdle()
 
@@ -731,7 +731,7 @@ class AppRootClipTest {
         // 返回直接回剪輯頁（不再經過編輯畫面），離開後不再算在看
         compose.onNodeWithContentDescription("返回").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+        compose.onNodeWithText("新增").assertIsDisplayed()
         assertEquals(null, clip.viewing.last())
     }
 
@@ -793,7 +793,7 @@ class AppRootClipTest {
         assertEquals(listOf(taskId), clip.deletedFiles)
         assertEquals(listOf(taskId), clip.dismissed)
         assertTrue(tasksOf(clip.cacheRepo).isEmpty())
-        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+        compose.onNodeWithText("新增").assertIsDisplayed()
     }
 
     @Test
@@ -877,19 +877,19 @@ class AppRootClipTest {
     fun 帶開剪輯的intent進到剪輯頁() {
         val signal = androidx.compose.runtime.mutableIntStateOf(0)
         compose.setContent { VideoshotTheme { AppRoot(deps(FakeClipDeps(full)), onExitApp = {}, openClipSignal = signal.intValue) } }
-        compose.onNodeWithText("新增剪輯").assertDoesNotExist()
+        compose.onNodeWithText("新增").assertDoesNotExist()
 
         // app 已經開著時點通知（onNewIntent）
         signal.intValue = 1
         compose.waitForIdle()
-        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+        compose.onNodeWithText("新增").assertIsDisplayed()
     }
 
     @Test
     fun 冷啟動帶開剪輯的intent一開始就是剪輯頁() {
         compose.setContent { VideoshotTheme { AppRoot(deps(FakeClipDeps(full)), onExitApp = {}, openClipSignal = 1) } }
         compose.waitForIdle()
-        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+        compose.onNodeWithText("新增").assertIsDisplayed()
     }
 
     @Test
@@ -907,7 +907,7 @@ class AppRootClipTest {
         signal.intValue = 1
         compose.waitForIdle()
         compose.onNodeWithText("等待中…").assertDoesNotExist()
-        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+        compose.onNodeWithText("新增").assertIsDisplayed()
         assertEquals(1, tasksOf(clip.cacheRepo).count { it.id == taskId })
     }
 
@@ -963,7 +963,7 @@ class AppRootClipTest {
         compose.onNodeWithText("我的旅行").assertIsDisplayed()
         compose.onNodeWithText("等待中").assertIsDisplayed()
         compose.onNodeWithText("把手機裡的照片和影片剪成一支片").assertDoesNotExist()
-        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+        compose.onNodeWithText("新增").assertIsDisplayed()
     }
 
     @Test
@@ -981,7 +981,7 @@ class AppRootClipTest {
         // 返回回到剪輯頁
         compose.onNodeWithContentDescription("返回").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("新增剪輯").assertIsDisplayed()
+        compose.onNodeWithText("新增").assertIsDisplayed()
     }
 
     @Test
