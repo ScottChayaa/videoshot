@@ -24,8 +24,8 @@ class ExportTextsTest {
         assertEquals("3:00・直式・會成為 Shorts" to false, exportSummary(ClipOrientation.PORTRAIT, 180_000))
     }
 
-    @Test fun `摘要橫式是一般影片`() {
-        assertEquals("1:20・橫式・一般影片" to false, exportSummary(ClipOrientation.LANDSCAPE, 80_000))
+    @Test fun `摘要橫式只寫橫式影片`() {
+        assertEquals("1:20・橫式影片" to false, exportSummary(ClipOrientation.LANDSCAPE, 80_000))
     }
 
     @Test fun `摘要超過上限寫差多少且不說 Shorts`() {
@@ -34,7 +34,7 @@ class ExportTextsTest {
             exportSummary(ClipOrientation.PORTRAIT, 228_000),
         )
         assertEquals(
-            "12:00・橫式・超過上限 2 分，請先刪掉一些段落" to true,
+            "12:00・橫式影片・超過上限 2 分，請先刪掉一些段落" to true,
             exportSummary(ClipOrientation.LANDSCAPE, 720_000),
         )
     }

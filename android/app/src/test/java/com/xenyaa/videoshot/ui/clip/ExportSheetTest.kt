@@ -90,10 +90,10 @@ class ExportSheetTest {
     }
 
     @Test
-    fun 橫式摘要是一般影片() {
+    fun 橫式摘要只寫橫式影片() {
         show(orientation = ClipOrientation.LANDSCAPE, durationMs = 80_000)
 
-        compose.onNodeWithText("1:20・橫式・一般影片").assertIsDisplayed()
+        compose.onNodeWithText("1:20・橫式影片").assertIsDisplayed()
     }
 
     @Test

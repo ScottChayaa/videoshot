@@ -25,8 +25,8 @@ fun ClipDraft.usedSources(): List<ClipSource> {
 }
 
 /**
- * 導出的預設標題：「videoshot 2026/10/20～10/27」；同一天「videoshot 2026/10/18」；
- * 跨年兩邊都寫年份「videoshot 2025/12/30～2026/01/02」；沒有素材只寫「videoshot」。
+ * 導出的預設標題：只有日期「2026/10/20～10/27」（scott 2026-11-10 拿掉前面的 videoshot）；同一天「2026/10/18」；
+ * 跨年兩邊都寫年份「2025/12/30～2026/01/02」；沒有素材只寫「videoshot」（標題不能空白）。
  * 日期取素材拍攝時間在 [zone] 的日曆日，`～` 是全形 U+FF5E。
  */
 fun defaultClipTitle(sources: List<ClipSource>, zone: ZoneId): String {
@@ -34,9 +34,9 @@ fun defaultClipTitle(sources: List<ClipSource>, zone: ZoneId): String {
     val first = Instant.ofEpochMilli(sources.minOf { it.takenAtMs }).atZone(zone).toLocalDate()
     val last = Instant.ofEpochMilli(sources.maxOf { it.takenAtMs }).atZone(zone).toLocalDate()
     return when {
-        first == last -> "videoshot ${fullDate.format(first)}"
-        first.year == last.year -> "videoshot ${fullDate.format(first)}～${shortDate.format(last)}"
-        else -> "videoshot ${fullDate.format(first)}～${fullDate.format(last)}"
+        first == last -> fullDate.format(first)
+        first.year == last.year -> "${fullDate.format(first)}～${shortDate.format(last)}"
+        else -> "${fullDate.format(first)}～${fullDate.format(last)}"
     }
 }
 

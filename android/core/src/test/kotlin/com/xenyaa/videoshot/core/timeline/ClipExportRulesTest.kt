@@ -10,9 +10,9 @@ class ClipExportRulesTest {
     private fun at(y: Int, m: Int, d: Int) = LocalDate.of(y, m, d).atTime(12, 0).atZone(tz).toInstant().toEpochMilli()
     private fun photo(id: Long, t: Long) = ClipSource(id, "content://p/$id", SourceKind.PHOTO, t, null, 4000, 3000, 0)
 
-    @Test fun 標題是起訖日期() = assertEquals("videoshot 2026/10/20～10/27", defaultClipTitle(listOf(photo(1, at(2026, 10, 27)), photo(2, at(2026, 10, 20))), tz))
-    @Test fun 同一天只寫一天() = assertEquals("videoshot 2026/10/18", defaultClipTitle(listOf(photo(1, at(2026, 10, 18)), photo(2, at(2026, 10, 18))), tz))
-    @Test fun 跨年兩邊都寫年份() = assertEquals("videoshot 2025/12/30～2026/01/02", defaultClipTitle(listOf(photo(1, at(2025, 12, 30)), photo(2, at(2026, 1, 2))), tz))
+    @Test fun 標題是起訖日期() = assertEquals("2026/10/20～10/27", defaultClipTitle(listOf(photo(1, at(2026, 10, 27)), photo(2, at(2026, 10, 20))), tz))
+    @Test fun 同一天只寫一天() = assertEquals("2026/10/18", defaultClipTitle(listOf(photo(1, at(2026, 10, 18)), photo(2, at(2026, 10, 18))), tz))
+    @Test fun 跨年兩邊都寫年份() = assertEquals("2025/12/30～2026/01/02", defaultClipTitle(listOf(photo(1, at(2025, 12, 30)), photo(2, at(2026, 1, 2))), tz))
     @Test fun 沒有素材只寫videoshot() = assertEquals("videoshot", defaultClipTitle(emptyList(), tz))
 
     @Test fun 段落全刪光的素材不算用到() {
