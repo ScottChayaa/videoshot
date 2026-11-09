@@ -42,7 +42,6 @@ import androidx.compose.ui.unit.sp
 import com.xenyaa.videoshot.core.timeline.ClipOrientation
 import com.xenyaa.videoshot.edit.overLimitText
 import com.xenyaa.videoshot.media.MediaAccess
-import com.xenyaa.videoshot.media.MediaFilter
 import com.xenyaa.videoshot.media.MediaItem
 import com.xenyaa.videoshot.media.MediaKind
 import com.xenyaa.videoshot.media.MediaThumbLoader
@@ -59,8 +58,8 @@ import com.xenyaa.videoshot.ui.icons.VsIcons
 import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.focusRing
 
-private val TabFilters = listOf(MediaFilter.ALL, MediaFilter.VIDEO, MediaFilter.PHOTO)
-private val TabLabels = listOf("全部", "影片", "照片")
+private val TabFilters = listOf(PickerFilter.ALL, PickerFilter.PORTRAIT_VIDEO, PickerFilter.LANDSCAPE_VIDEO, PickerFilter.PHOTO)
+private val TabLabels = listOf("全部", "直影片", "橫影片", "照片")
 private val GridGap = 2.dp
 
 /**
@@ -78,7 +77,7 @@ fun ClipPickerScreen(
     thumbLoader: MediaThumbLoader,
     orderOf: (Long) -> Int?,
     onBack: () -> Unit,
-    onFilter: (MediaFilter) -> Unit,
+    onFilter: (PickerFilter) -> Unit,
     onToggle: (Long) -> Unit,
     onRequestAccess: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -103,9 +102,10 @@ fun ClipPickerScreen(
                 items == null -> GridSkeleton()
                 items.isEmpty() -> VsEmptyState(
                     message = when (state.filter) {
-                        MediaFilter.ALL -> "手機裡還沒有照片或影片"
-                        MediaFilter.VIDEO -> "手機裡還沒有影片"
-                        MediaFilter.PHOTO -> "手機裡還沒有照片"
+                        PickerFilter.ALL -> "手機裡還沒有照片或影片"
+                        PickerFilter.PORTRAIT_VIDEO -> "手機裡還沒有直式影片"
+                        PickerFilter.LANDSCAPE_VIDEO -> "手機裡還沒有橫式影片"
+                        PickerFilter.PHOTO -> "手機裡還沒有照片"
                     },
                     modifier = Modifier.padding(top = AppTheme.spacing.s6),
                 )

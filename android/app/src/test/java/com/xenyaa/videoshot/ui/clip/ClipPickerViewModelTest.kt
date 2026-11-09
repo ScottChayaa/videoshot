@@ -44,6 +44,7 @@ class ClipPickerViewModelTest {
     private class FakeMediaLibrary(private val all: MutableList<MediaItem>) : MediaLibrary {
         var listCalls = 0
         fun remove(id: Long) { all.removeAll { it.id == id } }
+        fun add(item: MediaItem) { all += item }
         override suspend fun list(filter: MediaFilter): List<MediaItem> {
             listCalls++
             return when (filter) {
@@ -84,7 +85,7 @@ class ClipPickerViewModelTest {
         assertNull(vm.state.value.items)
         advanceUntilIdle()
         assertEquals(library.list(MediaFilter.ALL), vm.state.value.items)
-        assertEquals(MediaFilter.ALL, vm.state.value.filter)
+        assertEquals(PickerFilter.ALL, vm.state.value.filter)
     }
 
     @Test fun 沒權限不讀清單() = runTest {
@@ -94,7 +95,7 @@ class ClipPickerViewModelTest {
         assertEquals(MediaAccess.DENIED, vm.state.value.access)
         assertNull(vm.state.value.items)
         assertEquals(0, library.listCalls)
-        vm.setFilter(MediaFilter.VIDEO)
+        vm.setFilter(PickerFilter.PORTRAIT_VIDEO)
         advanceUntilIdle()
         assertNull(vm.state.value.items)
         assertEquals(0, library.listCalls)
@@ -114,7 +115,7 @@ class ClipPickerViewModelTest {
         advanceUntilIdle()
         vm.toggle(1); vm.toggle(10); vm.toggle(2)
         assertEquals(3_000L + 5_000L + 3_000L, vm.state.value.selectedMs)
-        vm.setFilter(MediaFilter.PHOTO)
+        vm.setFilter(PickerFilter.PHOTO)
         advanceUntilIdle()
         vm.toggle(2)
         assertEquals(3_000L + 5_000L, vm.state.value.selectedMs)
@@ -135,12 +136,12 @@ class ClipPickerViewModelTest {
     @Test fun 切分頁不丟選取() = runTest {
         val vm = vm()
         vm.toggle(1); vm.toggle(2); vm.toggle(3)
-        vm.setFilter(MediaFilter.PHOTO)
+        vm.setFilter(PickerFilter.PHOTO)
         assertNull(vm.state.value.items)
         vm.toggle(4); vm.toggle(5)
         advanceUntilIdle()
         assertEquals(library.list(MediaFilter.PHOTO), vm.state.value.items)
-        vm.setFilter(MediaFilter.ALL)
+        vm.setFilter(PickerFilter.ALL)
         advanceUntilIdle()
         assertEquals(listOf(1L, 2L, 3L, 4L, 5L), vm.state.value.selected)
     }
@@ -173,7 +174,7 @@ class ClipPickerViewModelTest {
         val vm = vm()
         advanceUntilIdle()           // 讀過全部，認得每個素材的種類
         vm.toggle(7); vm.toggle(10)  // 照片 7、影片 10
-        vm.setFilter(MediaFilter.VIDEO)
+        vm.setFilter(PickerFilter.PORTRAIT_VIDEO)
         advanceUntilIdle()
         library.remove(10)
         vm.refreshAccess()
@@ -193,11 +194,36 @@ class ClipPickerViewModelTest {
         assertEquals(before + 1, library.listCalls)
     }
 
+    @Test fun 直影片與橫影片分頁依畫面方向分開_旋轉過的照轉後算_正方形兩邊都沒有() = runTest {
+        library.add(item(40, MediaKind.VIDEO).copy(width = 1920, height = 1080))
+        library.add(item(50, MediaKind.VIDEO).copy(width = 1920, height = 1080, rotation = 90))
+        library.add(item(60, MediaKind.VIDEO).copy(width = 1080, height = 1080))
+        val vm = vm()
+        vm.setFilter(PickerFilter.PORTRAIT_VIDEO)
+        advanceUntilIdle()
+        assertEquals(listOf(30L, 20L, 10L, 50L), vm.state.value.items!!.map { it.id })
+        vm.setFilter(PickerFilter.LANDSCAPE_VIDEO)
+        advanceUntilIdle()
+        assertEquals(listOf(40L), vm.state.value.items!!.map { it.id })
+    }
+
+    @Test fun 在直影片分頁重讀不會拿掉已選的橫影片() = runTest {
+        library.add(item(40, MediaKind.VIDEO).copy(width = 1920, height = 1080))
+        val vm = vm()
+        advanceUntilIdle()
+        vm.toggle(40); vm.toggle(10)
+        vm.setFilter(PickerFilter.PORTRAIT_VIDEO)
+        advanceUntilIdle()
+        vm.refreshAccess()
+        advanceUntilIdle()
+        assertEquals(listOf(40L, 10L), vm.state.value.selected)
+    }
+
     @Test fun reset清空選取並回到全部() {
         val vm = vm()
-        vm.toggle(1); vm.setFilter(MediaFilter.VIDEO); vm.reset()
+        vm.toggle(1); vm.setFilter(PickerFilter.PORTRAIT_VIDEO); vm.reset()
         assertEquals(emptyList<Long>(), vm.state.value.selected)
-        assertEquals(MediaFilter.ALL, vm.state.value.filter)
+        assertEquals(PickerFilter.ALL, vm.state.value.filter)
     }
 
     @Test fun 建立草稿時拿掉已經不存在的選取() = runTest {

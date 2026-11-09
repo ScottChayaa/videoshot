@@ -14,7 +14,6 @@ import com.xenyaa.videoshot.media.MediaAccess
 import com.xenyaa.videoshot.media.MediaAccess.DENIED
 import com.xenyaa.videoshot.media.MediaAccess.FULL
 import com.xenyaa.videoshot.media.MediaAccess.PARTIAL
-import com.xenyaa.videoshot.media.MediaFilter
 import com.xenyaa.videoshot.media.MediaItem
 import com.xenyaa.videoshot.media.MediaKind
 import com.xenyaa.videoshot.media.MediaThumbLoader
@@ -41,7 +40,7 @@ class ClipPickerScreenTest {
 
     private fun state(
         access: MediaAccess,
-        filter: MediaFilter = MediaFilter.ALL,
+        filter: PickerFilter = PickerFilter.ALL,
         items: List<MediaItem>? = emptyList(),
         selected: List<Long> = emptyList(),
         selectedMs: Long = 0,
@@ -54,7 +53,7 @@ class ClipPickerScreenTest {
         onOpenSettings: () -> Unit = {},
         canAskAgain: Boolean = true,
         onToggle: (Long) -> Unit = {},
-        onFilter: (MediaFilter) -> Unit = {},
+        onFilter: (PickerFilter) -> Unit = {},
         onNext: () -> Unit = {},
     ) {
         compose.setContent {
@@ -76,9 +75,9 @@ class ClipPickerScreenTest {
         }
     }
 
-    @Test fun 三個分頁與標題() {
+    @Test fun 四個分頁與標題() {
         show(state(FULL))
-        listOf("選素材", "全部", "影片", "照片").forEach { compose.onNodeWithText(it).assertIsDisplayed() }
+        listOf("選素材", "全部", "直影片", "橫影片", "照片").forEach { compose.onNodeWithText(it).assertIsDisplayed() }
     }
 
     @Test fun 沒選時下一步停用() {
@@ -176,34 +175,40 @@ class ClipPickerScreenTest {
         compose.onNodeWithContentDescription("影片").assertDoesNotExist()
     }
 
-    @Test fun 空的影片分頁有說明() {
-        show(state(FULL, filter = MediaFilter.VIDEO, items = emptyList()))
-        compose.onNodeWithText("手機裡還沒有影片").assertIsDisplayed()
+    @Test fun 空的直影片分頁有說明() {
+        show(state(FULL, filter = PickerFilter.PORTRAIT_VIDEO, items = emptyList()))
+        compose.onNodeWithText("手機裡還沒有直式影片").assertIsDisplayed()
+    }
+
+    @Test fun 空的橫影片分頁有說明() {
+        show(state(FULL, filter = PickerFilter.LANDSCAPE_VIDEO, items = emptyList()))
+        compose.onNodeWithText("手機裡還沒有橫式影片").assertIsDisplayed()
     }
 
     @Test fun 空的全部分頁有說明() {
-        show(state(FULL, filter = MediaFilter.ALL, items = emptyList()))
+        show(state(FULL, filter = PickerFilter.ALL, items = emptyList()))
         compose.onNodeWithText("手機裡還沒有照片或影片").assertIsDisplayed()
     }
 
     @Test fun 空的照片分頁有說明() {
-        show(state(FULL, filter = MediaFilter.PHOTO, items = emptyList()))
+        show(state(FULL, filter = PickerFilter.PHOTO, items = emptyList()))
         compose.onNodeWithText("手機裡還沒有照片").assertIsDisplayed()
     }
 
     @Test fun 點格子_點分頁_點下一步都回報給呼叫端() {
         val toggled = mutableListOf<Long>()
-        val filters = mutableListOf<MediaFilter>()
+        val filters = mutableListOf<PickerFilter>()
         var next = 0
         show(
             state(FULL, items = items(2), selected = listOf(1)),
             onToggle = { toggled += it }, onFilter = { filters += it }, onNext = { next++ },
         )
         compose.onNodeWithContentDescription("已選第 1 個").performClick()
-        compose.onNodeWithText("影片").performClick()
+        compose.onNodeWithText("直影片").performClick()
+        compose.onNodeWithText("橫影片").performClick()
         compose.onNodeWithText("下一步（1）").performClick()
         assertEquals(listOf(1L), toggled)
-        assertEquals(listOf(MediaFilter.VIDEO), filters)
+        assertEquals(listOf(PickerFilter.PORTRAIT_VIDEO, PickerFilter.LANDSCAPE_VIDEO), filters)
         assertEquals(1, next)
     }
 }

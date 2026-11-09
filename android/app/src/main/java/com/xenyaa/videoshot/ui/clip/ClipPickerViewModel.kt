@@ -21,13 +21,31 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
+ * 選素材上方的分頁。影片依畫面方向拆成直、橫兩頁（見 [videoOrientation]），正方形或量不到尺寸的影片只在「全部」；
+ * [source] 是向素材庫要哪一種，讀回來再用 [shows] 篩方向。
+ */
+enum class PickerFilter(val source: MediaFilter) {
+    ALL(MediaFilter.ALL),
+    PORTRAIT_VIDEO(MediaFilter.VIDEO),
+    LANDSCAPE_VIDEO(MediaFilter.VIDEO),
+    PHOTO(MediaFilter.PHOTO),
+    ;
+
+    fun shows(item: MediaItem): Boolean = when (this) {
+        PORTRAIT_VIDEO -> item.videoOrientation() == ClipOrientation.PORTRAIT
+        LANDSCAPE_VIDEO -> item.videoOrientation() == ClipOrientation.LANDSCAPE
+        ALL, PHOTO -> true
+    }
+}
+
+/**
  * 選素材畫面的狀態。[access] 為 null 代表還沒判定；[items] 為 null 代表讀取中（或沒權限、沒讀過）。
  * [selected] 依點選順序排列，序號就是它在清單裡的位置加一。
  * [selectedMs] 是已選素材排進時間軸後的總長：照片各 [PHOTO_SEGMENT_MS]、影片是它的長度（長度不明的影片建草稿時會略過，算 0）。
  */
 data class ClipPickerState(
     val access: MediaAccess? = null,
-    val filter: MediaFilter = MediaFilter.ALL,
+    val filter: PickerFilter = PickerFilter.ALL,
     val items: List<MediaItem>? = null,
     val selected: List<Long> = emptyList(),
     val selectedMs: Long = 0,
@@ -61,7 +79,7 @@ class ClipPickerViewModel(private val deps: ClipDeps) : ViewModel() {
         if (access != MediaAccess.DENIED) load(prune = true)
     }
 
-    fun setFilter(filter: MediaFilter) {
+    fun setFilter(filter: PickerFilter) {
         _state.update { it.copy(filter = filter, items = null) }
         if (_state.value.access != MediaAccess.DENIED) load(prune = false)
     }
@@ -78,7 +96,7 @@ class ClipPickerViewModel(private val deps: ClipDeps) : ViewModel() {
 
     /** 從選方向重新進來時呼叫：清空選取、回到「全部」。 */
     fun reset() {
-        _state.update { it.copy(filter = MediaFilter.ALL, items = null, selected = emptyList(), selectedMs = 0) }
+        _state.update { it.copy(filter = PickerFilter.ALL, items = null, selected = emptyList(), selectedMs = 0) }
         if (_state.value.access != MediaAccess.DENIED) load(prune = false) else readJob?.cancel()
     }
 
@@ -116,10 +134,11 @@ class ClipPickerViewModel(private val deps: ClipDeps) : ViewModel() {
         readJob?.cancel()
         val filter = _state.value.filter
         readJob = viewModelScope.launch {
-            val list = deps.mediaLibrary.list(filter)
+            val list = deps.mediaLibrary.list(filter.source)
             list.forEach { known[it.id] = it }
+            // 判斷被刪用篩方向前的整份：在直影片分頁沒看到已選的橫影片，不代表它被刪了
             val present = list.mapTo(HashSet()) { it.id }
-            val filterKind = filter.kind()
+            val filterKind = filter.source.kind()
             _state.update { state ->
                 if (state.filter != filter) return@update state
                 // 只有「這個分頁讀得到它卻沒讀到」才算被刪：全部分頁看得到所有素材；
@@ -127,7 +146,7 @@ class ClipPickerViewModel(private val deps: ClipDeps) : ViewModel() {
                 val selected = if (!prune) state.selected else state.selected.filter { id ->
                     id in present || !(filterKind == null || known[id]?.kind == filterKind)
                 }
-                state.copy(items = list, selected = selected, selectedMs = selected.totalMs())
+                state.copy(items = list.filter(filter::shows), selected = selected, selectedMs = selected.totalMs())
             }
         }
     }
