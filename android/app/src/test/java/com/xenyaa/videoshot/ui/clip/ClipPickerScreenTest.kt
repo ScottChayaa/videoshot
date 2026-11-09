@@ -124,10 +124,10 @@ class ClipPickerScreenTest {
         compose.onNodeWithText("下一步（2）").assertIsEnabled()
     }
 
-    @Test fun 直式超過3分鐘變紅字而且不能下一步() {
+    @Test fun 直式超過3分鐘只警告_下一步還是可以按() {
         show(state(FULL, selected = listOf(1, 2), selectedMs = 192_000))
         compose.onNodeWithText("3:12 / 3:00・超過 12 秒").assertIsDisplayed()
-        compose.onNodeWithText("下一步（2）").assertIsNotEnabled()
+        compose.onNodeWithText("下一步（2）").assertIsEnabled()
     }
 
     @Test fun 橫式上限10分鐘() {

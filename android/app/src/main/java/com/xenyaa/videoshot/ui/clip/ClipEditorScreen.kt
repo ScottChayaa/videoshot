@@ -136,7 +136,7 @@ private fun ColumnScope.EditorBody(
             preview.pause()
         }
     }
-    VsTopBar("編輯", nav = TopBarNav.Back(onBack), actions = { VsButton("導出", onExport, enabled = !state.isEmpty, compact = true) })
+    VsTopBar("編輯", nav = TopBarNav.Back(onBack), actions = { VsButton("導出", onExport, icon = VsIcons.Upload, enabled = !state.isEmpty, compact = true) })
 
     Box(Modifier.weight(1f).fillMaxWidth().background(ClipColors.preview), contentAlignment = Alignment.Center) {
         ClipPreviewSurface(preview, draft.orientation, showVideo = !state.isEmpty)
@@ -199,10 +199,11 @@ private fun ColumnScope.EditorBody(
             { stopPlayback(); onSplit() },
             Modifier.weight(1f),
             variant = ButtonVariant.Secondary,
+            icon = VsIcons.Split,
             // 播放中，播放頭停在舊位置：能不能分割要看畫面上顯示的位置
             enabled = if (playing) draft.timeline.canSplitAt(shownMs) else state.canSplit,
         )
-        VsButton("刪除", { stopPlayback(); onDelete() }, Modifier.weight(1f), variant = ButtonVariant.Secondary, enabled = state.canDelete)
+        VsButton("刪除", { stopPlayback(); onDelete() }, Modifier.weight(1f), variant = ButtonVariant.Secondary, icon = VsIcons.Trash, enabled = state.canDelete)
     }
 }
 

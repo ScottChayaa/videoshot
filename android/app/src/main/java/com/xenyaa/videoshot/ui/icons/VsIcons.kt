@@ -175,6 +175,12 @@ object VsIcons {
     /** 靜音（Lucide `volume-x`）。 */
     val VolumeOff: ImageVector by lazy { strokeIcon("volume-off", SPEAKER_PATH, "M22 9l-6 6", "M16 9l6 6") }
 
+    /** 分割（「][」：兩段背對背的中括號，中間是切開的地方）：剪輯編輯畫面的【分割】。Lucide 沒有合適的，自己畫。 */
+    val Split: ImageVector by lazy { strokeIcon("split", "M3 4h5v16H3", "M21 4h-5v16h5") }
+
+    /** 上傳（Lucide `upload`）：剪輯編輯畫面的【導出】。 */
+    val Upload: ImageVector by lazy { strokeIcon("upload", "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4", "m17 8-5-5-5 5", "M12 3v12") }
+
     /** 三點連線（Lucide `share-2`，Android 慣用的分享圖示；原型是 iOS 式的方框加箭頭）。三個 r=3 的圓改寫成 path。 */
     val Share: ImageVector by lazy {
         strokeIcon(

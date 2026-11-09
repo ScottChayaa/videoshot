@@ -64,7 +64,8 @@ private val GridGap = 2.dp
 
 /**
  * 剪輯的「選素材」：手機裡的照片與影片，一格一個，依點選順序編號。
- * 底部左側是選的方向與已選總長（「1:20 / 3:00」）；總長超過 [orientation] 的上限就變紅、【下一步】停用。
+ * 底部左側是選的方向與已選總長（「1:20 / 3:00」）；總長超過 [orientation] 的上限只是變成警告色提醒，
+ * 【下一步】照樣能按（進編輯再刪短；真正擋下的是導出抽屜的【開始】）。
  *
  * 只吃狀態與回呼：權限請求與開系統設定的 Intent 都在 [AppRoot] 那一層，這裡才能在 Robolectric 測。
  * [onRequestAccess] 同時給 DENIED 的【允許存取】與 PARTIAL 橫幅的【選取更多】用——
@@ -130,14 +131,14 @@ fun ClipPickerScreen(
             VsButton(
                 text = if (count == 0) "下一步" else "下一步（$count）",
                 onClick = onNext,
-                enabled = count > 0 && !overLimit,
+                enabled = count > 0,
             )
         }
     }
 }
 
 /**
- * 底部左側：方向圖示＋「直式」，下一行是已選總長／上限。超過上限時第二行變紅並寫超過多少；
+ * 底部左側：方向圖示＋「直式」，下一行是已選總長／上限。超過上限時第二行變警告色（黃）並寫超過多少；
  * 總長跟導出抽屜一樣進位到整秒，才對得起「超過 N 秒」。
  */
 @Composable
@@ -155,7 +156,7 @@ private fun SelectedSummary(orientation: ClipOrientation, selectedMs: Long, over
                     "${formatDuration(selectedMs)} / $limit"
                 },
                 style = MaterialTheme.typography.bodySmall,
-                color = if (overLimit) AppTheme.colors.danger else AppTheme.colors.textDim,
+                color = if (overLimit) AppTheme.colors.warn else AppTheme.colors.textDim,
             )
         }
     }
