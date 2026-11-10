@@ -55,6 +55,7 @@ interface CacheRepo {
         autoUpload: Boolean,
         now: Long,
         privacy: UploadPrivacy = UploadPrivacy.UNLISTED,
+        recordingDate: String? = null,
     ): Long
 
     /** 全部任務，新的在前。內容解不開的任務（理論上不會有）不列。 */

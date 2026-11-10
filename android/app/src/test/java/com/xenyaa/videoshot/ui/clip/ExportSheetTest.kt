@@ -4,8 +4,8 @@ import android.content.Intent
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertIsNotSelected
-import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -36,14 +36,24 @@ class ExportSheetTest {
         orientation: ClipOrientation = ClipOrientation.PORTRAIT,
         durationMs: Long = 48_000,
         defaultTitle: String = "videoshot 2026/10/18",
-        onStart: (String, UploadPrivacy) -> Unit = { _, _ -> },
+        onStart: (String, UploadPrivacy, String?) -> Unit = { _, _, _ -> },
         onDismiss: () -> Unit = {},
+        defaultRecordingDate: String? = "2026-10-18",
     ) {
         compose.setContent {
             VideoshotTheme {
-                ExportSheet(orientation, durationMs, defaultTitle, onStart = onStart, onDismiss = onDismiss)
+                ExportSheet(
+                    orientation, durationMs, defaultTitle, onStart = onStart, onDismiss = onDismiss,
+                    defaultRecordingDate = defaultRecordingDate,
+                )
             }
         }
+    }
+
+    /** 打開公開狀態的下拉選單，選 [label]。 */
+    private fun pickPrivacy(label: String) {
+        compose.onNodeWithContentDescription("公開狀態：", substring = true).performClick()
+        compose.onNodeWithText(label).performClick()
     }
 
     @Test
@@ -54,10 +64,10 @@ class ExportSheetTest {
         compose.onNodeWithText("0:48・直式・會成為 Shorts").assertIsDisplayed()
         compose.onNodeWithText("標題").assertIsDisplayed()
         compose.onNodeWithText("videoshot 2026/10/18").assertIsDisplayed()
-        compose.onNodeWithText("公開狀態").assertIsDisplayed()
-        compose.onNodeWithText("非公開").assertIsSelected()
-        compose.onNodeWithText("公開").assertIsNotSelected()
-        compose.onNodeWithText("私人").assertIsNotSelected()
+        compose.onNodeWithContentDescription("錄影日期：2026年10月18日").assertIsDisplayed()
+        compose.onNodeWithContentDescription("公開狀態：非公開").assertIsDisplayed()
+        // 下拉選單還沒打開：其他選項不在畫面上
+        compose.onNodeWithText("私人").assertDoesNotExist()
         compose.onNodeWithText("私人影片無法在 app 裡取圖").assertDoesNotExist()
         compose.onNodeWithText("以「非公開」上傳到你的 YouTube").assertDoesNotExist()
         compose.onNodeWithText("開始").assertIsEnabled()
@@ -66,11 +76,10 @@ class ExportSheetTest {
     @Test
     fun 選私人出現提醒並回傳私人() {
         val started = mutableListOf<Pair<String, UploadPrivacy>>()
-        show(onStart = { t, p -> started += t to p })
+        show(onStart = { t, p, _ -> started += t to p })
 
-        compose.onNodeWithText("私人").performClick()
-        compose.onNodeWithText("私人").assertIsSelected()
-        compose.onNodeWithText("非公開").assertIsNotSelected()
+        pickPrivacy("私人")
+        compose.onNodeWithContentDescription("公開狀態：私人").assertIsDisplayed()
         compose.onNodeWithText("私人影片無法在 app 裡取圖").assertIsDisplayed()
         compose.onNodeWithText("開始").performClick()
 
@@ -80,9 +89,9 @@ class ExportSheetTest {
     @Test
     fun 選公開回傳公開() {
         val started = mutableListOf<UploadPrivacy>()
-        show(onStart = { _, p -> started += p })
+        show(onStart = { _, p, _ -> started += p })
 
-        compose.onNodeWithText("公開").performClick()
+        pickPrivacy("公開")
         compose.onNodeWithText("私人影片無法在 app 裡取圖").assertDoesNotExist()
         compose.onNodeWithText("開始").performClick()
 
@@ -99,7 +108,7 @@ class ExportSheetTest {
     @Test
     fun 超過上限紅字且開始停用() {
         var started = false
-        show(durationMs = 228_000, onStart = { _, _ -> started = true })
+        show(durationMs = 228_000, onStart = { _, _, _ -> started = true })
 
         compose.onNodeWithText("3:48・直式・超過上限 48 秒，請先刪掉一些段落").assertIsDisplayed()
         compose.onNodeWithText("開始").assertIsNotEnabled()
@@ -122,7 +131,7 @@ class ExportSheetTest {
     @Test
     fun 開始回傳修剪過空白的標題() {
         val started = mutableListOf<String>()
-        show(onStart = { t, _ -> started += t })
+        show(onStart = { t, _, _ -> started += t })
 
         compose.onNodeWithContentDescription("標題").performTextReplacement("  我的片  ")
         compose.onNodeWithText("開始").performClick()
@@ -133,11 +142,42 @@ class ExportSheetTest {
     @Test
     fun 沒改標題直接開始回傳預設標題() {
         val started = mutableListOf<String>()
-        show(onStart = { t, _ -> started += t })
+        show(onStart = { t, _, _ -> started += t })
 
         compose.onNodeWithText("開始").performClick()
 
         assertEquals(listOf("videoshot 2026/10/18"), started)
+    }
+
+    @Test
+    fun 下拉清單標出目前選的那項() {
+        show()
+
+        compose.onNodeWithContentDescription("公開狀態：非公開").performClick()
+        compose.onNode(hasText("非公開") and isSelected()).assertIsDisplayed()
+        compose.onNode(hasText("公開") and isSelected().not()).assertIsDisplayed()
+        compose.onNode(hasText("私人") and isSelected().not()).assertIsDisplayed()
+    }
+
+    @Test
+    fun 開始回傳錄影日期() {
+        val started = mutableListOf<String?>()
+        show(onStart = { _, _, d -> started += d })
+
+        compose.onNodeWithText("開始").performClick()
+
+        assertEquals(listOf<String?>("2026-10-18"), started)
+    }
+
+    @Test
+    fun 沒有預設錄影日期就不顯示也不回傳() {
+        val started = mutableListOf<String?>()
+        show(defaultRecordingDate = null, onStart = { _, _, d -> started += d })
+
+        compose.onNodeWithContentDescription("錄影日期：", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("開始").performClick()
+
+        assertEquals(listOf<String?>(null), started)
     }
 
     @Test

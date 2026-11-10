@@ -14,6 +14,13 @@ class ClipExportRulesTest {
     @Test fun 同一天只寫一天() = assertEquals("2026/10/18", defaultClipTitle(listOf(photo(1, at(2026, 10, 18)), photo(2, at(2026, 10, 18))), tz))
     @Test fun 跨年兩邊都寫年份() = assertEquals("2025/12/30～2026/01/02", defaultClipTitle(listOf(photo(1, at(2025, 12, 30)), photo(2, at(2026, 1, 2))), tz))
     @Test fun 沒有素材只寫videoshot() = assertEquals("videoshot", defaultClipTitle(emptyList(), tz))
+    @Test fun 錄影日期是最早的拍攝日() = assertEquals("2026-10-20", defaultRecordingDate(listOf(photo(1, at(2026, 10, 27)), photo(2, at(2026, 10, 20))), tz))
+    @Test fun 沒有素材沒有錄影日期() = assertEquals(null, defaultRecordingDate(emptyList(), tz))
+    @Test fun 錄影日期照時區的日曆日() {
+        // 台北 10/21 凌晨 1 點＝UTC 10/20 17 點：算台北的 10/21
+        val t = LocalDate.of(2026, 10, 21).atTime(1, 0).atZone(tz).toInstant().toEpochMilli()
+        assertEquals("2026-10-21", defaultRecordingDate(listOf(photo(1, t)), tz))
+    }
 
     @Test fun 段落全刪光的素材不算用到() {
         val d = newClipDraft(ClipOrientation.PORTRAIT, listOf(photo(1, 1), photo(2, 2)))

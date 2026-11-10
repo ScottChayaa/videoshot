@@ -82,6 +82,7 @@ class RoomCacheRepo(
         autoUpload: Boolean,
         now: Long,
         privacy: UploadPrivacy,
+        recordingDate: String?,
     ): Long = withContext(io) {
         val task = draft.copy(history = EditHistory(draft.timeline)).let {
             EditTaskEntity(
@@ -99,6 +100,7 @@ class RoomCacheRepo(
                 createdAt = now,
                 updatedAt = now,
                 privacy = privacy.apiValue,
+                recordingDate = recordingDate,
             )
         }
         db.useWriterConnection { transactor ->
@@ -244,5 +246,6 @@ private fun EditTaskEntity.toTask(): EditTask? {
         videoId = videoId,
         updatedAt = updatedAt,
         privacy = UploadPrivacy.fromDb(privacy),
+        recordingDate = recordingDate,
     )
 }

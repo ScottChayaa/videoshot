@@ -118,7 +118,7 @@ class ClipUploadRunner(
                 val sessionUrl = url
                 when {
                     sessionUrl == null -> {
-                        val newUrl = uploader.startSession(accessToken, youtubeTitle(task.title), size, task.privacy)
+                        val newUrl = uploader.startSession(accessToken, youtubeTitle(task.title), size, task.privacy, task.recordingDate)
                         // 先存網址再傳：之後被殺或斷網才能從這個工作階段接著傳
                         repo.setEditTaskUploadUrl(id, newUrl, now())
                         url = newUrl

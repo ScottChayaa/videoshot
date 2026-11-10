@@ -22,6 +22,7 @@ import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -85,6 +86,19 @@ class OkHttpYoutubeUploaderTest {
         assertEquals("22", snippet["categoryId"]!!.jsonPrimitive.content)
         assertEquals("unlisted", status["privacyStatus"]!!.jsonPrimitive.content) // 沒指定就是非公開
         assertFalse(status["selfDeclaredMadeForKids"]!!.jsonPrimitive.boolean)
+        assertNull(body["recordingDetails"]) // 沒給錄影日期就不送
+    }
+
+    @Test
+    fun 有錄影日期時多送recordingDetails() = runBlocking {
+        server.enqueue(MockResponse.Builder().code(200).addHeader("Location", sessionUrl()).build())
+
+        uploader.startSession("tok", "t", 1L, UploadPrivacy.UNLISTED, recordingDate = "2026-10-18")
+
+        val recorded = server.takeRequest(5, TimeUnit.SECONDS)!!
+        assertEquals("/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status,recordingDetails", recorded.target)
+        val body = Json.parseToJsonElement(recorded.body!!.utf8()).jsonObject
+        assertEquals("2026-10-18T00:00:00.000Z", body["recordingDetails"]!!.jsonObject["recordingDate"]!!.jsonPrimitive.content)
     }
 
     @Test

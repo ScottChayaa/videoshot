@@ -46,6 +46,7 @@ class OkHttpYoutubeUploader(
         title: String,
         sizeBytes: Long,
         privacy: UploadPrivacy,
+        recordingDate: String?,
     ): String = withContext(io) {
         val metadata = buildJsonObject {
             putJsonObject("snippet") {
@@ -57,9 +58,12 @@ class OkHttpYoutubeUploader(
                 put("privacyStatus", privacy.apiValue)
                 put("selfDeclaredMadeForKids", false)
             }
+            // 只有日期：送當天的 UTC 零點，工作室顯示的日期就是這一天
+            if (recordingDate != null) putJsonObject("recordingDetails") { put("recordingDate", "${recordingDate}T00:00:00.000Z") }
         }
+        val parts = if (recordingDate != null) "snippet,status,recordingDetails" else "snippet,status"
         val request = Request.Builder()
-            .url("$baseUrl/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status")
+            .url("$baseUrl/upload/youtube/v3/videos?uploadType=resumable&part=$parts")
             .header("Authorization", "Bearer $token")
             .header("X-Upload-Content-Type", VIDEO_MIME)
             .header("X-Upload-Content-Length", sizeBytes.toString())

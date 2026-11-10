@@ -19,7 +19,7 @@ import com.xenyaa.videoshot.data.cache.entity.ThumbStateEntity
  */
 @Database(
     entities = [ThumbStateEntity::class, DraftEntity::class, FacetRecentEntity::class, EditDraftEntity::class, EditTaskEntity::class],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class CacheDatabase : RoomDatabase() {

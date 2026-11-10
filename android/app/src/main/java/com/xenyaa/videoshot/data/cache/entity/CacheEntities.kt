@@ -109,4 +109,6 @@ data class EditTaskEntity(
     @ColumnInfo(name = "video_id") val videoId: String? = null,
     /** 'unlisted' | 'public' | 'private'（對應 `UploadPrivacy`），導出時選的 */
     @ColumnInfo(name = "privacy", defaultValue = "unlisted") val privacy: String = "unlisted",
+    /** 錄影日期 `YYYY-MM-DD`，導出時填的；舊任務為 null */
+    @ColumnInfo(name = "recording_date") val recordingDate: String? = null,
 )

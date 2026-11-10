@@ -87,11 +87,13 @@ class ClipUploadRunnerTest {
         private var sessions = 0
 
         val privacies = mutableListOf<UploadPrivacy>()
+        val recordingDates = mutableListOf<String?>()
 
-        override suspend fun startSession(token: String, title: String, sizeBytes: Long, privacy: UploadPrivacy): String {
+        override suspend fun startSession(token: String, title: String, sizeBytes: Long, privacy: UploadPrivacy, recordingDate: String?): String {
             calls += "start"
             starts += Triple(token, title, sizeBytes)
             privacies += privacy
+            recordingDates += recordingDate
             return startScript.removeFirstOrNull()?.invoke() ?: "https://upload/session-${++sessions}"
         }
 
@@ -168,8 +170,9 @@ class ClipUploadRunnerTest {
         url: String? = null,
         size: Long = SIZE,
         privacy: UploadPrivacy = UploadPrivacy.UNLISTED,
+        recordingDate: String? = null,
     ): Long {
-        val id = repo.startEditTask(draft, title, true, 1L, privacy)
+        val id = repo.startEditTask(draft, title, true, 1L, privacy, recordingDate)
         repo.setEditTaskReadyToUpload(id, 0, 2L)
         if (url != null) repo.setEditTaskUploadUrl(id, url, 2L)
         repo.urlWrites.clear()
@@ -228,12 +231,21 @@ class ClipUploadRunnerTest {
         assertEquals(listOf(id), notifier.done.map { it.id })
     }
 
+    @Test fun `導出時填的錄影日期送給上傳`() = runTest {
+        val id = start(recordingDate = "2026-10-18")
+
+        runner().run(id)
+
+        assertEquals(listOf<String?>("2026-10-18"), uploader.recordingDates)
+    }
+
     @Test fun `沒選的舊任務照非公開上傳並等縮圖`() = runTest {
         val id = start()
 
         runner().run(id)
 
         assertEquals(listOf(UploadPrivacy.UNLISTED), uploader.privacies)
+        assertEquals(listOf<String?>(null), uploader.recordingDates) // 舊任務沒有錄影日期
         assertEquals(EditTaskState.PROCESSING, task(id)!!.state)
         assertEquals(1, polls.size)
         assertEquals(emptyList<EditTask>(), notifier.done)

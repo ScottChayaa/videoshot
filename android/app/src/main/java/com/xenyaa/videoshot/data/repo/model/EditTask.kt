@@ -52,6 +52,7 @@ enum class UploadPrivacy(val apiValue: String, val label: String) {
  * [failedStep] 只在 [EditTaskState.FAILED] 有意義（舊資料沒記就是 null，當成輸出）；
  * [uploadUrl] 是 YouTube 可續傳上傳的工作階段網址（上傳中才有）；[videoId] 是上傳完成後 YouTube 給的影片編號。
  * [privacy] 是導出時選的公開狀態；[UploadPrivacy.PRIVATE] 上傳完直接算完成（私人影片抓不到縮圖，接不回取圖）。
+ * [recordingDate] 是導出時填的錄影日期（`YYYY-MM-DD`），上傳時送給 YouTube；舊任務沒有就是 null，不送。
  */
 data class EditTask(
     val id: Long,
@@ -76,6 +77,7 @@ data class EditTask(
      */
     val updatedAt: Long = createdAt,
     val privacy: UploadPrivacy = UploadPrivacy.UNLISTED,
+    val recordingDate: String? = null,
 ) {
     val durationMs: Long get() = draft.timeline.durationMs
 }

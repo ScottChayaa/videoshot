@@ -1963,7 +1963,8 @@ flowchart TD
   - **長度上限**：直式 3 分鐘、橫式 10 分鐘（scott，2026-10-26）。**超過就不能導出**：同一行變紅「3:48・直式・超過上限 48 秒，請先刪掉一些段落」，【開始】停用。
     直式超過 3 分鐘維持擋下，不允許成為一般影片（scott，2026-10-29）；照 scott 的原則「Shorts 維持 3 分鐘內」。
   - **標題**（欄位標籤「標題」）：自動帶入「起日～訖日」（素材拍攝日期的範圍，2026-11-10 拿掉前面的 videoshot）——寫法「2026/10/20～10/27」，同一天「2026/10/18」，跨年「2025/12/30～2026/01/02」。存進相簿的檔名也跟著變成「2026-10-20～10-27.mp4」。可以改，不可留空（空白時【開始】停用）。說明欄不提供，上傳時留空。
-  - **公開狀態**（標籤「公開狀態」，單選列）：非公開（預設）／公開／私人。選私人時下面多一行小字「私人影片無法在 app 裡取圖」（私人影片不登入抓不到 watch page 與 storyboard）。YouTube API 開發者政策要求讓使用者選公開狀態（2026-10-31 scott 決定加，原本固定非公開）。
+  - **錄影日期**（標籤「錄影日期」，2026-11-10）：預設是素材裡最早的拍攝日（手機時區的日曆日），點了開月曆可以改，同取圖的日期欄（`VsDateField`）。上傳時送給 YouTube（見「上傳」）。
+  - **公開狀態**（標籤「公開狀態」，2026-11-10 從單選列改成下拉）：欄位是 `VsSelectField`，點了在正下方展開跟欄位等寬的清單（Material 3 `ExposedDropdownMenuBox`，配色換成 app 的：`surface2` 底、`borderStrong` 框），目前的那項有 `accentWeak` 底色和勾；非公開（預設）／公開／私人。選私人時下面多一行小字「私人影片無法在 app 裡取圖」（私人影片不登入抓不到 watch page 與 storyboard）。YouTube API 開發者政策要求讓使用者選公開狀態（2026-10-31 scott 決定加，原本固定非公開）。
   - 小字「上傳即表示同意 YouTube 服務條款」（「YouTube 服務條款」用主色），整行可點、用瀏覽器開 `https://www.youtube.com/t/terms`（同一份政策要求）；手機上沒有能開網頁的 app 時什麼都不做。
   - 【開始】→ 草稿清掉、轉成背景任務，進「導出中」畫面（見下）；之後可以馬上新增下一支剪輯。Android 13 以上第一次按【開始】時先要通知權限，拒絕也照常執行；接著走 YouTube 授權（見「Google 授權與 YouTube 權限」）。
 - **不設最短長度**：原本擔心太短的影片 YouTube 不產生 storyboard（第二節「`no_storyboard`」）、取圖精靈接不上。2026-10-30 實測（專案 `videoshot`）1.1、1.9、3、9 秒四支，都在進「YouTube 處理中」後第一次查詢（約 30 秒）就有 storyboard。
@@ -2037,7 +2038,7 @@ flowchart TD
   沒打勾的存進相簿 `Movies/videoshot/〈標題〉.mp4`（`/ \ : * ? " < > |` 換成 `-`，過長依位元組截斷），存好就刪掉 app 裡那份。
   上傳的任務拿到影片編號就刪掉 `out.mp4`（見「上傳」）；階段 20 留下的「輸出完成」舊任務一直留到任務被刪除。
 - **上傳**（階段 21，`publish/ClipUploadRunner.kt`）：跟輸出同一個背景工作——有勾的輸出完改成「上傳中」，接著上傳。
-  - YouTube Data API 的 `videos.insert` 可續傳上傳（`uploadType=resumable`、`part=snippet,status`）：標題是任務標題清洗過的（`<`、`>` 換成全形 `＜`、`＞`，YouTube 不收角括號；去頭尾空白；超過 100 個字截斷，表情符號不切半；空的用「videoshot」），說明空白、類別 22、公開狀態照導出時選的（`unlisted`／`public`／`private`，舊任務是 `unlisted`）、不是為兒童打造。直式 3 分鐘內的由 YouTube 自己歸成 Shorts（2026-10-30 實測在工作室的 Shorts 分頁）。
+  - YouTube Data API 的 `videos.insert` 可續傳上傳（`uploadType=resumable`、`part=snippet,status`；有錄影日期時加 `recordingDetails`）：標題是任務標題清洗過的（`<`、`>` 換成全形 `＜`、`＞`，YouTube 不收角括號；去頭尾空白；超過 100 個字截斷，表情符號不切半；空的用「videoshot」），說明空白、類別 22、公開狀態照導出時選的（`unlisted`／`public`／`private`，舊任務是 `unlisted`）、不是為兒童打造、錄影日期是導出時填的那天的 UTC 零點（`2026-10-18T00:00:00.000Z`，YouTube 工作室顯示的日期就是那天；舊任務沒有就不送）。直式 3 分鐘內的由 YouTube 自己歸成 Shorts（2026-10-30 實測在工作室的 Shorts 分頁）。
   - **工作階段網址一拿到就先存進任務**（`upload_url`）再開始傳。之後斷網、app 被殺、系統停掉工作、授權失效，下次都先用 `Content-Range: bytes */總長` 問 YouTube 收到幾個位元組再接著傳，**不重新輸出、不從 0 重傳**；問到已經收完就直接拿影片編號，YouTube 上不會多一支。
   - 一段 8 MiB（YouTube 要求 256 KiB 的倍數）；百分比有變才寫進任務與通知，接著傳時進度不先退回 0。
   - **拿到 `videoId` 先寫進任務、改成「YouTube 處理中」，再刪 `out.mp4`**、排第一次查 storyboard（30 秒後）。寫進去之前被殺，重開後的查詢會拿到同一個編號。
@@ -2142,8 +2143,11 @@ edit_task ── 背景任務（cache.db v4，階段 20；v5，階段 21 加最�
   ├─ failed_step     'render' | 'upload' | 'storyboard'：失敗在哪一步（沒記的舊資料當 'render'）
   ├─ upload_url      可續傳上傳的工作階段網址：開好就存；上傳完、失敗在輸出、網址失效時清掉
   ├─ video_id        上傳完成後 YouTube 給的影片編號
-  └─ privacy         'unlisted' | 'public' | 'private'：導出時選的公開狀態（預設 'unlisted'）
+  ├─ privacy         'unlisted' | 'public' | 'private'：導出時選的公開狀態（預設 'unlisted'）
+  └─ recording_date  'YYYY-MM-DD'：導出時填的錄影日期；舊任務為 null（上傳時不送）
 ```
+
+v6→v7 只對 `edit_task` 加 `recording_date`（`ADD COLUMN … TEXT`，可為 null，2026-11-10）。
 
 v5→v6 只對 `edit_task` 加 `privacy`（`ADD COLUMN … NOT NULL DEFAULT 'unlisted'`，舊任務當成非公開）。
 

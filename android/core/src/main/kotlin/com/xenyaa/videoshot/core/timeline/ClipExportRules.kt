@@ -40,6 +40,10 @@ fun defaultClipTitle(sources: List<ClipSource>, zone: ZoneId): String {
     }
 }
 
+/** 導出的預設錄影日期：素材裡最早的拍攝日（[zone] 的日曆日），`YYYY-MM-DD`；沒有素材回 null。 */
+fun defaultRecordingDate(sources: List<ClipSource>, zone: ZoneId): String? =
+    sources.minOfOrNull { it.takenAtMs }?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toString() }
+
 /** 長度 [durationMs] 的輸出影片預估佔用的 bytes。 */
 fun estimatedExportBytes(durationMs: Long): Long = durationMs * EXPORT_BYTES_PER_MINUTE / MS_PER_MINUTE
 

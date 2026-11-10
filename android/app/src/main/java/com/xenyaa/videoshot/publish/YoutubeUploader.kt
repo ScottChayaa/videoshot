@@ -19,12 +19,16 @@ class UploadHttpException(val code: Int, val kind: UploadErrorKind) : Exception(
  * 分段迴圈、重試、等網路是流程層的事；`IOException` 原樣往外丟，由流程層判斷是不是斷網。
  */
 interface YoutubeUploader {
-    /** 開一個可續傳工作階段（公開狀態照 [privacy]、說明留空），回傳上傳網址（`Location`）。 */
+    /**
+     * 開一個可續傳工作階段（公開狀態照 [privacy]、說明留空），回傳上傳網址（`Location`）。
+     * [recordingDate]（`YYYY-MM-DD`）有值才送錄影日期。
+     */
     suspend fun startSession(
         token: String,
         title: String,
         sizeBytes: Long,
         privacy: UploadPrivacy = UploadPrivacy.UNLISTED,
+        recordingDate: String? = null,
     ): String
 
     /** 查工作階段目前收到幾個位元組；已收完時回影片編號。 */

@@ -223,4 +223,43 @@ class CacheMigrationTest {
             v5db.close()
         }
     }
+
+    @Test fun v6升到v7舊任務沒有錄影日期() = runTest {
+        val file = File(tmp.root, "cache-v6.db")
+        // v6 的建表 SQL 一字不差取自 app/schemas/com.xenyaa.videoshot.data.cache.CacheDatabase/6.json
+        BundledSQLiteDriver().open(file.path).let { c ->
+            try {
+                c.execSQL("CREATE TABLE IF NOT EXISTS `thumb_state` (`video_id` TEXT NOT NULL, `sb_level` INTEGER NOT NULL, `frame_index` INTEGER NOT NULL, `state` TEXT NOT NULL, `attempts` INTEGER NOT NULL, `next_try_at` INTEGER NOT NULL, `lost_reason` TEXT, PRIMARY KEY(`video_id`, `sb_level`, `frame_index`))")
+                c.execSQL("CREATE TABLE IF NOT EXISTS `draft` (`video_id` TEXT NOT NULL, `step` INTEGER NOT NULL, `payload` TEXT NOT NULL, `updated_at` INTEGER NOT NULL, `id` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                c.execSQL("CREATE TABLE IF NOT EXISTS `facet_recent` (`kind` INTEGER NOT NULL, `ref_id` INTEGER NOT NULL, `used_at` INTEGER NOT NULL, PRIMARY KEY(`kind`, `ref_id`))")
+                c.execSQL("CREATE TABLE IF NOT EXISTS `edit_draft` (`orientation` TEXT NOT NULL, `payload` TEXT NOT NULL, `updated_at` INTEGER NOT NULL, `id` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                c.execSQL("CREATE TABLE IF NOT EXISTS `edit_task` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `state` TEXT NOT NULL, `progress` INTEGER NOT NULL, `title` TEXT NOT NULL, `orientation` TEXT NOT NULL, `duration_ms` INTEGER NOT NULL, `payload` TEXT NOT NULL, `auto_upload` INTEGER NOT NULL, `fail_reason` TEXT, `skipped_sources` INTEGER NOT NULL, `gallery_uri` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `failed_step` TEXT, `upload_url` TEXT, `video_id` TEXT, `privacy` TEXT NOT NULL DEFAULT 'unlisted')")
+                val payload = ClipDraftCodec.encode(
+                    newClipDraft(
+                        ClipOrientation.PORTRAIT,
+                        listOf(ClipSource(1, "content://media/1", SourceKind.PHOTO, 1000, null, 1080, 1920, 0)),
+                    )
+                )
+                c.execSQL("INSERT INTO edit_task VALUES (8, 'queued', 0, '排隊中', 'PORTRAIT', 3000, '${payload.replace("'", "''")}', 1, NULL, 0, NULL, 50, 60, NULL, NULL, NULL, 'public')")
+                c.execSQL("PRAGMA user_version = 6")
+            } finally {
+                c.close()
+            }
+        }
+        val v6db = Room.databaseBuilder(InstrumentationRegistry.getInstrumentation().targetContext, CacheDatabase::class.java, file.path)
+            .setDriver(BundledSQLiteDriver())
+            .addMigrations(*CACHE_MIGRATIONS)
+            .build()
+        try {
+            val repo = RoomCacheRepo(v6db, Dispatchers.IO)
+            val old = repo.editTask(8).first()!!
+            assertEquals(UploadPrivacy.PUBLIC, old.privacy)
+            assertEquals(null, old.recordingDate)
+            // 新欄位可以寫可以讀
+            val id = repo.startEditTask(old.draft, "有日期的", autoUpload = true, now = 9, recordingDate = "2026-10-18")
+            assertEquals("2026-10-18", repo.editTask(id).first()!!.recordingDate)
+        } finally {
+            v6db.close()
+        }
+    }
 }

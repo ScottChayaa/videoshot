@@ -77,7 +77,7 @@ open class FakeCacheRepo : CacheRepo {
     override suspend fun currentClipDraft(): ClipDraft? = clipDraft
     override suspend fun clearClipDraft() { clipDraft = null }
 
-    override suspend fun startEditTask(draft: ClipDraft, title: String, autoUpload: Boolean, now: Long, privacy: UploadPrivacy): Long {
+    override suspend fun startEditTask(draft: ClipDraft, title: String, autoUpload: Boolean, now: Long, privacy: UploadPrivacy, recordingDate: String?): Long {
         val id = nextTaskId++
         val task = EditTask(
             id = id,
@@ -91,6 +91,7 @@ open class FakeCacheRepo : CacheRepo {
             galleryUri = null,
             createdAt = now,
             privacy = privacy,
+            recordingDate = recordingDate,
         )
         tasks.update { it + task }
         clipDraft = null

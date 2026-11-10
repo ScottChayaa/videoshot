@@ -53,6 +53,13 @@ val CACHE_MIGRATION_5_6: Migration = object : Migration(5, 6) {
     }
 }
 
+/** v6→v7：`edit_task` 加導出時填的錄影日期，可為 null（舊任務沒有）。欄位定義照抄 `7.json`，原因同上。 */
+val CACHE_MIGRATION_6_7: Migration = object : Migration(6, 7) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("ALTER TABLE `edit_task` ADD COLUMN `recording_date` TEXT")
+    }
+}
+
 /** cache.db 的遷移清單。它不進備份，沒有備份相容性的問題（規格第四節）。 */
 val CACHE_MIGRATIONS: Array<Migration> =
-    arrayOf(CACHE_MIGRATION_1_2, CACHE_MIGRATION_2_3, CACHE_MIGRATION_3_4, CACHE_MIGRATION_4_5, CACHE_MIGRATION_5_6)
+    arrayOf(CACHE_MIGRATION_1_2, CACHE_MIGRATION_2_3, CACHE_MIGRATION_3_4, CACHE_MIGRATION_4_5, CACHE_MIGRATION_5_6, CACHE_MIGRATION_6_7)
