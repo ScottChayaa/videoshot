@@ -34,6 +34,12 @@ header p { margin: 4px 0 0; color: var(--muted) }
 .seg button { font: inherit; font-size: 12.5px; border: 0; border-radius: 8px; padding: 5px 10px; background: transparent; color: var(--fg); cursor: pointer }
 .seg button:hover { background: var(--line) }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--panel); font-weight: 500 }
+.shape { display: flex; flex-direction: column; gap: 6px }
+.srow { display: grid; grid-template-columns: 76px 1fr 48px; align-items: center; gap: 10px }
+.srow label { font-weight: 500 }
+.srow input[type=range] { width: 100%; accent-color: var(--accent) }
+.srow output { font-family: var(--mono); font-size: 12.5px; text-align: right; font-variant-numeric: tabular-nums }
+.guide { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted) }
 .crow { display: grid; grid-template-columns: 32px 1fr 92px auto; align-items: center; gap: 10px }
 .crow label { font-weight: 500 }
 .crow .swatch { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); display: block }
@@ -66,6 +72,8 @@ pre.out { font-family: var(--mono); font-size: 12px; background: var(--bg); bord
 .cbadge { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: var(--chip); font-variant-numeric: tabular-nums }
 .cbadge b { font-weight: 500 }
 .previews { display: flex; flex-direction: column; gap: 16px; min-width: 0 }
+/* 寬畫面時預覽固定在右邊，左邊捲到「圖形」滑桿時還看得到圖示 */
+@media (min-width: 821px) { .previews { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto } }
 .row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end }
 .cell { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 12px; color: var(--muted) }
 .mask { overflow: hidden; display: block }
@@ -100,6 +108,10 @@ pre.out { font-family: var(--mono); font-size: 12px; background: var(--bg); bord
       <h2>顏色</h2>
       <div class="colors" id="colors"></div>
 
+      <h2>圖形</h2>
+      <div class="shape" id="shape"></div>
+      <div class="actions"><button class="btn" id="shapeReset" type="button">還原圖形</button></div>
+
       <div class="contrast" id="contrast" aria-live="polite"></div>
 
       <div class="actions">
@@ -114,6 +126,7 @@ pre.out { font-family: var(--mono); font-size: 12px; background: var(--bg); bord
     <section class="previews" aria-label="預覽">
       <div class="panel">
         <h2>桌面圖示</h2>
+        <label class="guide"><input type="checkbox" id="guide">顯示安全範圍（虛線圓內不會被任何桌面裁掉）</label>
         <div class="row">
           <div class="cell"><span class="mask big" id="pBig"></span>大圖</div>
           <div class="cell"><span class="mask sq" id="pSq"></span>圓角方形裁切</div>
@@ -155,10 +168,11 @@ const GRADS = [
   { g: 'lr', name: '左→右' },
   { g: 'radial', name: '放射' },
 ];
-/* 第一組是 app 現在用的；接著幾組是定案配色的漸層版；其餘是 2026-11 挑配色時看過的 */
+/* 第一組是 app 現在用的；接著是前一版與天空藍的幾種漸層；其餘是 2026-11 挑配色時看過的 */
 const SKY = { i: '#254B9B', t: '#D5E2FF', m: '#F3F6FC', s: '#FFF0B4' };
 const PRESETS = [
-  { n: '定案（現在的圖示）', b: '#638BE2', ...SKY },
+  { n: '定案（現在的圖示）', b: '#F2C9A8', b2: '#638BE2', g: 'diag', ...SKY },
+  { n: '前一版：天空藍', b: '#638BE2', ...SKY },
   { n: '天空藍・上→下', b: '#86A8F0', b2: '#4C74D4', g: 'tb', ...SKY },
   { n: '天空藍・斜向', b: '#86A8F0', b2: '#4C74D4', g: 'diag', ...SKY },
   { n: '天空藍・放射', b: '#8EAEF2', b2: '#4A70D0', g: 'radial', ...SKY },
@@ -204,18 +218,50 @@ function bgPaint(c, x, y, s) {
   return { defs: `<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${x + d[0] * s}" y1="${y + d[1] * s}" x2="${x + d[2] * s}" y2="${y + d[3] * s}">${stops}</linearGradient></defs>`, fill: `url(#${id})` };
 }
 
-/* 圖形：100×100 座標，跟 ic_launcher_foreground.xml 同一組形狀。山的底邊被第一層岩層蓋住，所以不需要裁切 */
+/* 圖形參數（「圖形」那幾條滑桿）。預設值是 2026-11-10 對話裡調出來的樣子，上下位置比當時再往上一點；
+   app 現在的 ic_launcher_foreground.xml 是 整體 1＋上下 0＋山 1＋前山 1＋岩層 4 條那版，還沒套用這裡的試作 */
+const SHAPE_DEFAULT = { scale: 1.1, dy: 3.5, dx: 0, mount: 1.12, front: 0.8, layers: 3, thick: 4, sun: 5.5 };
+const SHAPE_FIELDS = [
+  { k: 'scale', name: '整體大小', min: 0.8, max: 1.4, step: 0.01, fmt: v => v.toFixed(2) },
+  { k: 'dy', name: '上下位置', min: -12, max: 12, step: 0.5, fmt: v => (v > 0 ? '下 ' : v < 0 ? '上 ' : '') + Math.abs(v) },
+  { k: 'dx', name: '左右位置', min: -10, max: 10, step: 0.5, fmt: v => (v > 0 ? '右 ' : v < 0 ? '左 ' : '') + Math.abs(v) },
+  { k: 'mount', name: '山的大小', min: 0.8, max: 1.4, step: 0.01, fmt: v => v.toFixed(2) },
+  { k: 'front', name: '前山大小', min: 0.5, max: 1.1, step: 0.01, fmt: v => v.toFixed(2) },
+  { k: 'layers', name: '岩層條數', min: 2, max: 4, step: 1, fmt: v => v + ' 條' },
+  { k: 'thick', name: '岩層粗細', min: 2, max: 5.5, step: 0.25, fmt: v => v.toFixed(2) },
+  { k: 'sun', name: '太陽大小', min: 3, max: 9, step: 0.25, fmt: v => v.toFixed(2) },
+];
+const SHAPE_STORE = 'videoshot-icon-shape';
+let sh = { ...SHAPE_DEFAULT };
+try { Object.assign(sh, JSON.parse(localStorage.getItem(SHAPE_STORE) || '{}')); } catch (e) {}
+/* 岩層：每條的 [左端 x, 寬度]，由上往下，間距 6.5；條數少時從最下面開始拿掉 */
+const LAYERS = [[23, 56], [27, 42], [40, 28], [42, 14]];
+
+/* 圖形：100×100 座標。山的底邊（含 3.5 的圓角）裁在第一層岩層的下緣，岩層變細也不會露出山腳。
+   後山左腳最多到 27.5（加上圓角是 24），前山右腳最多到 74.5（加上圓角是 78），山放大時也不會超出第一層岩層的兩端。
+   整組以 (51, 49.75) 為中心縮放，再擺到 (51＋左右, 53＋上下)；上下 0 時圖形中心落在桌面圖示的正中央 */
 function glyph(c, backAlpha) {
   const op = backAlpha ? ` opacity="${backAlpha}"` : '';
-  const mt = (d, col, extra) => `<path d="${d}" fill="${col}" stroke="${col}" stroke-width="7" stroke-linejoin="round"${extra || ''}/>`;
-  return `<circle cx="72" cy="28" r="5.5" fill="${c.s}"/>` +
-    mt('M29,60L45,35L61,60Z', c.t, op) + mt('M46,60L61,39L74,60Z', c.m) +
-    `<g fill="${c.i}"><rect x="23" y="60" width="56" height="4" rx="2"/><rect x="27" y="66.5" width="42" height="4" rx="2"/><rect x="40" y="73" width="28" height="4" rx="2"/><rect x="42" y="79.5" width="14" height="4" rx="2"/></g>`;
+  const mt = (pts, col, extra) => `<path d="M${pts.map(p => p.map(v => v.toFixed(2)).join(',')).join('L')}Z" fill="${col}" stroke="${col}" stroke-width="7" stroke-linejoin="round"${extra || ''}/>`;
+  const sc = (k, cx, cy) => ([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k];
+  const back = [[29, 60], [45, 35], [61, 60]].map(sc(sh.mount, 51, 60));
+  back[0][0] = Math.max(back[0][0], 27.5);
+  const front = [[46, 60], [61, 39], [74, 60]].map(sc(sh.front, 60, 60)).map(sc(sh.mount, 51, 60));
+  front[2][0] = Math.min(front[2][0], 74.5);
+  const clip = 'cm' + (++gid);
+  const layers = LAYERS.slice(0, sh.layers).map(([x, w], k) =>
+    `<rect x="${x}" y="${60 + k * 6.5}" width="${w}" height="${sh.thick}" rx="${sh.thick / 2}"/>`).join('');
+  return `<g transform="translate(${51 + sh.dx} ${53 + sh.dy}) scale(${sh.scale}) translate(-51 -49.75)">` +
+    `<defs><clipPath id="${clip}"><rect width="100" height="${60 + sh.thick}"/></clipPath></defs>` +
+    `<circle cx="72" cy="28" r="${sh.sun}" fill="${c.s}"/>` +
+    `<g clip-path="url(#${clip})">${mt(back, c.t, op)}${mt(front, c.m)}</g>` +
+    `<g fill="${c.i}">${layers}</g></g>`;
 }
-/* 自適應圖示：108 的畫布、圖形縮 0.8 放進安全區，只顯示中間 72 */
-function adaptive(c, backAlpha) {
+/* 自適應圖示：108 的畫布、圖形縮 0.8 放進安全區，只顯示中間 72。guide＝畫出安全範圍（圓心 54、半徑 33） */
+function adaptive(c, backAlpha, guide) {
   const p = bgPaint(c, 18, 18, 72);
-  return `<svg viewBox="18 18 72 72" aria-hidden="true">${p.defs}<rect width="108" height="108" fill="${p.fill}"/><g transform="translate(13.2 11.6) scale(.8)">${glyph(c, backAlpha)}</g></svg>`;
+  const g = guide ? '<circle cx="54" cy="54" r="33" fill="none" stroke="#fff" stroke-width=".6" stroke-dasharray="2 1.5" opacity=".85"/>' : '';
+  return `<svg viewBox="18 18 72 72" aria-hidden="true">${p.defs}<rect width="108" height="108" fill="${p.fill}"/><g transform="translate(13.2 11.6) scale(.8)">${glyph(c, backAlpha)}</g>${g}</svg>`;
 }
 function tile(c) {
   const p = bgPaint(c, 0, 0, 100);
@@ -347,9 +393,30 @@ $('save').addEventListener('click', () => {
   $('copied').textContent = '已存成「' + n + '」';
 });
 
+/* 圖形滑桿：拉的時候即時重畫，數值存在這個瀏覽器 */
+$('shape').innerHTML = SHAPE_FIELDS.map(f => `
+  <div class="srow">
+    <label for="s-${f.k}">${f.name}</label>
+    <input type="range" id="s-${f.k}" min="${f.min}" max="${f.max}" step="${f.step}">
+    <output id="o-${f.k}" for="s-${f.k}"></output>
+  </div>`).join('');
+SHAPE_FIELDS.forEach(f => $('s-' + f.k).addEventListener('input', e => {
+  sh[f.k] = +e.target.value;
+  try { localStorage.setItem(SHAPE_STORE, JSON.stringify(sh)); } catch (err) {}
+  render();
+}));
+$('shapeReset').addEventListener('click', () => {
+  sh = { ...SHAPE_DEFAULT };
+  try { localStorage.removeItem(SHAPE_STORE); } catch (err) {}
+  render();
+});
+$('guide').addEventListener('change', () => render());
+
 function outText() {
   const style = cur.g ? `底色樣式 漸層・${GRADS.find(x => x.g === cur.g).name}　` : '';
-  return style + FIELDS.filter(f => cur.g || !f.grad).map(f => `${f.name} ${cur[f.k]}`).join('　');
+  const colors = style + FIELDS.filter(f => cur.g || !f.grad).map(f => `${f.name} ${cur[f.k]}`).join('　');
+  const shape = '圖形 ' + SHAPE_FIELDS.map(f => `${f.name} ${f.fmt(sh[f.k])}`).join('　');
+  return colors + '\n' + shape;
 }
 $('copy').addEventListener('click', () => {
   const t = outText();
@@ -379,9 +446,11 @@ function render(fromText, picked) {
   const checks = [['前山', cur.m], ['太陽', cur.s], ['後山', cur.t], ['岩層', cur.i]];
   $('contrast').innerHTML = checks.map(([n, c]) => `<span class="cbadge">${n}對底色 <b>${vs(c).toFixed(1)}</b></span>`).join('');
 
-  $('pBig').innerHTML = adaptive(cur);
-  $('pSq').innerHTML = adaptive(cur);
-  $('pCirc').innerHTML = adaptive(cur);
+  SHAPE_FIELDS.forEach(f => { $('s-' + f.k).value = sh[f.k]; $('o-' + f.k).textContent = f.fmt(sh[f.k]); });
+  const guide = $('guide').checked;
+  $('pBig').innerHTML = adaptive(cur, 0, guide);
+  $('pSq').innerHTML = adaptive(cur, 0, guide);
+  $('pCirc').innerHTML = adaptive(cur, 0, guide);
 
   const walls = [
     { bg: '#2B2F3A', fg: '#E8E9EE', ph: '#4A5060', name: '深色桌布' },
