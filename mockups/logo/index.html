@@ -171,7 +171,8 @@ const GRADS = [
 /* 第一組是 app 現在用的；接著是前一版與天空藍的幾種漸層；其餘是 2026-11 挑配色時看過的 */
 const SKY = { i: '#254B9B', t: '#D5E2FF', m: '#F3F6FC', s: '#FFF0B4' };
 const PRESETS = [
-  { n: '定案（現在的圖示）', b: '#F2C9A8', b2: '#638BE2', g: 'diag', ...SKY },
+  { n: '定案（現在的圖示）', b: '#FFCEA7', b2: '#749BF0', g: 'diag', i: '#476AB5', t: '#D5E2FF', m: '#F3F6FC', s: '#FFF0B4' },
+  { n: '前一版：晨光', b: '#F2C9A8', b2: '#638BE2', g: 'diag', ...SKY },
   { n: '前一版：天空藍', b: '#638BE2', ...SKY },
   { n: '天空藍・上→下', b: '#86A8F0', b2: '#4C74D4', g: 'tb', ...SKY },
   { n: '天空藍・斜向', b: '#86A8F0', b2: '#4C74D4', g: 'diag', ...SKY },
@@ -218,9 +219,9 @@ function bgPaint(c, x, y, s) {
   return { defs: `<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${x + d[0] * s}" y1="${y + d[1] * s}" x2="${x + d[2] * s}" y2="${y + d[3] * s}">${stops}</linearGradient></defs>`, fill: `url(#${id})` };
 }
 
-/* 圖形參數（「圖形」那幾條滑桿）。預設值是 2026-11-10 對話裡調出來的樣子，上下位置比當時再往上一點；
-   app 現在的 ic_launcher_foreground.xml 是 整體 1＋上下 0＋山 1＋前山 1＋岩層 4 條那版，還沒套用這裡的試作 */
-const SHAPE_DEFAULT = { scale: 1.1, dy: 3.5, dx: 0, mount: 1.12, front: 0.8, layers: 3, thick: 4, sun: 5.5 };
+/* 圖形參數（「圖形」那幾條滑桿）。預設值＝app 現在的圖示（2026-11-10 定案）；ic_launcher_foreground.xml 的內層 group 是
+   整體大小與上下位置，山、前山、岩層、太陽的大小已算進路徑。改了這裡的定案，那邊要照著重算 */
+const SHAPE_DEFAULT = { scale: 1.09, dy: 2, dx: 0, mount: 1.13, front: 0.81, layers: 3, thick: 3.5, sun: 5.25 };
 const SHAPE_FIELDS = [
   { k: 'scale', name: '整體大小', min: 0.8, max: 1.4, step: 0.01, fmt: v => v.toFixed(2) },
   { k: 'dy', name: '上下位置', min: -12, max: 12, step: 0.5, fmt: v => (v > 0 ? '下 ' : v < 0 ? '上 ' : '') + Math.abs(v) },
