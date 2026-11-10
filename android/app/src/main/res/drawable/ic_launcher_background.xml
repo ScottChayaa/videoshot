@@ -1,8 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path android:fillColor="#638BE2" android:pathData="M0,0h108v108h-108z" />
+    <!-- 晨光漸層：右上（太陽那側）橘粉 → 左下天空藍。起訖點對齊桌面上看得到的中間 72（18～90），不是整張 108，兩端才不會被裁掉。 -->
+    <path android:pathData="M0,0h108v108h-108z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="90"
+                android:startY="18"
+                android:endX="18"
+                android:endY="90"
+                android:startColor="#F2C9A8"
+                android:endColor="#638BE2" />
+        </aapt:attr>
+    </path>
 </vector>
