@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -28,6 +29,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -55,7 +57,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.layout.ContentScale
 
 /**
- * 帳號頁首畫面：淡色 hero ＋ 跨在下緣的三格統計卡 ＋ 六格選單（規格第九節「版面」）。
+ * 帳號頁首畫面：淡色 hero ＋ 跨在下緣的三格統計卡 ＋ 七格選單（規格第九節「版面」）。
  *
  * hero 依 `state.linkedAccount` 分支：未連結時顯示「尚未設定備份」，已連結時顯示帳號
  * 名稱與 Email（階段 12）。未連結時整塊內容列可點、已連結時 Email 那行可點，開的都是同一個 `AccountSection.BACKUP`。
@@ -117,13 +119,19 @@ fun AccountScreen(
                         icon = VsIcons.Tag,
                         onClick = { onOpenSection(AccountSection.TAGS) },
                     )
-                }
-            }
-            // YouTube API 開發者政策：隱私權政策要在 app 裡隨時看得到
-            item {
-                val uriHandler = LocalUriHandler.current
-                VsSettingGroup {
-                    VsListRow("隱私權政策", icon = VsIcons.Notes, onClick = { uriHandler.openSafely(PRIVACY_POLICY_URL) })
+                    VsSettingDivider()
+                    // YouTube API 開發者政策：隱私權政策要在 app 裡隨時看得到。
+                    // 沒有副標，列高撐到跟上面有副標的列一樣（主標行高＋副標行高＋間距 2＋上下內距）
+                    val uriHandler = LocalUriHandler.current
+                    val type = MaterialTheme.typography
+                    val twoLineHeight = with(LocalDensity.current) { type.bodyLarge.lineHeight.toDp() + type.bodyMedium.lineHeight.toDp() } +
+                        2.dp + AppTheme.spacing.s3 * 2
+                    VsListRow(
+                        "隱私權政策",
+                        Modifier.heightIn(min = twoLineHeight),
+                        icon = VsIcons.Notes,
+                        onClick = { uriHandler.openSafely(PRIVACY_POLICY_URL) },
+                    )
                 }
             }
         }
