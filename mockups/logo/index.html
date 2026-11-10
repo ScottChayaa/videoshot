@@ -30,6 +30,10 @@ header p { margin: 4px 0 0; color: var(--muted) }
 .preset .del { position: absolute; top: 0; right: 2px; font-size: 12px; color: var(--muted); padding: 0 4px; border-radius: 6px }
 .preset .del:hover { color: var(--fg); background: var(--line) }
 .colors { display: flex; flex-direction: column; gap: 8px }
+.seg { display: flex; flex-wrap: wrap; gap: 3px; padding: 3px; border-radius: 10px; background: var(--chip) }
+.seg button { font: inherit; font-size: 12.5px; border: 0; border-radius: 8px; padding: 5px 10px; background: transparent; color: var(--fg); cursor: pointer }
+.seg button:hover { background: var(--line) }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--panel); font-weight: 500 }
 .crow { display: grid; grid-template-columns: 32px 1fr 92px auto; align-items: center; gap: 10px }
 .crow label { font-weight: 500 }
 .crow .swatch { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); display: block }
@@ -90,7 +94,10 @@ pre.out { font-family: var(--mono); font-size: 12px; background: var(--bg); bord
       <h2>預設配色</h2>
       <div class="presets" id="presets"></div>
 
-      <h2>五個顏色</h2>
+      <h2>底色樣式</h2>
+      <div class="seg" id="grad" role="group" aria-label="底色樣式"></div>
+
+      <h2>顏色</h2>
       <div class="colors" id="colors"></div>
 
       <div class="contrast" id="contrast" aria-live="polite"></div>
@@ -101,7 +108,7 @@ pre.out { font-family: var(--mono); font-size: 12px; background: var(--bg); bord
         <span class="copied" id="copied" aria-live="polite"></span>
       </div>
       <pre class="out" id="out"></pre>
-      <p class="note">「我的配色」只存在這個瀏覽器。定案的色碼要同步改到 <code>android/app/src/main/res/drawable/ic_launcher_background.xml</code>、<code>ic_launcher_foreground.xml</code> 與 <code>site/public/logo.svg</code>。</p>
+      <p class="note">「我的配色」只存在這個瀏覽器。定案的色碼要同步改到 <code>android/app/src/main/res/drawable/ic_launcher_background.xml</code>、<code>ic_launcher_foreground.xml</code> 與 <code>site/public/logo.svg</code>；漸層底色在 <code>ic_launcher_background.xml</code> 要改用 <code>&lt;aapt:attr&gt;</code> 寫 gradient，起訖點照這頁的座標（只算看得到的中間 72）。</p>
     </section>
 
     <section class="previews" aria-label="預覽">
@@ -133,15 +140,30 @@ pre.out { font-family: var(--mono); font-size: 12px; background: var(--bg); bord
 
 <script>
 const FIELDS = [
-  { k: 'b', name: '底色', hint: '圖示背景' },
+  { k: 'b', name: '底色', hint: '圖示背景；漸層時是起點（放射時是中心）' },
+  { k: 'b2', name: '底色 2', hint: '漸層的終點（放射時是外圈）', grad: true },
   { k: 'i', name: '岩層', hint: '浮島底下的四層' },
   { k: 't', name: '後山', hint: '較大、較淡的那座' },
   { k: 'm', name: '前山', hint: '白色那座' },
   { k: 's', name: '太陽', hint: '右上角的小太陽' },
 ];
-/* 第一組是 app 現在用的；其餘是 2026-11 挑配色時看過的 */
+/* 底色樣式：g 是空字串＝單色，其餘是漸層方向 */
+const GRADS = [
+  { g: '', name: '單色' },
+  { g: 'tb', name: '上→下' },
+  { g: 'diag', name: '右上→左下' },
+  { g: 'lr', name: '左→右' },
+  { g: 'radial', name: '放射' },
+];
+/* 第一組是 app 現在用的；接著幾組是定案配色的漸層版；其餘是 2026-11 挑配色時看過的 */
+const SKY = { i: '#254B9B', t: '#D5E2FF', m: '#F3F6FC', s: '#FFF0B4' };
 const PRESETS = [
-  { n: '定案（現在的圖示）', b: '#638BE2', i: '#254B9B', t: '#D5E2FF', m: '#F3F6FC', s: '#FFF0B4' },
+  { n: '定案（現在的圖示）', b: '#638BE2', ...SKY },
+  { n: '天空藍・上→下', b: '#86A8F0', b2: '#4C74D4', g: 'tb', ...SKY },
+  { n: '天空藍・斜向', b: '#86A8F0', b2: '#4C74D4', g: 'diag', ...SKY },
+  { n: '天空藍・放射', b: '#8EAEF2', b2: '#4A70D0', g: 'radial', ...SKY },
+  { n: '藍到紫・斜向', b: '#6F95E8', b2: '#7B68D4', g: 'diag', ...SKY },
+  { n: '晨光・上→下', b: '#F2C9A8', b2: '#638BE2', g: 'tb', ...SKY },
   { n: '前一版：深夜空靛', b: '#0F1226', i: '#3F4C8A', t: '#8E99D2', m: '#EDEBF8', s: '#F4E5A4' },
   { n: '1 夜空靛＋橘', b: '#0F1226', i: '#3F4C8A', t: '#8E99D2', m: '#F1F0F7', s: '#F2A65A' },
   { n: '2 深海青＋橘', b: '#0B1C22', i: '#2C6170', t: '#7FB6C2', m: '#F0F5F5', s: '#F2A65A' },
@@ -163,7 +185,24 @@ const PRESETS = [
 const STORE = 'videoshot-icon-palettes';
 let mine = [];
 try { mine = JSON.parse(localStorage.getItem(STORE) || '[]') || []; } catch (e) { mine = []; }
-let cur = { ...PRESETS[0] };
+let cur = norm(PRESETS[0]);
+
+/* 單色的配色也補上底色 2（比底色深一點），切成漸層時才有起始值；舊的「我的配色」沒有 g、b2 也走這裡 */
+function norm(p) { return { ...p, g: p.g || '', b2: p.b2 || mix(p.b, '#000000', .25) }; }
+function mix(a, b, t) { const A = hexToRgb(a), B = hexToRgb(b); return '#' + A.map((v, j) => Math.round(v + (B[j] - v) * t).toString(16).padStart(2, '0')).join('').toUpperCase(); }
+
+/* 底色的填法。座標用看得到的那一塊（x, y 起、邊長 s），漸層才會整段都看得到；id 每次都不同，同一頁多個 SVG 才不會互相引用錯 */
+let gid = 0;
+function bgPaint(c, x, y, s) {
+  if (!c.g) return { defs: '', fill: c.b };
+  const id = 'bg' + (++gid);
+  const stops = `<stop offset="0" stop-color="${c.b}"/><stop offset="1" stop-color="${c.b2}"/>`;
+  if (c.g === 'radial') {
+    return { defs: `<defs><radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${x + s / 2}" cy="${y + s * .35}" r="${s * .8}">${stops}</radialGradient></defs>`, fill: `url(#${id})` };
+  }
+  const d = { tb: [0, 0, 0, 1], diag: [1, 0, 0, 1], lr: [0, 0, 1, 0] }[c.g];
+  return { defs: `<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${x + d[0] * s}" y1="${y + d[1] * s}" x2="${x + d[2] * s}" y2="${y + d[3] * s}">${stops}</linearGradient></defs>`, fill: `url(#${id})` };
+}
 
 /* 圖形：100×100 座標，跟 ic_launcher_foreground.xml 同一組形狀。山的底邊被第一層岩層蓋住，所以不需要裁切 */
 function glyph(c, backAlpha) {
@@ -175,10 +214,12 @@ function glyph(c, backAlpha) {
 }
 /* 自適應圖示：108 的畫布、圖形縮 0.8 放進安全區，只顯示中間 72 */
 function adaptive(c, backAlpha) {
-  return `<svg viewBox="18 18 72 72" aria-hidden="true"><rect width="108" height="108" fill="${c.b}"/><g transform="translate(13.2 11.6) scale(.8)">${glyph(c, backAlpha)}</g></svg>`;
+  const p = bgPaint(c, 18, 18, 72);
+  return `<svg viewBox="18 18 72 72" aria-hidden="true">${p.defs}<rect width="108" height="108" fill="${p.fill}"/><g transform="translate(13.2 11.6) scale(.8)">${glyph(c, backAlpha)}</g></svg>`;
 }
 function tile(c) {
-  return `<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="${c.b}"/>${glyph(c)}</svg>`;
+  const p = bgPaint(c, 0, 0, 100);
+  return `<svg viewBox="0 0 100 100" aria-hidden="true">${p.defs}<rect width="100" height="100" rx="22" fill="${p.fill}"/>${glyph(c)}</svg>`;
 }
 
 function hexToRgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
@@ -223,9 +264,9 @@ function fromPicker() { cur[pk.k] = hsvToHex(pk.h, pk.s, pk.v); render(false, tr
 
 function buildColors() {
   $('colors').innerHTML = FIELDS.map(f => {
-    const used = [...new Set(PRESETS.map(p => p[f.k].toUpperCase()))];
+    const used = [...new Set(PRESETS.map(p => p[f.k]).filter(Boolean).map(c => c.toUpperCase()))];
     return `
-    <div class="crow">
+    <div class="crow" id="row-${f.k}">
       <span class="swatch" id="c-${f.k}"></span>
       <label for="h-${f.k}">${f.name}</label>
       <input type="text" id="h-${f.k}" spellcheck="false" autocomplete="off" maxlength="7">
@@ -266,7 +307,17 @@ function buildColors() {
   });
 }
 
-function same(a, b) { return FIELDS.every(f => a[f.k].toUpperCase() === b[f.k].toUpperCase()); }
+$('grad').innerHTML = GRADS.map(x => `<button type="button" data-g="${x.g}">${x.name}</button>`).join('');
+$('grad').addEventListener('click', e => {
+  const b = e.target.closest('[data-g]'); if (!b) return;
+  cur.g = b.dataset.g; render();
+});
+
+function same(a, b) {
+  const A = norm(a), B = norm(b);
+  if (A.g !== B.g) return false;
+  return FIELDS.every(f => (f.grad && !A.g) || A[f.k].toUpperCase() === B[f.k].toUpperCase());
+}
 
 function renderPresets() {
   const all = PRESETS.map((p, idx) => ({ p, idx, own: false })).concat(mine.map((p, idx) => ({ p, idx, own: true })));
@@ -285,7 +336,7 @@ $('presets').addEventListener('click', e => {
   }
   const b = e.target.closest('.preset'); if (!b) return;
   const src = b.dataset.own === 'true' ? mine[+b.dataset.idx] : PRESETS[+b.dataset.idx];
-  cur = { ...src }; render();
+  cur = norm(src); render();
 });
 
 $('save').addEventListener('click', () => {
@@ -296,7 +347,10 @@ $('save').addEventListener('click', () => {
   $('copied').textContent = '已存成「' + n + '」';
 });
 
-function outText() { return FIELDS.map(f => `${f.name} ${cur[f.k]}`).join('　'); }
+function outText() {
+  const style = cur.g ? `底色樣式 漸層・${GRADS.find(x => x.g === cur.g).name}　` : '';
+  return style + FIELDS.filter(f => cur.g || !f.grad).map(f => `${f.name} ${cur[f.k]}`).join('　');
+}
 $('copy').addEventListener('click', () => {
   const t = outText();
   const done = () => { $('copied').textContent = '已複製'; };
@@ -311,13 +365,19 @@ function render(fromText, picked) {
     $('c-' + f.k).style.background = cur[f.k];
     if (!fromText) { $('h-' + f.k).value = cur[f.k]; $('h-' + f.k).setAttribute('aria-invalid', 'false'); }
   });
+  // 單色時收起底色 2（開著的調色盤也一起收）
+  $('row-b2').hidden = !cur.g;
+  if (!cur.g && pk && pk.k === 'b2') openPicker('b2');
+  $('grad').querySelectorAll('[data-g]').forEach(b => b.setAttribute('aria-pressed', b.dataset.g === cur.g));
   if (pk && !picked) Object.assign(pk, hexToHsv(cur[pk.k]));
   syncPicker();
   renderPresets();
   $('out').textContent = outText();
 
+  // 漸層時取兩端裡對比較低的那端
+  const vs = c => cur.g ? Math.min(ratio(c, cur.b), ratio(c, cur.b2)) : ratio(c, cur.b);
   const checks = [['前山', cur.m], ['太陽', cur.s], ['後山', cur.t], ['岩層', cur.i]];
-  $('contrast').innerHTML = checks.map(([n, c]) => `<span class="cbadge">${n}對底色 <b>${ratio(c, cur.b).toFixed(1)}</b></span>`).join('');
+  $('contrast').innerHTML = checks.map(([n, c]) => `<span class="cbadge">${n}對底色 <b>${vs(c).toFixed(1)}</b></span>`).join('');
 
   $('pBig').innerHTML = adaptive(cur);
   $('pSq').innerHTML = adaptive(cur);
