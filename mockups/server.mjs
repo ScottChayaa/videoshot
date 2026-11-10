@@ -3,6 +3,7 @@
 //   /uiux-v2/login.html  UI 排版驗收原型（假資料）
 //   /probe/           storyboard 縮圖功能探測工具（打真的 YouTube）
 //   /palette/         介面配色調色盤（一般畫面＋剪輯暗色；單檔，也可以直接用瀏覽器打開）
+//   /logo/            app 圖示（浮島）的配色調色盤（只管 logo；單檔）
 //
 // 為什麼合併成一台：先前 UIUX 走 `npx serve`（只有靜態檔）、探測工具走自己的 node 伺服器
 // （多了 /api/*），開錯那台的症狀是「頁面看起來正常但 API 回 404 的 HTML」，很難第一眼看懂。
@@ -128,6 +129,7 @@ small{color:#667}</style></head><body>
 <h1>videoshot mockups</h1>
 <a href="/uiux-v2/login.html"><b>UI 原型</b><small>假資料，驗收版面與互動 · 需先登入 · 另有驗收操作手冊</small></a>
 <a href="/palette/"><b>介面配色</b><small>調一般畫面與剪輯暗色的配色，即時預覽元件總覽與各畫面</small></a>
+<a href="/logo/"><b>圖示配色</b><small>調 app 圖示（浮島）的五個顏色，即時預覽桌面圖示、實際大小與單色主題</small></a>
 <a href="/probe/"><b>storyboard 縮圖探測工具</b><small>打真的 YouTube，驗證縮圖解析與儲存量試算</small></a>
 <a href="/uiux-v2/%E9%A9%97%E6%94%B6%E6%93%8D%E4%BD%9C%E6%89%8B%E5%86%8A.md"><b>驗收操作手冊</b><small>逐頁檢查清單</small></a>
 </body></html>`;
