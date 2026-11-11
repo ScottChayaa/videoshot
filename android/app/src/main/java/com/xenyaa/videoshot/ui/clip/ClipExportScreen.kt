@@ -361,7 +361,7 @@ fun ClipExportScreen(
                 EditTaskState.RENDERING -> {
                     StatusTitle("輸出影片中…")
                     Text(
-                        "留在這個畫面會比較快；離開也會在背景繼續",
+                        "停在這裡輸出比較快（離開也會繼續）",
                         style = MaterialTheme.typography.bodyMedium,
                         color = AppTheme.colors.textDim,
                         textAlign = TextAlign.Center,

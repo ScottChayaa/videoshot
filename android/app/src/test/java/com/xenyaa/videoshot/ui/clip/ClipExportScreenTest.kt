@@ -127,7 +127,7 @@ class ClipExportScreenTest {
         compose.onNode(hasText("42%") and hasAnyAncestor(hasTestTag("exportThumb"))).assertIsDisplayed()
         compose.onNodeWithTag("exportThumb").assertRangeInfoEquals(ProgressBarRangeInfo(0.42f, 0f..1f))
         compose.onNodeWithTag("exportThumb").assertHasNoClickAction()
-        compose.onNodeWithText("留在這個畫面會比較快；離開也會在背景繼續").assertIsDisplayed()
+        compose.onNodeWithText("停在這裡輸出比較快（離開也會繼續）").assertIsDisplayed()
         compose.onNodeWithText("完成後自動上傳到 YouTube").assertIsDisplayed()
         compose.onNodeWithText("取消導出").assertIsDisplayed()
     }
