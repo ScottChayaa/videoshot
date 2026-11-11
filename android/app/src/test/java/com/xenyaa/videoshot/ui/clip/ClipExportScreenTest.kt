@@ -73,8 +73,9 @@ class ClipExportScreenTest {
         failedStep: EditTaskStep? = null,
         videoId: String? = null,
         privacy: UploadPrivacy = UploadPrivacy.UNLISTED,
+        firstMs: Long = 30_000,
     ): EditTask {
-        val timeline = Timeline(listOf(Segment(7, 0, 30_000), Segment(8, 0, 18_000)))
+        val timeline = Timeline(listOf(Segment(7, 0, firstMs), Segment(8, 0, 18_000)))
         return EditTask(
             id = 1, state = state, progress = progress, title = "我的旅行",
             draft = ClipDraft(ClipOrientation.PORTRAIT, listOf(source(7), source(8)), EditHistory(timeline)),
@@ -329,12 +330,20 @@ class ClipExportScreenTest {
     }
 
     @Test
+    fun 超過五分鐘的影片處理中多一句要等幾分鐘() {
+        show(task(EditTaskState.PROCESSING, videoId = "abc", firstMs = 5 * 60_000L))
+
+        compose.onNodeWithText("等 YouTube 產生縮圖，通常幾分鐘內完成").assertIsDisplayed()
+    }
+
+    @Test
     fun 處理中的小字與取消任務() {
         var cancelled = 0
         show(task(EditTaskState.PROCESSING, videoId = "abc"), onCancel = { cancelled++ })
 
-        compose.onNodeWithText("YouTube 處理中…").assertIsDisplayed()
-        compose.onNodeWithText("等 YouTube 產生縮圖，通常幾分鐘內完成").assertIsDisplayed()
+        compose.onNodeWithText("YouTube 處理中").assertIsDisplayed()
+        compose.onNodeWithText("等 YouTube 產生縮圖").assertIsDisplayed()
+        compose.onNodeWithTag("processingSpinner", useUnmergedTree = true).assertExists()
         compose.onNodeWithTag("exportThumb").assertHasNoClickAction()
         noNode("完成後自動上傳到 YouTube")
         noNode("取消導出")

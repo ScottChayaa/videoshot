@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -354,6 +355,7 @@ fun ClipExportScreen(
                 thumbLoader,
                 progress = if (task.state == EditTaskState.RENDERING || task.state == EditTaskState.UPLOADING) task.progress.coerceIn(0, 100) else null,
                 onClick = if (task.state == EditTaskState.RENDERED) onPlay else null,
+                spinning = task.state == EditTaskState.PROCESSING,
             )
 
             when (task.state) {
@@ -399,9 +401,10 @@ fun ClipExportScreen(
                     )
                 }
                 EditTaskState.PROCESSING -> {
-                    StatusTitle("YouTube 處理中…")
+                    StatusTitle("YouTube 處理中")
                     Text(
-                        "等 YouTube 產生縮圖，通常幾分鐘內完成",
+                        // 長片處理得久，先講好要等幾分鐘
+                        if (task.durationMs > LONG_VIDEO_MS) "等 YouTube 產生縮圖，通常幾分鐘內完成" else "等 YouTube 產生縮圖",
                         style = MaterialTheme.typography.bodyMedium,
                         color = AppTheme.colors.textDim,
                         textAlign = TextAlign.Center,
@@ -599,7 +602,7 @@ internal fun rememberFirstSourceThumb(task: EditTask, loader: MediaThumbLoader):
  * - [onClick] 不是 null（輸出完成）：點縮圖跟【播放檢查】／【播放】一樣全螢幕播放成品。
  */
 @Composable
-private fun ExportThumb(task: EditTask, loader: MediaThumbLoader, progress: Int?, onClick: (() -> Unit)?) {
+private fun ExportThumb(task: EditTask, loader: MediaThumbLoader, progress: Int?, onClick: (() -> Unit)?, spinning: Boolean = false) {
     val bitmap = rememberFirstSourceThumb(task, loader)
     val portrait = task.draft.orientation == ClipOrientation.PORTRAIT
     val shape = RoundedCornerShape(12.dp)
@@ -638,8 +641,16 @@ private fun ExportThumb(task: EditTask, loader: MediaThumbLoader, progress: Int?
                 color = Color.White,
             )
         }
+        // 處理中沒有百分比，整張壓暗、中間轉圈，看得出還在動
+        if (spinning) {
+            Box(Modifier.fillMaxSize().background(ThumbDim))
+            CircularProgressIndicator(Modifier.testTag("processingSpinner"), color = Color.White)
+        }
     }
 }
+
+/** 超過這個長度的影片，處理中的說明多一句「通常幾分鐘內完成」。 */
+private const val LONG_VIDEO_MS = 5 * 60_000L
 
 /** 導出中縮圖還沒完成那一段的壓暗色。 */
 private val ThumbDim = Color.Black.copy(alpha = 0.55f)
