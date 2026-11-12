@@ -2031,7 +2031,7 @@ flowchart TD
   進度是 Transformer 自己估的：開始幾秒就跳到約三成，之後才照實際速度走。
 - **必須撐得過 app 被關掉、手機鎖屏、網路中斷**：用 WorkManager 的前景工作（系統通知列會有一條進度通知，Android 規定、不能隱藏）。前景服務類型 Android 15 起 `mediaProcessing`（有勾自動上傳、或已經在上傳中的任務再加 `dataSync`）、10～14 `dataSync`。Android 13 起第一次導出時要求通知權限；拒絕也照常執行，只是看不到通知。
   排兩支時第一支做完、app 在背景，第二支照樣接著開始（Android 12 實機，2026-10-28）——同一串工作接力，不受「背景不能開前景服務」的限制。
-- **輸出**：成品存在 `filesDir/edits/{taskId}/out.mp4`（不用 `cacheDir`，避免輸出到一半被系統清掉）；開始前檢查剩餘空間，不夠就失敗並說明還需要多少——門檻是預估檔案大小的 2 倍（1080p 約每分鐘 75MB，我的估計，實機量完可調）。
+- **輸出**：成品存在 `filesDir/edits/{taskId}/out.mp4`（不用 `cacheDir`，避免輸出到一半被系統清掉）；開始前檢查剩餘空間，不夠就失敗並說明還需要多少——門檻是預估檔案大小的 2 倍（影像 20 Mbps 時約每分鐘 152MB，取 160MB；實機量完可調）。
   輸出到一半 app 被殺掉（含強制停止）或手機重開：任務留在「輸出影片中」，**下次打開 app 時**改回等待中、**從頭重新輸出**（Transformer 不能從中間接著輸出，接受）。重開機後不開 app 不會自己接著跑（2026-10-28 實機）。任務一開始就先刪掉上次中斷留下的半成品。
   開始前先問系統有沒有相片權限，沒有就失敗「讀不到相片和影片，請確認存取權」——沒權限時 MediaStore 仍列得出 app 自己存進相簿的影片，不能拿「素材清單是不是空的」來判斷。
   失敗原因（階段 20）：「空間不足，還需要 1.2 GB」（不到 1 GB 寫「350 MB」）、「素材都已不存在」、「讀不到相片和影片，請確認存取權」、「輸出失敗」。
@@ -2171,7 +2171,7 @@ v4→v5 只對 `edit_task` 加後三欄（`ADD COLUMN`，都可為 null）；`wa
     - `UploadAuthFlow.kt`：還沒連結先走連結、再要 `youtube.upload` 的步驟。
     - 背景工作仍由 `edit/ClipExportWorker.kt` 跑（同一個工作輸出完接著上傳）；純規則（標題清洗、錯誤分類、輪詢間隔、重置時間、分段與等網路的常數）在 `:core/publish`。
   - `:core/timeline`：純邏輯——時間軸的段落、分割、刪除、復原與重做、總長、長度上限與 Shorts 判定、預設標題的日期範圍、素材排序。JVM 單元測試。
-- **預覽與輸出用 Media3 1.10.1**（`CompositionPlayer` 預覽、Transformer 輸出 H.264／AAC mp4，1080p、30fps）。
+- **預覽與輸出用 Media3 1.10.1**（`CompositionPlayer` 預覽、Transformer 輸出 H.264／AAC mp4，1080p、最高 60fps、影像 20 Mbps 固定位元率）。
   階段 19 的現況（程式在 `ui/clip/`，純邏輯在 `:core` 的 `timeline`）：
   - 時間軸轉成一條 `EditedMediaItemSequence`（`withAudioAndVideoFrom`，照片段自動補靜音）；影片段用 clipping 取起訖，照片段用 `setImageDurationMs`＋30fps。
   - **模糊背景是自己寫的 GL 效果 `BlurBackgroundEffect`**：先用 `Presentation` 把素材等比縮放裁成清晰原圖的大小，效果裡把它等比蓋滿、縮到 1/8 解析度做兩輪 9 點高斯模糊，放大鋪滿當背景，再把清晰原圖疊在正中央。
@@ -2179,7 +2179,7 @@ v4→v5 只對 `edit_task` 加後三欄（`ADD COLUMN`，都可為 null）；`wa
   - **格式辨識器依 MediaStore 的檔案類型排順序**（`MimeFirstExtractorsFactory`，掛在 `CompositionPlayer` 的 `DefaultMediaSourceFactory` 上）：相簿網址沒有副檔名，預設順序 MP3 排在圖片前面，JPEG 壓縮資料裡剛好有「ID3」字樣時 MP3 辨識器會要幾百 MB 記憶體而失敗（2026-10-27 實機）。
     包了一層後 `DefaultMediaSourceFactory` 不會再幫忙打開 JPEG 的「讀成圖片」旗標，要自己開。
   - 預覽畫面是 `SurfaceView`；播放位置每一幀（`Choreographer`）讀一次。
-  階段 20 的輸出（`edit/Media3ClipExporter.kt`）用同一份合成（`ui/clip/ClipComposition.kt`）：同一套模糊背景效果、同一個格式辨識器（`DefaultAssetLoaderFactory` 帶入同一個 `DefaultMediaSourceFactory`）；影片高於 30fps 才降（`FrameDropEffect`），輸出 1080p（直式 1080×1920、橫式 1920×1080）。
+  階段 20 的輸出（`edit/Media3ClipExporter.kt`）用同一份合成（`ui/clip/ClipComposition.kt`）：同一套模糊背景效果、同一個格式辨識器（`DefaultAssetLoaderFactory` 帶入同一個 `DefaultMediaSourceFactory`）；影片高於 60fps 才降（`FrameDropEffect`），輸出 1080p（直式 1080×1920、橫式 1920×1080）。
   輸出流程（檢查權限、素材、空間 → 輸出 → 存相簿或改成上傳中 → 失敗處理）在 `edit/ClipExportRunner.kt`，純 JVM 可測；WorkManager 的 `ClipExportWorker` 只是呼叫它。寫入相簿也走 `media` 模組（`MediaSaver`）。
 - **Google 授權**仍只在 `backup` 的 `GoogleAuth` 取得（`beginYoutubeAuth`／`finishYoutubeAuth`／`youtubeAccessToken`，實作在 `GisGoogleAuth`）；`publish` 只透過這個介面要 `youtube.upload` 的存取權杖（邊界 5 的 Drive 限制不變）。
 
@@ -2193,7 +2193,7 @@ v4→v5 只對 `edit_task` 加後三欄（`ADD COLUMN`，都可為 null）；`wa
 - 多個任務依序執行；可以邊上傳上一支、邊編輯下一支。
 - 上傳不限 Wi-Fi，行動網路也傳（階段 21）。
 - 撞到每日上傳上限後，重置時自動接著傳；頻道上限也一樣處理（scott 2026-10-30 要「等隔天」，這兩點是我照建議定的）。
-- 輸出規格：H.264／AAC、1080p、30fps；4K、60fps、HDR 的素材一律轉成這個規格（HDR 轉 SDR）。
+- 輸出規格：H.264／AAC、1080p、最高 60fps（60fps 的素材保留 60fps），影像位元率指定 20 Mbps、固定位元率（Media3 預設 1080p30 只有約 8 Mbps，2026-11-12 拉高以接近原片；變動位元率下實機只給 13～15 Mbps，所以用固定位元率，手機的編碼器不支援時退回變動位元率）；4K、高於 60fps、HDR 的素材一律轉成這個規格（HDR 轉 SDR）。
 
 ---
 

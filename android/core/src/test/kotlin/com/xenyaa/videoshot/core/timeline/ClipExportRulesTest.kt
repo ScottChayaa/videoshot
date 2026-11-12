@@ -43,7 +43,7 @@ class ClipExportRulesTest {
     }
 
     @Test fun 空間門檻是預估大小兩倍() {
-        assertEquals(75_000_000L, estimatedExportBytes(60_000))
-        assertEquals(1_500_000_000L, requiredFreeBytes(600_000))
+        assertEquals(160_000_000L, estimatedExportBytes(60_000))
+        assertEquals(3_200_000_000L, requiredFreeBytes(600_000))
     }
 }

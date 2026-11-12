@@ -4,8 +4,8 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-/** 輸出影片每分鐘的預估大小（bytes）：1080p H.264／AAC 的保守估計。 */
-const val EXPORT_BYTES_PER_MINUTE = 75_000_000L
+/** 輸出影片每分鐘的預估大小（bytes）：1080p H.264 影像 20 Mbps＋AAC 聲音約每分鐘 152MB，取保守的 160MB。 */
+const val EXPORT_BYTES_PER_MINUTE = 160_000_000L
 
 private const val MS_PER_MINUTE = 60_000L
 

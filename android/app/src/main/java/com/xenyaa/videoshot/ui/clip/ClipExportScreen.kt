@@ -417,7 +417,7 @@ fun ClipExportScreen(
                     StatusTitle("YouTube 處理中")
                     Text(
                         // 長片處理得久，先講好要等幾分鐘
-                        if (task.durationMs > LONG_VIDEO_MS) "等 YouTube 產生縮圖，通常幾分鐘內完成" else "等 YouTube 產生縮圖",
+                        if (task.durationMs > LONG_VIDEO_MS) "等待 YouTube 產生縮圖，通常幾分鐘內完成" else "等待 YouTube 產生縮圖",
                         style = MaterialTheme.typography.bodyMedium,
                         color = AppTheme.colors.textDim,
                         textAlign = TextAlign.Center,

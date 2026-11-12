@@ -145,9 +145,9 @@ class ClipExportRunnerTest {
 
         val t = task(id)!!
         assertEquals(EditTaskState.FAILED, t.state)
-        assertEquals("空間不足，還需要 500 MB", t.failReason)
+        assertEquals("空間不足，還需要 2.2 GB", t.failReason)
         assertEquals(0, exporter.calls)
-        assertEquals(listOf("空間不足，還需要 500 MB"), notifier.failed.map { it.second })
+        assertEquals(listOf("空間不足，還需要 2.2 GB"), notifier.failed.map { it.second })
         assertFalse(outFor(id).exists())
     }
 

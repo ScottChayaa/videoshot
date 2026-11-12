@@ -337,7 +337,7 @@ class ClipExportScreenTest {
     fun 超過五分鐘的影片處理中多一句要等幾分鐘() {
         show(task(EditTaskState.PROCESSING, videoId = "abc", firstMs = 5 * 60_000L))
 
-        compose.onNodeWithText("等 YouTube 產生縮圖，通常幾分鐘內完成").assertIsDisplayed()
+        compose.onNodeWithText("等待 YouTube 產生縮圖，通常幾分鐘內完成").assertIsDisplayed()
     }
 
     @Test
@@ -346,7 +346,7 @@ class ClipExportScreenTest {
         show(task(EditTaskState.PROCESSING, videoId = "abc"), onCancel = { cancelled++ })
 
         compose.onNodeWithText("YouTube 處理中").assertIsDisplayed()
-        compose.onNodeWithText("等 YouTube 產生縮圖").assertIsDisplayed()
+        compose.onNodeWithText("等待 YouTube 產生縮圖").assertIsDisplayed()
         compose.onNodeWithTag("processingSpinner", useUnmergedTree = true).assertExists()
         compose.onNodeWithTag("exportThumb").assertHasNoClickAction()
         noNode("完成後自動上傳到 YouTube")
