@@ -1,12 +1,14 @@
 package com.xenyaa.videoshot.ui.clip
 
 import android.content.Context
+import android.graphics.ImageDecoder
 import android.net.Uri
 import android.util.Log
 import android.os.Handler
 import android.os.Looper
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -33,6 +35,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -54,6 +58,8 @@ import com.xenyaa.videoshot.ui.theme.OnDarkColors
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import java.io.File
@@ -161,14 +167,48 @@ fun ClipResultRoute(taskId: Long, cacheRepo: CacheRepo, onBack: () -> Unit) {
         }
     }
     val src = source
-    if (src != null) {
-        ClipResultScreen(src, onBack)
-    } else {
-        BackHandler(onBack = onBack)
-        Box(Modifier.fillMaxSize().background(Color.Black)) {
-            IconButton(onClick = onBack, modifier = Modifier.statusBarsPadding().padding(4.dp)) {
-                Icon(VsIcons.Back, contentDescription = "返回", tint = OnDarkColors.primary)
+    if (src != null) ClipResultScreen(src, onBack) else BlackWithBack(onBack)
+}
+
+/** 全螢幕看一張照片：黑底、等比例縮到螢幕大小；讀不到（已刪或沒權限）就只有黑底與返回鈕。 */
+@Composable
+fun ClipPhotoScreen(uri: String, onBack: () -> Unit) {
+    val context = LocalContext.current
+    val photo by produceState<ImageBitmap?>(null, uri) {
+        value = withContext(Dispatchers.IO) {
+            try {
+                // 最長邊縮到 2048：手機照片常有 4000 以上，原尺寸解碼記憶體吃太兇
+                val decoderSource = ImageDecoder.createSource(context.contentResolver, Uri.parse(uri))
+                ImageDecoder.decodeBitmap(decoderSource) { decoder, info, _ ->
+                    val longest = maxOf(info.size.width, info.size.height)
+                    if (longest > PHOTO_MAX_EDGE) {
+                        val scale = PHOTO_MAX_EDGE.toFloat() / longest
+                        decoder.setTargetSize((info.size.width * scale).toInt(), (info.size.height * scale).toInt())
+                    }
+                }.asImageBitmap()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("VsClip", "讀不到照片", e)
+                null
             }
+        }
+    }
+    BlackWithBack(onBack) {
+        photo?.let { Image(it, contentDescription = "照片", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit) }
+    }
+}
+
+private const val PHOTO_MAX_EDGE = 2048
+
+/** 黑底＋左上的返回鈕，[content] 畫在返回鈕底下。 */
+@Composable
+private fun BlackWithBack(onBack: () -> Unit, content: @Composable () -> Unit = {}) {
+    BackHandler(onBack = onBack)
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        content()
+        IconButton(onClick = onBack, modifier = Modifier.statusBarsPadding().padding(4.dp)) {
+            Icon(VsIcons.Back, contentDescription = "返回", tint = OnDarkColors.primary)
         }
     }
 }

@@ -455,7 +455,7 @@ class ClipHomeScreenTest {
 
     @Test fun 已完成用綠字且前面有綠勾() {
         show(tasks = listOf(task(1, EditTaskState.DONE, videoId = "abc")))
-        compose.onNodeWithText("已完成，點一下開始取圖").assertIsDisplayed()
+        compose.onNodeWithText("已完成，可以開始取圖").assertIsDisplayed()
         assertEquals(palette.ok, taskStatusColor(EditTaskState.DONE, palette))
         assertEquals(palette.textDim, taskStatusColor(EditTaskState.PROCESSING, palette))
         compose.onNodeWithTag("doneCheck", useUnmergedTree = true).assertIsDisplayed()

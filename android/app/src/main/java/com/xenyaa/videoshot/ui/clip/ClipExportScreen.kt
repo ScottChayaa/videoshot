@@ -5,6 +5,11 @@ import com.xenyaa.videoshot.wizard.OtherDraft
 import com.xenyaa.videoshot.core.timeline.usedSources
 import com.xenyaa.videoshot.core.timeline.SourceKind
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
+import com.xenyaa.videoshot.R
+import androidx.compose.ui.text.style.TextDecoration
+import com.xenyaa.videoshot.ui.common.openSafely
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.IntentSenderRequest
@@ -22,6 +27,9 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
@@ -66,6 +74,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xenyaa.videoshot.core.timeline.ClipOrientation
+import com.xenyaa.videoshot.core.timeline.ClipSource
 import com.xenyaa.videoshot.core.timeline.clipDeletePrompt
 import com.xenyaa.videoshot.data.repo.CacheRepo
 import com.xenyaa.videoshot.data.repo.model.EditTask
@@ -115,6 +124,7 @@ fun ClipExportRoute(
     onNotice: (String) -> Unit,
     otherDraft: (videoId: String) -> OtherDraft? = { null },
     onEnterWizard: (videoId: String, taskId: Long) -> Unit = { _, _ -> },
+    onPreviewSource: (ClipSource) -> Unit = {},
 ) {
     val repo: CacheRepo = deps.cacheRepo
     // 停在這個畫面時結果直接看得到，不另外跳通知（橫幅會蓋住頂欄）；退到背景或離開就恢復
@@ -147,6 +157,7 @@ fun ClipExportRoute(
                 videos = kept.count { it.kind == SourceKind.VIDEO },
                 canDelete = deleter.canDelete,
                 suggestManageMedia = deleter.suggestManageMedia(),
+                sources = kept,
             ),
             kept.map { it.uri },
         )
@@ -204,6 +215,7 @@ fun ClipExportRoute(
                 pendingDelete = delete
             }
         },
+        onPreviewSource = onPreviewSource,
         onOpenManageMedia = {
             deleter.manageMediaSettingsIntent()?.let { intent ->
                 runCatching { context.startActivity(intent) }.onFailure { Log.w("VsClip", "開不了媒體管理設定", it) }
@@ -333,6 +345,7 @@ fun ClipExportScreen(
     done: DoneCleanup? = null,
     onStartCapture: (delete: Boolean) -> Unit = {},
     onOpenManageMedia: () -> Unit = {},
+    onPreviewSource: (ClipSource) -> Unit = {},
 ) {
     // 開確認框當下是哪一種取消；任務換了階段（例如輸出完開始上傳）框就不再成立，不會拿舊說法取消新階段
     var confirmCancel by rememberSaveable { mutableStateOf<CancelKind?>(null) }
@@ -411,13 +424,25 @@ fun ClipExportScreen(
                     )
                 }
                 EditTaskState.DONE -> {
-                    StatusTitle("已上傳到 YouTube（${task.privacy.label}）")
-                    Text(
-                        "${task.title}・${formatDuration(task.durationMs)}",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = AppTheme.colors.textDim,
-                        textAlign = TextAlign.Center,
-                    )
+                    StatusTitle("已上傳到 YouTube")
+                    // 片名是連結（左邊 YouTube 圖示）：交給系統開，有裝 YouTube app 就在 app 裡播，沒有就開瀏覽器
+                    val uriHandler = LocalUriHandler.current
+                    Row(
+                        Modifier.clickable(role = Role.Button) {
+                            task.videoId?.let { uriHandler.openSafely("https://youtu.be/$it") }
+                        },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
+                    ) {
+                        Image(painterResource(R.drawable.ic_youtube), contentDescription = null)
+                        Text(
+                            task.title,
+                            style = MaterialTheme.typography.bodyLarge.copy(textDecoration = TextDecoration.Underline),
+                            color = AppTheme.colors.accent,
+                            // 片名很長時換行，不把圖示擠出畫面
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                    }
                     val capture = task.privacy != UploadPrivacy.PRIVATE
                     if (!capture) {
                         Text(
@@ -428,7 +453,7 @@ fun ClipExportScreen(
                         )
                     }
                     // 還在數素材時先不畫問句與按鈕（幾毫秒），免得先出現【開始取圖】又換成兩個按鈕
-                    if (done != null) DoneActions(done, capture, onStartCapture, onOpenManageMedia)
+                    if (done != null) DoneActions(done, capture, thumbLoader, onStartCapture, onOpenManageMedia, onPreviewSource)
                 }
                 EditTaskState.FAILED -> {
                     StatusTitle(failedTitle(task.failedStep))
@@ -461,10 +486,16 @@ fun ClipExportScreen(
 }
 
 /**
- * 已完成任務的收尾（規格第十九節「完成後」）：[photos]、[videos] 是這次用到、而且還在手機裡的素材數；
+ * 已完成任務的收尾（規格第十九節「完成後」）：[photos]、[videos] 是這次用到、而且還在手機裡的素材數，[sources] 是那些素材本身（拍攝時間由舊到新）；
  * [canDelete] 是這台手機能不能用系統刪除視窗（Android 11 起）；[suggestManageMedia] 是要不要提示開媒體管理權限。
  */
-data class DoneCleanup(val photos: Int, val videos: Int, val canDelete: Boolean, val suggestManageMedia: Boolean)
+data class DoneCleanup(
+    val photos: Int,
+    val videos: Int,
+    val canDelete: Boolean,
+    val suggestManageMedia: Boolean,
+    val sources: List<ClipSource> = emptyList(),
+)
 
 /**
  * 問要不要刪原檔與兩個按鈕；沒得刪（素材都不在、或手機太舊）只剩【開始取圖】。
@@ -474,25 +505,40 @@ data class DoneCleanup(val photos: Int, val videos: Int, val canDelete: Boolean,
 private fun DoneActions(
     done: DoneCleanup,
     capture: Boolean,
+    loader: MediaThumbLoader,
     onStartCapture: (delete: Boolean) -> Unit,
     onOpenManageMedia: () -> Unit,
+    onPreviewSource: (ClipSource) -> Unit,
 ) {
+    // 這次用到、還在手機裡的素材；點一格全螢幕預覽，刪之前看得到要刪的是哪些
+    if (done.sources.isNotEmpty()) {
+        LazyRow(
+            // 跟上面的片名多隔一點（欄距 16dp 再加 16dp）
+            Modifier.fillMaxWidth().padding(top = AppTheme.spacing.s4).testTag("usedSources"),
+            horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s1),
+        ) {
+            items(done.sources, key = { it.id }) { source ->
+                Box(Modifier.size(72.dp).clip(RoundedCornerShape(AppTheme.radii.sm))) {
+                    MediaCell(source.toMediaItem(), selected = null, loader = loader, onClick = { onPreviewSource(source) })
+                }
+            }
+        }
+    }
     val prompt = clipDeletePrompt(done.photos, done.videos)?.takeIf { done.canDelete }
     if (prompt == null) {
         VsButton(if (capture) "開始取圖" else "完成", onClick = { onStartCapture(false) })
         return
     }
     Text(prompt, style = MaterialTheme.typography.bodyLarge, color = AppTheme.colors.text, textAlign = TextAlign.Center)
-    if (done.videos > 0) {
-        Text(
-            "整支影片會刪除，包括剪掉的部分",
-            style = MaterialTheme.typography.bodyMedium,
-            color = AppTheme.colors.textDim,
-            textAlign = TextAlign.Center,
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
+        VsButton(if (capture) "刪除並開始取圖" else "刪除原檔", onClick = { onStartCapture(true) }, modifier = Modifier.weight(1f))
+        VsButton(
+            if (capture) "保留並開始取圖" else "保留",
+            onClick = { onStartCapture(false) },
+            modifier = Modifier.weight(1f),
+            variant = ButtonVariant.Secondary,
         )
     }
-    VsButton(if (capture) "刪除並開始取圖" else "刪除原檔", onClick = { onStartCapture(true) })
-    VsButton(if (capture) "保留並開始取圖" else "保留", onClick = { onStartCapture(false) }, variant = ButtonVariant.Secondary)
     if (done.suggestManageMedia) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("不想每次確認？", style = MaterialTheme.typography.bodyMedium, color = AppTheme.colors.textDim)

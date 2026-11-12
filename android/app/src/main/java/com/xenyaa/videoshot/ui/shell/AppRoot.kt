@@ -84,6 +84,12 @@ import com.xenyaa.videoshot.ui.clip.NO_AUTH_NO_UPLOAD
 import com.xenyaa.videoshot.ui.clip.rememberYoutubeAuthorizer
 import com.xenyaa.videoshot.data.repo.model.EditTask
 import com.xenyaa.videoshot.ui.clip.ClipResultRoute
+import com.xenyaa.videoshot.ui.clip.ClipPhotoScreen
+import com.xenyaa.videoshot.ui.clip.ClipResultScreen
+import com.xenyaa.videoshot.media.mediaUri
+import com.xenyaa.videoshot.media.MediaItem
+import com.xenyaa.videoshot.media.MediaKind
+import com.xenyaa.videoshot.core.timeline.SourceKind
 import com.xenyaa.videoshot.ui.clip.toSummary
 import com.xenyaa.videoshot.ui.clip.ExportSheet
 import com.xenyaa.videoshot.ui.clip.OrientationSheet
@@ -794,6 +800,7 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
             permissionAsked = clipPermissionAsked,
             onPermissionAsked = { clipPermissionAsked = true },
             onBack = { nav.pop()?.let { nav = it } },
+            onPreview = { item -> nav = nav.push(Dest.MediaPreview(item.id, item.kind == MediaKind.VIDEO)) },
             onNext = {
                 if (!clipBuilding) {
                     clipBuilding = true
@@ -922,6 +929,7 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
                 onBack = { nav.pop()?.let { nav = it } },
                 onGone = { if (nav.current is Dest.ClipExport) nav.pop()?.let { nav = it } },
                 onPlay = { nav = nav.push(Dest.ClipResult(dest.taskId)) },
+                onPreviewSource = { source -> nav = nav.push(Dest.MediaPreview(source.id, source.kind == SourceKind.VIDEO)) },
                 authorize = youtubeAuthorizer::authorize,
                 onNotice = { message -> scope.launch { snackbarHostState.showSnackbar(message) } },
                 otherDraft = wizardVm::otherDraft,
@@ -937,6 +945,13 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
         } }
 
         // 成品播放：全螢幕、沒有底部導覽（同 Dest.Play）；返回回到導出中畫面
+        // 素材預覽：同成品播放，全螢幕、返回回到選素材或導出中畫面
+        is Dest.MediaPreview -> ClipTheme {
+            val uri = mediaUri(dest.mediaId, dest.video)
+            val back = { nav.pop()?.let { nav = it } }
+            if (dest.video) ClipResultScreen(uri, onBack = { back() }) else ClipPhotoScreen(uri, onBack = { back() })
+        }
+
         is Dest.ClipResult -> ClipTheme { ClipResultRoute(
             taskId = dest.taskId,
             cacheRepo = container.clipDeps.cacheRepo,
@@ -1349,6 +1364,7 @@ private fun ClipPickerRoute(
     permissionAsked: Boolean,
     onPermissionAsked: () -> Unit,
     onBack: () -> Unit,
+    onPreview: (MediaItem) -> Unit,
     onNext: () -> Unit,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -1378,10 +1394,12 @@ private fun ClipPickerRoute(
         state = state,
         orientation = orientation,
         thumbLoader = clipDeps.mediaThumbLoader,
-        orderOf = vm::orderOf,
         onBack = onBack,
         onFilter = vm::setFilter,
         onToggle = vm::toggle,
+        onPreview = onPreview,
+        onAutoPick = vm::autoPick,
+        onClear = vm::clearSelection,
         onRequestAccess = { launcher.launch(permissions) },
         onOpenSettings = {
             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))

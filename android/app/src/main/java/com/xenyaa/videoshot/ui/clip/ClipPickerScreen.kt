@@ -1,6 +1,22 @@
 package com.xenyaa.videoshot.ui.clip
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.PaddingValues
+import java.time.YearMonth
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.Role
+import com.xenyaa.videoshot.ui.common.VsBottomSheet
+import com.xenyaa.videoshot.ui.common.VsListRow
+import com.xenyaa.videoshot.ui.common.VsSelectedBadge
+import com.xenyaa.videoshot.ui.common.VsSheetHeader
+import com.xenyaa.videoshot.ui.common.VsUnselectedBadge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,7 +33,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -25,7 +40,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,12 +47,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.xenyaa.videoshot.core.timeline.ClipOrientation
 import com.xenyaa.videoshot.edit.overLimitText
 import com.xenyaa.videoshot.media.MediaAccess
@@ -63,7 +74,8 @@ private val TabLabels = listOf("全部", "直影片", "橫影片", "照片")
 private val GridGap = 2.dp
 
 /**
- * 剪輯的「選素材」：手機裡的照片與影片，一格一個，依點選順序編號。
+ * 剪輯的「選素材」：手機裡的照片與影片，一格一個。點左上的圓框選取（打勾），點格子其他地方全螢幕預覽（[onPreview]）；
+ * 不編號：進編輯時一律依拍攝時間排，點選順序沒有意義。頂欄右邊的【快速選取】開抽屜，選月份與方向後追加那個月的素材（[onAutoPick]）；有選取時左邊多一個【清除】（[onClear]）。
  * 底部左側是選的方向與已選總長（「1:20 / 3:00」）；總長超過 [orientation] 的上限只是變成警告色提醒，
  * 【下一步】照樣能按（進編輯再刪短；真正擋下的是導出抽屜的【開始】）。
  *
@@ -76,10 +88,12 @@ fun ClipPickerScreen(
     state: ClipPickerState,
     orientation: ClipOrientation,
     thumbLoader: MediaThumbLoader,
-    orderOf: (Long) -> Int?,
     onBack: () -> Unit,
     onFilter: (PickerFilter) -> Unit,
     onToggle: (Long) -> Unit,
+    onPreview: (MediaItem) -> Unit,
+    onAutoPick: (YearMonth, AutoPick) -> Unit,
+    onClear: () -> Unit,
     onRequestAccess: () -> Unit,
     onOpenSettings: () -> Unit,
     canAskAgain: Boolean,
@@ -87,7 +101,15 @@ fun ClipPickerScreen(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxSize().background(AppTheme.colors.bg).statusBarsPadding()) {
-        VsTopBar("選素材", nav = TopBarNav.Back(onBack), divider = state.access == MediaAccess.DENIED)
+        var autoPickOpen by rememberSaveable { mutableStateOf(false) }
+        VsTopBar("選素材", nav = TopBarNav.Back(onBack), divider = state.access == MediaAccess.DENIED) {
+            // 【清除】只在有選取時出現，放在【快速選取】左邊
+            if (state.selected.isNotEmpty()) TextButton(onClick = onClear) { Text("清除") }
+            if (state.access != MediaAccess.DENIED) TextButton(onClick = { autoPickOpen = true }) { Text("快速選取") }
+        }
+        if (autoPickOpen) {
+            AutoPickSheet(state.months, orientation, onPick = { month, pick -> autoPickOpen = false; onAutoPick(month, pick) }, onDismiss = { autoPickOpen = false })
+        }
 
         if (state.access == MediaAccess.DENIED) {
             MediaAccessDenied(canAskAgain, onRequestAccess, onOpenSettings)
@@ -117,9 +139,13 @@ fun ClipPickerScreen(
                     verticalArrangement = Arrangement.spacedBy(GridGap),
                 ) {
                     items(items, key = { it.id }) { item ->
-                        // 把 selected 當 key：選取改變時這格要重算序號（orderOf 讀的不是 Compose 的狀態）
-                        val order = remember(item.id, state.selected) { orderOf(item.id) }
-                        MediaCell(item, order, thumbLoader, onClick = { onToggle(item.id) })
+                        MediaCell(
+                            item,
+                            selected = item.id in state.selected,
+                            loader = thumbLoader,
+                            onClick = { onPreview(item) },
+                            onToggle = { onToggle(item.id) },
+                        )
                     }
                 }
             }
@@ -222,14 +248,23 @@ private fun PartialBanner(onSelectMore: () -> Unit) {
  * 影片右下角是方向圖示＋長度，幫忙挑跟剪輯方向一樣的素材；正方形或量不到尺寸的影片不畫方向。
  * 縮圖以 [item] 當 key：格子捲出畫面再回來會重新要一次，載入被別人取消而得到 null 的格子因此還有機會補上。
  */
+/**
+ * 一格素材：縮圖，影片右下角標方向與長度。點格子＝[onClick]（選素材是預覽）。
+ * [selected] 不是 null 時左上有圓框（沒選空心、選了打勾），點圓框＝[onToggle]；觸控範圍比圓框大一圈，好點。
+ */
 @Composable
-private fun MediaCell(item: MediaItem, order: Int?, loader: MediaThumbLoader, onClick: () -> Unit) {
+internal fun MediaCell(
+    item: MediaItem,
+    selected: Boolean?,
+    loader: MediaThumbLoader,
+    onClick: () -> Unit,
+    onToggle: () -> Unit = {},
+) {
     val thumb by produceState<ImageBitmap?>(loader.peek(item.id), item.id, loader) {
         if (value == null) value = loader.load(item)
     }
     val videoOrientation = item.videoOrientation()
     val description = when {
-        order != null -> "已選第 $order 個"
         item.kind == MediaKind.VIDEO -> when (videoOrientation) {
             ClipOrientation.PORTRAIT -> "直式影片"
             ClipOrientation.LANDSCAPE -> "橫式影片"
@@ -242,11 +277,8 @@ private fun MediaCell(item: MediaItem, order: Int?, loader: MediaThumbLoader, on
             .aspectRatio(1f)
             .background(AppTheme.colors.surface2)
             .focusRing(RectangleShape)
-            .clickable(onClick = onClick)
-            .semantics(mergeDescendants = true) {
-                contentDescription = description
-                selected = order != null
-            },
+            .clickable(onClickLabel = "預覽", onClick = onClick)
+            .semantics(mergeDescendants = true) { contentDescription = description },
     ) {
         thumb?.let {
             Image(it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
@@ -274,39 +306,82 @@ private fun MediaCell(item: MediaItem, order: Int?, loader: MediaThumbLoader, on
                 Text(formatDuration(duration), style = MaterialTheme.typography.labelSmall, color = Color.White)
             }
         }
-        if (order != null) OrderBadge(order, Modifier.align(Alignment.TopStart))
+        if (selected != null) {
+            Box(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .size(SelectTouch)
+                    .toggleable(value = selected, role = Role.Checkbox, onValueChange = { onToggle() })
+                    .semantics { contentDescription = "選取" }
+                    .padding(AppTheme.spacing.s1),
+            ) {
+                if (selected) VsSelectedBadge(semanticLabel = null) else VsUnselectedBadge()
+            }
+        }
     }
 }
+
+/** 左上選取圓框的觸控範圍。 */
+private val SelectTouch = 44.dp
 
 /**
- * 左上的序號圓。外觀比照 `VsSelectedBadge`（白邊、已選色藍底、白字），裡面的打勾換成數字。
- * 純裝飾：語意由整格的「已選第 N 個」負責，這裡清掉才不會唸兩次。
+ * 快速選取的抽屜，兩步：先選月份（[months]，有素材的月份由新到舊），再選方向，追加那個月符合方向的全部素材；選完就關。
+ * 方向三列裡跟影片同方向（[orientation]）的放第一個（最常按），不分方向居中，另一個方向墊底；頂部【換月份】回第一步。
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun OrderBadge(order: Int, modifier: Modifier = Modifier) {
-    Box(
-        modifier
-            .padding(2.dp)
-            .size(24.dp)
-            .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.92f))
-            .padding(2.dp)
-            .clip(CircleShape)
-            .background(AppTheme.colors.selectedMark)
-            .clearAndSetSemantics {},
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            order.toString(),
-            color = Color.White,
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, lineHeight = 11.sp),
-        )
+private fun AutoPickSheet(
+    months: List<YearMonth>,
+    orientation: ClipOrientation,
+    onPick: (YearMonth, AutoPick) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var month by rememberSaveable { mutableStateOf<YearMonth?>(null) }
+    VsBottomSheet(onDismissRequest = onDismiss) {
+        val chosen = month
+        if (chosen == null) {
+            VsSheetHeader("快速選取")
+            if (months.isEmpty()) {
+                Text(
+                    "手機裡還沒有照片或影片",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AppTheme.colors.textDim,
+                    modifier = Modifier.padding(AppTheme.spacing.s4),
+                )
+            }
+            LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(bottom = AppTheme.spacing.s5)) {
+                items(months, key = { it.toString() }) { m ->
+                    VsListRow(title = monthLabel(m), onClick = { month = m })
+                }
+            }
+        } else {
+            val portrait: @Composable () -> Unit = {
+                VsListRow(title = "直式素材", icon = VsIcons.Smartphone, onClick = { onPick(chosen, AutoPick.PORTRAIT) })
+            }
+            val landscape: @Composable () -> Unit = {
+                VsListRow(title = "橫式素材", icon = VsIcons.SmartphoneLandscape, onClick = { onPick(chosen, AutoPick.LANDSCAPE) })
+            }
+            Column(Modifier.fillMaxWidth().padding(bottom = AppTheme.spacing.s5)) {
+                VsSheetHeader(monthLabel(chosen)) {
+                    TextButton(onClick = { month = null }) { Text("換月份") }
+                }
+                if (orientation == ClipOrientation.PORTRAIT) portrait() else landscape()
+                VsListRow(title = "不分方向", icon = VsIcons.Image, onClick = { onPick(chosen, AutoPick.ANY) })
+                if (orientation == ClipOrientation.PORTRAIT) landscape() else portrait()
+            }
+        }
     }
 }
 
-/** 影片畫面的方向（套用旋轉角度後）：高大於寬是直式、寬大於高是橫式；照片、正方形或量不到尺寸回 null。 */
-internal fun MediaItem.videoOrientation(): ClipOrientation? {
-    if (kind != MediaKind.VIDEO || width <= 0 || height <= 0) return null
+/** 「2026 年 11 月」。 */
+internal fun monthLabel(month: YearMonth): String = "${month.year} 年 ${month.monthValue} 月"
+
+/** 影片畫面的方向（同 [frameOrientation]）；照片回 null。 */
+internal fun MediaItem.videoOrientation(): ClipOrientation? = if (kind == MediaKind.VIDEO) frameOrientation() else null
+
+/** 照片或影片畫面的方向（套用旋轉角度後）：高大於寬是直式、寬大於高是橫式；正方形或量不到尺寸回 null。 */
+internal fun MediaItem.frameOrientation(): ClipOrientation? {
+    if (width <= 0 || height <= 0) return null
     val (w, h) = if (rotation % 180 == 0) width to height else height to width
     return when {
         h > w -> ClipOrientation.PORTRAIT

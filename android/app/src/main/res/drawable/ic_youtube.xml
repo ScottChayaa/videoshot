@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- YouTube 圖示（紅底白色播放鍵）：導出完成畫面的片名連結前面 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="21dp"
+    android:height="15dp"
+    android:viewportWidth="28"
+    android:viewportHeight="20">
+    <path
+        android:fillColor="#FF0000"
+        android:pathData="M27.4,3.1C27.1,1.9 26.1,0.9 24.9,0.6 22.7,0 14,0 14,0 14,0 5.3,0 3.1,0.6 1.9,0.9 0.9,1.9 0.6,3.1 0,5.3 0,10 0,10c0,0 0,4.7 0.6,6.9 0.3,1.2 1.3,2.2 2.5,2.5C5.3,20 14,20 14,20c0,0 8.7,0 10.9,-0.6 1.2,-0.3 2.2,-1.3 2.5,-2.5C28,14.7 28,10 28,10 28,10 28,5.3 27.4,3.1Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M11.2,14.3 18.5,10 11.2,5.7Z" />
+</vector>

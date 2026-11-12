@@ -13,6 +13,9 @@ import com.xenyaa.videoshot.media.MediaFilter
 import com.xenyaa.videoshot.media.MediaItem
 import com.xenyaa.videoshot.media.MediaKind
 import com.xenyaa.videoshot.media.mediaAccessOf
+import java.time.Instant
+import java.time.YearMonth
+import java.time.ZoneId
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,9 +41,12 @@ enum class PickerFilter(val source: MediaFilter) {
     }
 }
 
+/** 快速選取的三種範圍：不分方向、只挑橫式、只挑直式（照片與影片都算，方向見 [frameOrientation]）。 */
+enum class AutoPick { ANY, LANDSCAPE, PORTRAIT }
+
 /**
  * 選素材畫面的狀態。[access] 為 null 代表還沒判定；[items] 為 null 代表讀取中（或沒權限、沒讀過）。
- * [selected] 依點選順序排列，序號就是它在清單裡的位置加一。
+ * [selected] 是選了哪些（順序不重要：進編輯時一律依拍攝時間排）。
  * [selectedMs] 是已選素材排進時間軸後的總長：照片各 [PHOTO_SEGMENT_MS]、影片是它的長度（長度不明的影片建草稿時會略過，算 0）。
  */
 data class ClipPickerState(
@@ -49,9 +55,14 @@ data class ClipPickerState(
     val items: List<MediaItem>? = null,
     val selected: List<Long> = emptyList(),
     val selectedMs: Long = 0,
+    /** 讀過的素材有哪些拍攝月份，由新到舊（快速選取的月份清單）。 */
+    val months: List<YearMonth> = emptyList(),
 )
 
-class ClipPickerViewModel(private val deps: ClipDeps) : ViewModel() {
+class ClipPickerViewModel(
+    private val deps: ClipDeps,
+    private val zone: ZoneId = ZoneId.systemDefault(),
+) : ViewModel() {
 
     private val _state = MutableStateFlow(ClipPickerState())
     val state: StateFlow<ClipPickerState> = _state.asStateFlow()
@@ -91,8 +102,37 @@ class ClipPickerViewModel(private val deps: ClipDeps) : ViewModel() {
         }
     }
 
-    /** 1 起算的選取序號；沒選回 null。 */
-    fun orderOf(id: Long): Int? = _state.value.selected.indexOf(id).takeIf { it >= 0 }?.plus(1)
+    /** 清掉所有選取（頂欄的【清除】）。 */
+    fun clearSelection() {
+        _state.update { it.copy(selected = emptyList(), selectedMs = 0) }
+    }
+
+    /**
+     * 快速選取：從整個素材庫裡還沒選的、[month] 拍的、符合 [pick] 方向的素材全部追加。
+     * 每按一次都是追加，不動已經選的。
+     */
+    fun autoPick(month: YearMonth, pick: AutoPick) {
+        viewModelScope.launch {
+            val list = deps.mediaLibrary.list(MediaFilter.ALL)
+            list.forEach { known[it.id] = it }
+            _state.update { state ->
+                val taken = state.selected.toHashSet()
+                val picked = list.asSequence()
+                    .filter { it.id !in taken && it.month() == month }
+                    .filter { item ->
+                        when (pick) {
+                            AutoPick.ANY -> true
+                            AutoPick.LANDSCAPE -> item.frameOrientation() == ClipOrientation.LANDSCAPE
+                            AutoPick.PORTRAIT -> item.frameOrientation() == ClipOrientation.PORTRAIT
+                        }
+                    }
+                    .map { it.id }
+                    .toList()
+                val selected = state.selected + picked
+                state.copy(selected = selected, selectedMs = selected.totalMs(), months = knownMonths())
+            }
+        }
+    }
 
     /** 從選方向重新進來時呼叫：清空選取、回到「全部」。 */
     fun reset() {
@@ -146,10 +186,19 @@ class ClipPickerViewModel(private val deps: ClipDeps) : ViewModel() {
                 val selected = if (!prune) state.selected else state.selected.filter { id ->
                     id in present || !(filterKind == null || known[id]?.kind == filterKind)
                 }
-                state.copy(items = list.filter(filter::shows), selected = selected, selectedMs = selected.totalMs())
+                state.copy(
+                    items = list.filter(filter::shows),
+                    selected = selected,
+                    selectedMs = selected.totalMs(),
+                    months = knownMonths(),
+                )
             }
         }
     }
+
+    private fun MediaItem.month(): YearMonth = YearMonth.from(Instant.ofEpochMilli(takenAtMs).atZone(zone))
+
+    private fun knownMonths(): List<YearMonth> = known.values.mapTo(HashSet()) { it.month() }.sortedDescending()
 
     private fun List<Long>.totalMs(): Long = sumOf { id ->
         val item = known[id] ?: return@sumOf 0L

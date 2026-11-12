@@ -185,6 +185,16 @@ class NavStateTest {
         assertEquals(NavState(), NavCodec.decode("CLIP|HOME|HOME=R;CLIP=R,Rabc"))
     }
 
+    @Test fun 素材預覽存檔碼是S加素材編號與種類() {
+        val video = NavState().select(Tab.CLIP).push(Dest.ClipExport(42)).push(Dest.MediaPreview(7, video = true))
+        assertEquals("S7:v", NavCodec.encode(video).substringAfter("CLIP=").split(";")[0].split(",").last())
+        assertEquals(video, NavCodec.decode(NavCodec.encode(video)))
+        val photo = NavState().select(Tab.CLIP).push(Dest.MediaPreview(8, video = false))
+        assertEquals(photo, NavCodec.decode(NavCodec.encode(photo)))
+        assertEquals(NavState(), NavCodec.decode("CLIP|HOME|HOME=R;CLIP=R,S42"))
+        assertEquals(NavState(), NavCodec.decode("CLIP|HOME|HOME=R;CLIP=R,S42:x"))
+    }
+
     @Test fun 導出中畫面存檔碼是X加任務編號_且不會和封存相簿混淆() {
         val nav = NavState().select(Tab.CLIP).push(Dest.ClipExport(42))
         assertEquals("X42", NavCodec.encode(nav).substringAfter("CLIP=").substringAfter(",").substringBefore(";"))

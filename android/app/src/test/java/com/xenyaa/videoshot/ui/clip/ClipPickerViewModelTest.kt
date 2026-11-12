@@ -1,5 +1,8 @@
 package com.xenyaa.videoshot.ui.clip
 
+import java.time.LocalDateTime
+import java.time.YearMonth
+import java.time.ZoneOffset
 import com.xenyaa.videoshot.core.timeline.ClipOrientation
 import com.xenyaa.videoshot.core.timeline.SourceKind
 import com.xenyaa.videoshot.data.repo.CacheRepo
@@ -77,7 +80,7 @@ class ClipPickerViewModelTest {
     private val fullFor34 = mediaPermissionsFor(34).filter { !it.endsWith("VISUAL_USER_SELECTED") }.toSet()
     private val deps = FakeClipDeps(library, fullFor34)
 
-    private fun vm() = ClipPickerViewModel(deps)
+    private fun vm() = ClipPickerViewModel(deps, ZoneOffset.UTC)
 
     @Test fun 一開始先判定權限再讀全部() = runTest {
         val vm = vm()
@@ -101,13 +104,59 @@ class ClipPickerViewModelTest {
         assertEquals(0, library.listCalls)
     }
 
-    @Test fun 選取有序號而且取消後遞補() {
+    @Test fun 清除拿掉所有選取與總長() {
+        val vm = vm()
+        vm.toggle(10); vm.toggle(1)
+        vm.clearSelection()
+        assertEquals(emptyList<Long>(), vm.state.value.selected)
+        assertEquals(0L, vm.state.value.selectedMs)
+    }
+
+    @Test fun 選取與取消() {
         val vm = vm()
         vm.toggle(10); vm.toggle(20); vm.toggle(30); vm.toggle(20)
         assertEquals(listOf(10L, 30L), vm.state.value.selected)
-        assertEquals(2, vm.orderOf(30))
-        assertEquals(1, vm.orderOf(10))
-        assertNull(vm.orderOf(20))
+    }
+
+    /** 2026 年 [month] 月 5 日中午（UTC）。 */
+    private fun at(month: Int) = LocalDateTime.of(2026, month, 5, 12, 0).toInstant(ZoneOffset.UTC).toEpochMilli()
+
+    private fun photoAt(id: Long, month: Int, width: Int = 1080, height: Int = 1920) =
+        MediaItem(id, "content://media/$id", MediaKind.PHOTO, at(month), null, width, height, 0)
+
+    @Test fun 月份清單由新到舊() = runTest {
+        library.add(photoAt(100, 11)); library.add(photoAt(101, 10))
+        val vm = vm()
+        advanceUntilIdle()
+        assertEquals(listOf(YearMonth.of(2026, 11), YearMonth.of(2026, 10), YearMonth.of(1970, 1)), vm.state.value.months)
+    }
+
+    @Test fun 快速選取追加那個月的全部_不重複_不動別的月() = runTest {
+        library.add(photoAt(100, 11)); library.add(photoAt(101, 11)); library.add(photoAt(102, 11)); library.add(photoAt(103, 10))
+        val vm = vm()
+        vm.toggle(100)
+        vm.autoPick(YearMonth.of(2026, 11), AutoPick.ANY)
+        advanceUntilIdle()
+        assertEquals(listOf(100L, 101L, 102L), vm.state.value.selected)
+        assertEquals(9_000L, vm.state.value.selectedMs)
+        vm.autoPick(YearMonth.of(2026, 11), AutoPick.ANY)
+        advanceUntilIdle()
+        assertEquals(listOf(100L, 101L, 102L), vm.state.value.selected)
+    }
+
+    @Test fun 快速選取依方向_照片也算() = runTest {
+        library.add(photoAt(40, 11, width = 1920, height = 1080))
+        library.add(MediaItem(41, "content://media/41", MediaKind.VIDEO, at(11), 5_000, 1920, 1080, 0))
+        // 直拍存成橫的、轉 90 度：算直式
+        library.add(MediaItem(42, "content://media/42", MediaKind.VIDEO, at(11), 5_000, 1920, 1080, 90))
+        library.add(photoAt(43, 11))
+        val vm = vm()
+        vm.autoPick(YearMonth.of(2026, 11), AutoPick.LANDSCAPE)
+        advanceUntilIdle()
+        assertEquals(listOf(40L, 41L), vm.state.value.selected)
+        vm.autoPick(YearMonth.of(2026, 11), AutoPick.PORTRAIT)
+        advanceUntilIdle()
+        assertEquals(listOf(40L, 41L, 42L, 43L), vm.state.value.selected)
     }
 
     @Test fun 已選總長照片各3秒加影片長度_切到別的分頁也算得到() = runTest {

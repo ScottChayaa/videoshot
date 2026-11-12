@@ -5,6 +5,9 @@ import com.xenyaa.videoshot.media.MediaDeleter
 import android.content.IntentSender
 import android.content.Intent
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasNoClickAction
@@ -16,6 +19,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -364,11 +368,29 @@ class ClipExportScreenTest {
     }
 
     @Test
+    fun 已完成_片名點了開影片網址() {
+        val opened = mutableListOf<String>()
+        val handler = object : UriHandler {
+            override fun openUri(uri: String) { opened += uri }
+        }
+        compose.setContent {
+            VideoshotTheme {
+                CompositionLocalProvider(LocalUriHandler provides handler) {
+                    ClipExportScreen(task(EditTaskState.DONE, videoId = "abc"), loader, {}, {}, {}, {}, {})
+                }
+            }
+        }
+
+        compose.onNodeWithText("我的旅行").performClick()
+        assertEquals(listOf("https://youtu.be/abc"), opened)
+    }
+
+    @Test
     fun 已完成的文字() {
         show(task(EditTaskState.DONE, videoId = "abc"))
 
-        compose.onNodeWithText("已上傳到 YouTube（非公開）").assertIsDisplayed()
-        compose.onNodeWithText("我的旅行・0:48").assertIsDisplayed()
+        compose.onNodeWithText("已上傳到 YouTube").assertIsDisplayed()
+        compose.onNodeWithText("我的旅行").assertIsDisplayed()
         noNode("開始取圖在下一個階段加入")
         compose.onNodeWithTag("exportThumb").assertHasNoClickAction()
         noNode("完成後自動上傳到 YouTube")
@@ -379,6 +401,7 @@ class ClipExportScreenTest {
 
     private val startCaptures = mutableListOf<Boolean>()
     private var manageMediaClicks = 0
+    private val previewed = mutableListOf<Long>()
 
     private fun showDone(done: DoneCleanup?, privacy: UploadPrivacy = UploadPrivacy.UNLISTED) {
         compose.setContent {
@@ -388,17 +411,34 @@ class ClipExportScreenTest {
                     done = done,
                     onStartCapture = { startCaptures += it },
                     onOpenManageMedia = { manageMediaClicks++ },
+                    onPreviewSource = { previewed += it.id },
                 )
             }
         }
     }
 
     @Test
+    fun 已完成_列出還在手機裡的素材_點了預覽() {
+        showDone(DoneCleanup(photos = 0, videos = 2, canDelete = true, suggestManageMedia = false, sources = listOf(source(7), source(8))))
+
+        compose.onNodeWithTag("usedSources").assertIsDisplayed()
+        compose.onAllNodesWithContentDescription("直式影片").assertCountEquals(2)
+        compose.onAllNodesWithContentDescription("直式影片")[1].performClick()
+        assertEquals(listOf(8L), previewed)
+    }
+
+    @Test
+    fun 已完成_沒有素材時不畫素材列() {
+        showDone(DoneCleanup(photos = 0, videos = 0, canDelete = true, suggestManageMedia = false))
+
+        compose.onNodeWithTag("usedSources").assertDoesNotExist()
+    }
+
+    @Test
     fun 已完成_問句與兩個按鈕() {
         showDone(DoneCleanup(photos = 3, videos = 2, canDelete = true, suggestManageMedia = false))
 
-        compose.onNodeWithText("要刪除這次用到的 3 張照片、2 支影片嗎？").assertIsDisplayed()
-        compose.onNodeWithText("整支影片會刪除，包括剪掉的部分").assertIsDisplayed()
+        compose.onNodeWithText("要刪除已上傳完成的 5 個素材嗎？").assertIsDisplayed()
         compose.onNodeWithText("刪除並開始取圖").assertIsDisplayed()
         compose.onNodeWithText("保留並開始取圖").assertIsDisplayed()
         noNode("開始取圖在下一個階段加入")
@@ -410,7 +450,7 @@ class ClipExportScreenTest {
     fun 已完成_標題照公開狀態() {
         showDone(DoneCleanup(photos = 1, videos = 0, canDelete = true, suggestManageMedia = false), UploadPrivacy.PUBLIC)
 
-        compose.onNodeWithText("已上傳到 YouTube（公開）").assertIsDisplayed()
+        compose.onNodeWithText("已上傳到 YouTube").assertIsDisplayed()
         noNode("私人影片無法在 app 裡取圖")
     }
 
@@ -418,9 +458,9 @@ class ClipExportScreenTest {
     fun 已完成_私人影片不開始取圖() {
         showDone(DoneCleanup(photos = 1, videos = 1, canDelete = true, suggestManageMedia = false), UploadPrivacy.PRIVATE)
 
-        compose.onNodeWithText("已上傳到 YouTube（私人）").assertIsDisplayed()
+        compose.onNodeWithText("已上傳到 YouTube").assertIsDisplayed()
         compose.onNodeWithText("私人影片無法在 app 裡取圖").assertIsDisplayed()
-        compose.onNodeWithText("要刪除這次用到的 1 張照片、1 支影片嗎？").assertIsDisplayed()
+        compose.onNodeWithText("要刪除已上傳完成的 2 個素材嗎？").assertIsDisplayed()
         compose.onNodeWithText("刪除原檔").performClick()
         compose.onNodeWithText("保留").performClick()
         assertEquals(listOf(true, false), startCaptures)
@@ -441,8 +481,7 @@ class ClipExportScreenTest {
     fun 已完成_只有照片不顯示整支影片小字() {
         showDone(DoneCleanup(photos = 3, videos = 0, canDelete = true, suggestManageMedia = false))
 
-        compose.onNodeWithText("要刪除這次用到的 3 張照片嗎？").assertIsDisplayed()
-        noNode("整支影片會刪除，包括剪掉的部分")
+        compose.onNodeWithText("要刪除已上傳完成的 3 個素材嗎？").assertIsDisplayed()
     }
 
     @Test
@@ -489,8 +528,8 @@ class ClipExportScreenTest {
     fun 已完成_還在數時不畫按鈕() {
         showDone(null)
 
-        compose.onNodeWithText("已上傳到 YouTube（非公開）").assertIsDisplayed()
-        compose.onNodeWithText("我的旅行・0:48").assertIsDisplayed()
+        compose.onNodeWithText("已上傳到 YouTube").assertIsDisplayed()
+        compose.onNodeWithText("我的旅行").assertIsDisplayed()
         noNode("開始取圖")
         noNode("刪除並開始取圖")
         noNode("保留並開始取圖")
@@ -671,7 +710,7 @@ class ClipExportScreenTest {
         existingUris = setOf("content://media/3")
         showDoneRoute(other = null)
 
-        compose.onNodeWithText("要刪除這次用到的 1 支影片嗎？").assertIsDisplayed()
+        compose.onNodeWithText("要刪除已上傳完成的 1 個素材嗎？").assertIsDisplayed()
     }
 
     @Test

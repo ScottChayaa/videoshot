@@ -88,6 +88,12 @@ sealed interface Dest {
      * **只存任務編號**——成品在 app 裡還是相簿裡，每次進來重新查。
      */
     data class ClipResult(val taskId: Long) : Dest
+
+    /**
+     * 全螢幕預覽手機裡的一個素材：從選素材、已完成畫面點素材進來，返回回到那裡；沒有底部導覽。
+     * [mediaId] 是素材庫（MediaStore）的編號，[video] 決定是照片表還是影片表。
+     */
+    data class MediaPreview(val mediaId: Long, val video: Boolean) : Dest
 }
 
 /**
@@ -167,6 +173,7 @@ object NavCodec {
                     is Dest.ClipEditor -> "E${orientationCode(dest.orientation)}"
                     is Dest.ClipExport -> "X${dest.taskId}"
                     is Dest.ClipResult -> "R${dest.taskId}"
+                    is Dest.MediaPreview -> "S${dest.mediaId}:${if (dest.video) "v" else "p"}"
                 }
             }
             "${tab.name}=$items"
@@ -190,6 +197,10 @@ object NavCodec {
                     item == "X" -> Dest.ArchivedFolders
                     // 「X」後面接數字＝導出中畫面（單獨一個「X」是封存相簿，上一行先處理掉）
                     // 「R」後面接數字＝成品播放畫面（單獨一個「R」是根畫面，上面先處理掉）
+                    item.startsWith("S") -> {
+                        val (id, kind) = item.drop(1).split(":").takeIf { it.size == 2 && it[1] in setOf("v", "p") } ?: return NavState()
+                        Dest.MediaPreview(id.toLongOrNull() ?: return NavState(), kind == "v")
+                    }
                     item.startsWith("R") -> Dest.ClipResult(item.drop(1).toLongOrNull() ?: return NavState())
                     item.startsWith("X") -> Dest.ClipExport(item.drop(1).toLongOrNull() ?: return NavState())
                     item.startsWith("L") -> Dest.Lightbox(item.drop(1).toIntOrNull() ?: return NavState())

@@ -1,5 +1,9 @@
 package com.xenyaa.videoshot.ui.clip
 
+import java.time.YearMonth
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -33,6 +37,9 @@ import org.robolectric.annotation.GraphicsMode
 class ClipPickerScreenTest {
     @get:Rule val compose = createComposeRule()
 
+    private val NOV = YearMonth.of(2026, 11)
+    private val OCT = YearMonth.of(2026, 10)
+
     private fun photo(id: Long) = MediaItem(id, "content://media/$id", MediaKind.PHOTO, 1_000L * id, null, 1080, 1920, 0)
     private fun video(id: Long, durationMs: Long, width: Int = 1080, height: Int = 1920, rotation: Int = 0) =
         MediaItem(id, "content://media/$id", MediaKind.VIDEO, 1_000L * id, durationMs, width, height, rotation)
@@ -44,7 +51,8 @@ class ClipPickerScreenTest {
         items: List<MediaItem>? = emptyList(),
         selected: List<Long> = emptyList(),
         selectedMs: Long = 0,
-    ) = ClipPickerState(access = access, filter = filter, items = items, selected = selected, selectedMs = selectedMs)
+        months: List<YearMonth> = listOf(NOV, OCT),
+    ) = ClipPickerState(access = access, filter = filter, items = items, selected = selected, selectedMs = selectedMs, months = months)
 
     private fun show(
         state: ClipPickerState,
@@ -55,6 +63,9 @@ class ClipPickerScreenTest {
         onToggle: (Long) -> Unit = {},
         onFilter: (PickerFilter) -> Unit = {},
         onNext: () -> Unit = {},
+        onPreview: (MediaItem) -> Unit = {},
+        onAutoPick: (YearMonth, AutoPick) -> Unit = { _, _ -> },
+        onClear: () -> Unit = {},
     ) {
         compose.setContent {
             VideoshotTheme {
@@ -62,10 +73,12 @@ class ClipPickerScreenTest {
                     state = state,
                     orientation = orientation,
                     thumbLoader = MediaThumbLoader(decode = { null }),
-                    orderOf = { id -> state.selected.indexOf(id).takeIf { it >= 0 }?.plus(1) },
                     onBack = {},
                     onFilter = onFilter,
                     onToggle = onToggle,
+                    onPreview = onPreview,
+                    onAutoPick = onAutoPick,
+                    onClear = onClear,
                     onRequestAccess = onRequestAccess,
                     onOpenSettings = onOpenSettings,
                     canAskAgain = canAskAgain,
@@ -90,10 +103,83 @@ class ClipPickerScreenTest {
         compose.onNodeWithText("下一步（3）").assertIsEnabled()
     }
 
-    @Test fun 已選格子唸出序號() {
-        show(state(FULL, items = items(3), selected = listOf(2, 1)))
-        compose.onNodeWithContentDescription("已選第 1 個").assertExists()
-        compose.onNodeWithContentDescription("已選第 2 個").assertExists()
+    @Test fun 已選格子打勾_沒選的空圈() {
+        show(state(FULL, items = items(3), selected = listOf(2)))
+        val boxes = compose.onAllNodes(isToggleable())
+        boxes.assertCountEquals(3)
+        boxes[0].assertIsOff()
+        boxes[1].assertIsOn()
+        boxes[2].assertIsOff()
+    }
+
+    @Test fun 點圓框選取_點格子其他地方預覽() {
+        val toggled = mutableListOf<Long>()
+        val previewed = mutableListOf<Long>()
+        show(state(FULL, items = items(2)), onToggle = { toggled += it }, onPreview = { previewed += it.id })
+        compose.onAllNodes(isToggleable())[1].performClick()
+        assertEquals(listOf(2L), toggled)
+        compose.onAllNodesWithContentDescription("照片")[0].performClick()
+        assertEquals(listOf(1L), previewed)
+        assertEquals(listOf(2L), toggled)
+    }
+
+    @Test fun 快速選取先選月份再選方向_點了關抽屜() {
+        val picks = mutableListOf<Pair<YearMonth, AutoPick>>()
+        show(state(FULL, items = items(2)), onAutoPick = { m, p -> picks += m to p })
+        compose.onNodeWithText("快速選取").performClick()
+        compose.onNodeWithText("2026 年 11 月").assertIsDisplayed()
+        compose.onNodeWithText("2026 年 10 月").performClick()
+        compose.onNodeWithText("不分方向").assertIsDisplayed()
+        compose.onNodeWithText("橫式素材").assertIsDisplayed()
+        compose.onNodeWithText("直式素材").performClick()
+        compose.waitForIdle()
+        assertEquals(listOf(OCT to AutoPick.PORTRAIT), picks)
+        compose.onNodeWithText("橫式素材").assertDoesNotExist()
+    }
+
+    @Test fun 選了月份後可以換月份() {
+        show(state(FULL, items = items(2)))
+        compose.onNodeWithText("快速選取").performClick()
+        compose.onNodeWithText("2026 年 11 月").performClick()
+        compose.onNodeWithText("換月份").performClick()
+        compose.onNodeWithText("2026 年 10 月").assertIsDisplayed()
+    }
+
+    @Test fun 直式影片的快速選取直式排第一() {
+        show(state(FULL, items = items(2)), orientation = ClipOrientation.PORTRAIT)
+        compose.onNodeWithText("快速選取").performClick()
+        compose.onNodeWithText("2026 年 11 月").performClick()
+        val p = compose.onNodeWithText("直式素材").fetchSemanticsNode().boundsInRoot.top
+        val any = compose.onNodeWithText("不分方向").fetchSemanticsNode().boundsInRoot.top
+        val l = compose.onNodeWithText("橫式素材").fetchSemanticsNode().boundsInRoot.top
+        assertTrue(p < any && any < l)
+    }
+
+    @Test fun 橫式影片的快速選取橫式排第一() {
+        show(state(FULL, items = items(2)), orientation = ClipOrientation.LANDSCAPE)
+        compose.onNodeWithText("快速選取").performClick()
+        compose.onNodeWithText("2026 年 11 月").performClick()
+        val l = compose.onNodeWithText("橫式素材").fetchSemanticsNode().boundsInRoot.top
+        val any = compose.onNodeWithText("不分方向").fetchSemanticsNode().boundsInRoot.top
+        val p = compose.onNodeWithText("直式素材").fetchSemanticsNode().boundsInRoot.top
+        assertTrue(l < any && any < p)
+    }
+
+    @Test fun 有選取才有清除_點了回報() {
+        var cleared = 0
+        show(state(FULL, items = items(2), selected = listOf(1)), onClear = { cleared++ })
+        compose.onNodeWithText("清除").performClick()
+        assertEquals(1, cleared)
+    }
+
+    @Test fun 沒選取時沒有清除() {
+        show(state(FULL, items = items(2)))
+        compose.onNodeWithText("清除").assertDoesNotExist()
+    }
+
+    @Test fun 沒權限時沒有快速選取() {
+        show(state(DENIED))
+        compose.onNodeWithText("快速選取").assertDoesNotExist()
     }
 
     @Test fun 影片格顯示長度() {
@@ -195,7 +281,7 @@ class ClipPickerScreenTest {
         compose.onNodeWithText("手機裡還沒有照片").assertIsDisplayed()
     }
 
-    @Test fun 點格子_點分頁_點下一步都回報給呼叫端() {
+    @Test fun 點圓框_點分頁_點下一步都回報給呼叫端() {
         val toggled = mutableListOf<Long>()
         val filters = mutableListOf<PickerFilter>()
         var next = 0
@@ -203,7 +289,7 @@ class ClipPickerScreenTest {
             state(FULL, items = items(2), selected = listOf(1)),
             onToggle = { toggled += it }, onFilter = { filters += it }, onNext = { next++ },
         )
-        compose.onNodeWithContentDescription("已選第 1 個").performClick()
+        compose.onAllNodes(isToggleable())[0].performClick()
         compose.onNodeWithText("直影片").performClick()
         compose.onNodeWithText("橫影片").performClick()
         compose.onNodeWithText("下一步（1）").performClick()

@@ -325,7 +325,7 @@ private fun TaskRow(
                         EditTaskState.UPLOADING -> "上傳中 ${task.progress}%"
                         EditTaskState.WAITING_QUOTA -> "等待明天上傳"
                         EditTaskState.PROCESSING -> "YouTube 處理中"
-                        EditTaskState.DONE -> "已完成，點一下開始取圖"
+                        EditTaskState.DONE -> "已完成，可以開始取圖"
                         EditTaskState.FAILED -> "失敗：${task.failReason ?: "輸出失敗"}"
                     },
                     style = MaterialTheme.typography.bodySmall,

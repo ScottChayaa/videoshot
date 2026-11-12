@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.shell
 
+import androidx.compose.ui.test.isToggleable
 import com.xenyaa.videoshot.data.repo.FakeCacheRepo
 import com.xenyaa.videoshot.data.FacetUsage
 import androidx.compose.ui.test.assertIsDisplayed
@@ -304,8 +305,8 @@ class AppRootClipTest {
         openPicker(clip)
         compose.onNodeWithText("下一步").assertIsNotEnabled()
 
-        compose.onAllNodesWithContentDescription("照片")[0].performClick()
-        compose.onAllNodesWithContentDescription("照片")[1].performClick()
+        compose.onAllNodes(isToggleable())[0].performClick()
+        compose.onAllNodes(isToggleable())[1].performClick()
         compose.onNodeWithText("下一步（2）").performClick()
         compose.waitForIdle()
 
@@ -328,7 +329,7 @@ class AppRootClipTest {
     fun 系統返回鍵從編輯回剪輯頁() {
         val clip = FakeClipDeps(full)
         openPicker(clip)
-        compose.onAllNodesWithContentDescription("照片")[0].performClick()
+        compose.onAllNodes(isToggleable())[0].performClick()
         compose.onNodeWithText("下一步（1）").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("編輯").assertIsDisplayed()
@@ -357,7 +358,7 @@ class AppRootClipTest {
     fun 第二次進編輯不會被上一次的狀態影響() {
         val clip = FakeClipDeps(full)
         openPicker(clip)
-        compose.onAllNodesWithContentDescription("照片")[0].performClick()
+        compose.onAllNodes(isToggleable())[0].performClick()
         compose.onNodeWithText("下一步（1）").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("/ 0:03", substring = true).assertIsDisplayed()
@@ -373,8 +374,8 @@ class AppRootClipTest {
         compose.onNodeWithText("新增").performClick()
         compose.onNodeWithText("橫式").performClick()
         compose.waitForIdle()
-        compose.onAllNodesWithContentDescription("照片")[0].performClick()
-        compose.onAllNodesWithContentDescription("照片")[1].performClick()
+        compose.onAllNodes(isToggleable())[0].performClick()
+        compose.onAllNodes(isToggleable())[1].performClick()
         compose.onNodeWithText("下一步（2）").performClick()
         compose.waitForIdle()
 
@@ -387,7 +388,7 @@ class AppRootClipTest {
         // 水位：草稿在進入前被別處清掉（例如放棄）時，編輯畫面讀完發現沒有就退回
         val clip = FakeClipDeps(full)
         openPicker(clip)
-        compose.onAllNodesWithContentDescription("照片")[0].performClick()
+        compose.onAllNodes(isToggleable())[0].performClick()
         compose.onNodeWithText("下一步（1）").performClick()
         compose.waitForIdle()
         compose.onNodeWithContentDescription("返回").performClick()
@@ -405,7 +406,7 @@ class AppRootClipTest {
     fun 沒有草稿退回之後再走一次正常流程_編輯畫面不會被立刻退回() {
         val clip = FakeClipDeps(full)
         openPicker(clip)
-        compose.onAllNodesWithContentDescription("照片")[0].performClick()
+        compose.onAllNodes(isToggleable())[0].performClick()
         compose.onNodeWithText("下一步（1）").performClick()
         compose.waitForIdle()
         compose.onNodeWithContentDescription("返回").performClick()
@@ -420,8 +421,8 @@ class AppRootClipTest {
         compose.onNodeWithText("新增").performClick()
         compose.onNodeWithText("直式").performClick()
         compose.waitForIdle()
-        compose.onAllNodesWithContentDescription("照片")[0].performClick()
-        compose.onAllNodesWithContentDescription("照片")[1].performClick()
+        compose.onAllNodes(isToggleable())[0].performClick()
+        compose.onAllNodes(isToggleable())[1].performClick()
         compose.onNodeWithText("下一步（2）").performClick()
         compose.waitForIdle()
 
@@ -440,7 +441,7 @@ class AppRootClipTest {
         }
         val clip = FakeClipDeps(full, repo)
         openPicker(clip)
-        compose.onAllNodesWithContentDescription("照片")[0].performClick()
+        compose.onAllNodes(isToggleable())[0].performClick()
         compose.onNodeWithText("下一步（1）").performClick()
         compose.waitForIdle()
 
@@ -473,7 +474,7 @@ class AppRootClipTest {
             }
         }
         openPicker(FakeClipDeps(full, repo))
-        compose.onAllNodesWithContentDescription("照片")[0].performClick()
+        compose.onAllNodes(isToggleable())[0].performClick()
         compose.onNodeWithText("下一步（1）").performClick()
         compose.waitForIdle()
 
@@ -628,7 +629,7 @@ class AppRootClipTest {
     @Test
     fun 重新從選方向進來會清掉上一次的選取() {
         openPicker(FakeClipDeps(full))
-        compose.onAllNodesWithContentDescription("照片")[0].performClick()
+        compose.onAllNodes(isToggleable())[0].performClick()
         compose.onNodeWithText("下一步（1）").assertIsDisplayed()
 
         compose.onNodeWithContentDescription("返回").performClick()

@@ -73,7 +73,7 @@ class MediaStoreLibrary(
                     val id = c.getLong(idCol)
                     items += MediaItem(
                         id = id,
-                        uri = ContentUris.withAppendedId(table, id).toString(),
+                        uri = mediaUri(id, isVideo),
                         kind = kind,
                         takenAtMs = takenAtOf(
                             dateTakenMs = if (c.isNull(takenCol)) null else c.getLong(takenCol),
@@ -99,4 +99,10 @@ class MediaStoreLibrary(
     private companion object {
         const val CANCEL_CHECK_EVERY = 200
     }
+}
+
+/** 手機素材的位址：照片或影片表裡第 [id] 筆（`content://media/external/…/{id}`）。 */
+fun mediaUri(id: Long, video: Boolean): String {
+    val table = if (video) MediaStore.Video.Media.EXTERNAL_CONTENT_URI else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+    return ContentUris.withAppendedId(table, id).toString()
 }
