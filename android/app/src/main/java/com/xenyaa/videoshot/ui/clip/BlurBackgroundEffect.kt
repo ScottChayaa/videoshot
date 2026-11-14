@@ -12,8 +12,8 @@ import androidx.media3.effect.BaseGlShaderProgram
 import androidx.media3.effect.GlEffect
 import androidx.media3.effect.GlShaderProgram
 
-/** 背景在幾分之一的解析度上模糊。 */
-private const val BLUR_DOWNSCALE = 8
+/** 背景在幾分之一的解析度上模糊（2026-11-14 scott 嫌 1/8 不夠糊，改 1/16）。 */
+private const val BLUR_DOWNSCALE = 16
 
 /**
  * 模糊背景＋正中央的清晰原圖，一個效果畫完（剪映那種「放大蓋滿再模糊」）。

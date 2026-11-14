@@ -35,8 +35,15 @@ fun fitScale(srcWidth: Int, srcHeight: Int, rotation: Int, outWidth: Int, outHei
     return FitScale(w * scale / outWidth, h * scale / outHeight)
 }
 
-/** 任一邊比輸出框小超過 2% 才加模糊背景；差不到 2% 不加，省一層運算。 */
-fun needsBlurBackground(scale: FitScale): Boolean = scale.x < 0.98f || scale.y < 0.98f
+/**
+ * 素材方向跟輸出框不同才加模糊背景：直式輸出放橫式或正方形素材、橫式輸出放直式或正方形素材（scott 2026-11-14）。
+ * 方向相同但比例不同的（例如 3:4 直照放進 9:16）放大蓋滿、裁掉邊。尺寸不明時 [fitScale] 回 (1, 1)，當成方向相同。
+ */
+fun needsBlurBackground(scale: FitScale, outWidth: Int, outHeight: Int): Boolean {
+    val w = scale.x * outWidth
+    val h = scale.y * outHeight
+    return if (outHeight > outWidth) w >= h else h >= w
+}
 
 /**
  * 素材完整放進 [outWidth]×[outHeight] 時的像素大小（寬, 高），四捨五入、至少 1（極端長寬比會四捨五入成 0，Presentation 不接受）。純計算，不依賴 Media3。
@@ -62,8 +69,8 @@ fun usableSegments(draft: ClipDraft): List<Pair<Segment, ClipSource>> {
  * 把目前的時間軸轉成 Media3 的 [Composition]：一條音視訊序列，每段一個 [EditedMediaItem]。
  *
  * - 影片段用 clipping 取 `startMs..endMs`；照片段用 `setImageDurationMs` 撐出長度、30 fps。
- * - 每段的視訊效果：素材放進輸出框有留白時（[needsBlurBackground]）用 [BlurBackgroundEffect]
- *   畫模糊背景＋置中的清晰原圖（[sharpSize]）；否則等比縮放填滿。
+ * - 每段的視訊效果：素材方向跟輸出框不同時（[needsBlurBackground]）用 [BlurBackgroundEffect]
+ *   畫模糊背景＋置中的清晰原圖（[sharpSize]）；否則等比放大蓋滿、裁掉超出的邊。
  * - 序列用 [EditedMediaItemSequence.withAudioAndVideoFrom]：沒有聲音的照片段會自動補靜音，
  *   跟有聲音的影片段接得上。
  *
@@ -98,14 +105,14 @@ private fun editedItem(source: ClipSource, seg: Segment, outWidth: Int, outHeigh
         ).setDurationUs(seg.lengthMs * 1000).setFrameRate(PHOTO_FRAME_RATE)
     }
     val scale = fitScale(source.width, source.height, source.rotation, outWidth, outHeight)
-    val fitEffects = if (needsBlurBackground(scale)) {
+    val fitEffects = if (needsBlurBackground(scale, outWidth, outHeight)) {
         val (sharpW, sharpH) = sharpSize(scale, outWidth, outHeight)
         listOf(
             Presentation.createForWidthAndHeight(sharpW, sharpH, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP),
             BlurBackgroundEffect(outWidth, outHeight),
         )
     } else {
-        listOf(Presentation.createForWidthAndHeight(outWidth, outHeight, Presentation.LAYOUT_SCALE_TO_FIT))
+        listOf(Presentation.createForWidthAndHeight(outWidth, outHeight, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP))
     }
     // 只有影片段降幀；照片段本來就是 30 fps
     val dropFrames = if (maxFrameRate != null && source.kind == SourceKind.VIDEO) {

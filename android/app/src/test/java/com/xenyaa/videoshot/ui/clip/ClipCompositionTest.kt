@@ -18,13 +18,13 @@ class ClipCompositionTest {
         val s = fitScale(4000, 3000, 0, 1080, 1920)
         assertEquals(1f, s.x, 0.001f)
         assertEquals(0.421875f, s.y, 0.001f) // 1080×810 / 1080×1920
-        assertTrue(needsBlurBackground(s))
+        assertTrue(needsBlurBackground(s, 1080, 1920))
     }
 
     @Test fun 直拍影片放進直式剛好填滿() {
         val s = fitScale(1080, 1920, 0, 1080, 1920)
         assertEquals(FitScale(1f, 1f), s)
-        assertFalse(needsBlurBackground(s))
+        assertFalse(needsBlurBackground(s, 1080, 1920))
     }
 
     @Test fun 旋轉90度的影片寬高對調() = assertEquals(FitScale(1f, 1f), fitScale(1920, 1080, 90, 1080, 1920))
@@ -37,10 +37,20 @@ class ClipCompositionTest {
         assertEquals(1f, s.y, 0.001f)
     }
 
-    @Test fun 差不到百分之二不加模糊() {
-        assertFalse(needsBlurBackground(FitScale(1f, 0.985f)))
-        assertTrue(needsBlurBackground(FitScale(1f, 0.97f)))
+    @Test fun 直拍放進橫式加模糊() = assertTrue(needsBlurBackground(fitScale(1080, 1920, 0, 1920, 1080), 1920, 1080))
+
+    @Test fun 比例不同的直照放進直式不加模糊() =
+        assertFalse(needsBlurBackground(fitScale(3000, 4000, 0, 1080, 1920), 1080, 1920))
+
+    @Test fun 比例不同的橫照放進橫式不加模糊() =
+        assertFalse(needsBlurBackground(fitScale(4000, 3000, 0, 1920, 1080), 1920, 1080))
+
+    @Test fun 正方形素材兩種方向都加模糊() {
+        assertTrue(needsBlurBackground(fitScale(1000, 1000, 0, 1080, 1920), 1080, 1920))
+        assertTrue(needsBlurBackground(fitScale(1000, 1000, 0, 1920, 1080), 1920, 1080))
     }
+
+    @Test fun 尺寸不明不加模糊() = assertFalse(needsBlurBackground(fitScale(0, 0, 0, 1080, 1920), 1080, 1920))
 
     @Test fun 橫拍照片縮到直式的完整大小() =
         assertEquals(1080 to 810, fitSize(fitScale(4000, 3000, 0, 1080, 1920), 1080, 1920))
