@@ -13,6 +13,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import com.xenyaa.videoshot.core.time.formatClock
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.platform.LocalUriHandler
+import com.xenyaa.videoshot.ui.common.openSafely
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.Alignment
@@ -52,7 +56,12 @@ import com.xenyaa.videoshot.ui.theme.AppTheme
  * 而精靈是一條有終點的流程，不該讓使用者中途跳去別的分頁。
  */
 @Composable
-fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
+fun WizardScreen(
+    vm: WizardViewModel,
+    haptics: Haptics,
+    onExit: () -> Unit,
+    loadCover: suspend (String) -> ImageBitmap? = { null },
+) {
     val step by vm.step.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
     /**
@@ -65,6 +74,8 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
     }
 
     var takenTapped by remember { mutableStateOf<Int?>(null) }
+    val scope = rememberCoroutineScope()
+    val uriHandler = LocalUriHandler.current
 
     // 進場就接上中斷的流程（不再詢問，2026-10-18）；離開時記下，草稿比進場晚讀到才知道要不要接
     DisposableEffect(vm) {
@@ -120,6 +131,10 @@ fun WizardScreen(vm: WizardViewModel, haptics: Haptics, onExit: () -> Unit) {
                         recent = recent,
                         onSubmit = { vm.submit(it) },
                         onOpenRecent = { vm.openRecent(it) },
+                        onOpenChannel = { videoId ->
+                            scope.launch { vm.channelUrl(videoId)?.let { uriHandler.openSafely(it) } }
+                        },
+                        loadCover = loadCover,
                     )
                 }
                 WizardStep.PICK -> {

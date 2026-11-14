@@ -67,6 +67,7 @@ fun parseWatchPage(videoId: String, html: String): WatchPage {
         privacy = if (microformat?.bool("isUnlisted") == true) "unlisted" else "public",
         playableInEmbed = playability?.bool("playableInEmbed") ?: false,
         durationMs = approxDurationMs(root.obj("streamingData")),
+        channelId = details?.str("channelId").orEmpty(),
     )
 
     val spec = root.obj("storyboards")?.obj("playerStoryboardSpecRenderer")?.str("spec")

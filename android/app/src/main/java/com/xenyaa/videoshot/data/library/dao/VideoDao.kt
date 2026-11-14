@@ -30,7 +30,7 @@ interface VideoDao {
 
     @Query(
         """
-        SELECT v.id AS video_id, v.title AS title, v.added_at AS added_at,
+        SELECT v.id AS video_id, v.title AS title, v.channel_title AS channel_title, v.added_at AS added_at,
                (SELECT COUNT(*) FROM shot s WHERE s.video_id = v.id) AS shot_count
         FROM video v ORDER BY v.added_at DESC LIMIT :limit
         """
@@ -49,6 +49,7 @@ interface VideoDao {
 data class RecentVideoProjection(
     @ColumnInfo(name = "video_id") val videoId: String,
     @ColumnInfo(name = "title") val title: String,
+    @ColumnInfo(name = "channel_title") val channelTitle: String,
     @ColumnInfo(name = "added_at") val addedAt: Long,
     @ColumnInfo(name = "shot_count") val shotCount: Int,
 )

@@ -113,6 +113,25 @@ class WizardCaptureTest {
     }
 
     @Test
+    fun 歷史紀錄點頻道查出頻道網址() = runTest(dispatcher) {
+        val vm = WizardViewModel(
+            data = object : WizardData by FakeData() {
+                override suspend fun watchPage(videoId: String) = WatchPage(
+                    FetchResult.OK,
+                    VideoMeta(videoId, "片", "ch", "2026-10-31", 40, "public", true, channelId = "UCabc"),
+                    storyboardSpec = null,
+                )
+            },
+            frameSourceFactory = { FakeFrameSource.of(frameCount = 4) },
+            strength = flowOf(FilterStrength.MEDIUM),
+            manualImages = { ManualImageStore(tempDir()) },
+            captureFor = { FakeCapture() },
+            compute = dispatcher,
+        )
+        assertEquals("https://www.youtube.com/channel/UCabc", vm.channelUrl("v1"))
+    }
+
+    @Test
     fun 截圖成功會先暫停再續播() = runTest(dispatcher) {
         // 規格第五節的流程圖：暫停 → 截圖＋讀秒 → 續播。
         // 不先暫停的話，圖與秒數會差上幾十毫秒

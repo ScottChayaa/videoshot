@@ -395,6 +395,23 @@ class WizardViewModel(
     }
 
     /**
+     * 歷史紀錄點頻道：查這支影片的頻道網址（圖庫不存頻道 ID，點了才查）。
+     * 查不到回 null，原因顯示在第一步的提示框。
+     */
+    suspend fun channelUrl(videoId: String): String? {
+        val page = when (val fetched = fetchPage(videoId)) {
+            is PageFetch.Failed -> { _status.value = Step1Status.Error(fetched.message); return null }
+            is PageFetch.Ok -> fetched.page
+        }
+        val channelId = page.meta?.channelId.orEmpty()
+        if (channelId.isEmpty()) {
+            _status.value = Step1Status.Error("找不到這支影片的頻道")
+            return null
+        }
+        return "https://www.youtube.com/channel/$channelId"
+    }
+
+    /**
      * 剪輯「已完成」的任務要開 [videoId] 之前先問：精靈手上有沒有**別支**影片的草稿（規格第十九節「完成後」）。
      * 還沒接上的（[pendingDraft]、[resuming]）與記憶體裡已經開著、離開過第一步的都算；同一支不算。
      */

@@ -50,6 +50,8 @@ data class VideoMeta(
      * [durationSec] 是四捨五入過的整數，拿來判斷 storyboard 哪幾格超過片長不夠準
      */
     val durationMs: Long = 0,
+    /** 頻道 ID（`UC…`），讀不到是空字串。圖庫不存，第一步歷史紀錄點頻道時才查（2026-11-14） */
+    val channelId: String = "",
 )
 
 /**

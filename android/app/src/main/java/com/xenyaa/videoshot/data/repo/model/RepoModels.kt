@@ -94,6 +94,7 @@ data class RecentVideo(
     val title: String,
     val addedAt: Long,
     val shotCount: Int,
+    val channelTitle: String = "",
 )
 
 /** 查詢結果「N 張」最多數到這裡；超過顯示「1000+ 張」（規格第六節「查詢」）。count 查詢回傳最多 `RESULT_COUNT_CAP + 1`。 */

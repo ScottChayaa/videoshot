@@ -415,6 +415,15 @@ object VsIcons {
         )
     }
 
+    /** Lucide `external-link`：開到 app 外面的連結（取圖歷史紀錄的頻道）。 */
+    val ExternalLink: ImageVector by lazy {
+        strokeIcon(
+            "external-link",
+            "M15 3h6v6", "M10 14 21 3",
+            "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6",
+        )
+    }
+
     /** Lucide `clapperboard`（場記板）：剪輯分頁（底部導覽第三格）。`Film` 已代表「來源影片」，不共用。 */
     val Clapperboard: ImageVector by lazy {
         strokeIcon(

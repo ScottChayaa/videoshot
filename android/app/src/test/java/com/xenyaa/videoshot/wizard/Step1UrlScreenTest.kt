@@ -25,11 +25,12 @@ class Step1UrlScreenTest {
     @get:Rule val compose = createComposeRule()
 
     private val recents = listOf(
-        RecentVideo("v1", "宜蘭兩天一夜", 1_757_000_000L, 12),
+        RecentVideo("v1", "宜蘭兩天一夜", 1_757_000_000L, 12, channelTitle = "旅行頻道"),
         RecentVideo("v2", "埃及市場", 1_756_000_000L, 5),
     )
 
     private var opened: String? = null
+    private var channelOf: String? = null
 
     private fun show(
         status: Step1Status = Step1Status.Idle,
@@ -41,6 +42,7 @@ class Step1UrlScreenTest {
                 recent = recent,
                 onSubmit = { opened = it },
                 onOpenRecent = { opened = it },
+                onOpenChannel = { channelOf = it },
             )
         }
     }
@@ -53,6 +55,14 @@ class Step1UrlScreenTest {
         compose.onNodeWithText("宜蘭兩天一夜").performClick()
         // 點一列直接進第二步，不是把網址填回輸入框（手冊 §四第一步）
         assertEquals("v1", opened)
+    }
+
+    @Test
+    fun 點頻道開頻道而不是進第二步() {
+        show()
+        compose.onNodeWithText("旅行頻道").performClick()
+        assertEquals("v1", channelOf)
+        assertEquals(null, opened)
     }
 
     @Test

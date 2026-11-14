@@ -53,6 +53,7 @@ class WatchPageParserTest {
         val meta = r.meta!!
         assertEquals("aqz-KE-bpKQ", meta.videoId)
         assertEquals("Blender", meta.channelTitle)
+        assertEquals("UCSMOQeBJ2RAnuFungnQOxLg", meta.channelId)
         assertEquals(635, meta.durationSec)
         assertEquals("public", meta.privacy)
         assertTrue(meta.title.contains("Big Buck Bunny"))

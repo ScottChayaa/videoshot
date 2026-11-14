@@ -1311,6 +1311,7 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
                         vm = wizardVm,
                         haptics = container.haptics,
                         onExit = { nav = nav.select(nav.returnTo) },
+                        loadCover = container.thumbLoader::loadCover,
                     )
                 }
             }

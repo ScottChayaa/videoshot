@@ -41,6 +41,9 @@ class ThumbLoader(
     /** 進行中的請求。捲動時同一格會被問很多次，沒有這張表就會重複解碼同一張圖。 */
     private val inFlight = mutableMapOf<Long, CompletableDeferred<ImageBitmap?>>()
 
+    /** 影片封面（取圖第一步的歷史紀錄用）；拿不到回 null。不進 [cache] —— 那張表以 shot 為單位。 */
+    suspend fun loadCover(videoId: String): ImageBitmap? = cover(videoId)
+
     /** 拿不到圖時回 null —— 呼叫端畫中性的預留圖，不是破圖（手冊 §一）。 */
     suspend fun load(shot: ShotRow): ImageBitmap? {
         var mine = false

@@ -225,7 +225,7 @@ class RoomLibraryRepo(
     }
 
     override suspend fun recentVideos(limit: Int): List<RecentVideo> = withContext(io) {
-        db.videoDao().recent(limit).map { RecentVideo(it.videoId, it.title, it.addedAt, it.shotCount) }
+        db.videoDao().recent(limit).map { RecentVideo(it.videoId, it.title, it.addedAt, it.shotCount, it.channelTitle) }
     }
 
     override suspend fun syncVideoTitle(videoId: String, title: String, channelTitle: String): Boolean =
