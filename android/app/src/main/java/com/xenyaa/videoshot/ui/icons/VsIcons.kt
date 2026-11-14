@@ -473,4 +473,38 @@ object VsIcons {
             "M6 12v.01",
         )
     }
+
+    /**
+     * 翻轉成橫向全螢幕（原片播放直拿時影片下方的【全螢幕】，scott 2026-11-14 照 TikTok 的圖示定的）：
+     * 直立手機、右下半透明露出一截橫倒的手機、右上往下彎的箭頭帶實心三角。線寬 1.5，比其他圖示細。
+     */
+    val ScreenRotate: ImageVector by lazy {
+        fun ImageVector.Builder.line(d: String, alpha: Float = 1f) = addPath(
+            pathData = PathParser().parsePathString(d).toNodes(),
+            fill = null,
+            stroke = SolidColor(Color.Black),
+            strokeAlpha = alpha,
+            strokeLineWidth = 1.5f,
+            strokeLineCap = StrokeCap.Round,
+            strokeLineJoin = StrokeJoin.Round,
+        )
+        ImageVector.Builder(
+            name = "screen-rotate",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f,
+        ).apply {
+            line("M5.5 2.5h5.5a2.5 2.5 0 0 1 2.5 2.5v14a2.5 2.5 0 0 1-2.5 2.5h-5.5a2.5 2.5 0 0 1-2.5-2.5v-14a2.5 2.5 0 0 1 2.5-2.5z")
+            line("M15 11.5h4.5a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H15", alpha = 0.5f)
+            line("M15.5 3.5h2a3 3 0 0 1 3 3v0.5")
+            addPath(
+                pathData = PathParser().parsePathString("M18.3 7h4.4l-2.2 2.8z").toNodes(),
+                fill = SolidColor(Color.Black),
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 1f,
+                strokeLineJoin = StrokeJoin.Round,
+            )
+        }.build()
+    }
 }

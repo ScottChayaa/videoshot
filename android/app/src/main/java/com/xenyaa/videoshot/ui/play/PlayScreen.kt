@@ -181,7 +181,7 @@ fun PlayScreen(
     }
 }
 
-/** 橫的影片直拿時，影片正下方的【全螢幕】：按下轉橫向全螢幕。白字、半透明白底的膠囊。 */
+/** 橫的影片直拿時，影片正下方的【全螢幕】：按下轉橫向全螢幕。白字、半透明白底的膠囊，圖示是 [VsIcons.ScreenRotate]。 */
 @Composable
 private fun RotateButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(
@@ -193,7 +193,7 @@ private fun RotateButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
             .height(ROTATE_BUTTON_HEIGHT),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(VsIcons.SmartphoneLandscape, contentDescription = null, tint = OnDarkColors.primary, modifier = Modifier.size(20.dp))
+        Icon(VsIcons.ScreenRotate, contentDescription = null, tint = OnDarkColors.primary, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(AppTheme.spacing.s2))
         Text("全螢幕", color = OnDarkColors.primary, style = MaterialTheme.typography.labelLarge)
     }
