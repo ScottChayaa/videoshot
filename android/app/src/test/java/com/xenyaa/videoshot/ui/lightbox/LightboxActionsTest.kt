@@ -4,7 +4,12 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.thumbs.ThumbKey
 import com.xenyaa.videoshot.thumbs.ThumbSource
@@ -61,7 +66,7 @@ class LightboxActionsTest {
                         onPlay = { clicked += "play" },
                         onAddToFolder = { clicked += "folder" },
                         onShare = { clicked += "share" },
-                        onEdit = { clicked += "edit" },
+                        onEdit = { _, field -> clicked += "edit:$field" },
                         onDelete = { clicked += "delete" },
                     ),
                 )
@@ -79,30 +84,34 @@ class LightboxActionsTest {
     }
 
     @Test
-    fun 兩顆圖示鈕在外層() {
+    fun 四顆圖示鈕在外層() {
         show()
+        compose.onNodeWithContentDescription("標籤").performClick()
+        compose.onNodeWithContentDescription("描述").performClick()
         compose.onNodeWithContentDescription("加入相簿").performClick()
         compose.onNodeWithContentDescription("分享").performClick()
-        assertEquals(listOf("folder", "share"), clicked)
+        assertEquals(listOf("edit:TAGS", "edit:DESCRIPTION", "folder", "share"), clicked)
     }
 
-    /** 刪除不該跟瀏覽動作並排 —— 它在 `⋯` 裡。 */
+    /** 刪除不該跟瀏覽動作並排 —— 它在 `⋯` 裡；【詳細資料】已經拿掉（2026-11-14）。 */
     @Test
-    fun 刪除與編輯收在更多選單裡() {
+    fun 刪除收在更多選單裡() {
         show()
         compose.onNodeWithText("刪除").assertDoesNotExist()
-        compose.onNodeWithText("詳細資料").assertDoesNotExist()
         compose.onNodeWithContentDescription("更多").performClick()
-        compose.onNodeWithText("詳細資料").assertIsDisplayed()
         compose.onNodeWithText("刪除").assertIsDisplayed()
+        compose.onNodeWithText("詳細資料").assertDoesNotExist()
     }
 
+    /** 長按日期改時間、長按地點那一格改地點；短按不做事。 */
     @Test
-    fun 選單裡的編輯會回報() {
+    fun 長按日期與地點會回報() {
         show()
-        compose.onNodeWithContentDescription("更多").performClick()
-        compose.onNodeWithText("詳細資料").performClick()
-        assertEquals(listOf("edit"), clicked)
+        compose.onNodeWithText("2026年3月1日").performClick()
+        assertEquals(emptyList<String>(), clicked)
+        compose.onNodeWithText("2026年3月1日").performTouchInput { longClick() }
+        compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.OnLongClick) and !hasText("2026年3月1日")).performTouchInput { longClick() }
+        assertEquals(listOf("edit:DATE", "edit:PLACE"), clicked)
     }
 
     /** 刪除要先確認,而且說得出 YouTube 原片不受影響。 */

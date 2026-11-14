@@ -50,7 +50,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.xenyaa.videoshot.core.details.ShotDetails
+import com.xenyaa.videoshot.core.details.Common
+import com.xenyaa.videoshot.core.details.DetailsPatch
 import com.xenyaa.videoshot.core.home.monthOf
 import com.xenyaa.videoshot.core.player.isLandscapeVideo
 import com.xenyaa.videoshot.data.repo.model.FolderNode
@@ -101,7 +102,6 @@ import com.xenyaa.videoshot.ui.common.TopBarNav
 import com.xenyaa.videoshot.ui.common.VsTopBar
 import androidx.compose.foundation.layout.Column
 import java.time.ZoneId
-import com.xenyaa.videoshot.ui.edit.ShotEditSheet
 import com.xenyaa.videoshot.ui.folders.AddToFolderSheet
 import com.xenyaa.videoshot.ui.folders.FolderScreen
 import com.xenyaa.videoshot.ui.folders.FolderState
@@ -123,6 +123,11 @@ import com.xenyaa.videoshot.player.LocalPlayerFullscreen
 import com.xenyaa.videoshot.ui.play.PlayScreen
 import com.xenyaa.videoshot.ui.play.PlayViewModel
 import com.xenyaa.videoshot.ui.theme.ClipTheme
+import com.xenyaa.videoshot.wizard.DatePickerSheet
+import com.xenyaa.videoshot.wizard.DescriptionPickerSheet
+import com.xenyaa.videoshot.wizard.DetailField
+import com.xenyaa.videoshot.wizard.PlacePickerSheet
+import com.xenyaa.videoshot.wizard.TagPickerSheet
 import com.xenyaa.videoshot.wizard.WizardScreen
 import com.xenyaa.videoshot.wizard.WizardViewModel
 import kotlinx.coroutines.CancellationException
@@ -431,9 +436,9 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
     val context = LocalContext.current
     var scrollToMonth by rememberSaveable { mutableStateOf<String?>(null) }
     val clipMuted by container.settings.clipMuted.collectAsStateWithLifecycle(initialValue = false)
-    // 【編輯圖資】掛在 Lightbox 外層，不是 LightboxActions 裡直接開 —— sheet 需要自己的
-    // produceState（地點／標籤建議、既有圖資），Lightbox 本身不該知道這些
-    var editing by remember { mutableStateOf<ShotRow?>(null) }
+    // Lightbox 改一個欄位的抽屜掛在外層，不是 LightboxActions 裡直接開 —— 抽屜需要自己的
+    // produceState（地點／標籤建議、既有標籤），Lightbox 本身不該知道這些
+    var editing by remember { mutableStateOf<Pair<ShotRow, DetailField>?>(null) }
     // 剪輯頁【新增剪輯】的「選影片方向」抽屜：true＝開著
     var choosingOrientation by remember { mutableStateOf(false) }
     // 點輸出通知：切到剪輯分頁、回到它的根畫面（導出中畫面、成品播放等都收掉），讓使用者從任務清單找結果
@@ -573,7 +578,7 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
                 tagsOf = { shot -> container.libraryRepo.tagsOfShot(shot.id) },
                 tagsRefreshKey = shotEdits,
                 clip = lightboxClip,
-                // 【加入相簿】與【詳細資料】抽屜是 AppRoot 畫的，蓋在 Lightbox 上時片段要停
+                // 【加入相簿】與改圖資的抽屜是 AppRoot 畫的，蓋在 Lightbox 上時片段要停
                 covered = addingTo != null || editing != null,
                 muted = clipMuted,
                 onMutedChange = { value -> scope.launch { container.settings.setClipMuted(value) } },
@@ -599,7 +604,7 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
                         }
                         context.startActivity(Intent.createChooser(send, null))
                     },
-                    onEdit = { editing = it },
+                    onEdit = { shot, field -> editing = shot to field },
                     onDelete = { shot ->
                         scope.launch {
                             // repo／檔案系統的例外不接住的話會直接把 process 帶走（見階段 7 全盤覆查
@@ -1339,11 +1344,11 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
         )
     }
 
-    // Lightbox 與首頁的【編輯圖資】共用同一顆 sheet（Task 9），掛在 nav 的 when 外面 ——
-    // 開著編輯時 Lightbox／首頁都可能是目前畫面，不屬於任何一支分支
-    editing?.let { shot ->
+    // 掛在 nav 的 when 外面：存檔時 Lightbox 可能因清單變動換張，抽屜不屬於任何一支分支
+    editing?.let { (shot, field) ->
         EditingSheet(
             shot = shot,
+            field = field,
             container = container,
             homeVm = homeVm,
             folderVm = folderVm,
@@ -1638,14 +1643,15 @@ private fun FirstRunGate(container: AppRootDeps) {
 }
 
 /**
- * 就地編輯一張圖的圖資（Lightbox 的【編輯圖資】、之後首頁也會共用）。
- * 從 [AppRoot] 抽出來是因為它自成一段完整流程 —— 撈既有圖資與建議、存檔、
- * 把存檔結果同步回首頁快取、跳 snackbar —— 掛在 [AppRoot] 主體裡會把導覽分派
- * 和這段編輯流程攪在一起，兩件事其實互不相干。
+ * 就地改一張圖的一個欄位（Lightbox 長按日期／地點、底部【標籤】【描述】）。抽屜跟取圖第三步同一套
+ * （`Step3Pickers.kt`），只是標題不寫「套用到 N 張」。
+ * 從 [AppRoot] 抽出來是因為它自成一段完整流程 —— 撈既有標籤與建議、存檔、
+ * 把存檔結果同步回首頁快取、跳 snackbar。
  */
 @Composable
 private fun EditingSheet(
     shot: ShotRow,
+    field: DetailField,
     container: AppRootDeps,
     homeVm: HomeViewModel,
     folderVm: FolderViewModel?,
@@ -1654,18 +1660,11 @@ private fun EditingSheet(
     onDismiss: () -> Unit,
     onSaved: () -> Unit,
 ) {
-    // 這三個都是輔助性質的讀取（既有圖資、建議清單）——查不到的話 sheet 照樣能用，
+    // 這三個都是輔助性質的讀取（既有標籤、建議清單）——查不到的話抽屜照樣能用，
     // 只是少了建議可以點。接住例外，不然任何一個 repo 呼叫失敗都會把整個畫面炸掉
-    // （見階段 7 全盤覆查第 2 點）
-    val details by produceState(ShotDetails(shot.eventDate), shot) {
-        value = runCatching {
-            ShotDetails(
-                eventDate = shot.eventDate,
-                place = shot.place,
-                description = shot.description,
-                tags = container.libraryRepo.tagsOfShot(shot.id),
-            )
-        }.getOrDefault(ShotDetails(eventDate = shot.eventDate, place = shot.place, description = shot.description))
+    // （見階段 7 全盤覆查第 2 點）。標籤抽屜等讀到既有標籤才開（抽屜只在第一次組合時取起始值）
+    val tags by produceState<List<String>?>(null, shot) {
+        value = runCatching { container.libraryRepo.tagsOfShot(shot.id) }.getOrDefault(emptyList())
     }
     val places by produceState(emptyList<String>()) {
         value = runCatching { container.libraryRepo.distinctPlaces() }.getOrDefault(emptyList())
@@ -1674,35 +1673,35 @@ private fun EditingSheet(
     val allTags by produceState(emptyList<String>()) {
         value = runCatching { container.libraryRepo.tagSuggestions() }.getOrDefault(emptyList())
     }
-    ShotEditSheet(
-        details = details,
-        placeSuggestions = places,
-        tagSuggestions = allTags,
-        onDismiss = onDismiss,
-        onSave = { patch ->
-            onDismiss()
-            scope.launch {
-                container.libraryRepo.patchShots(
-                    listOf(shot.id),
-                    ShotPatch(
-                        eventDate = patch.eventDate,
-                        place = patch.place,
-                        description = patch.description,
-                        tagIds = null,
-                        tagNames = patch.tags,
-                    ),
-                )
-                // 存檔後把這張圖寫回首頁快取 —— 不然使用者回到首頁還會看到編輯前的舊圖資。
-                // 資料夾頁的預覽拼貼跟本層列表也可能用到這張圖的圖資，一併重查
-                container.libraryRepo.shotById(shot.id)?.let { updated ->
-                    homeVm.onShotChanged(updated)
-                }
-                folderVm?.reload()
-                onSaved()
-                snackbarHostState.showSnackbar("已儲存")
+    val save: (DetailsPatch) -> Unit = { patch ->
+        onDismiss()
+        scope.launch {
+            container.libraryRepo.patchShots(
+                listOf(shot.id),
+                ShotPatch(
+                    eventDate = patch.eventDate,
+                    place = patch.place,
+                    description = patch.description,
+                    tagIds = null,
+                    tagNames = patch.tags,
+                ),
+            )
+            // 存檔後把這張圖寫回首頁快取 —— 不然使用者回到首頁還會看到編輯前的舊圖資。
+            // 資料夾頁的預覽拼貼跟本層列表也可能用到這張圖的圖資，一併重查
+            container.libraryRepo.shotById(shot.id)?.let { updated ->
+                homeVm.onShotChanged(updated)
             }
-        },
-    )
+            folderVm?.reload()
+            onSaved()
+            snackbarHostState.showSnackbar("已儲存")
+        }
+    }
+    when (field) {
+        DetailField.DATE -> DatePickerSheet(shot.eventDate, save, onDismiss)
+        DetailField.PLACE -> PlacePickerSheet(Common.One(shot.place), null, places, save, onDismiss)
+        DetailField.TAGS -> tags?.let { TagPickerSheet(Common.One(it), null, allTags, save, onDismiss) }
+        DetailField.DESCRIPTION -> DescriptionPickerSheet(Common.One(shot.description), null, save, onDismiss)
+    }
 }
 
 /** 照片頁多選的已選 id：存成 LongArray，轉螢幕或被系統回收重建之後還在。 */

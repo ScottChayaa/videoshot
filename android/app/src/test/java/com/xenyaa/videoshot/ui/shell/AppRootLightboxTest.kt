@@ -6,6 +6,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -318,12 +320,11 @@ class AppRootLightboxTest {
         val fixture = show()
 
         compose.onNodeWithContentDescription("片段縮圖 00:10").performClick()
-        compose.onNodeWithContentDescription("更多").performClick()
-        compose.onNodeWithText("詳細資料").performClick()
+        compose.onNodeWithContentDescription("描述").performClick()
         // 改描述而不是地點：縮圖牆的 contentDescription 是「有描述用描述、沒有就用秒數」
         // （HomeScreen 的 labelOf），改這一欄才看得出首頁清單有沒有真的同步到新值。
-        compose.onNodeWithContentDescription("描述").performTextReplacement("在龍洞浮潛")
-        compose.onNodeWithText("儲存").performClick()
+        compose.onNode(hasSetTextAction() and hasContentDescription("描述")).performTextReplacement("在龍洞浮潛")
+        compose.onNodeWithText("確定").performClick()
         compose.waitForIdle()
 
         assertEquals(1, fixture.repo.patchCalls.size)

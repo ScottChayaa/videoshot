@@ -13,7 +13,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DatePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,6 +29,8 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.ImeAction
 import com.xenyaa.videoshot.core.details.Common
 import com.xenyaa.videoshot.core.details.DetailsPatch
+import com.xenyaa.videoshot.core.details.eventDateFromUtcMillis
+import com.xenyaa.videoshot.core.details.eventDateToUtcMillis
 import com.xenyaa.videoshot.core.details.normalizeTags
 import com.xenyaa.videoshot.ui.common.ButtonVariant
 import com.xenyaa.videoshot.ui.common.ChipKind
@@ -52,7 +56,7 @@ private const val MIXED = "〈多個值〉"
 @Composable
 internal fun PlacePickerSheet(
     field: Common<String?>,
-    count: Int,
+    count: Int?,
     suggestions: List<String>,
     onConfirm: (DetailsPatch) -> Unit,
     onDismiss: () -> Unit,
@@ -94,7 +98,7 @@ internal fun PlacePickerSheet(
 @Composable
 internal fun TagPickerSheet(
     field: Common<List<String>>,
-    count: Int,
+    count: Int?,
     suggestions: List<String>,
     onConfirm: (DetailsPatch) -> Unit,
     onDismiss: () -> Unit,
@@ -156,7 +160,7 @@ internal fun TagPickerSheet(
 @Composable
 internal fun DescriptionPickerSheet(
     field: Common<String?>,
-    count: Int,
+    count: Int?,
     onConfirm: (DetailsPatch) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -183,23 +187,51 @@ internal fun DescriptionPickerSheet(
 }
 
 /**
- * 三個選擇器共用的外框：標題「地點 · 套用到已勾選的 N 張」、可捲動的內容、底部【清除】【確定】。
+ * 日期選擇器（照片 Lightbox 長按日期）。日期一定有值，沒有【清除】；選回原本那天＝沒動過，只關抽屜。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun DatePickerSheet(
+    initial: String,
+    onConfirm: (DetailsPatch) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val state = rememberDatePickerState(initialSelectedDateMillis = eventDateToUtcMillis(initial))
+    PickerSheet(
+        title = "時間",
+        count = null,
+        canClear = false,
+        canConfirm = state.selectedDateMillis != null,
+        onClear = null,
+        onConfirm = {
+            val picked = state.selectedDateMillis?.let { eventDateFromUtcMillis(it) }
+            if (picked == null || picked == initial) onDismiss() else onConfirm(DetailsPatch(eventDate = picked))
+        },
+        onDismiss = onDismiss,
+    ) {
+        DatePicker(state, title = null, headline = null, showModeToggle = false)
+    }
+}
+
+/**
+ * 選擇器共用的外框：標題「地點 · 套用到已勾選的 N 張」（[count] 為 null＝只有一張，標題只寫欄位名）、
+ * 可捲動的內容、底部【清除】【確定】（[onClear] 為 null＝沒有【清除】）。
  * 鍵盤開著時整塊被頂上去（`imePadding`），按鈕不會被蓋住。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PickerSheet(
     title: String,
-    count: Int,
+    count: Int?,
     canClear: Boolean,
     canConfirm: Boolean,
-    onClear: () -> Unit,
+    onClear: (() -> Unit)?,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     VsBottomSheet(onDismissRequest = onDismiss) {
-        VsSheetHeader("$title · 套用到已勾選的 $count 張")
+        VsSheetHeader(if (count == null) title else "$title · 套用到已勾選的 $count 張")
         Column(
             Modifier
                 .fillMaxWidth()
@@ -214,7 +246,9 @@ private fun PickerSheet(
                 content = content,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
-                VsButton("清除", onClick = onClear, modifier = Modifier.weight(1f), variant = ButtonVariant.Secondary, enabled = canClear)
+                if (onClear != null) {
+                    VsButton("清除", onClick = onClear, modifier = Modifier.weight(1f), variant = ButtonVariant.Secondary, enabled = canClear)
+                }
                 VsButton("確定", onClick = onConfirm, modifier = Modifier.weight(2f), enabled = canConfirm)
             }
         }

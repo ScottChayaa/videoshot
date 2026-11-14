@@ -7,6 +7,12 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -286,10 +292,8 @@ class AppRootHomeFilterTest {
         row(1L, "2026-03-01", place = "宜蘭"),
     )
 
-    private fun openEditFromLightbox(thumb: String) {
+    private fun openLightbox(thumb: String) {
         compose.onNodeWithContentDescription(thumb, substring = true).performClick()
-        compose.onNodeWithContentDescription("更多").performClick()
-        compose.onNodeWithText("詳細資料").performClick()
     }
 
     /**
@@ -305,9 +309,10 @@ class AppRootHomeFilterTest {
         val searchCalls = repo.searchByFacetsCalls.size
         repo.searchGate = CompletableDeferred()
 
-        openEditFromLightbox("片段縮圖 00:02")
-        compose.onNodeWithContentDescription("描述").performTextReplacement("泡湯")
-        compose.onNodeWithText("儲存").performClick()
+        openLightbox("片段縮圖 00:02")
+        compose.onNodeWithContentDescription("描述").performClick()
+        compose.onNode(hasSetTextAction() and hasContentDescription("描述")).performTextReplacement("泡湯")
+        compose.onNodeWithText("確定").performClick()
         compose.waitForIdle()
 
         compose.onNodeWithText("原片播放").assertIsDisplayed()
@@ -328,9 +333,11 @@ class AppRootHomeFilterTest {
         applyDrawerPlace("礁溪")
         repo.searchGate = CompletableDeferred()
 
-        openEditFromLightbox("片段縮圖 00:02")
-        compose.onNodeWithContentDescription("地點").performTextReplacement("墾丁")
-        compose.onNodeWithText("儲存").performClick()
+        openLightbox("片段縮圖 00:02")
+        // 長按地點那一格（日期也能長按，排除它）
+        compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.OnLongClick) and !hasText("2026年3月2日")).performTouchInput { longClick() }
+        compose.onNodeWithContentDescription("地點名稱").performTextReplacement("墾丁")
+        compose.onNodeWithText("確定").performClick()
         compose.waitForIdle()
 
         compose.onNodeWithText("原片播放").assertIsDisplayed()

@@ -50,7 +50,7 @@ class LightboxAspectTest {
                 LightboxScreen(
                     items = listOf(shot), hasMore = false, startIndex = 0, loader = loaderOf(bitmap),
                     onClose = {}, onLoadMore = {}, onIndexChange = {},
-                    actions = LightboxActions({}, {}, {}, {}, {}),
+                    actions = LightboxActions(),
                 )
             }
         }

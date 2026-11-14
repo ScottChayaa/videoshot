@@ -83,6 +83,13 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.composed
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.onLongClick
+import com.xenyaa.videoshot.wizard.DetailField
 
 /**
  * 分享的內容(規格第六節動作表):`https://youtu.be/{videoId}?t={at_sec}`。
@@ -98,7 +105,8 @@ data class LightboxActions(
     val onPlay: (ShotRow) -> Unit = {},
     val onAddToFolder: (ShotRow) -> Unit = {},
     val onShare: (ShotRow) -> Unit = {},
-    val onEdit: (ShotRow) -> Unit = {},
+    /** 改一個欄位：長按日期／地點、底部【標籤】【描述】各開自己的抽屜（2026-11-14 拿掉【詳細資料】）。 */
+    val onEdit: (ShotRow, DetailField) -> Unit = { _, _ -> },
     val onDelete: (ShotRow) -> Unit = {},
 )
 
@@ -150,7 +158,7 @@ fun LightboxScreen(
     tagsRefreshKey: Int = 0,
     /** 自動播放片段；null＝不播。 */
     clip: LightboxClipDeps? = null,
-    /** 呼叫端的東西蓋在 Lightbox 上（【加入相簿】、【詳細資料】抽屜）：片段暫停。 */
+    /** 呼叫端的東西蓋在 Lightbox 上（【加入相簿】、改圖資的抽屜）：片段暫停。 */
     covered: Boolean = false,
     /** 【聲音】關掉了沒（設定值，呼叫端存）。 */
     muted: Boolean = false,
@@ -256,13 +264,18 @@ fun LightboxScreen(
                     style = MaterialTheme.typography.titleMedium,
                     color = OnDarkColors.primary,
                     maxLines = 1,
+                    modifier = Modifier.onLongPress("修改時間") { actions.onEdit(shot, DetailField.DATE) },
                 )
-                // 地點小膠囊佔掉日期與「⋯」之間剩下的寬度；名稱太長就在這一格裡左右滑，不換行
+                // 地點小膠囊佔掉日期與「⋯」之間剩下的寬度；名稱太長就在這一格裡左右滑，不換行。
+                // 長按整格都算（沒有地點時也長按得到）
                 Row(
                     Modifier
                         .weight(1f)
+                        .heightIn(min = AppTheme.spacing.tap)
+                        .onLongPress("修改地點") { actions.onEdit(shot, DetailField.PLACE) }
                         .padding(start = AppTheme.spacing.s2)
                         .horizontalScroll(remember(shot.id) { ScrollState(0) }),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     shot.place?.let { OnDarkChip(it, ChipKind.PLACE) }
                 }
@@ -271,11 +284,6 @@ fun LightboxScreen(
                         Icon(VsIcons.More, contentDescription = "更多", tint = OnDarkColors.primary)
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        DropdownMenuItem(
-                            text = { Text("詳細資料") },
-                            leadingIcon = { Icon(VsIcons.Edit, contentDescription = null) },
-                            onClick = { menuOpen = false; actions.onEdit(shot) },
-                        )
                         DropdownMenuItem(
                             // 破壞性動作：唯一用 danger 色的地方（手冊 §零第二條）
                             text = { Text("刪除", color = AppTheme.colors.danger) },
@@ -411,8 +419,8 @@ fun LightboxScreen(
                         .padding(start = AppTheme.spacing.s4, end = AppTheme.spacing.s4, top = AppTheme.spacing.s3),
                 )
 
-                // 動作分層（手冊 §三第四條）：主要動作只有一顆，其餘瀏覽動作是圖示鈕，
-                // 破壞性動作（刪除）與次要動作（編輯）收在上面的「⋯」，不跟這裡並排
+                // 動作分層（手冊 §三第四條）：主要動作只有一顆，其餘是圖示鈕，
+                // 破壞性動作（刪除）收在上面的「⋯」，不跟這裡並排
                 Row(
                     Modifier.fillMaxWidth().padding(AppTheme.spacing.s4),
                     horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
@@ -425,6 +433,9 @@ fun LightboxScreen(
                         variant = ButtonVariant.Primary,
                         icon = VsIcons.Play,
                     )
+                    // 圖示同取圖第三步底部的欄位按鈕
+                    DarkIconButton(VsIcons.Tag, "標籤") { actions.onEdit(shot, DetailField.TAGS) }
+                    DarkIconButton(VsIcons.Notes, "描述") { actions.onEdit(shot, DetailField.DESCRIPTION) }
                     DarkIconButton(VsIcons.FolderPlus, "加入相簿") { actions.onAddToFolder(shot) }
                     DarkIconButton(VsIcons.Share, "分享") { actions.onShare(shot) }
                 }
@@ -465,6 +476,20 @@ private fun DarkIconButton(icon: ImageVector, label: String, onClick: () -> Unit
     ) {
         Icon(icon, contentDescription = label, tint = OnDarkColors.primary, modifier = Modifier.size(20.dp))
     }
+}
+
+/**
+ * 長按才觸發（短按不做事、沒有漣漪）：長按時震一下，TalkBack 唸得出 [label] 這個長按動作。
+ */
+private fun Modifier.onLongPress(label: String, action: () -> Unit): Modifier = composed {
+    val haptic = LocalHapticFeedback.current
+    val current by rememberUpdatedState(action)
+    pointerInput(Unit) {
+        detectTapGestures(onLongPress = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            current()
+        })
+    }.semantics { onLongClick(label) { current(); true } }
 }
 
 /** 標籤列的最小高度：迷你小膠囊一列的高度，沒有標籤時也佔住這一列。 */
