@@ -91,7 +91,7 @@ class AppSettings(context: Context) : ShellSettings {
         store.edit { it[FOLDER_SORT] = raw }
     }
 
-    /** 縮圖牆手機寬度每列張數（帳號 › 縮圖；2／3／4，預設 4）。 */
+    /** 縮圖牆手機寬度每列張數（帳號 › 照片；2／3／4，預設 4）。 */
     val thumbColumns: Flow<Int> = store.data.map { normalizeThumbColumns(it[THUMB_COLUMNS]) }
 
     suspend fun setThumbColumns(value: Int) {

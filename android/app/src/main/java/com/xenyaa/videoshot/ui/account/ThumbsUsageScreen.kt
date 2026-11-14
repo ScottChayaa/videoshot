@@ -61,10 +61,10 @@ fun ThumbsUsageScreen(
     var confirmingDelete by remember { mutableStateOf(false) }
 
     Column(modifier.fillMaxSize()) {
-        AccountSettingHeader("縮圖", onBack)
+        AccountSettingHeader("照片", onBack)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
 
-            VsSettingGroup(title = "縮圖每列張數") {
+            VsSettingGroup(title = "照片每列張數") {
                 // 同取圖子畫面：外層 selectableGroup 讓 TalkBack 把這幾列當成同一組單選
                 Column(Modifier.selectableGroup()) {
                     THUMB_COLUMN_CHOICES.forEachIndexed { i, n ->

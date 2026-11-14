@@ -66,7 +66,7 @@ import com.xenyaa.videoshot.ui.thumb.ThumbTile
 /**
  * 照片頁（程式碼裡仍叫 home）：依 `event_date` 年月分組的縮圖牆，由新到舊。
  *
- * **每個月份同欄數**（手機欄數看帳號 › 縮圖的設定、§零「600dp 以上加欄」）——
+ * **每個月份同欄數**（手機欄數看帳號 › 照片的設定、§零「600dp 以上加欄」）——
  * 欄數隨當月張數變的話，捲動時每個月的格子大小都不一樣。
  * 月份標題（右邊帶該月地點）是吸頂的 `stickyHeader`；其他標籤在下一列、不吸頂。都佔滿一整列。
  */
@@ -93,7 +93,7 @@ fun HomeScreen(
     onRetryFilterOptions: () -> Unit = {},
     /** 清掉**已套用**的地點與標籤篩選（空狀態的按鈕用） */
     onClearFilter: () -> Unit = {},
-    /** 手機寬度每列張數（帳號 › 縮圖；平板寬度會再加欄） */
+    /** 手機寬度每列張數（帳號 › 照片；平板寬度會再加欄） */
     phoneColumns: Int = DEFAULT_THUMB_COLUMNS,
     /** 取圖完成後要捲到的月份（`YYYY-MM`）；null＝不用捲 */
     scrollToMonth: String? = null,

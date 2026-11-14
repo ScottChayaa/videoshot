@@ -83,7 +83,7 @@ fun FolderScreen(
     onConfirmDelete: () -> Unit,
     onDismissDelete: () -> Unit,
     modifier: Modifier = Modifier,
-    /** 縮圖手機寬度每列張數（帳號 › 縮圖；平板寬度會再加欄） */
+    /** 縮圖手機寬度每列張數（帳號 › 照片；平板寬度會再加欄） */
     phoneColumns: Int = DEFAULT_THUMB_COLUMNS,
 ) {
     var menuOpen by remember { mutableStateOf(false) }

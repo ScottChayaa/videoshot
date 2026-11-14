@@ -90,7 +90,7 @@ fun SearchScreen(
     onLoadMore: () -> Unit,
     onShowConditions: () -> Unit,
     onOpen: (Int) -> Unit,
-    /** 結果縮圖手機寬度每列張數（帳號 › 縮圖；平板寬度會再加欄） */
+    /** 結果縮圖手機寬度每列張數（帳號 › 照片；平板寬度會再加欄） */
     phoneColumns: Int = DEFAULT_THUMB_COLUMNS,
 ) {
     var picking by rememberSaveable { mutableStateOf(false) }

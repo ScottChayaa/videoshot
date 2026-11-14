@@ -22,11 +22,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
@@ -44,7 +47,6 @@ import com.xenyaa.videoshot.ui.common.PRIVACY_POLICY_URL
 import com.xenyaa.videoshot.ui.common.VsListRow
 import com.xenyaa.videoshot.ui.common.VsSettingDivider
 import com.xenyaa.videoshot.ui.common.VsSettingGroup
-import com.xenyaa.videoshot.ui.common.VsTopBar
 import com.xenyaa.videoshot.ui.common.avatarInitialOf
 import com.xenyaa.videoshot.ui.common.openSafely
 import com.xenyaa.videoshot.ui.icons.VsIcons
@@ -57,7 +59,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.layout.ContentScale
 
 /**
- * 帳號頁首畫面：淡色 hero ＋ 跨在下緣的三格統計卡 ＋ 七格選單（規格第九節「版面」）。
+ * 帳號頁首畫面：hero ＋ 跨在下緣的三格統計卡 ＋ 七格選單（規格第九節「版面」）。
+ * 沒有頂列（2026-11-14 拿掉）；hero 背景是 [cover]（照片分頁最上面那一張，模糊後往下淡出成頁面底色）。
  *
  * hero 依 `state.linkedAccount` 分支：未連結時顯示「尚未設定備份」，已連結時顯示帳號
  * 名稱與 Email（階段 12）。未連結時整塊內容列可點、已連結時 Email 那行可點，開的都是同一個 `AccountSection.BACKUP`。
@@ -68,11 +71,11 @@ fun AccountScreen(
     onOpenSection: (AccountSection) -> Unit,
     onOpenStat: () -> Unit,
     modifier: Modifier = Modifier,
+    cover: ImageBitmap? = null,
 ) {
     Column(modifier.fillMaxWidth()) {
-        VsTopBar("帳號")
         LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
-            item { AccountHero(state, onOpenSection) }
+            item { AccountHero(state, cover, onOpenSection) }
             item { StatCard(state.stats, onOpenStat) }
             item {
                 VsSettingGroup(divided = true) {
@@ -84,7 +87,7 @@ fun AccountScreen(
                     )
                     VsSettingDivider()
                     VsListRow(
-                        "縮圖",
+                        "照片",
                         subtitle = "已使用 ${formatBytes(state.storageUsageBytes)}",
                         icon = VsIcons.ImagePlus,
                         onClick = { onOpenSection(AccountSection.THUMBS) },
@@ -140,74 +143,87 @@ fun AccountScreen(
 
 /**
  * hero（原型 `.account-hero`／`.account`）：上內距 8、下 32，內容列內距 12/16、間距 12。
- * 底不染色，就是頁面底色；夕陽漸層只留在頭像圓圈上，字用一般深色字
- * （2026-10-25：原本整塊夕陽漸層太搶眼；2026-10-26：淡杏底跟中性色的膠囊不搭，拿掉）。
+ * 底是 [cover] 模糊後疊一層由淡到滿的頁面底色，字照樣用一般深色字；沒有照片時就是頁面底色
+ * （2026-10-25：原本整塊夕陽漸層太搶眼；2026-10-26：淡杏底跟中性色的膠囊不搭，拿掉；
+ * 2026-11-14：白底太單調，改用自己的照片當封面）。模糊只在 Android 12 以上有效，舊版靠底色遮罩壓淡。
  * 沒連結時整塊內容列可點（進備份子畫面）；已連結時維持只有 Email 那行可點。不做登出（app 沒有登入）。
  */
 @Composable
-private fun AccountHero(state: AccountState, onOpenSection: (AccountSection) -> Unit) {
+private fun AccountHero(state: AccountState, cover: ImageBitmap?, onOpenSection: (AccountSection) -> Unit) {
     val linked = state.linkedAccount
     val openBackup = { onOpenSection(AccountSection.BACKUP) }
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .padding(top = AppTheme.spacing.s2, bottom = AppTheme.spacing.s6),
-    ) {
-        val rowModifier = Modifier.fillMaxWidth().let {
-            if (linked == null) it.focusRing(RoundedCornerShape(AppTheme.radii.md)).clickable(role = Role.Button, onClick = openBackup) else it
-        }
-        Row(
-            rowModifier.padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s3),
-        ) {
+    Box(Modifier.fillMaxWidth()) {
+        if (cover != null) {
+            val bg = AppTheme.colors.bg
+            Image(
+                cover,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.matchParentSize().blur(20.dp, BlurredEdgeTreatment.Rectangle),
+            )
             Box(
                 Modifier
-                    .size(52.dp)
-                    .clip(CircleShape)
-                    .background(Brush.linearGradient(listOf(AppTheme.colors.hero1, AppTheme.colors.hero2))),
-                contentAlignment = Alignment.Center,
-            ) {
-                // 已連結就用 Google 頭像；還沒抓到（或帳號沒設頭像）時把帳號名稱的第一個字（大寫）
-                // 當頭像，沒連結才用通用人形圖示（手冊 §八）。名稱理論上不會是空字串，但 Drive 的
-                // 顯示名稱不是我們產生的資料，取不到字就退回「?」，不讓一個空字串把圓圈畫成空白。
-                if (linked != null && state.avatar != null) {
-                    Image(state.avatar, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                } else if (linked != null) {
-                    Text(
-                        avatarInitialOf(linked.displayName)?.toString() ?: "?",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = OnDarkColors.primary,
-                    )
-                } else {
-                    Icon(VsIcons.Person, contentDescription = null, tint = OnDarkColors.primary)
-                }
+                    .matchParentSize()
+                    .background(Brush.verticalGradient(0f to bg.copy(alpha = 0.35f), 0.55f to bg.copy(alpha = 0.7f), 1f to bg)),
+            )
+        }
+        Box(Modifier.fillMaxWidth().padding(top = AppTheme.spacing.s4, bottom = AppTheme.spacing.s6)) {
+            val rowModifier = Modifier.fillMaxWidth().let {
+                if (linked == null) it.focusRing(RoundedCornerShape(AppTheme.radii.md)).clickable(role = Role.Button, onClick = openBackup) else it
             }
-            Column(Modifier.weight(1f)) {
-                Text(
-                    linked?.displayName ?: "尚未設定備份",
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                    color = AppTheme.colors.text,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    linked?.email ?: "連結 Google 帳號以啟用備份",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = AppTheme.colors.textDim,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = if (linked != null) {
-                        Modifier
-                            .focusRing()
-                            .clickable(role = Role.Button, onClick = openBackup)
-                            // 觸控區至少 44dp；文字在這個高度裡垂直置中
-                            .defaultMinSize(minHeight = AppTheme.spacing.tap)
-                            .wrapContentHeight(Alignment.CenterVertically)
+            Row(
+                rowModifier.padding(horizontal = AppTheme.spacing.s4, vertical = AppTheme.spacing.s3),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s3),
+            ) {
+                Box(
+                    Modifier
+                        .size(52.dp)
+                        .clip(CircleShape)
+                        .background(Brush.linearGradient(listOf(AppTheme.colors.hero1, AppTheme.colors.hero2))),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    // 已連結就用 Google 頭像；還沒抓到（或帳號沒設頭像）時把帳號名稱的第一個字（大寫）
+                    // 當頭像，沒連結才用通用人形圖示（手冊 §八）。名稱理論上不會是空字串，但 Drive 的
+                    // 顯示名稱不是我們產生的資料，取不到字就退回「?」，不讓一個空字串把圓圈畫成空白。
+                    if (linked != null && state.avatar != null) {
+                        Image(state.avatar, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    } else if (linked != null) {
+                        Text(
+                            avatarInitialOf(linked.displayName)?.toString() ?: "?",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = OnDarkColors.primary,
+                        )
                     } else {
-                        Modifier.padding(top = AppTheme.spacing.s1)
-                    },
-                )
+                        Icon(VsIcons.Person, contentDescription = null, tint = OnDarkColors.primary)
+                    }
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        linked?.displayName ?: "尚未設定備份",
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                        color = AppTheme.colors.text,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        linked?.email ?: "連結 Google 帳號以啟用備份",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = AppTheme.colors.textDim,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = if (linked != null) {
+                            Modifier
+                                .focusRing()
+                                .clickable(role = Role.Button, onClick = openBackup)
+                                // 觸控區至少 44dp；文字在這個高度裡垂直置中
+                                .defaultMinSize(minHeight = AppTheme.spacing.tap)
+                                .wrapContentHeight(Alignment.CenterVertically)
+                        } else {
+                            Modifier.padding(top = AppTheme.spacing.s1)
+                        },
+                    )
+                }
             }
         }
     }

@@ -1266,11 +1266,19 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
                                 onRetry = accountVm::reload,
                             )
                         }
-                        else -> AccountScreen(
-                            state = accountState,
-                            onOpenSection = { nav = nav.push(Dest.AccountSetting(it)) },
-                            onOpenStat = { nav = nav.select(Tab.HOME) },
-                        )
+                        else -> {
+                            // hero 背景：照片分頁最上面那一張；張數變了（新增、刪除）就重抓
+                            val cover by produceState<ImageBitmap?>(null, accountState.stats.totalShots) {
+                                value = container.libraryRepo.homeFeed(after = null, limit = 1).items.firstOrNull()
+                                    ?.let { container.thumbLoader.load(it) }
+                            }
+                            AccountScreen(
+                                state = accountState,
+                                cover = cover,
+                                onOpenSection = { nav = nav.push(Dest.AccountSetting(it)) },
+                                onOpenStat = { nav = nav.select(Tab.HOME) },
+                            )
+                        }
                     }
                     Tab.CLIP -> ClipHomeScreen(
                         onNewClip = { choosingOrientation = true },

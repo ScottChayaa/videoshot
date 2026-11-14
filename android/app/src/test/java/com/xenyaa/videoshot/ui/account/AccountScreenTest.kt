@@ -71,7 +71,7 @@ class AccountScreenTest {
     @Test
     fun 選單六列與副標都在_沒有Gemini金鑰那一列() {
         setContent(state)
-        listOf("備份", "縮圖", "取圖", "AI 分析", "地點管理", "標籤管理").forEach {
+        listOf("備份", "照片", "取圖", "AI 分析", "地點管理", "標籤管理").forEach {
             compose.onNodeWithText(it).assertIsDisplayed()
         }
         // 階段 17：描述查詢下架，查詢 · Gemini 金鑰入口隱藏（畫面與 GeminiKeyScreen 仍保留）
@@ -99,13 +99,6 @@ class AccountScreenTest {
         )
         compose.onNodeWithText("ming@example.com").performClick()
         assert(opened == AccountSection.BACKUP)
-    }
-
-    /** 原型帳號頁 hero 上方有頂欄（原型寫「設定」，正式詞彙是「帳號」，見設計文件偏離清單）。 */
-    @Test
-    fun 有帳號頂欄() {
-        setContent(state)
-        compose.onNodeWithText("帳號").assertIsDisplayed()
     }
 
     @Test
