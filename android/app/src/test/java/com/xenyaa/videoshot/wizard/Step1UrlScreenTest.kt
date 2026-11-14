@@ -71,10 +71,9 @@ class Step1UrlScreenTest {
     }
 
     @Test
-    fun 錯誤訊息就地顯示並說明可接受的格式() {
-        show(status = Step1Status.Error("看不懂這個網址。可以貼 youtu.be/…、watch?v=…、shorts/… 或直接貼 11 碼影片 ID。"))
-        compose.onNodeWithText("看不懂這個網址", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("shorts", substring = true).assertIsDisplayed()
+    fun 錯誤訊息就地顯示() {
+        show(status = Step1Status.Error("找不到影片，請確認貼的是 YouTube 影片網址"))
+        compose.onNodeWithText("找不到影片", substring = true).assertIsDisplayed()
     }
 
     @Test

@@ -150,7 +150,7 @@ class WizardFromClipTest {
 
         assertEquals(false, entered.await())
         assertEquals(WizardStep.URL, vm.step.value)
-        assertEquals(Step1Status.Error("取圖需要網路。"), vm.status.value)
+        assertEquals(Step1Status.Error("沒有網路連線，請連上網路後再試"), vm.status.value)
         assertFalse(data.log.any { it.startsWith("save:") })
     }
 }

@@ -105,7 +105,7 @@ class WizardViewModel(
     fun back(): Boolean {
         val current = _step.value
         if (current == WizardStep.URL) return false
-        // 續做還沒接上（骨架屏或「取圖需要網路」）：停掉、回第一步，草稿留著下次進場再接
+        // 續做還沒接上（骨架屏或「沒有網路連線」）：停掉、回第一步，草稿留著下次進場再接
         resuming?.let { payload ->
             resumeJob?.cancel()
             resumeJob = null
@@ -345,7 +345,7 @@ class WizardViewModel(
     private val _recent = MutableStateFlow<List<RecentVideo>>(emptyList())
     val recent: StateFlow<List<RecentVideo>> = _recent.asStateFlow()
 
-    /** 重試續做（第二步的「取圖需要網路」下面那顆【重試】）。 */
+    /** 重試續做（第二步的「沒有網路連線」下面那顆【重試】）。 */
     fun retryResume() {
         if (resuming != null && resumeJob?.isActive != true) resumeDraft()
     }
@@ -382,11 +382,13 @@ class WizardViewModel(
     }
 
     fun submit(input: String) {
+        if (input.isBlank()) {
+            _status.value = Step1Status.Error("請先貼上 YouTube 影片網址")
+            return
+        }
         val videoId = parseVideoId(input)
         if (videoId == null) {
-            _status.value = Step1Status.Error(
-                "看不懂這個網址。可以貼 youtu.be/…、watch?v=…、shorts/… 或直接貼 11 碼影片 ID。"
-            )
+            _status.value = Step1Status.Error("找不到影片，請確認貼的是 YouTube 影片網址")
             return
         }
         openRecent(videoId)
@@ -470,9 +472,9 @@ class WizardViewModel(
     private suspend fun fetchPage(videoId: String): PageFetch {
         val page = data.watchPage(videoId)
         return when (page.result) {
-            FetchResult.FETCH_FAILED, FetchResult.RATE_LIMITED -> PageFetch.Failed("取圖需要網路。")
-            FetchResult.VIDEO_UNAVAILABLE ->
-                PageFetch.Failed("這支影片抓不到，可能是私人影片、已被刪除或需要登入。")
+            FetchResult.FETCH_FAILED -> PageFetch.Failed("沒有網路連線，請連上網路後再試")
+            FetchResult.RATE_LIMITED -> PageFetch.Failed("YouTube 暫時拒絕連線，請稍後再試")
+            FetchResult.VIDEO_UNAVAILABLE -> PageFetch.Failed("無法讀取這支影片，可能已設為私人或已被刪除")
             FetchResult.OK, FetchResult.NO_STORYBOARD, FetchResult.PARSE_FAILED -> PageFetch.Ok(page)
         }
     }

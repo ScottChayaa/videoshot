@@ -97,6 +97,22 @@ class WizardCaptureTest {
     }
 
     @Test
+    fun 第一步空白與格式不對的錯誤訊息不同() = runTest(dispatcher) {
+        val vm = WizardViewModel(
+            data = FakeData(),
+            frameSourceFactory = { FakeFrameSource.of(frameCount = 4) },
+            strength = flowOf(FilterStrength.MEDIUM),
+            manualImages = { ManualImageStore(tempDir()) },
+            captureFor = { FakeCapture() },
+            compute = dispatcher,
+        )
+        vm.submit("  ")
+        assertEquals(Step1Status.Error("請先貼上 YouTube 影片網址"), vm.status.value)
+        vm.submit("https://example.com/watch")
+        assertEquals(Step1Status.Error("找不到影片，請確認貼的是 YouTube 影片網址"), vm.status.value)
+    }
+
+    @Test
     fun 截圖成功會先暫停再續播() = runTest(dispatcher) {
         // 規格第五節的流程圖：暫停 → 截圖＋讀秒 → 續播。
         // 不先暫停的話，圖與秒數會差上幾十毫秒

@@ -129,7 +129,7 @@ internal fun availabilityOf(page: WatchPage): PlayViewModel.PlayerAvailability {
             PlayViewModel.PlayerAvailability.Unavailable("沒有網路，無法播放。", retryable = true)
         else ->
             PlayViewModel.PlayerAvailability.Unavailable(
-                "這支影片抓不到，可能是私人影片、已被刪除或需要登入。", retryable = false,
+                "無法讀取這支影片，可能已設為私人或已被刪除", retryable = false,
             )
     }
 }

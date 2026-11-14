@@ -42,9 +42,9 @@ class WizardSkeletonTest {
     fun 接不上時顯示原因與重試() {
         var retries = 0
         compose.setContent {
-            VideoshotTheme { WizardSkeleton(WizardStep.PICK, error = "取圖需要網路。", onRetry = { retries++ }) }
+            VideoshotTheme { WizardSkeleton(WizardStep.PICK, error = "沒有網路連線，請連上網路後再試", onRetry = { retries++ }) }
         }
-        compose.onNodeWithText("取圖需要網路。").assertIsDisplayed()
+        compose.onNodeWithText("沒有網路連線，請連上網路後再試").assertIsDisplayed()
         compose.onNodeWithText("重試").performClick()
         assertEquals(1, retries)
     }

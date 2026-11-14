@@ -181,7 +181,7 @@ class WizardDraftTest {
         // 停在第二步（骨架屏換成錯誤與【重試】），不退回第一步
         assertEquals(WizardStep.PICK, vm.step.value)
         assertNull(vm.step2.value)
-        assertEquals("取圖需要網路。", vm.resumeError.value)
+        assertEquals("沒有網路連線，請連上網路後再試", vm.resumeError.value)
         assertNull(data.clearedVideoId)
 
         data.offline = false
