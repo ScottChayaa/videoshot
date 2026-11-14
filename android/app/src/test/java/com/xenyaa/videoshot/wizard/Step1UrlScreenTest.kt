@@ -1,5 +1,9 @@
 package com.xenyaa.videoshot.wizard
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -50,6 +54,7 @@ class Step1UrlScreenTest {
     @Test
     fun 最近取過的影片是可點的清單列() {
         show()
+        compose.onNodeWithText("歷史紀錄").performClick()
         compose.onNodeWithText("宜蘭兩天一夜").assertIsDisplayed()
         compose.onNodeWithText("12 張", substring = true).assertIsDisplayed()
         compose.onNodeWithText("宜蘭兩天一夜").performClick()
@@ -60,10 +65,45 @@ class Step1UrlScreenTest {
     @Test
     fun 點頻道開頻道而不是進第二步() {
         show()
+        compose.onNodeWithText("歷史紀錄").performClick()
         compose.onNodeWithText("旅行頻道").performClick()
         assertEquals("v1", channelOf)
         assertEquals(null, opened)
     }
+
+    @Test
+    fun 歷史紀錄預設收著_點標題展開再點收起() {
+        show()
+        compose.onNodeWithText("宜蘭兩天一夜").assertDoesNotExist()
+        compose.onNodeWithText("歷史紀錄").performClick()
+        compose.onNodeWithText("宜蘭兩天一夜").assertIsDisplayed()
+        compose.onNodeWithText("歷史紀錄").performClick()
+        compose.onNodeWithText("宜蘭兩天一夜").assertDoesNotExist()
+    }
+
+    @Test
+    fun 點輸入框時剪貼簿有YouTube網址就能一鍵帶入() {
+        clipboard().setPrimaryClip(ClipData.newPlainText(null, " https://youtu.be/abcdefghijk "))
+        show()
+        compose.onNodeWithText("貼上剛複製的網址").assertDoesNotExist()
+        compose.onNodeWithContentDescription("貼上 YouTube 網址").performClick()
+        compose.onNodeWithText("貼上剛複製的網址").performClick()
+        compose.onNodeWithText("下一步").performClick()
+        assertEquals("https://youtu.be/abcdefghijk", opened)
+        // 帶入後跟輸入框一樣了，不再顯示
+        compose.onNodeWithText("貼上剛複製的網址").assertDoesNotExist()
+    }
+
+    @Test
+    fun 剪貼簿不是YouTube網址就不顯示貼上列() {
+        clipboard().setPrimaryClip(ClipData.newPlainText(null, "晚餐吃什麼"))
+        show()
+        compose.onNodeWithContentDescription("貼上 YouTube 網址").performClick()
+        compose.onNodeWithText("貼上剛複製的網址").assertDoesNotExist()
+    }
+
+    private fun clipboard() = ApplicationProvider.getApplicationContext<Context>()
+        .getSystemService(ClipboardManager::class.java)
 
     @Test
     fun 沒有歷史時不顯示清單標題() {
@@ -78,6 +118,17 @@ class Step1UrlScreenTest {
         compose.onNodeWithContentDescription("貼上 YouTube 網址").performTextInput("https://youtu.be/abcdefghijk")
         compose.onNodeWithText("下一步").performClick()
         assertEquals("https://youtu.be/abcdefghijk", opened)
+    }
+
+    @Test
+    fun 有字時右邊的圓圈叉叉可以清空() {
+        show()
+        compose.onNodeWithContentDescription("清除網址").assertDoesNotExist()
+        compose.onNodeWithContentDescription("貼上 YouTube 網址").performTextInput("https://youtu.be/abcdefghijk")
+        compose.onNodeWithContentDescription("清除網址").performClick()
+        compose.onNodeWithContentDescription("清除網址").assertDoesNotExist()
+        compose.onNodeWithText("下一步").performClick()
+        assertEquals("", opened)
     }
 
     @Test
@@ -96,6 +147,7 @@ class Step1UrlScreenTest {
     @Test
     fun 取圖紀錄副標寫取了幾張() {
         show(recent = listOf(RecentVideo("v3", "京都", 1_790_000_000L, 3)))
+        compose.onNodeWithText("歷史紀錄").performClick()
         compose.onNodeWithText("取圖 3 張", substring = true).assertIsDisplayed()
     }
 

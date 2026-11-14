@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -26,14 +27,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.platform.Clipboard
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -42,6 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import com.xenyaa.videoshot.core.url.parseVideoId
 import com.xenyaa.videoshot.data.repo.model.RecentVideo
 import com.xenyaa.videoshot.ui.common.VsActionDock
 import com.xenyaa.videoshot.ui.common.VsButton
@@ -53,6 +61,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 /**
  * 第一步：貼網址或點「最近取過的影片」（原型 `capture.html` 第一步）。
@@ -75,6 +84,12 @@ fun Step1UrlScreen(
 ) {
     var input by remember { mutableStateOf("") }
     val loading = status is Step1Status.Loading
+    // 每次進第一步都收著，先看到輸入框（2026-11-14）
+    var historyOpen by remember { mutableStateOf(false) }
+    // 點輸入框時才讀剪貼簿：一進畫面就讀，Android 12 以上會跳「已讀取剪貼簿」的提示
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
+    var copied by remember { mutableStateOf<String?>(null) }
 
     Column(modifier.fillMaxSize()) {
         Column(
@@ -92,7 +107,20 @@ fun Step1UrlScreen(
                 enabled = !loading,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go, keyboardType = KeyboardType.Uri),
                 keyboardActions = KeyboardActions(onGo = { onSubmit(input) }),
+                fieldModifier = Modifier.onFocusChanged { focus ->
+                    if (focus.isFocused) scope.launch { copied = clipboard.readYoutubeUrl() }
+                },
+                trailing = if (input.isNotEmpty() && !loading) {
+                    { ClearInputButton { input = "" } }
+                } else {
+                    null
+                },
             )
+
+            val paste = copied
+            if (paste != null && paste != input.trim()) {
+                PasteCopiedRow(paste, onClick = { input = paste })
+            }
 
             if (status is Step1Status.Error) {
                 // 原型 .wz-err：提示框。顏色用 warn（紅只留給破壞性動作），不用原型的 danger
@@ -109,12 +137,30 @@ fun Step1UrlScreen(
             }
 
             if (recent.isNotEmpty()) {
-                Text(
-                    text = "歷史紀錄",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = AppTheme.colors.textDim,
-                    modifier = Modifier.padding(top = AppTheme.spacing.s5, bottom = AppTheme.spacing.s2),
-                )
+                Row(
+                    Modifier
+                        .padding(top = AppTheme.spacing.s4)
+                        .fillMaxWidth()
+                        .clickable(role = Role.Button, onClick = { historyOpen = !historyOpen })
+                        .defaultMinSize(minHeight = AppTheme.spacing.tap)
+                        .semantics(mergeDescendants = true) {},
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = "歷史紀錄",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = AppTheme.colors.textDim,
+                    )
+                    Icon(
+                        VsIcons.ChevronDown,
+                        contentDescription = if (historyOpen) "收起" else "展開",
+                        tint = AppTheme.colors.textDim,
+                        modifier = Modifier.size(18.dp).rotate(if (historyOpen) 180f else 0f),
+                    )
+                }
+            }
+            if (recent.isNotEmpty() && historyOpen) {
                 // 已在可捲動的父層裡，用一般 Column，不巢狀 LazyColumn
                 Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2)) {
                     recent.forEach { video ->
@@ -222,6 +268,66 @@ private fun RecentCard(
             }
         }
     }
+}
+
+/** 輸入框有字時右邊的圓圈【✕】：灰色實心圓裡一個白色 ✕，點了清空（焦點留在框裡，可以直接再貼）。觸控區 40×44dp。 */
+@Composable
+private fun ClearInputButton(onClick: () -> Unit) {
+    Box(
+        Modifier
+            .size(width = 40.dp, height = AppTheme.spacing.tap)
+            .clickable(role = Role.Button, onClickLabel = "清除") { onClick() }
+            .semantics { contentDescription = "清除網址" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier.size(20.dp).background(AppTheme.colors.textFaint, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(VsIcons.Close, contentDescription = null, tint = AppTheme.colors.surface, modifier = Modifier.size(12.dp))
+        }
+    }
+}
+
+/** 剪貼簿裡的 YouTube 網址（或 11 碼影片 ID）就帶入輸入框；點了只填進去，按【下一步】還是使用者自己按。 */
+@Composable
+private fun PasteCopiedRow(url: String, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(AppTheme.radii.sm)
+    Row(
+        Modifier
+            .padding(top = AppTheme.spacing.s2)
+            .fillMaxWidth()
+            .clip(shape)
+            .background(AppTheme.colors.accentWeak, shape)
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics(mergeDescendants = true) {}
+            .defaultMinSize(minHeight = AppTheme.spacing.tap)
+            .padding(horizontal = AppTheme.spacing.s3),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
+    ) {
+        Icon(VsIcons.Clipboard, null, tint = AppTheme.colors.accent, modifier = Modifier.size(18.dp))
+        Text(
+            "貼上剛複製的網址",
+            style = MaterialTheme.typography.bodyMedium,
+            color = AppTheme.colors.accent,
+        )
+        Text(
+            url,
+            style = MaterialTheme.typography.bodySmall,
+            color = AppTheme.colors.textDim,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+/** 剪貼簿的文字解析得出影片才回傳（去頭尾空白）；不是 YouTube 的就當作沒有。 */
+private suspend fun Clipboard.readYoutubeUrl(): String? {
+    val text = runCatching { getClipEntry()?.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.text }
+        .getOrNull()?.toString()?.trim()
+    return text?.takeIf { parseVideoId(it) != null }
 }
 
 /**

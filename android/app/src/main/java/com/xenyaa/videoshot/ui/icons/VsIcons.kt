@@ -415,6 +415,15 @@ object VsIcons {
         )
     }
 
+    /** Lucide `clipboard`：取圖第一步「貼上剛複製的網址」。 */
+    val Clipboard: ImageVector by lazy {
+        strokeIcon(
+            "clipboard",
+            "M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z",
+            "M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2",
+        )
+    }
+
     /** Lucide `external-link`：開到 app 外面的連結（取圖歷史紀錄的頻道）。 */
     val ExternalLink: ImageVector by lazy {
         strokeIcon(

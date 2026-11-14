@@ -261,6 +261,7 @@ class AppRootWizardFinishTest {
         val fixture = show()
 
         compose.onNodeWithText("取圖").performClick()
+        compose.onNodeWithText("歷史紀錄").performClick() // 歷史紀錄預設收著
         compose.onNodeWithText("海邊那支").performClick()
         compose.waitForIdle()
         compose.onNodeWithContentDescription("第 1 格 00:00").performClick()
@@ -300,6 +301,7 @@ class AppRootWizardFinishTest {
         compose.onNodeWithText(monthLabel("2020-03")).assertDoesNotExist()
 
         compose.onNodeWithText("取圖").performClick()
+        compose.onNodeWithText("歷史紀錄").performClick() // 歷史紀錄預設收著
         compose.onNodeWithText("海邊那支").performClick()
         compose.waitForIdle()
         compose.onNodeWithContentDescription("第 1 格 00:00").performClick()
