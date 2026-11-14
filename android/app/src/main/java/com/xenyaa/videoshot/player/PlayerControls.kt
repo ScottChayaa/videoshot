@@ -97,7 +97,7 @@ internal const val PLAYER_CENTER_TAG = "player-center"
  * @param showTimeline false：沒有左下時間、進度條、拖曳跳播與左右鍵（Lightbox 片段只有 3 秒，用不到）
  * @param muted 有給才在全螢幕鈕左邊顯示【聲音】鈕；true＝目前靜音
  * @param playable false：還沒有影片可播（Lightbox 全螢幕中還是縮圖）——控制層叫得出來，但沒有中央鈕、點兩下不切換
- * @param showFullscreenButton false：沒有全螢幕鈕、F 鍵不作用（原片播放一進來就是全螢幕，離開走返回）
+ * @param showFullscreenButton false：沒有全螢幕鈕、F 鍵不作用（原片播放除了橫的影片全螢幕時，都沒有這顆）
  * @param topBar 畫在上緣的一列（原片播放的返回／標題／⋯），跟控制層一起出現、一起收起；
  *        播放器還沒載好（[enabled] false）時一直顯示，不然影片載不出來就沒有地方可以按返回
  * @param holdVisible true：不自動收起（例如 [topBar] 裡的選單開著，收起來選單會跟著不見）

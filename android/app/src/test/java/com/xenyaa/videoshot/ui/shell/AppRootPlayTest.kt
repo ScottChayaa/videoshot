@@ -220,6 +220,36 @@ class AppRootPlayTest {
     }
 
     @Test
+    fun 橫的影片直拿_按全螢幕轉橫向_返回先回直拿再回lightbox() {
+        val fullscreen = com.xenyaa.videoshot.player.PlayerFullscreenState()
+        var back: androidx.activity.OnBackPressedDispatcher? = null
+        compose.setContent {
+            back = androidx.activity.compose.LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
+            androidx.compose.runtime.CompositionLocalProvider(com.xenyaa.videoshot.player.LocalPlayerFullscreen provides fullscreen) {
+                VideoshotTheme { AppRoot(deps(Repo())) {} }
+            }
+        }
+        compose.onNodeWithContentDescription("片段縮圖 00:30").performClick()
+        compose.onNodeWithText("原片播放").performClick()
+
+        // 縮圖讀不到比例時當成橫的：不進全螢幕，標題列一直在、影片下方有【全螢幕】
+        assert(!fullscreen.active)
+        compose.onNodeWithText("旅行影片").assertIsDisplayed()
+        compose.onNodeWithText("全螢幕").performClick()
+        compose.waitForIdle()
+        assert(fullscreen.active && fullscreen.landscape)
+        compose.onNodeWithText("全螢幕").assertDoesNotExist()
+
+        compose.runOnUiThread { back!!.onBackPressed() }
+        compose.waitForIdle()
+        assert(!fullscreen.active)
+        compose.onNodeWithText("全螢幕").assertIsDisplayed()
+
+        compose.runOnUiThread { back!!.onBackPressed() }
+        compose.onNodeWithText("原片播放").assertIsDisplayed()
+    }
+
+    @Test
     fun 返回回到lightbox() {
         openPlay(Repo())
 

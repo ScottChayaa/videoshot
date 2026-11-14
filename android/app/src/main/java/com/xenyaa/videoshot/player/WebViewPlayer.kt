@@ -298,8 +298,9 @@ internal fun WebView.applyPlayerViewSettings() {
  * @param preview 拖曳跳播時要顯示的預覽圖（依目標秒數）；沒有就不顯示泡泡
  * @param onPlayerReleased WebView 沒了要講一聲 —— 呼叫端（`WizardViewModel`）握著的 [Player]
  *        指向的就是這個 WebView，不放掉的話轉螢幕之後還會對一個已經 destroy 的 WebView 下指令
- * @param lockedFullscreen true：原片播放——呼叫端已經進了全螢幕、離開走它自己的返回。沒有全螢幕鈕，
- *        系統返回不在這裡攔；讀到影片實際寬高後照它改方向（進場時是用縮圖比例猜的）
+ * @param onVideoLandscape 有給＝原片播放：全螢幕、方向與系統返回都由呼叫端管，這裡不攔返回；
+ *        讀到影片實際寬高後告訴呼叫端是不是橫的（進場時是用縮圖比例猜的）
+ * @param showFullscreenButton 原封不動交給 [PlayerControls]
  * @param topBar／holdControls 原封不動交給 [PlayerControls]
  */
 @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
@@ -312,7 +313,8 @@ fun PlayerSurface(
     onPlayerReady: (Player) -> Unit,
     modifier: Modifier = Modifier,
     onPlayerReleased: () -> Unit = {},
-    lockedFullscreen: Boolean = false,
+    onVideoLandscape: ((Boolean) -> Unit)? = null,
+    showFullscreenButton: Boolean = true,
     topBar: (@Composable () -> Unit)? = null,
     holdControls: Boolean = false,
 ) {
@@ -342,11 +344,11 @@ fun PlayerSurface(
     LaunchedEffect(player, sound.muted) { player?.setMuted(sound.muted) }
 
     // 全螢幕時系統返回只負責離開全螢幕。這個 BackHandler 比畫面自己的晚註冊，所以優先
-    BackHandler(enabled = fullscreen.active && !lockedFullscreen) { fullscreen.exit() }
+    BackHandler(enabled = fullscreen.active && onVideoLandscape == null) { fullscreen.exit() }
     // 進場的方向是猜的（縮圖比例），播放器讀到影片實際寬高之後以它為準
-    LaunchedEffect(lockedFullscreen, status.videoWidth, status.videoHeight) {
-        if (lockedFullscreen && status.videoWidth > 0 && status.videoHeight > 0) {
-            fullscreen.enter(isLandscapeVideo(status.videoWidth, status.videoHeight))
+    LaunchedEffect(onVideoLandscape != null, status.videoWidth, status.videoHeight) {
+        if (status.videoWidth > 0 && status.videoHeight > 0) {
+            onVideoLandscape?.invoke(isLandscapeVideo(status.videoWidth, status.videoHeight))
         }
     }
     // 播放器離開畫面（返回、換頁、被系統收掉）一律回直立，不讓別的畫面卡在橫向
@@ -426,7 +428,7 @@ fun PlayerSurface(
             modifier = Modifier.matchParentSize(),
             muted = sound.muted,
             onToggleMute = { sound.setMuted(!sound.muted) },
-            showFullscreenButton = !lockedFullscreen,
+            showFullscreenButton = showFullscreenButton,
             topBar = topBar,
             holdVisible = holdControls,
         )
