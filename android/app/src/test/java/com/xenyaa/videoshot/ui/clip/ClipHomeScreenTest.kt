@@ -103,7 +103,7 @@ class ClipHomeScreenTest {
         show()
         compose.onNodeWithText("剪輯").assertIsDisplayed()
         compose.onNodeWithText("把手機裡的照片和影片剪成一支片").assertIsDisplayed()
-        compose.onNodeWithText("上傳到你的 YouTube 後，就能用取圖精靈挑畫面").assertIsDisplayed()
+        compose.onNodeWithText("按右上角「新增」開始，完成後上傳到你的 YouTube").assertIsDisplayed()
         // onNodeWithText 找到兩顆會失敗：空狀態不另外放按鈕
         val newTop = compose.onNodeWithText("新增").assertIsDisplayed().getUnclippedBoundsInRoot().top
         assertTrue(newTop < compose.onNodeWithText("把手機裡的照片和影片剪成一支片").getUnclippedBoundsInRoot().top)
