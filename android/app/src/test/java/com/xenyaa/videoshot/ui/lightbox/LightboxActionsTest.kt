@@ -65,7 +65,7 @@ class LightboxActionsTest {
                     actions = LightboxActions(
                         onPlay = { clicked += "play" },
                         onAddToFolder = { clicked += "folder" },
-                        onShare = { clicked += "share" },
+                        onCapture = { _, jpeg -> clicked += "capture:${jpeg != null}" },
                         onEdit = { _, field -> clicked += "edit:$field" },
                         onDelete = { clicked += "delete" },
                     ),
@@ -89,8 +89,10 @@ class LightboxActionsTest {
         compose.onNodeWithContentDescription("標籤").performClick()
         compose.onNodeWithContentDescription("描述").performClick()
         compose.onNodeWithContentDescription("加入相簿").performClick()
-        compose.onNodeWithContentDescription("分享").performClick()
-        assertEquals(listOf("edit:TAGS", "edit:DESCRIPTION", "folder", "share"), clicked)
+        compose.onNodeWithContentDescription("截圖").performClick()
+        compose.waitForIdle()
+        // 沒有影片定格（clip＝null）時一直是縮圖，截圖拿到 null
+        assertEquals(listOf("edit:TAGS", "edit:DESCRIPTION", "folder", "capture:false"), clicked)
     }
 
     /** 刪除不該跟瀏覽動作並排 —— 它在 `⋯` 裡；【詳細資料】已經拿掉（2026-11-14）。 */
@@ -134,10 +136,5 @@ class LightboxActionsTest {
         compose.onNodeWithText("刪除").performClick()
         compose.onNodeWithText("取消").performClick()
         assertEquals(emptyList<String>(), clicked)
-    }
-
-    @Test
-    fun 分享的內容是帶秒數的短網址() {
-        assertEquals("https://youtu.be/abc123?t=95", shareTextOf(shot))
     }
 }

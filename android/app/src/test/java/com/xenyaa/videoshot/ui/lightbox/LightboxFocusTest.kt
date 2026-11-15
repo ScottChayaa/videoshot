@@ -94,17 +94,17 @@ class LightboxFocusTest {
 
     @OptIn(ExperimentalTestApi::class)
     @Test
-    fun 分享鈕拿到焦點會畫出框() {
+    fun 截圖鈕拿到焦點會畫出框() {
         show()
-        val share = compose.onNodeWithContentDescription("分享")
-        val before = compose.pixelsAround(share)
+        val capture = compose.onNodeWithContentDescription("截圖")
+        val before = compose.pixelsAround(capture)
 
         compose.runOnIdle { inputMode.requestInputMode(InputMode.Keyboard) }
-        share.requestFocus()
+        capture.requestFocus()
 
-        share.assertIsFocused()
-        val ring = ringPixels(before, compose.pixelsAround(share))
+        capture.assertIsFocused()
+        val ring = ringPixels(before, compose.pixelsAround(capture))
         // 2026-11-08 起焦點框是炭黑半透明，在 Lightbox 黑底上很淡，門檻從 50 降到 20
-        assertTrue("分享鈕拿到焦點時要畫出焦點框（只找到 $ring 個框的像素）", ring > 20)
+        assertTrue("截圖鈕拿到焦點時要畫出焦點框（只找到 $ring 個框的像素）", ring > 20)
     }
 }

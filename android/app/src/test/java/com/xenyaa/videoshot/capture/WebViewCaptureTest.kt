@@ -2,7 +2,9 @@ package com.xenyaa.videoshot.capture
 
 import android.graphics.Bitmap
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -93,5 +95,15 @@ class WebViewCaptureTest {
     @Test
     fun 截圖的JS要擋掉廣告() {
         assertTrue(CAPTURE_JS, CAPTURE_JS.contains("ad-showing"))
+    }
+
+    @Test
+    fun 原尺寸截圖取出JPEG位元組() {
+        // "AQID" 是 [1, 2, 3] 的 base64
+        val ok = jsReturn("""{"ok":true,"t":3.5,"data":"data:image/jpeg;base64,AQID"}""")
+        assertArrayEquals(byteArrayOf(1, 2, 3), capturedJpegOf(ok))
+        assertNull(capturedJpegOf(jsReturn("""{"ok":false,"reason":"not-ready"}""")))
+        assertNull(capturedJpegOf(jsReturn("""{"ok":true,"data":"data:,"}""")))
+        assertNull(capturedJpegOf("null"))
     }
 }

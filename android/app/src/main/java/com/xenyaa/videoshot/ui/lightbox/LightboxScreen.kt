@@ -61,6 +61,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.draw.alpha
 import com.xenyaa.videoshot.player.ClipPlayer
+import kotlinx.coroutines.launch
 import com.xenyaa.videoshot.player.ClipPlayerSurface
 import com.xenyaa.videoshot.player.ClipSource
 import com.xenyaa.videoshot.player.ClipTarget
@@ -74,19 +75,17 @@ import androidx.compose.ui.semantics.onLongClick
 import com.xenyaa.videoshot.wizard.DetailField
 
 /**
- * 分享的內容(規格第六節動作表):`https://youtu.be/{videoId}?t={at_sec}`。
- * 秒數**取整數** —— YouTube 的 `t` 參數只吃整數秒,小數點會被當成無效值整個忽略。
- */
-fun shareTextOf(shot: ShotRow): String = "https://youtu.be/${shot.videoId}?t=${shot.atSec.toInt()}"
-
-/**
  * Lightbox 的動作。`onPlay`／`onAddToFolder` 依賴階段 9／階段 8，
  * 在那兩階段完工前由呼叫端接成「說明還沒做」的 snackbar（見 `AppRoot`）。
  */
 data class LightboxActions(
     val onPlay: (ShotRow) -> Unit = {},
     val onAddToFolder: (ShotRow) -> Unit = {},
-    val onShare: (ShotRow) -> Unit = {},
+    /**
+     * 【截圖】：影片畫面那一格的原尺寸 JPEG，存到手機相簿（2026-11-16 取代【分享】）。
+     * 畫面還沒從縮圖換成影片、或截不到時給 null。
+     */
+    val onCapture: (ShotRow, ByteArray?) -> Unit = { _, _ -> },
     /** 改一個欄位：長按日期／地點、底部【標籤】【描述】各開自己的抽屜（2026-11-14 拿掉【詳細資料】）。 */
     val onEdit: (ShotRow, DetailField) -> Unit = { _, _ -> },
     val onDelete: (ShotRow) -> Unit = {},
@@ -332,7 +331,10 @@ fun LightboxScreen(
                     DarkIconButton(VsIcons.Tag, "標籤") { actions.onEdit(shot, DetailField.TAGS) }
                     DarkIconButton(VsIcons.Notes, "描述") { actions.onEdit(shot, DetailField.DESCRIPTION) }
                     DarkIconButton(VsIcons.FolderPlus, "加入相簿") { actions.onAddToFolder(shot) }
-                    DarkIconButton(VsIcons.Share, "分享") { actions.onShare(shot) }
+                    // 圖示同取圖第二步的【截圖】
+                    DarkIconButton(VsIcons.Scissors, "截圖") {
+                        clipScope.launch { actions.onCapture(shot, controller?.capture(shot.id)) }
+                    }
                     // 主要動作放最右邊（2026-11-15 scott）
                     VsButton(
                         text = "原片播放",

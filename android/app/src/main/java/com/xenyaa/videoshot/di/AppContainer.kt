@@ -577,13 +577,16 @@ class AppContainer(context: Context) : AppRootDeps {
     /** 剪輯輸出的通知；也是前景服務通知的來源。 */
     val clipExportNotifier: AndroidClipExportNotifier by lazy { AndroidClipExportNotifier(appContext) }
 
+    /** 存進手機相簿：剪輯成品與 Lightbox【截圖】。 */
+    val mediaSaver: MediaStoreSaver by lazy { MediaStoreSaver(appContext.contentResolver) }
+
     /** 剪輯輸出一個任務的完整流程（背景工作 `ClipExportWorker` 呼叫它）。 */
     val clipExportRunner: ClipExportRunner by lazy {
         ClipExportRunner(
             repo = cacheRepo,
             library = clipDeps.mediaLibrary,
             exporter = Media3ClipExporter(appContext),
-            saver = MediaStoreSaver(appContext.contentResolver),
+            saver = mediaSaver,
             notifier = clipExportNotifier,
             canReadMedia = { mediaAccessOf(Build.VERSION.SDK_INT, clipDeps.grantedMediaPermissions()) != MediaAccess.DENIED },
             dirFor = ::editTaskDir,
@@ -672,6 +675,8 @@ class AppContainer(context: Context) : AppRootDeps {
         )
         else -> null
     }
+
+    override suspend fun saveImage(jpeg: ByteArray, name: String): String? = mediaSaver.saveImage(jpeg, name)
 
     /** 原片播放拖曳預覽的圖來源；沒有 storyboard 回 null。快取放 `cacheDir/preview/`。 */
     override fun previewFramesFor(videoId: String, page: WatchPage): (suspend (Double) -> ImageBitmap?)? =

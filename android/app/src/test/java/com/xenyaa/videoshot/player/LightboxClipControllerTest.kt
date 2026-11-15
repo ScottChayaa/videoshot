@@ -267,4 +267,23 @@ class LightboxClipControllerTest {
         runCurrent()
         assertTrue("hold:600.0" in p.calls)
     }
+
+    @Test
+    fun 截圖只截正在顯示影片畫面的那一張() = runTest(StandardTestDispatcher()) {
+        val jpeg = byteArrayOf(1, 2, 3)
+        val p = FakeClipPlayer().apply { readyAfterCue = false; frameJpeg = jpeg }
+        val ctl = controller(p)
+        ctl.onSettled(a)
+        advanceTimeBy(1_000)
+        runCurrent()
+        // 還是縮圖：不截
+        assertNull(ctl.capture(1))
+        p.becomeReady()
+        advanceTimeBy(500)
+        runCurrent()
+        assertTrue(jpeg.contentEquals(ctl.capture(1)))
+        // 別張（例如剛滑走、畫面還沒跟上）不截
+        assertNull(ctl.capture(2))
+        assertEquals(1, p.calls.count { it == "frame" })
+    }
 }

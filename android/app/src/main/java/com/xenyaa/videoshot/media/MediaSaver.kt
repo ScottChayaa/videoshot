@@ -12,8 +12,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
+import java.io.OutputStream
 
-/** 相簿裡 app 專屬的資料夾（在 `Movies/` 底下）。 */
+/** 相簿裡 app 專屬的資料夾（在 `Movies/`、`Pictures/` 底下）。 */
 private const val GALLERY_FOLDER = "videoshot"
 
 /**
@@ -65,6 +66,8 @@ interface MediaSaver {
  * - API 29 起：插入一列（`RELATIVE_PATH`＝`Movies/videoshot`、`IS_PENDING`＝1）→ 寫入內容 → `IS_PENDING` 改 0，
  *   寫完之前相簿不會顯示半成品；寫失敗就把那一列刪掉。不需要儲存權限。
  * - API 28 以下：自己把檔案複製到 `Movies/videoshot/`，再用 `DATA` 插入一列讓相簿看得到（要 `WRITE_EXTERNAL_STORAGE`）。
+ *
+ * 圖片（[saveImage]）同一套流程，放在 `Pictures/videoshot/`。
  */
 class MediaStoreSaver(
     private val resolver: ContentResolver,
@@ -72,9 +75,18 @@ class MediaStoreSaver(
     private val io: CoroutineDispatcher = Dispatchers.IO,
 ) : MediaSaver {
 
-    override suspend fun saveVideo(file: File, title: String): String? = withContext(io) {
+    override suspend fun saveVideo(file: File, title: String): String? =
+        save(VIDEO, galleryFileName(title)) { o -> file.inputStream().use { it.copyTo(o) } }
+
+    /**
+     * 把 JPEG 存進相簿 `Pictures/videoshot/`（Lightbox【截圖】）。[name] 要帶 `.jpg`；同名時相簿自己接編號。
+     * 成功回 content URI 字串；失敗回 null，不丟例外（取消例外照樣往外丟）。
+     */
+    suspend fun saveImage(jpeg: ByteArray, name: String): String? = save(IMAGE, name) { it.write(jpeg) }
+
+    private suspend fun save(kind: Kind, name: String, write: (OutputStream) -> Unit): String? = withContext(io) {
         try {
-            if (sdkInt >= Build.VERSION_CODES.Q) saveScoped(file, title) else saveLegacy(file, title)
+            if (sdkInt >= Build.VERSION_CODES.Q) saveScoped(kind, name, write) else saveLegacy(kind, name, write)
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -83,18 +95,17 @@ class MediaStoreSaver(
         }
     }
 
-    private fun saveScoped(file: File, title: String): String? {
-        val table = MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+    private fun saveScoped(kind: Kind, name: String, write: (OutputStream) -> Unit): String? {
         val values = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, galleryFileName(title))
-            put(MediaStore.MediaColumns.MIME_TYPE, MIME_MP4)
-            put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_MOVIES}/$GALLERY_FOLDER")
+            put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+            put(MediaStore.MediaColumns.MIME_TYPE, kind.mime)
+            put(MediaStore.MediaColumns.RELATIVE_PATH, "${kind.directory}/$GALLERY_FOLDER")
             put(MediaStore.MediaColumns.IS_PENDING, 1)
         }
-        val row = resolver.insert(table, values) ?: return null
+        val row = resolver.insert(kind.scopedTable(), values) ?: return null
         try {
             val out = resolver.openOutputStream(row) ?: throw IOException("開不了輸出串流")
-            out.use { o -> file.inputStream().use { it.copyTo(o) } }
+            out.use(write)
             resolver.update(row, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
             return row.toString()
         } catch (e: Throwable) {
@@ -105,24 +116,23 @@ class MediaStoreSaver(
     }
 
     @Suppress("DEPRECATION") // DATA 在 API 29 起棄用；這條路只給 API 28 以下
-    private fun saveLegacy(file: File, title: String): String? {
-        val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES), GALLERY_FOLDER)
+    private fun saveLegacy(kind: Kind, name: String, write: (OutputStream) -> Unit): String? {
+        val dir = File(Environment.getExternalStoragePublicDirectory(kind.directory), GALLERY_FOLDER)
         if (!dir.isDirectory && !dir.mkdirs()) return null
-        val name = galleryFileName(title)
         // 同名檔案已存在就加 (1)、(2)…，不蓋掉先前存的
         var target = File(dir, name)
         var n = 1
-        while (target.exists()) target = File(dir, "${name.removeSuffix(".mp4")} (${n++}).mp4")
+        while (target.exists()) target = File(dir, "${File(name).nameWithoutExtension} (${n++}).${File(name).extension}")
         try {
-            file.copyTo(target)
+            target.outputStream().use(write)
             val values = ContentValues().apply {
                 put(MediaStore.MediaColumns.DATA, target.absolutePath)
                 put(MediaStore.MediaColumns.DISPLAY_NAME, target.name)
                 put(MediaStore.MediaColumns.TITLE, target.nameWithoutExtension)
-                put(MediaStore.MediaColumns.MIME_TYPE, MIME_MP4)
+                put(MediaStore.MediaColumns.MIME_TYPE, kind.mime)
                 put(MediaStore.MediaColumns.SIZE, target.length())
             }
-            val row: Uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+            val row: Uri = resolver.insert(kind.legacyTable, values)
                 ?: throw IOException("相簿不收這個檔案")
             return row.toString()
         } catch (e: Throwable) {
@@ -131,7 +141,15 @@ class MediaStoreSaver(
         }
     }
 
+    /** 影片或圖片：放在相簿的哪個資料夾、哪張表。 */
+    private class Kind(val mime: String, val directory: String, val legacyTable: Uri, val scopedTable: () -> Uri)
+
     private companion object {
-        const val MIME_MP4 = "video/mp4"
+        val VIDEO = Kind("video/mp4", Environment.DIRECTORY_MOVIES, MediaStore.Video.Media.EXTERNAL_CONTENT_URI) {
+            MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        }
+        val IMAGE = Kind("image/jpeg", Environment.DIRECTORY_PICTURES, MediaStore.Images.Media.EXTERNAL_CONTENT_URI) {
+            MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        }
     }
 }

@@ -65,18 +65,6 @@ class WebViewCapture(
         return CaptureResult.Success(webp, json.optDouble("t", 0.0))
     }
 
-    /** `evaluateJavascript` 回來的是 JSON 值，字串會多一層引號與跳脫。 */
-    private fun unwrap(raw: String): String? {
-        if (raw.isBlank() || raw == "null") return null
-        return runCatching { JSONObject("""{"v":$raw}""").getString("v") }.getOrNull()
-    }
-
-    private fun base64Of(dataUrl: String): ByteArray? {
-        val comma = dataUrl.indexOf(',')
-        // "data:," 就是 POC 遇到的那種：有回應，但逗號後面什麼都沒有
-        if (comma < 0 || comma == dataUrl.lastIndex) return null
-        return runCatching { Base64.decode(dataUrl.substring(comma + 1), Base64.DEFAULT) }.getOrNull()
-    }
 
     /**
      * 取一片灰階樣本給黑畫面判定用。
@@ -98,4 +86,27 @@ class WebViewCapture(
         }
         return out
     }
+}
+
+/**
+ * [CAPTURE_JS] 的回應取出原尺寸 JPEG（Lightbox【截圖】存到手機相簿用，規格第六節）；截不到回 null。
+ * 不縮圖、不判黑畫面——Lightbox 只在影片畫面已經停在那一格時才截。
+ */
+fun capturedJpegOf(raw: String): ByteArray? {
+    val json = unwrap(raw)?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return null
+    if (!json.optBoolean("ok")) return null
+    return base64Of(json.optString("data"))
+}
+
+/** `evaluateJavascript` 回來的是 JSON 值，字串會多一層引號與跳脫。 */
+private fun unwrap(raw: String): String? {
+    if (raw.isBlank() || raw == "null") return null
+    return runCatching { JSONObject("""{"v":$raw}""").getString("v") }.getOrNull()
+}
+
+private fun base64Of(dataUrl: String): ByteArray? {
+    val comma = dataUrl.indexOf(',')
+    // "data:," 就是 POC 遇到的那種：有回應，但逗號後面什麼都沒有
+    if (comma < 0 || comma == dataUrl.lastIndex) return null
+    return runCatching { Base64.decode(dataUrl.substring(comma + 1), Base64.DEFAULT) }.getOrNull()
 }

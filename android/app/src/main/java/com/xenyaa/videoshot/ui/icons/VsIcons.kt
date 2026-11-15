@@ -187,18 +187,6 @@ object VsIcons {
     /** 上傳（Lucide `upload`）：剪輯編輯畫面的【導出】。 */
     val Upload: ImageVector by lazy { strokeIcon("upload", "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4", "m17 8-5-5-5 5", "M12 3v12") }
 
-    /** 三點連線（Lucide `share-2`，Android 慣用的分享圖示；原型是 iOS 式的方框加箭頭）。三個 r=3 的圓改寫成 path。 */
-    val Share: ImageVector by lazy {
-        strokeIcon(
-            "share",
-            "M15 5a3 3 0 1 0 6 0a3 3 0 1 0 -6 0",
-            "M3 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0",
-            "M15 19a3 3 0 1 0 6 0a3 3 0 1 0 -6 0",
-            "m8.59 13.51 6.83 3.98",
-            "m15.41 6.51-6.82 3.98",
-        )
-    }
-
     /** 三個點的 `⋯`（原型是三個 r=1 的圓）。 */
     val More: ImageVector by lazy {
         strokeIcon(

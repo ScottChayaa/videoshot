@@ -186,4 +186,20 @@ class MediaSaverTest {
         written.delete()
         Unit
     }
+
+    @Test fun 圖片存進Pictures的videoshot() = runBlocking {
+        val target = ByteArrayOutputStream()
+        val provider = FakeVideoProvider()
+        val jpeg = ByteArray(300) { it.toByte() }
+
+        val result = saver(provider, stream = target).saveImage(jpeg, "abc_95s.jpg")
+
+        assertEquals(provider.rowUri.toString(), result)
+        val row = provider.inserted.single()
+        assertEquals("abc_95s.jpg", row.getAsString(MediaStore.MediaColumns.DISPLAY_NAME))
+        assertEquals("image/jpeg", row.getAsString(MediaStore.MediaColumns.MIME_TYPE))
+        assertEquals("Pictures/videoshot", row.getAsString(MediaStore.MediaColumns.RELATIVE_PATH))
+        assertTrue(target.toByteArray().contentEquals(jpeg))
+        assertEquals(0, provider.updated.single().getAsInteger(MediaStore.MediaColumns.IS_PENDING))
+    }
 }

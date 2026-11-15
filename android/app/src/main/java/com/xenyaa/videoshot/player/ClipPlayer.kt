@@ -32,4 +32,7 @@ interface ClipPlayer {
     suspend fun pause()
 
     suspend fun status(): ClipStatus
+
+    /** 目前停住的那一格，原尺寸 JPEG（Lightbox【截圖】）；截不到回 null。 */
+    suspend fun frame(): ByteArray?
 }

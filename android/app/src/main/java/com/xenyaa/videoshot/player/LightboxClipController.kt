@@ -71,6 +71,12 @@ class LightboxClipController(
         scope.launch { p.pause() }
     }
 
+    /** 截 [shotId] 那一張的影片畫面（原尺寸 JPEG）。畫面還沒出來（仍是縮圖）或截不到回 null。 */
+    suspend fun capture(shotId: Long): ByteArray? {
+        if (_showing.value != shotId) return null
+        return player.value?.frame()
+    }
+
     private fun reset() {
         job?.cancel()
         job = null

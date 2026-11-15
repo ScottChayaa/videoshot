@@ -83,4 +83,10 @@ interface AppRootDeps {
      * `ContentResolver`，各測試的假實作不必管這件事。
      */
     val clipDeps: ClipDeps get() = NoClipDeps
+
+    /**
+     * Lightbox【截圖】存進手機相簿（`Pictures/videoshot/`），成功回 content URI、失敗回 null。
+     * 預設回 null：只有 `AppContainer` 握著 `ContentResolver`。
+     */
+    suspend fun saveImage(jpeg: ByteArray, name: String): String? = null
 }

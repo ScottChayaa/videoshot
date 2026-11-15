@@ -115,7 +115,6 @@ import com.xenyaa.videoshot.ui.home.toFilterOption
 import com.xenyaa.videoshot.ui.lightbox.LightboxActions
 import com.xenyaa.videoshot.ui.lightbox.LightboxClipDeps
 import com.xenyaa.videoshot.ui.lightbox.LightboxScreen
-import com.xenyaa.videoshot.ui.lightbox.shareTextOf
 import com.xenyaa.videoshot.ui.onboarding.FirstRunChooserScreen
 import com.xenyaa.videoshot.ui.common.avatarInitialOf
 import com.xenyaa.videoshot.player.ClipSource
@@ -592,12 +591,17 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
                     // 疊在 Lightbox 上面：返回回到 Lightbox 原本那一張（規格第六節「原片播放」）
                     onPlay = { shot -> nav = nav.push(Dest.Play(shot.videoId, shot.id)) },
                     onAddToFolder = { addingTo = it },
-                    onShare = { shot ->
-                        val send = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, shareTextOf(shot))
+                    onCapture = { shot, jpeg ->
+                        scope.launch {
+                            val saved = jpeg?.let { container.saveImage(it, "${shot.videoId}_${shot.atSec.toInt()}s.jpg") }
+                            snackbarHostState.showSnackbar(
+                                when {
+                                    jpeg == null -> "影片畫面還沒出來，稍等再截"
+                                    saved == null -> "存到相簿失敗，請再試一次"
+                                    else -> "已存到手機相簿"
+                                },
+                            )
                         }
-                        context.startActivity(Intent.createChooser(send, null))
                     },
                     onEdit = { shot, field -> editing = shot to field },
                     onDelete = { shot ->

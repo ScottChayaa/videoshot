@@ -15,6 +15,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.xenyaa.videoshot.capture.CAPTURE_JS
+import com.xenyaa.videoshot.capture.capturedJpegOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
@@ -53,6 +55,7 @@ class WebViewClipPlayer(private val webView: WebView) : ClipPlayer {
     override suspend fun hold(startSec: Double) { eval(clipHoldJs(startSec)) }
     override suspend fun pause() { eval(PAUSE_VIDEO_JS) }
     override suspend fun status(): ClipStatus = parseClipStatus(eval(CLIP_STATUS_JS))
+    override suspend fun frame(): ByteArray? = capturedJpegOf(eval(CAPTURE_JS))
 
     private suspend fun eval(js: String): String = suspendCancellableCoroutine { cont ->
         webView.post { webView.evaluateJavascript(js) { if (cont.isActive) cont.resume(it ?: "") } }

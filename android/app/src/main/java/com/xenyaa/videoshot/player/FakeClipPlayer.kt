@@ -18,6 +18,9 @@ class FakeClipPlayer : ClipPlayer {
     /** 非 null：[cue] 之後秒數停在這裡（模擬 YouTube 自己跳回片頭），直到下一次 [cue]。 */
     var cueLandsAt: Double? = null
 
+    /** [frame] 回的圖；null＝截不到。 */
+    var frameJpeg: ByteArray? = null
+
     private var time = 0.0
     private var ready = 0
     private var paused = true
@@ -53,5 +56,10 @@ class FakeClipPlayer : ClipPlayer {
     override suspend fun status(): ClipStatus {
         if (!paused && ready > 0) time += 0.1
         return ClipStatus(time, ready)
+    }
+
+    override suspend fun frame(): ByteArray? {
+        calls += "frame"
+        return frameJpeg
     }
 }
