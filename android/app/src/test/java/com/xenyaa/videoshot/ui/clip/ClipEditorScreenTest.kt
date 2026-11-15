@@ -222,6 +222,11 @@ class ClipEditorScreenTest {
         compose.onNodeWithContentDescription("重做").assertIsEnabled()
     }
 
+    @Test fun 沒選取段落時刪除停用() {
+        show(state())
+        compose.onNodeWithText("刪除").assertIsNotEnabled()
+    }
+
     @Test fun 空時間軸有說明且導出停用() {
         show(emptyState())
         compose.onNodeWithText("時間軸是空的").assertIsDisplayed()
@@ -244,7 +249,7 @@ class ClipEditorScreenTest {
 
     @Test fun 點分割刪除復原重做導出返回播放都回報() {
         val calls = Calls()
-        show(state(playheadMs = 30_000, canUndo = true, canRedo = true), calls = calls)
+        show(state(playheadMs = 30_000, canUndo = true, canRedo = true, selected = 0), calls = calls)
         compose.onNodeWithText("分割").performClick()
         compose.onNodeWithText("刪除").performClick()
         compose.onNodeWithContentDescription("復原").performClick()

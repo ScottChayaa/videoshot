@@ -36,7 +36,8 @@ data class ClipEditorState(
 
     /** 播放頭在某段之內、離段落頭尾都夠遠。 */
     val canSplit: Boolean get() = timeline?.canSplitAt(playheadMs) == true
-    val canDelete: Boolean get() = timeline?.segments?.isNotEmpty() == true
+    /** 只刪選取的段，沒選取不能刪（不然使用者不知道會刪到哪一段）。 */
+    val canDelete: Boolean get() = selected != null
     val canUndo: Boolean get() = draft?.history?.canUndo == true
     val canRedo: Boolean get() = draft?.history?.canRedo == true
     val isEmpty: Boolean get() = timeline?.segments?.isEmpty() == true
@@ -100,13 +101,10 @@ class ClipEditorViewModel(private val deps: ClipDeps) : ViewModel() {
         history.current.splitAt(_state.value.playheadMs)?.let { history.apply(it) }
     }
 
-    /** 刪掉選取的段落；沒選取就刪播放頭所在的段（播放頭在最尾端時刪最後一段）。 */
+    /** 刪掉選取的段落；沒選取什麼都不做。 */
     fun delete() = edit { history ->
         val timeline = history.current
-        val state = _state.value
-        val index = state.selected
-            ?: timeline.locate(state.playheadMs)?.first
-            ?: timeline.segments.lastIndex.takeIf { it >= 0 && state.playheadMs >= timeline.durationMs }
+        val index = _state.value.selected
         // Timeline.delete 遇到範圍外的索引會原樣回傳，這裡先擋掉，免得記一筆什麼都沒變的復原紀錄
         if (index == null || index !in timeline.segments.indices) null else history.apply(timeline.delete(index))
     }

@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.pointerInput
@@ -377,15 +378,23 @@ private fun SegmentCell(
         }
         if (isSelected) {
             val accent = AppTheme.colors.accent
+            val ink = AppTheme.colors.accentInk
             // 外框只畫在整段真正的段緣：上下兩條一直畫，左右兩條只在真正的頭尾落在這一截裡時才畫
-            // （整格已被圓角形狀裁過，四個角自然是圓的）
+            // （整格已被圓角形狀裁過，四個角自然是圓的）。
+            // 外圈淺色、內圈深色：素材邊緣剛好是白色時靠內圈分出來，是黑色時靠外圈
             Box(
                 Modifier.fillMaxSize().drawBehind {
-                    val w = 2.dp.toPx()
-                    drawRect(accent, Offset.Zero, Size(size.width, w))
-                    drawRect(accent, Offset(0f, size.height - w), Size(size.width, w))
-                    if (slice.leftEdge) drawRect(accent, Offset.Zero, Size(w, size.height))
-                    if (slice.rightEdge) drawRect(accent, Offset(size.width - w, 0f), Size(w, size.height))
+                    fun frame(color: Color, inset: Float, w: Float) {
+                        val left = if (slice.leftEdge) inset else 0f
+                        val right = if (slice.rightEdge) size.width - inset else size.width
+                        drawRect(color, Offset(left, inset), Size(right - left, w))
+                        drawRect(color, Offset(left, size.height - inset - w), Size(right - left, w))
+                        if (slice.leftEdge) drawRect(color, Offset(inset, inset), Size(w, size.height - inset * 2))
+                        if (slice.rightEdge) drawRect(color, Offset(size.width - inset - w, inset), Size(w, size.height - inset * 2))
+                    }
+                    val outer = 2.dp.toPx()
+                    frame(accent, 0f, outer)
+                    frame(ink, outer, 1.dp.toPx())
                 },
             )
         }

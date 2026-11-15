@@ -260,21 +260,13 @@ class ClipEditorViewModelTest {
         assertEquals(base, repo.clipDraftSaveCount)
     }
 
-    @Test fun 沒選取時刪播放頭所在段() = runTest {
+    @Test fun 沒選取時不能刪也不刪() = runTest {
         val vm = vmWith(two).loaded()
+        assertFalse(vm.s.canDelete)
         vm.seekTo(3500)
         vm.delete()
-        assertEquals(listOf(1L), vm.s.draft!!.timeline.segments.map { it.sourceId })
-        // 播放頭 3500 超出新總長 3000 → 夾到最後一段開頭
-        assertEquals(0L, vm.s.playheadMs)
-    }
-
-    @Test fun 播放頭在最尾端時刪最後一段() = runTest {
-        val vm = vmWith(two).loaded()
-        vm.seekTo(6000)
-        vm.delete()
-        assertEquals(listOf(1L), vm.s.draft!!.timeline.segments.map { it.sourceId })
-        assertEquals(0L, vm.s.playheadMs)
+        assertEquals(listOf(1L, 2L), vm.s.draft!!.timeline.segments.map { it.sourceId })
+        assertFalse(vm.s.canUndo)
     }
 
     @Test fun 選了就刪選的那段() = runTest {
@@ -282,6 +274,7 @@ class ClipEditorViewModelTest {
         vm.seekTo(100)
         vm.select(1)
         assertEquals(1, vm.s.selected)
+        assertTrue(vm.s.canDelete)
         vm.delete()
         assertEquals(listOf(1L), vm.s.draft!!.timeline.segments.map { it.sourceId })
         assertNull(vm.s.selected)
@@ -289,6 +282,7 @@ class ClipEditorViewModelTest {
 
     @Test fun 復原時選取清掉() = runTest {
         val vm = vmWith(two).loaded()
+        vm.select(0)
         vm.delete()
         vm.select(0)
         vm.undo()
@@ -305,7 +299,9 @@ class ClipEditorViewModelTest {
 
     @Test fun 刪光後不能刪也不能分割() = runTest {
         val vm = vmWith(two).loaded()
+        vm.select(0)
         vm.delete()
+        vm.select(0)
         vm.delete()
         assertTrue(vm.s.isEmpty)
         assertFalse(vm.s.canDelete)
@@ -313,6 +309,7 @@ class ClipEditorViewModelTest {
         assertTrue(vm.s.canUndo)
         dispatcher.scheduler.advanceUntilIdle()
         val base = repo.clipDraftSaveCount
+        vm.select(0)
         vm.delete() // 空時間軸再刪：什麼都不做、不存檔
         dispatcher.scheduler.advanceUntilIdle()
         assertEquals(base, repo.clipDraftSaveCount)
@@ -347,7 +344,9 @@ class ClipEditorViewModelTest {
 
     @Test fun 連續編輯的存檔依序而且最後一份是最新的() = runTest {
         val vm = vmWith(three).loaded()
+        vm.select(0)
         vm.delete()
+        vm.select(0)
         vm.delete()
         vm.undo()
         dispatcher.scheduler.advanceUntilIdle()
