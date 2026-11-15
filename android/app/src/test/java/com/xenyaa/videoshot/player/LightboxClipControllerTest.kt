@@ -31,25 +31,19 @@ class LightboxClipControllerTest {
     }
 
     @Test
-    fun 一秒前不播() = runTest(StandardTestDispatcher()) {
+    fun 準備好就停在截圖那一秒_不循環() = runTest(StandardTestDispatcher()) {
         val p = FakeClipPlayer()
         val ctl = controller(p)
         ctl.onSettled(a)
-        advanceTimeBy(999)
-        runCurrent()
-        assertNull(ctl.showing.value)
-        assertFalse(p.calls.any { it.startsWith("loop") })
-    }
-
-    @Test
-    fun 一秒到而且準備好就從截圖秒數循環三秒() = runTest(StandardTestDispatcher()) {
-        val p = FakeClipPlayer()
-        val ctl = controller(p)
-        ctl.onSettled(a)
-        advanceTimeBy(2_500)
+        advanceTimeBy(300)
         runCurrent()
         assertEquals(1L, ctl.showing.value)
-        assertEquals(listOf("load:v1", "cue:30.0", "hold:30.0", "loop:30.0-33.0"), p.calls)
+        assertEquals(listOf("load:v1", "cue:30.0", "hold:30.0"), p.calls)
+        // 之後不再下任何指令：停在那一格，不播放
+        advanceTimeBy(10_000)
+        runCurrent()
+        assertEquals(3, p.calls.size)
+        assertEquals(ClipStatus(30.0, 4), p.status())
     }
 
     @Test
@@ -78,21 +72,22 @@ class LightboxClipControllerTest {
     }
 
     @Test
-    fun 開始拖就暫停_倒數作廢() = runTest(StandardTestDispatcher()) {
-        val p = FakeClipPlayer()
+    fun 預載中開始拖就停掉_預載作廢() = runTest(StandardTestDispatcher()) {
+        val p = FakeClipPlayer().apply { readyAfterCue = false }
         val ctl = controller(p)
         ctl.onSettled(a)
         advanceTimeBy(1_000)
         ctl.onDragStart()
+        p.becomeReady()
         advanceTimeBy(5_000)
         runCurrent()
         assertNull(ctl.showing.value)
         assertTrue("pause" in p.calls)
-        assertFalse(p.calls.any { it.startsWith("loop") })
+        assertFalse("hold:30.0" in p.calls)
     }
 
     @Test
-    fun 播放中開始拖就換回縮圖() = runTest(StandardTestDispatcher()) {
+    fun 定格中開始拖就換回縮圖() = runTest(StandardTestDispatcher()) {
         val p = FakeClipPlayer()
         val ctl = controller(p)
         ctl.onSettled(a)
@@ -105,8 +100,8 @@ class LightboxClipControllerTest {
     }
 
     @Test
-    fun 快速換頁只播最後一張() = runTest(StandardTestDispatcher()) {
-        val p = FakeClipPlayer()
+    fun 快速換頁只定格最後一張() = runTest(StandardTestDispatcher()) {
+        val p = FakeClipPlayer().apply { readyAfterCue = false }
         val ctl = controller(p)
         ctl.onSettled(a)
         advanceTimeBy(800)
@@ -115,10 +110,11 @@ class LightboxClipControllerTest {
         advanceTimeBy(800)
         ctl.onDragStart()
         ctl.onSettled(c)
+        p.readyAfterCue = true
         advanceTimeBy(2_500)
         runCurrent()
         assertEquals(3L, ctl.showing.value)
-        assertEquals(listOf("loop:10.0-13.0"), p.calls.filter { it.startsWith("loop") })
+        assertEquals(listOf("hold:10.0"), p.calls.filter { it.startsWith("hold") })
     }
 
     @Test
@@ -185,131 +181,6 @@ class LightboxClipControllerTest {
     }
 
     @Test
-    fun 切換暫停_再切換繼續() = runTest(StandardTestDispatcher()) {
-        val p = FakeClipPlayer()
-        val ctl = controller(p)
-        ctl.onSettled(a)
-        advanceTimeBy(2_500)
-        ctl.togglePause()
-        runCurrent()
-        assertTrue(ctl.userPaused.value)
-        assertEquals("pause", p.calls.last())
-        ctl.togglePause()
-        runCurrent()
-        assertFalse(ctl.userPaused.value)
-        assertEquals("resume", p.calls.last())
-    }
-
-    @Test
-    fun 還是縮圖時切換暫停沒反應() = runTest(StandardTestDispatcher()) {
-        val p = FakeClipPlayer()
-        val ctl = controller(p)
-        ctl.onSettled(a)
-        advanceTimeBy(1_000)
-        ctl.togglePause()
-        runCurrent()
-        assertFalse(ctl.userPaused.value)
-        assertFalse("pause" in p.calls)
-    }
-
-    @Test
-    fun 關掉聲音時循環也是靜音() = runTest(StandardTestDispatcher()) {
-        val p = FakeClipPlayer()
-        val ctl = controller(p)
-        ctl.setMuted(true)
-        ctl.onSettled(a)
-        advanceTimeBy(2_500)
-        runCurrent()
-        assertEquals(1L, ctl.showing.value)
-        assertEquals(listOf("loop:30.0-33.0:muted"), p.calls.filter { it.startsWith("loop") })
-        // 預載期間本來就靜音，開始循環前切換不另外下指令
-        assertFalse(p.calls.any { it.startsWith("mute") })
-    }
-
-    @Test
-    fun 播放中切換聲音馬上生效() = runTest(StandardTestDispatcher()) {
-        val p = FakeClipPlayer()
-        val ctl = controller(p)
-        ctl.onSettled(a)
-        advanceTimeBy(2_500)
-        ctl.setMuted(true)
-        runCurrent()
-        assertEquals("mute:true", p.calls.last())
-        ctl.setMuted(false)
-        runCurrent()
-        assertEquals("mute:false", p.calls.last())
-    }
-
-    @Test
-    fun 讀得出影片是橫的還是直的() = runTest(StandardTestDispatcher()) {
-        val p = FakeClipPlayer()
-        val ctl = controller(p)
-        assertTrue(ctl.videoLandscape())
-        p.videoWidth = 1080
-        p.videoHeight = 1920
-        assertFalse(ctl.videoLandscape())
-    }
-
-    @Test
-    fun 被蓋住時不開播_拿掉後才播() = runTest(StandardTestDispatcher()) {
-        val p = FakeClipPlayer()
-        val ctl = controller(p)
-        ctl.setCovered(true)
-        ctl.onSettled(a)
-        advanceTimeBy(5_000)
-        runCurrent()
-        assertNull(ctl.showing.value)
-        assertFalse(p.calls.any { it.startsWith("loop") })
-        ctl.setCovered(false)
-        advanceTimeBy(500)
-        runCurrent()
-        assertEquals(1L, ctl.showing.value)
-    }
-
-    @Test
-    fun 播放中被蓋住就暫停_拿掉繼續() = runTest(StandardTestDispatcher()) {
-        val p = FakeClipPlayer()
-        val ctl = controller(p)
-        ctl.onSettled(a)
-        advanceTimeBy(2_500)
-        ctl.setCovered(true)
-        runCurrent()
-        assertEquals("pause", p.calls.last())
-        ctl.setCovered(false)
-        runCurrent()
-        assertEquals("resume", p.calls.last())
-    }
-
-    @Test
-    fun 使用者暫停的_蓋住再拿掉仍維持暫停() = runTest(StandardTestDispatcher()) {
-        val p = FakeClipPlayer()
-        val ctl = controller(p)
-        ctl.onSettled(a)
-        advanceTimeBy(2_500)
-        ctl.togglePause()
-        ctl.setCovered(true)
-        ctl.setCovered(false)
-        runCurrent()
-        assertFalse("resume" in p.calls)
-        assertTrue(ctl.userPaused.value)
-    }
-
-    @Test
-    fun 換一張就清掉使用者暫停() = runTest(StandardTestDispatcher()) {
-        val p = FakeClipPlayer()
-        val ctl = controller(p)
-        ctl.onSettled(a)
-        advanceTimeBy(2_500)
-        ctl.togglePause()
-        ctl.onDragStart()
-        ctl.onSettled(b)
-        advanceTimeBy(2_500)
-        runCurrent()
-        assertFalse(ctl.userPaused.value)
-        assertEquals(2L, ctl.showing.value)
-    }
-
-    @Test
     fun 播放器還沒來就等它() = runTest(StandardTestDispatcher()) {
         val ctl = controller(player = null)
         ctl.onSettled(a)
@@ -334,8 +205,6 @@ class LightboxClipControllerTest {
         val before = p.calls.size
         ctl.attach(null)
         p.becomeReady()
-        ctl.togglePause()
-        ctl.setCovered(true)
         ctl.onDragStart()
         advanceUntilIdle()
         assertEquals(before, p.calls.size)
@@ -343,8 +212,8 @@ class LightboxClipControllerTest {
     }
 
     @Test
-    fun 不經拖曳換成別張時先停掉正在播的() = runTest(StandardTestDispatcher()) {
-        // 刪掉播放中的那張、下一張是別支影片且抓不到：舊片段不能在縮圖後面繼續出聲（最終審查 I-1）
+    fun 不經拖曳換成別張時先停掉() = runTest(StandardTestDispatcher()) {
+        // 刪掉目前那張、下一張是別支影片且抓不到：上一張預載中的影片不能在縮圖後面一直播（最終審查 I-1）
         val p = FakeClipPlayer()
         val ctl = controller(p)
         ctl.onSettled(a)
@@ -389,13 +258,13 @@ class LightboxClipControllerTest {
     }
 
     @Test
-    fun 片尾的截圖用往前推的範圍() = runTest(StandardTestDispatcher()) {
+    fun 截圖秒數超過片長就停在片尾() = runTest(StandardTestDispatcher()) {
         sourceResult = { ClipSource(true, durationSec = 600) }
         val p = FakeClipPlayer()
         val ctl = controller(p)
-        ctl.onSettled(ClipTarget(9, "v1", 599.8))
+        ctl.onSettled(ClipTarget(9, "v1", 600.4))
         advanceTimeBy(2_500)
         runCurrent()
-        assertTrue("loop:597.0-600.0" in p.calls)
+        assertTrue("hold:600.0" in p.calls)
     }
 }

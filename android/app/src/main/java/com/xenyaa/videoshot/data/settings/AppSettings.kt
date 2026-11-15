@@ -63,12 +63,6 @@ class AppSettings(context: Context) : ShellSettings {
         store.edit { it[FILTER_STRENGTH] = value.name }
     }
 
-    override val clipMuted: Flow<Boolean> = store.data.map { it[CLIP_MUTED] ?: false }
-
-    override suspend fun setClipMuted(value: Boolean) {
-        store.edit { it[CLIP_MUTED] = value }
-    }
-
     override val playerMuted: Flow<Boolean> = store.data.map { it[PLAYER_MUTED] ?: false }
 
     override suspend fun setPlayerMuted(value: Boolean) {
@@ -232,7 +226,6 @@ class AppSettings(context: Context) : ShellSettings {
         val LAST_CHANGED_AT = longPreferencesKey("last_changed_at")
         val LAST_BACKUP_AT = longPreferencesKey("last_backup_at")
         val FILTER_STRENGTH = stringPreferencesKey("filter_strength")
-        val CLIP_MUTED = booleanPreferencesKey("clip_muted")
         val PLAYER_MUTED = booleanPreferencesKey("player_muted")
         val FOLDER_SORT = stringPreferencesKey("folder_sort")
         val THUMB_COLUMNS = intPreferencesKey("thumb_columns")

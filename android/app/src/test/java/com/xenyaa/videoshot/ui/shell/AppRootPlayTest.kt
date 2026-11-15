@@ -89,8 +89,6 @@ class AppRootPlayTest {
     /** 跟 `AppRootFoldersTest.kt`／`AppRootLightboxTest.kt` 一樣，各檔案各自私有一份（沒有共用的測試替身）。 */
     private class FakeShellSettings : ShellSettings {
         override val filterStrength = flowOf(FilterStrength.MEDIUM)
-        override val clipMuted = kotlinx.coroutines.flow.flowOf(false)
-        override suspend fun setClipMuted(value: Boolean) = Unit
         override val playerMuted = kotlinx.coroutines.flow.flowOf(false)
         override suspend fun setPlayerMuted(value: Boolean) = Unit
         override val folderSort = flowOf(FolderSort.NAME_ASC)

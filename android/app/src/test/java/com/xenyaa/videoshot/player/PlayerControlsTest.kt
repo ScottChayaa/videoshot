@@ -50,9 +50,7 @@ class PlayerControlsTest {
         status: PlaybackStatus = PlaybackStatus(60.0, 600.0, paused = false, started = true, 1920, 1080),
         enabled: Boolean = true,
         fullscreen: Boolean = false,
-        showTimeline: Boolean = true,
         muted: Boolean? = null,
-        playable: Boolean = true,
     ) {
         compose.mainClock.autoAdvance = false
         compose.setContent {
@@ -67,10 +65,8 @@ class PlayerControlsTest {
                     onSeek = { seeks += it },
                     onToggleFullscreen = { fullscreenClicks++ },
                     modifier = Modifier.size(400.dp, 225.dp),
-                    showTimeline = showTimeline,
                     muted = muted,
                     onToggleMute = { muteClicks++ },
-                    playable = playable,
                 )
             }
         }
@@ -365,37 +361,10 @@ class PlayerControlsTest {
         assertEquals(59, info.steps)
     }
 
-    // ---- 時間軸、聲音鈕、還不能播（Lightbox 片段與全螢幕的縮圖狀態用） ----
+    // ---- 聲音鈕 ----
 
     private fun tapAside() = compose.onNodeWithTag(PLAYER_GESTURE_TAG).performTouchInput {
         click(androidx.compose.ui.geometry.Offset(width * 0.2f, height * 0.3f))
-    }
-
-    @Test
-    fun 不顯示時間軸時_沒有時間與進度條() {
-        show(showTimeline = false)
-        tapCenter(); compose.mainClock.advanceTimeBy(400)
-        compose.onNodeWithContentDescription("暫停").assertIsDisplayed()
-        compose.onNodeWithContentDescription("全螢幕").assertIsDisplayed()
-        compose.onNodeWithText("01:00", substring = true).assertDoesNotExist()
-        compose.onNodeWithContentDescription("播放進度").assertDoesNotExist()
-    }
-
-    @Test
-    fun 不顯示時間軸時_拖曳與方向鍵都不跳播() {
-        show(showTimeline = false)
-        compose.mainClock.autoAdvance = true
-        compose.onNodeWithTag(PLAYER_GESTURE_TAG).performTouchInput {
-            down(center)
-            moveBy(androidx.compose.ui.geometry.Offset(viewConfiguration.touchSlop + 1f, 0f))
-            moveBy(androidx.compose.ui.geometry.Offset(width / 4f, 0f))
-        }
-        compose.onNodeWithTag(PREVIEW_BUBBLE_TAG).assertDoesNotExist()
-        compose.onNodeWithTag(PLAYER_GESTURE_TAG).performTouchInput { up() }
-        focusGesture()
-        press(Key.DirectionRight)
-        press(Key.DirectionLeft)
-        assertEquals(emptyList<Double>(), seeks)
     }
 
     @Test
@@ -422,17 +391,5 @@ class PlayerControlsTest {
         show(muted = true)
         tapAside(); compose.mainClock.advanceTimeBy(400)
         compose.onNodeWithContentDescription("打開聲音").assertIsDisplayed()
-    }
-
-    @Test
-    fun 還不能播時_叫得出按鈕但沒有中央鈕_點兩下不切換() {
-        show(playable = false)
-        tapCenter(); compose.mainClock.advanceTimeBy(400)
-        compose.onNodeWithContentDescription("全螢幕").assertIsDisplayed()
-        compose.onAllNodesWithTag(PLAYER_CENTER_TAG, useUnmergedTree = true).assertCountEquals(0)
-        compose.onNodeWithTag(PLAYER_GESTURE_TAG).performTouchInput { doubleClick(center) }
-        compose.mainClock.advanceTimeBy(400)
-        assertEquals(0, toggles)
-        compose.onAllNodesWithTag(PLAYER_CENTER_TAG, useUnmergedTree = true).assertCountEquals(0)
     }
 }

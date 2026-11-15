@@ -120,8 +120,6 @@ class AppRootHomeFilterTest {
 
     private class FakeShellSettings : ShellSettings {
         override val filterStrength = flowOf(FilterStrength.MEDIUM)
-        override val clipMuted = kotlinx.coroutines.flow.flowOf(false)
-        override suspend fun setClipMuted(value: Boolean) = Unit
         override val playerMuted = kotlinx.coroutines.flow.flowOf(false)
         override suspend fun setPlayerMuted(value: Boolean) = Unit
         override val folderSort = flowOf(FolderSort.NAME_ASC)

@@ -1,14 +1,8 @@
 package com.xenyaa.videoshot.player
 
-import com.xenyaa.videoshot.core.player.CLIP_DELAY_MS
-import com.xenyaa.videoshot.core.player.ClipRange
-import com.xenyaa.videoshot.core.player.clipRange
-import com.xenyaa.videoshot.core.player.isLandscapeVideo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,9 +12,6 @@ import kotlinx.coroutines.launch
 
 /** 預載與等畫面出來時讀 [ClipPlayer.status] 的間隔。 */
 const val CLIP_POLL_MS: Long = 100L
-
-/** 秒數超過起點這麼多才算「畫面真的在動」，才把縮圖淡掉。 */
-private const val ADVANCE_EPS_SEC = 0.05
 
 /** 預載時秒數落在起點前面超過這麼多，當成 YouTube 自己跳回片頭，再跳一次。 */
 private const val CUE_DRIFT_SEC = 1.0
@@ -32,11 +23,11 @@ private const val CUE_RETRY_MS = 1_500L
 private const val PREPARE_RELOAD_MS = 15_000L
 
 /**
- * Lightbox 自動播放片段的流程（規格第六節「自動播放片段」）。不碰 Compose，畫面只讀 [showing]／[userPaused]、
- * 把事件（停在某一張、開始拖、點兩下、切換聲音、被蓋住）丟進來。
+ * Lightbox 大圖換成影片畫面的流程（規格第六節「影片定格」）。不碰 Compose，畫面只讀 [showing]、
+ * 把事件（停在某一張、開始拖）丟進來。
  *
- * 一次只有一個工作（[job]）：停在某一張就開一個，開始拖或換一張就取消。工作裡「倒數」與「預載」同時跑，
- * 兩個都完成才開始循環，等秒數真的在前進才把 [showing] 設成那張——畫面在那之前一直是縮圖。
+ * 一次只有一個工作（[job]）：停在某一張就開一個，開始拖或換一張就取消。工作靜音預載到截圖那一秒、
+ * 停住，等畫面出來才把 [showing] 設成那張——畫面在那之前一直是縮圖。之後影片一直停在那一格，不播放、不出聲。
  *
  * @param scope 畫面的 scope；Lightbox 離開組合時一起取消
  * @param source 抓 watch page 換成 [ClipSource]；拿不到回 null。**成功的結果記在這個物件裡**（這次 Lightbox），失敗不記
@@ -44,29 +35,18 @@ private const val PREPARE_RELOAD_MS = 15_000L
 class LightboxClipController(
     private val scope: CoroutineScope,
     private val source: suspend (videoId: String) -> ClipSource?,
-    private val delayMs: Long = CLIP_DELAY_MS,
 ) {
     private val player = MutableStateFlow<ClipPlayer?>(null)
-    private val covered = MutableStateFlow(false)
     private val sources = mutableMapOf<String, ClipSource>()
 
     /** 頁面上目前載的是哪支影片；load 完成才寫，中途被取消就保持 null，下次一定重載。 */
     private var loadedVideoId: String? = null
     private var job: Job? = null
 
-    /** 已經下過 startLoop：之後被蓋住、點兩下、切換聲音才需要對播放器下指令。 */
-    private var loopStarted = false
-
-    /** 使用者關掉【聲音】（設定值，換張不清掉）。 */
-    private var muted = false
-
     private val _showing = MutableStateFlow<Long?>(null)
 
-    /** 正在顯示影片的那一張的 shotId；null＝顯示縮圖。 */
+    /** 正在顯示影片畫面的那一張的 shotId；null＝顯示縮圖。 */
     val showing: StateFlow<Long?> = _showing
-
-    private val _userPaused = MutableStateFlow(false)
-    val userPaused: StateFlow<Boolean> = _userPaused
 
     /** WebView 建好給播放器；被釋放時給 null——之後不能再對它下任何指令。 */
     fun attach(p: ClipPlayer?) {
@@ -75,103 +55,59 @@ class LightboxClipController(
         player.value = p
     }
 
-    /** 停在某一張（含剛開啟、滑回同一張、目前這張被刪掉換成下一張）：重新倒數。 */
+    /** 停在某一張（含剛開啟、滑回同一張、目前這張被刪掉換成下一張）：重新預載。 */
     fun onSettled(target: ClipTarget) {
-        // 不經拖曳換成別張（刪掉目前這張、篩選中改完被拿掉）時，上一段可能還在播：先停掉。
-        // 不停的話下一張若是別支影片又抓不到，舊片段會在縮圖後面一直出聲（最終審查 I-1）
-        val wasActive = job != null || loopStarted
+        // 上一張可能還在靜音預載（播著讓它緩衝）：先停掉，下一張抓不到來源時才不會在背後一直播
+        val wasActive = job != null
         reset()
         player.value?.let { p -> if (wasActive) scope.launch { p.pause() } }
         job = scope.launch { run(target) }
     }
 
-    /** 手指開始拖：倒數作廢、影片立刻暫停、換回縮圖。 */
+    /** 手指開始拖：預載作廢、換回縮圖；預載中的影片（靜音在播、讓它緩衝）停掉。 */
     fun onDragStart() {
         reset()
         val p = player.value ?: return
         scope.launch { p.pause() }
     }
 
-    /** 點兩下影片：暫停／繼續。還是縮圖時沒反應。 */
-    fun togglePause() {
-        if (_showing.value == null) return
-        _userPaused.value = !_userPaused.value
-        applyPlayback()
-    }
-
-    /** 【聲音】：之後開始的循環照這個值；正在循環就馬上套用。預載期間本來就靜音，不用下指令。 */
-    fun setMuted(value: Boolean) {
-        if (muted == value) return
-        muted = value
-        if (!loopStarted) return
-        val p = player.value ?: return
-        scope.launch { p.setMuted(value) }
-    }
-
-    /** 目前這支影片是不是橫的（全螢幕決定方向用）；讀不到寬高當成橫的。 */
-    suspend fun videoLandscape(): Boolean {
-        val s = player.value?.status() ?: return true
-        return isLandscapeVideo(s.videoWidth, s.videoHeight)
-    }
-
-    /** ⋯ 選單、確認框、抽屜、切到背景。 */
-    fun setCovered(value: Boolean) {
-        if (covered.value == value) return
-        covered.value = value
-        if (loopStarted) applyPlayback()
-    }
-
     private fun reset() {
         job?.cancel()
         job = null
-        loopStarted = false
         _showing.value = null
-        _userPaused.value = false
     }
 
-    private fun applyPlayback() {
+    private suspend fun run(target: ClipTarget) {
+        val startSec = prepare(target) ?: return
         val p = player.value ?: return
-        val play = !_userPaused.value && !covered.value
-        scope.launch { if (play) p.resume() else p.pause() }
-    }
-
-    private suspend fun run(target: ClipTarget) = coroutineScope {
-        val prepared = async { prepare(target) }
-        delay(delayMs)
-        val range = prepared.await() ?: return@coroutineScope
-        covered.first { !it }
-        val p = player.value ?: return@coroutineScope
-        loopStarted = true
-        p.startLoop(range.startSec, range.endSec, muted)
-        while (true) {
-            val s = p.status()
-            if (!s.paused && s.currentSec > range.startSec + ADVANCE_EPS_SEC) break
-            delay(CLIP_POLL_MS)
-        }
+        // hold 跳回起點要重新解碼那一格：有畫面（readyState ≥ 2）才露出來
+        while (p.status().readyState < 2) delay(CLIP_POLL_MS)
         _showing.value = target.shotId
     }
 
     /**
-     * 抓來源 → 換頁面（不同影片才換）→ 靜音預載到起點 → 停住。拿不到來源回 null。
+     * 抓來源 → 換頁面（不同影片才換）→ 靜音預載到截圖那一秒 → 停住，回傳停在哪一秒。拿不到來源回 null。
      * 預載太久沒好就重載頁面再等（規格：還沒載好就繼續等，好了才換）——頁面載入失敗不能被記住。
      */
-    private suspend fun prepare(target: ClipTarget): ClipRange? {
+    private suspend fun prepare(target: ClipTarget): Double? {
         val src = sources[target.videoId]
             ?: fetch(target.videoId)?.also { sources[target.videoId] = it }
             ?: return null
         val p = player.filterNotNull().first()
-        val range = clipRange(target.atSec, src.durationSec.toDouble())
+        // 截圖秒數比 watch page 的整數總長還大時，停在片尾
+        val startSec = target.atSec.coerceAtLeast(0.0)
+            .let { if (src.durationSec > 0) it.coerceAtMost(src.durationSec.toDouble()) else it }
         while (true) {
             if (loadedVideoId != target.videoId) {
                 loadedVideoId = null
                 p.load(target.videoId, src.playableInEmbed)
                 loadedVideoId = target.videoId
             }
-            if (cueUntilReady(p, range.startSec)) break
+            if (cueUntilReady(p, startSec)) break
             loadedVideoId = null
         }
-        p.hold(range.startSec)
-        return range
+        p.hold(startSec)
+        return startSec
     }
 
     /** 預載到緩衝好回 true；[PREPARE_RELOAD_MS] 內都沒好回 false。 */

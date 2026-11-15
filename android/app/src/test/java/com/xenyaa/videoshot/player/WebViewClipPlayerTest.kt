@@ -27,23 +27,19 @@ class WebViewClipPlayerTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
     @Test fun 狀態字串解析() =
-        assertEquals(ClipStatus(30.5, 4, paused = false, videoWidth = 1280, videoHeight = 720), parseClipStatus("\"30.5,4,0,1280,720\""))
-
-    @Test fun 狀態帶影片寬高() =
-        assertTrue(CLIP_STATUS_JS.contains("v.videoWidth, v.videoHeight"))
+        assertEquals(ClipStatus(30.5, 4), parseClipStatus("\"30.5,4\""))
 
     @Test fun 沒有影片元素是未知() =
         assertEquals(ClipStatus.Unknown, parseClipStatus("\"none\""))
 
     @Test fun 格式不對是未知() {
         assertEquals(ClipStatus.Unknown, parseClipStatus(""))
-        assertEquals(ClipStatus.Unknown, parseClipStatus("\"NaN,4,0\""))
-        assertEquals(ClipStatus.Unknown, parseClipStatus("\"1,2\""))
+        assertEquals(ClipStatus.Unknown, parseClipStatus("\"NaN,4\""))
+        assertEquals(ClipStatus.Unknown, parseClipStatus("\"1,2,3\""))
     }
 
-    @Test fun 預載會停掉上一段循環_靜音_跳到起點_點封面() {
+    @Test fun 預載會靜音_跳到起點_點封面() {
         val js = clipCueJs(30.0)
-        assertTrue(js.contains("clearInterval(window.__vsLoop)"))
         assertTrue(js.contains("v.muted = true"))
         assertTrue(js.contains("v.currentTime = 30.0"))
         assertTrue(js.contains("CuedOverlayPlayButton"))
@@ -61,40 +57,10 @@ class WebViewClipPlayerTest {
         assertTrue(js.contains("'playing'"))
     }
 
-    @Test fun 開始循環前先解除強制靜音() {
-        val js = clipLoopJs(30.0, 33.0, muted = false)
-        assertTrue(js.indexOf("window.__vsMute = false") in 0 until js.indexOf("v.muted = false"))
-    }
-
-    @Test fun 使用者關掉聲音時循環維持強制靜音() {
-        // 強制靜音（__vsMute）一直開著：YouTube 自己把 muted 改回 false 時會被蓋回去
-        val js = clipLoopJs(30.0, 33.0, muted = true)
-        assertTrue(js.contains("window.__vsMute = true"))
-        assertTrue(js.contains("v.muted = true"))
-        assertTrue(!js.contains("v.muted = false"))
-    }
-
-    @Test fun 切換聲音同時改強制靜音與影片() {
-        assertTrue(clipMuteJs(true).contains("window.__vsMute = true"))
-        assertTrue(clipMuteJs(true).contains("v.muted = true"))
-        assertTrue(clipMuteJs(false).contains("window.__vsMute = false"))
-        assertTrue(clipMuteJs(false).contains("v.muted = false"))
-    }
-
     @Test fun 停住會暫停並跳回起點() {
         val js = clipHoldJs(30.0)
         assertTrue(js.contains("v.pause()"))
         assertTrue(js.contains("v.currentTime = 30.0"))
-    }
-
-    @Test fun 循環在頁面裡每五十毫秒檢查_取消靜音() {
-        val js = clipLoopJs(30.0, 33.0, muted = false)
-        assertTrue(js.contains("setInterval"))
-        assertTrue(js.contains(", 50)"))
-        assertTrue(js.contains("v.currentTime >= 33.0"))
-        assertTrue(js.contains("v.muted = false"))
-        // 播到片尾 <video> 會停在 ended，跳回之後要再 play
-        assertTrue(js.contains("v.ended"))
     }
 
     @Test fun 頁面背景透明() =

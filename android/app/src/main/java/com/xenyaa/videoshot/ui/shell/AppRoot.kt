@@ -435,7 +435,6 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var scrollToMonth by rememberSaveable { mutableStateOf<String?>(null) }
-    val clipMuted by container.settings.clipMuted.collectAsStateWithLifecycle(initialValue = false)
     // Lightbox 改一個欄位的抽屜掛在外層，不是 LightboxActions 裡直接開 —— 抽屜需要自己的
     // produceState（地點／標籤建議、既有標籤），Lightbox 本身不該知道這些
     var editing by remember { mutableStateOf<Pair<ShotRow, DetailField>?>(null) }
@@ -578,10 +577,6 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
                 tagsOf = { shot -> container.libraryRepo.tagsOfShot(shot.id) },
                 tagsRefreshKey = shotEdits,
                 clip = lightboxClip,
-                // 【加入相簿】與改圖資的抽屜是 AppRoot 畫的，蓋在 Lightbox 上時片段要停
-                covered = addingTo != null || editing != null,
-                muted = clipMuted,
-                onMutedChange = { value -> scope.launch { container.settings.setClipMuted(value) } },
                 // 把目前這一張寫回導覽堆疊：轉螢幕或被系統回收重建之後，回來還在同一張。
                 //
                 // 一定要先確認堆疊頂真的是 Dest.Lightbox 才能換掉它 —— pop() 對只有一層、

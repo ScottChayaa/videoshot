@@ -17,11 +17,7 @@ import kotlinx.coroutines.flow.Flow
 interface ShellSettings {
     val filterStrength: Flow<FilterStrength>
 
-    /** Lightbox 片段的【聲音】關掉了沒；換張、關掉 Lightbox、重開 app 都記得（規格第六節「自動播放片段」）。 */
-    val clipMuted: Flow<Boolean>
-    suspend fun setClipMuted(value: Boolean)
-
-    /** 取圖第二步與原片播放的【聲音】關掉了沒；跟 [clipMuted] 分開記（規格第六節「播放器」）。 */
+    /** 取圖第二步與原片播放的【聲音】關掉了沒（規格第六節「播放器」）。 */
     val playerMuted: Flow<Boolean>
     suspend fun setPlayerMuted(value: Boolean)
 

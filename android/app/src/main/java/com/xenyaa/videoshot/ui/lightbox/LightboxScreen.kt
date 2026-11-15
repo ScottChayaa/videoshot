@@ -32,7 +32,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.key
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,28 +60,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.semantics.stateDescription
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.compose.currentStateAsState
-import com.xenyaa.videoshot.core.player.CLIP_DELAY_MS
 import com.xenyaa.videoshot.player.ClipPlayer
 import com.xenyaa.videoshot.player.ClipPlayerSurface
-import com.xenyaa.videoshot.player.PlaybackStatus
-import com.xenyaa.videoshot.player.PlayerControls
 import com.xenyaa.videoshot.player.ClipSource
 import com.xenyaa.videoshot.player.ClipTarget
 import com.xenyaa.videoshot.player.LightboxClipController
-import com.xenyaa.videoshot.player.LocalPlayerFullscreen
-import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.ui.semantics.CustomAccessibilityAction
-import androidx.compose.ui.semantics.customActions
-import kotlinx.coroutines.launch
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.composed
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -111,15 +93,13 @@ data class LightboxActions(
 )
 
 /**
- * Lightbox 自動播放片段要的東西（規格第六節「自動播放片段」）。不給（null）就不自動播。
+ * Lightbox 影片定格要的東西（規格第六節「影片定格」）。不給（null）就一直是縮圖。
  *
  * @param source 抓 watch page 換成 [ClipSource]，拿不到回 null（`AppRoot` 經由 `youtube` 模組接）
- * @param delayMs 停多久才播；只有測試會改
  * @param surface 放影片的那一層；正式版是 WebView，測試換成直接給 `FakeClipPlayer`
  */
 class LightboxClipDeps(
     val source: suspend (videoId: String) -> ClipSource?,
-    val delayMs: Long = CLIP_DELAY_MS,
     val surface: @Composable (alpha: Float, onPlayer: (ClipPlayer?) -> Unit, modifier: Modifier) -> Unit =
         { alpha, onPlayer, modifier -> ClipPlayerSurface(alpha, onPlayer, modifier) },
 )
@@ -156,13 +136,8 @@ fun LightboxScreen(
     tagsOf: suspend (ShotRow) -> List<String> = { emptyList() },
     /** 就地編輯存檔後遞增：標籤改了但 [ShotRow] 不含標籤、比不出差異，靠它重讀標籤列。 */
     tagsRefreshKey: Int = 0,
-    /** 自動播放片段；null＝不播。 */
+    /** 影片定格；null＝一直是縮圖。 */
     clip: LightboxClipDeps? = null,
-    /** 呼叫端的東西蓋在 Lightbox 上（【加入相簿】、改圖資的抽屜）：片段暫停。 */
-    covered: Boolean = false,
-    /** 【聲音】關掉了沒（設定值，呼叫端存）。 */
-    muted: Boolean = false,
-    onMutedChange: (Boolean) -> Unit = {},
 ) {
     if (items.isEmpty()) {
         // 刪到最後一張時會走到這裡（案例 17）
@@ -175,39 +150,22 @@ fun LightboxScreen(
         pageCount = { items.size },
     )
 
-    // ── 自動播放片段（規格第六節「自動播放片段」）──
+    // ── 影片定格（規格第六節「影片定格」）──
     val clipScope = rememberCoroutineScope()
     val controller = clip?.let { deps ->
-        remember(deps) { LightboxClipController(clipScope, deps.source, deps.delayMs) }
+        remember(deps) { LightboxClipController(clipScope, deps.source) }
     }
     val currentItems by rememberUpdatedState(items)
 
-    // 片段的控制層用播放器的 PlayerControls（不顯示時間軸）。開始上下拖就 +1：控制層以它當 key 重建，等於收起
-    var dragEpoch by remember { mutableIntStateOf(0) }
-
-    // 全螢幕（規格第六節「自動播放片段」）：跟原片播放同一份狀態，方向與系統列由 MainActivity 套用。
-    // 返回鍵只離開全螢幕；Lightbox 關掉時一定離開
-    val fullscreenState = LocalPlayerFullscreen.current
-    val fullscreen = fullscreenState.active
-    BackHandler(enabled = fullscreen) { fullscreenState.exit() }
-    DisposableEffect(fullscreenState) { onDispose { fullscreenState.exit() } }
-
     if (controller != null) {
-        // 比開始倒數早套用：第一段循環就照設定值
-        LaunchedEffect(controller, muted) { controller.setMuted(muted) }
-        // 手指一開始拖就停、換回縮圖；停下來（含滑回同一張、目前這張被刪掉換成別張）就重新倒數。
-        // 拖的時候送 null，所以「A → 拖 → A」也會再送一次 A，滑回同一張會重新倒數
+        // 手指一開始拖就換回縮圖；停下來（含滑回同一張、目前這張被刪掉換成別張）就重新預載。
+        // 拖的時候送 null，所以「A → 拖 → A」也會再送一次 A
         LaunchedEffect(pager, controller) {
             snapshotFlow {
                 if (pager.isScrollInProgress) null
                 else currentItems.getOrNull(pager.currentPage)?.let { ClipTarget(it.id, it.videoId, it.atSec) }
             }.collect { target ->
-                if (target == null) {
-                    controller.onDragStart()
-                    dragEpoch++
-                } else {
-                    controller.onSettled(target)
-                }
+                if (target == null) controller.onDragStart() else controller.onSettled(target)
             }
         }
     }
@@ -224,14 +182,8 @@ fun LightboxScreen(
     val shot = items[pager.currentPage.coerceAtMost(items.lastIndex)]
     var menuOpen by remember { mutableStateOf(false) }
     var confirmingDelete by remember { mutableStateOf(false) }
-    if (controller != null) {
-        val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
-        val coveredNow = covered || menuOpen || confirmingDelete || !lifecycleState.isAtLeast(Lifecycle.State.RESUMED)
-        LaunchedEffect(controller, coveredNow) { controller.setCovered(coveredNow) }
-    }
     // controller 是不是 null 由 clip 參數決定，同一個 Lightbox 裡不會變
     val showingId: Long? = controller?.showing?.collectAsState()?.value
-    val userPaused: Boolean = controller?.userPaused?.collectAsState()?.value ?: false
     val iconShape = RoundedCornerShape(AppTheme.radii.sm)
     val tags by produceState(emptyList<String>(), shot.id, tagsRefreshKey) {
         value = emptyList()
@@ -245,10 +197,9 @@ fun LightboxScreen(
         }
     }
 
-    Box(modifier.fillMaxSize().background(if (fullscreen) Color.Black else AppTheme.colors.lightboxBg)) {
+    Box(modifier.fillMaxSize().background(AppTheme.colors.lightboxBg)) {
         Column(Modifier.fillMaxSize()) {
-            // 全螢幕只剩大圖區：其他區塊藏起來，但大圖區在組合裡的位置不動（動了 WebView 會重建）
-            if (!fullscreen) Row(
+            Row(
                 // 下緣不留白：標籤列緊貼在頂列下方
                 Modifier.fillMaxWidth().statusBarsPadding()
                     .padding(start = AppTheme.spacing.s2, end = AppTheme.spacing.s2, top = AppTheme.spacing.s2),
@@ -296,7 +247,7 @@ fun LightboxScreen(
 
             // 標籤列：只有一列，放不下就左右滑，不換行。沒有標籤也保留這一列的高度——
             // 滑到有標籤／沒標籤的圖時，大圖才不會跟著上下跳
-            if (!fullscreen) Row(
+            Row(
                 Modifier
                     .fillMaxWidth()
                     .heightIn(min = TAG_ROW_MIN_HEIGHT)
@@ -312,8 +263,8 @@ fun LightboxScreen(
             // 大圖跟一次性提示放同一個 Box：提示用 BottomCenter 貼著**這個 Box 的下緣**，
             // 也就是描述／動作列開始的地方，不是螢幕的物理下緣 —— 系統導覽列多高都不會蓋到它。
             // 上緣留一段距離：直的照片撐滿高時才不會緊貼在標籤列下面
-            Box(Modifier.weight(1f).fillMaxWidth().padding(top = if (fullscreen) 0.dp else AppTheme.spacing.s4)) {
-                // 片段層在 pager 下面：pager 疊在上面照常接上下滑；影片要出來時把目前這頁的縮圖淡掉露出它。
+            Box(Modifier.weight(1f).fillMaxWidth().padding(top = AppTheme.spacing.s4)) {
+                // 影片層在 pager 下面：pager 疊在上面照常接上下滑；影片要出來時把目前這頁的縮圖淡掉露出它。
                 // 一個 Lightbox 只有這一個 WebView（每頁各一個的話 2～3 個同時在載 YouTube）
                 if (clip != null && controller != null) {
                     val videoAlpha by animateFloatAsState(
@@ -338,26 +289,7 @@ fun LightboxScreen(
                         animationSpec = tween(if (showingThis) CLIP_FADE_MS else 0),
                         label = "clipThumbAlpha",
                     )
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .then(
-                                if (showingThis && controller != null) {
-                                    Modifier.semantics {
-                                        stateDescription = if (userPaused) "片段已暫停" else "片段播放中"
-                                        customActions = listOf(
-                                            CustomAccessibilityAction(if (userPaused) "繼續播放片段" else "暫停片段") {
-                                                controller.togglePause()
-                                                true
-                                            },
-                                        )
-                                    }
-                                } else {
-                                    Modifier
-                                },
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         ThumbImage(
                             shot = pageShot,
                             loader = loader,
@@ -368,36 +300,6 @@ fun LightboxScreen(
                             fitImageAspect = true,
                             modifier = Modifier.alpha(thumbAlpha),
                         )
-                        // 控制層（規格第六節「自動播放片段」）：跟取圖第二步同一套，不顯示時間與進度條、不能拖曳跳播。
-                        // 只在影片出來的那一頁才有；全螢幕中目前這頁還是縮圖也叫得出來——影片載不出來時才有辦法離開
-                        if (controller != null && (showingThis || (fullscreen && page == pager.currentPage))) {
-                            key(dragEpoch) {
-                                PlayerControls(
-                                    status = PlaybackStatus(0.0, 0.0, paused = userPaused, started = true, 0, 0),
-                                    fallbackDurationSec = 0.0,
-                                    enabled = true,
-                                    fullscreen = fullscreen,
-                                    preview = { null },
-                                    onTogglePlay = { controller.togglePause() },
-                                    onSeek = {},
-                                    onToggleFullscreen = {
-                                        if (fullscreen) {
-                                            fullscreenState.exit()
-                                        } else {
-                                            // 方向照按下去當時這支影片決定，之後換張不再轉（規格第六節）
-                                            clipScope.launch { fullscreenState.enter(controller.videoLandscape()) }
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .matchParentSize()
-                                        .then(if (fullscreen) Modifier.windowInsetsPadding(WindowInsets.safeDrawing) else Modifier),
-                                    showTimeline = false,
-                                    muted = muted,
-                                    onToggleMute = { onMutedChange(!muted) },
-                                    playable = showingThis,
-                                )
-                            }
-                        }
                     }
                 }
             }
@@ -405,7 +307,7 @@ fun LightboxScreen(
             // 描述跟動作列一起讓開導覽列（手冊 §三第四條的動作分層）：
             // 這個 Column 不在畫面最下面就不會多吃一段有效內容高度，
             // navigationBarsPadding 的上緣本來就是 0，只會把下緣往上推
-            if (!fullscreen) Column(Modifier.navigationBarsPadding()) {
+            Column(Modifier.navigationBarsPadding()) {
                 // 描述固定佔兩行（沒有描述也留著），橫的直的、有沒有描述，底部動作列都在同一個位置
                 Text(
                     shot.description.orEmpty(),
@@ -426,6 +328,12 @@ fun LightboxScreen(
                     horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.s2),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    // 圖示同取圖第三步底部的欄位按鈕
+                    DarkIconButton(VsIcons.Tag, "標籤") { actions.onEdit(shot, DetailField.TAGS) }
+                    DarkIconButton(VsIcons.Notes, "描述") { actions.onEdit(shot, DetailField.DESCRIPTION) }
+                    DarkIconButton(VsIcons.FolderPlus, "加入相簿") { actions.onAddToFolder(shot) }
+                    DarkIconButton(VsIcons.Share, "分享") { actions.onShare(shot) }
+                    // 主要動作放最右邊（2026-11-15 scott）
                     VsButton(
                         text = "原片播放",
                         onClick = { actions.onPlay(shot) },
@@ -433,11 +341,6 @@ fun LightboxScreen(
                         variant = ButtonVariant.Primary,
                         icon = VsIcons.Play,
                     )
-                    // 圖示同取圖第三步底部的欄位按鈕
-                    DarkIconButton(VsIcons.Tag, "標籤") { actions.onEdit(shot, DetailField.TAGS) }
-                    DarkIconButton(VsIcons.Notes, "描述") { actions.onEdit(shot, DetailField.DESCRIPTION) }
-                    DarkIconButton(VsIcons.FolderPlus, "加入相簿") { actions.onAddToFolder(shot) }
-                    DarkIconButton(VsIcons.Share, "分享") { actions.onShare(shot) }
                 }
             }
         }

@@ -80,20 +80,10 @@ class AppSettingsTest {
     }
 
     @Test
-    fun 片段的聲音預設開著_關掉存得住() = runTest {
-        assertFalse(settings.clipMuted.first())
-        settings.setClipMuted(true)
-        assertTrue(settings.clipMuted.first())
-        settings.setClipMuted(false)
-        assertFalse(settings.clipMuted.first())
-    }
-
-    @Test
-    fun 播放器的聲音預設開著_關掉存得住_跟片段分開() = runTest {
+    fun 播放器的聲音預設開著_關掉存得住() = runTest {
         assertFalse(settings.playerMuted.first())
         settings.setPlayerMuted(true)
         assertTrue(settings.playerMuted.first())
-        assertFalse(settings.clipMuted.first())
         settings.setPlayerMuted(false)
         assertFalse(settings.playerMuted.first())
     }
