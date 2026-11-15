@@ -333,6 +333,17 @@ object VsIcons {
         )
     }
 
+    /** 照片加向下箭頭（Lucide `image-down`）：Lightbox【截圖】，存到手機相簿（2026-11-16 scott 選的）。圓形改寫成兩段弧線。 */
+    val ImageDown: ImageVector by lazy {
+        strokeIcon(
+            "image-down",
+            "M10.3 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10l-3.1-3.1a2 2 0 0 0-2.814.014L6 21",
+            "m14 19 3 3v-5.5",
+            "m17 22 3-3",
+            "M7 9a2 2 0 1 0 4 0a2 2 0 1 0 -4 0",
+        )
+    }
+
     /**
      * 篩選（首頁篩選鈕）。Lucide `list-filter`：置中、由長到短的三條橫線（2026-10-25 起，原本是漏斗 `filter`）。
      * 帳號頁「取圖」那一列 2026-10-09 起改用 [Sliders]，避免跟首頁篩選鈕同圖示不同語意。

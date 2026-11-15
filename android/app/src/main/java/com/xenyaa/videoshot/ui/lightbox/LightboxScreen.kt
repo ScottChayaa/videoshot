@@ -348,9 +348,8 @@ fun LightboxScreen(
                     DarkIconButton(VsIcons.Tag, "標籤") { actions.onEdit(shot, DetailField.TAGS) }
                     DarkIconButton(VsIcons.Notes, "描述") { actions.onEdit(shot, DetailField.DESCRIPTION) }
                     DarkIconButton(VsIcons.FolderPlus, "加入相簿") { actions.onAddToFolder(shot) }
-                    // 圖示同取圖第二步的【截圖】
                     DarkIconButton(
-                        if (flight.saved) VsIcons.Check else VsIcons.Scissors,
+                        if (flight.saved) VsIcons.Check else VsIcons.ImageDown,
                         "截圖",
                         modifier = Modifier
                             .onGloballyPositioned { flight.button = it.boundsInRoot() }
