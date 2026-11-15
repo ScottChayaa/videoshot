@@ -65,7 +65,7 @@ class LightboxActionsTest {
                     actions = LightboxActions(
                         onPlay = { clicked += "play" },
                         onAddToFolder = { clicked += "folder" },
-                        onCapture = { _, jpeg -> clicked += "capture:${jpeg != null}" },
+                        onCapture = { _, jpeg -> clicked += "capture:${jpeg != null}"; false },
                         onEdit = { _, field -> clicked += "edit:$field" },
                         onDelete = { clicked += "delete" },
                     ),

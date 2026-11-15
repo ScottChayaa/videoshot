@@ -15,6 +15,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.padding
 import com.xenyaa.videoshot.media.MediaAccess
 import com.xenyaa.videoshot.media.mediaPermissionsFor
 import com.xenyaa.videoshot.ui.clip.ClipDeps
@@ -113,6 +114,7 @@ import com.xenyaa.videoshot.ui.home.HomeScreen
 import com.xenyaa.videoshot.ui.home.HomeViewModel
 import com.xenyaa.videoshot.ui.home.toFilterOption
 import com.xenyaa.videoshot.ui.lightbox.LightboxActions
+import com.xenyaa.videoshot.ui.lightbox.LightboxActionRowHeight
 import com.xenyaa.videoshot.ui.lightbox.LightboxClipDeps
 import com.xenyaa.videoshot.ui.lightbox.LightboxScreen
 import com.xenyaa.videoshot.ui.onboarding.FirstRunChooserScreen
@@ -591,17 +593,14 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
                     // 疊在 Lightbox 上面：返回回到 Lightbox 原本那一張（規格第六節「原片播放」）
                     onPlay = { shot -> nav = nav.push(Dest.Play(shot.videoId, shot.id)) },
                     onAddToFolder = { addingTo = it },
+                    // 存成功只有 Lightbox 自己的動畫，不跳文字（2026-11-16 scott）
                     onCapture = { shot, jpeg ->
-                        scope.launch {
-                            val saved = jpeg?.let { container.saveImage(it, "${shot.videoId}_${shot.atSec.toInt()}s.jpg") }
-                            snackbarHostState.showSnackbar(
-                                when {
-                                    jpeg == null -> "影片畫面還沒出來，稍等再截"
-                                    saved == null -> "存到相簿失敗，請再試一次"
-                                    else -> "已存到手機相簿"
-                                },
-                            )
+                        val saved = jpeg?.let { container.saveImage(it, "${shot.videoId}_${shot.atSec.toInt()}s.jpg") } != null
+                        when {
+                            jpeg == null -> scope.launch { snackbarHostState.showSnackbar("影片畫面還沒出來，稍等再截") }
+                            !saved -> scope.launch { snackbarHostState.showSnackbar("存到相簿失敗，請再試一次") }
                         }
+                        saved
                     },
                     onEdit = { shot, field -> editing = shot to field },
                     onDelete = { shot ->
@@ -642,9 +641,10 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
                     },
                 ),
             )
+            // 疊在底部動作列上面，不蓋住按鈕（2026-11-16 scott）
             SnackbarHost(
                 snackbarHostState,
-                Modifier.align(Alignment.BottomCenter).navigationBarsPadding(),
+                Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = LightboxActionRowHeight),
             )
 
             // 【加入分類】：勾一下寫一次（本階段決定 3）。這張 sheet 不碰 repo（見它的 KDoc），

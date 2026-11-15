@@ -1,6 +1,16 @@
 package com.xenyaa.videoshot.ui.lightbox
 
 import androidx.compose.foundation.background
+import android.graphics.BitmapFactory
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -82,10 +92,10 @@ data class LightboxActions(
     val onPlay: (ShotRow) -> Unit = {},
     val onAddToFolder: (ShotRow) -> Unit = {},
     /**
-     * 【截圖】：影片畫面那一格的原尺寸 JPEG，存到手機相簿（2026-11-16 取代【分享】）。
-     * 畫面還沒從縮圖換成影片、或截不到時給 null。
+     * 【截圖】：影片畫面那一格的原尺寸 JPEG，存到手機相簿（2026-11-16 取代【分享】），回傳存成功沒有。
+     * 畫面還沒從縮圖換成影片、或截不到時給 null。成功由畫面播動畫，失敗由呼叫端跳提示。
      */
-    val onCapture: (ShotRow, ByteArray?) -> Unit = { _, _ -> },
+    val onCapture: suspend (ShotRow, ByteArray?) -> Boolean = { _, _ -> false },
     /** 改一個欄位：長按日期／地點、底部【標籤】【描述】各開自己的抽屜（2026-11-14 拿掉【詳細資料】）。 */
     val onEdit: (ShotRow, DetailField) -> Unit = { _, _ -> },
     val onDelete: (ShotRow) -> Unit = {},
@@ -184,6 +194,10 @@ fun LightboxScreen(
     // controller 是不是 null 由 clip 參數決定，同一個 Lightbox 裡不會變
     val showingId: Long? = controller?.showing?.collectAsState()?.value
     val iconShape = RoundedCornerShape(AppTheme.radii.sm)
+    val flight = remember { CaptureFlight() }
+    var origin by remember { mutableStateOf(Offset.Zero) }
+    var capturing by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
     val tags by produceState(emptyList<String>(), shot.id, tagsRefreshKey) {
         value = emptyList()
         // 輔助資訊：讀不到就沒有標籤列，不擋看圖
@@ -196,7 +210,7 @@ fun LightboxScreen(
         }
     }
 
-    Box(modifier.fillMaxSize().background(AppTheme.colors.lightboxBg)) {
+    Box(modifier.fillMaxSize().background(AppTheme.colors.lightboxBg).onGloballyPositioned { origin = it.positionInRoot() }) {
         Column(Modifier.fillMaxSize()) {
             Row(
                 // 下緣不留白：標籤列緊貼在頂列下方
@@ -262,7 +276,10 @@ fun LightboxScreen(
             // 大圖跟一次性提示放同一個 Box：提示用 BottomCenter 貼著**這個 Box 的下緣**，
             // 也就是描述／動作列開始的地方，不是螢幕的物理下緣 —— 系統導覽列多高都不會蓋到它。
             // 上緣留一段距離：直的照片撐滿高時才不會緊貼在標籤列下面
-            Box(Modifier.weight(1f).fillMaxWidth().padding(top = AppTheme.spacing.s4)) {
+            Box(
+                Modifier.weight(1f).fillMaxWidth().padding(top = AppTheme.spacing.s4)
+                    .onGloballyPositioned { flight.area = it.boundsInRoot() },
+            ) {
                 // 影片層在 pager 下面：pager 疊在上面照常接上下滑；影片要出來時把目前這頁的縮圖淡掉露出它。
                 // 一個 Lightbox 只有這一個 WebView（每頁各一個的話 2～3 個同時在載 YouTube）
                 if (clip != null && controller != null) {
@@ -332,8 +349,25 @@ fun LightboxScreen(
                     DarkIconButton(VsIcons.Notes, "描述") { actions.onEdit(shot, DetailField.DESCRIPTION) }
                     DarkIconButton(VsIcons.FolderPlus, "加入相簿") { actions.onAddToFolder(shot) }
                     // 圖示同取圖第二步的【截圖】
-                    DarkIconButton(VsIcons.Scissors, "截圖") {
-                        clipScope.launch { actions.onCapture(shot, controller?.capture(shot.id)) }
+                    DarkIconButton(
+                        if (flight.saved) VsIcons.Check else VsIcons.Scissors,
+                        "截圖",
+                        modifier = Modifier
+                            .onGloballyPositioned { flight.button = it.boundsInRoot() }
+                            .graphicsLayer { scaleX = flight.bounce.value; scaleY = flight.bounce.value },
+                    ) {
+                        if (!capturing) {
+                            capturing = true
+                            clipScope.launch {
+                                try {
+                                    capture(shot, showingId == shot.id, controller, flight, actions) {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    }
+                                } finally {
+                                    capturing = false
+                                }
+                            }
+                        }
                     }
                     // 主要動作放最右邊（2026-11-15 scott）
                     VsButton(
@@ -364,16 +398,48 @@ fun LightboxScreen(
                 },
             )
         }
+
+        CaptureFlightOverlay(flight, origin, Modifier.matchParentSize())
     }
 }
 
+/**
+ * 【截圖】：影片畫面已經出來就先震一下，截到圖後閃快門、飛進按鈕，同時存相簿；存成功鈕上換成勾勾。
+ * 還是縮圖時不震不飛，交給 [LightboxActions.onCapture] 跳提示。
+ */
+private suspend fun capture(
+    shot: ShotRow,
+    showingVideo: Boolean,
+    controller: LightboxClipController?,
+    flight: CaptureFlight,
+    actions: LightboxActions,
+    feedback: () -> Unit,
+) = coroutineScope {
+    if (showingVideo) feedback()
+    val jpeg = controller?.capture(shot.id)
+    val fly = jpeg?.let {
+        launch {
+            val image = withContext(Dispatchers.Default) {
+                BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap()
+            }
+            image?.let { flight.fly(it) }
+        }
+    }
+    val saved = actions.onCapture(shot, jpeg)
+    fly?.join()
+    if (saved) flight.confirm()
+}
+
+/** 底部動作列的高度：Lightbox 的提示條疊在它上面，不蓋住按鈕（2026-11-16 scott）。 */
+val LightboxActionRowHeight = AppTheme.spacing.tap + AppTheme.spacing.s4 * 2
+
 /** 動作列的次要圖示鈕(原型 `.btn.on-dark`)：44×44、白 12% 底、圓角 8、20dp 白色圖示。 */
 @Composable
-private fun DarkIconButton(icon: ImageVector, label: String, onClick: () -> Unit) {
+private fun DarkIconButton(icon: ImageVector, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val shape = RoundedCornerShape(AppTheme.radii.sm)
     IconButton(
         onClick = onClick,
-        modifier = Modifier
+        modifier = modifier
             .size(AppTheme.spacing.tap)
             .clip(shape)
             .background(OnDarkColors.fill)
