@@ -2,12 +2,15 @@ package com.xenyaa.videoshot.ui.lightbox
 
 import androidx.compose.foundation.background
 import android.graphics.BitmapFactory
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.ripple
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.semantics.Role
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
@@ -432,17 +435,21 @@ private suspend fun capture(
 /** 底部動作列的高度：Lightbox 的提示條疊在它上面，不蓋住按鈕（2026-11-16 scott）。 */
 val LightboxActionRowHeight = AppTheme.spacing.tap + AppTheme.spacing.s4 * 2
 
-/** 動作列的次要圖示鈕(原型 `.btn.on-dark`)：44×44、白 12% 底、圓角 8、20dp 白色圖示。 */
+/**
+ * 動作列的次要圖示鈕(原型 `.btn.on-dark`)：44×44、白 12% 底、圓角 8、20dp 白色圖示。
+ * 按下時整顆方塊一起變白（2026-11-16 scott）：Material 的 IconButton 只在中間畫一圈 40dp 的圓，跟方塊對不上。
+ */
 @Composable
 private fun DarkIconButton(icon: ImageVector, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val shape = RoundedCornerShape(AppTheme.radii.sm)
-    IconButton(
-        onClick = onClick,
+    Box(
         modifier = modifier
             .size(AppTheme.spacing.tap)
             .clip(shape)
             .background(OnDarkColors.fill)
+            .clickable(role = Role.Button, indication = ripple(color = OnDarkColors.primary), interactionSource = null, onClick = onClick)
             .focusRing(shape),
+        contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = label, tint = OnDarkColors.primary, modifier = Modifier.size(20.dp))
     }
