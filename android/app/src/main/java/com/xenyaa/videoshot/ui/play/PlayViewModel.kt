@@ -114,12 +114,6 @@ class PlayViewModel(
     }
 
     fun detachPlayer() { player = null }
-
-    /** 【以 YouTube 開啟】的網址：從播放器目前的秒數接著播；這裡先暫停，切到 YouTube 時不會兩邊一起出聲。 */
-    suspend fun youtubeUrlAtCurrentTime(): String {
-        val sec = player?.let { p -> p.pause(); p.currentTime() } ?: _state.value.startSec
-        return "https://youtu.be/$videoId?t=${sec.toInt()}"
-    }
 }
 
 /**

@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.lightbox
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.clickable
@@ -10,7 +11,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import com.xenyaa.videoshot.R
+import com.xenyaa.videoshot.ui.common.openSafely
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
@@ -193,6 +198,7 @@ fun LightboxScreen(
     // 頂列的「⋯」與底部動作列共用同一張圖，所以在 Column 最上面算一次（Task 10 步驟 3 的備註）
     val shot = items[pager.currentPage.coerceAtMost(items.lastIndex)]
     var menuOpen by remember { mutableStateOf(false) }
+    val uriHandler = LocalUriHandler.current
     var confirmingDelete by remember { mutableStateOf(false) }
     // controller 是不是 null 由 clip 參數決定，同一個 Lightbox 裡不會變
     val showingId: Long? = controller?.showing?.collectAsState()?.value
@@ -251,6 +257,15 @@ fun LightboxScreen(
                         Icon(VsIcons.More, contentDescription = "更多", tint = OnDarkColors.primary)
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        // 交給系統開：有裝 YouTube app 就在 app 裡從這張的秒數播，沒有就開瀏覽器
+                        DropdownMenuItem(
+                            text = { Text("以 YouTube 開啟") },
+                            leadingIcon = { Image(painterResource(R.drawable.ic_youtube), contentDescription = null) },
+                            onClick = {
+                                menuOpen = false
+                                uriHandler.openSafely("https://youtu.be/${shot.videoId}?t=${shot.atSec.toInt()}")
+                            },
+                        )
                         DropdownMenuItem(
                             // 破壞性動作：唯一用 danger 色的地方（手冊 §零第二條）
                             text = { Text("刪除", color = AppTheme.colors.danger) },

@@ -46,7 +46,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -100,7 +99,6 @@ import com.xenyaa.videoshot.core.timeline.ClipOrientation
 import com.xenyaa.videoshot.core.timeline.defaultClipTitle
 import com.xenyaa.videoshot.core.timeline.defaultRecordingDate
 import com.xenyaa.videoshot.core.timeline.usedSources
-import com.xenyaa.videoshot.ui.common.openSafely
 import com.xenyaa.videoshot.ui.common.TopBarNav
 import com.xenyaa.videoshot.ui.common.VsTopBar
 import androidx.compose.foundation.layout.Column
@@ -722,15 +720,12 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
         is Dest.Play -> Box(Modifier.fillMaxSize()) {
             val vm = playVm!!
             val pState by vm.state.collectAsStateWithLifecycle()
-            val uriHandler = LocalUriHandler.current
             PlayScreen(
                 state = pState,
                 onBack = { nav.pop()?.let { nav = it } },
                 onPlayerReady = vm::attachPlayer,
                 onPlayerReleased = vm::detachPlayer,
                 onRetryPlayer = vm::loadPlayerInfo,
-                // 交給系統開：有裝 YouTube app 就在 app 裡從目前秒數接著播，沒有就開瀏覽器
-                onOpenInYoutube = { scope.launch { uriHandler.openSafely(vm.youtubeUrlAtCurrentTime()) } },
                 // 不刪舊收藏，直接開精靈第二步（已收藏的格子鎖定，行為同第一步點最近影片）；
                 // 原片播放與 Lightbox 一樣收掉，離開精靈回到照片清單、看得到新加的圖
                 onContinueCapture = {
