@@ -333,14 +333,15 @@ object VsIcons {
         )
     }
 
-    /** 照片加向下箭頭（Lucide `image-down`）：Lightbox【截圖】，存到手機相簿（2026-11-16 scott 選的）。圓形改寫成兩段弧線。 */
-    val ImageDown: ImageVector by lazy {
+    /** 倒 U 形的框加一把剪刀、把手朝下（仿小米控制中心的截圖圖示）：Lightbox【截圖】（2026-11-16 scott）。圓形改寫成兩段弧線。 */
+    val Screenshot: ImageVector by lazy {
         strokeIcon(
-            "image-down",
-            "M10.3 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10l-3.1-3.1a2 2 0 0 0-2.814.014L6 21",
-            "m14 19 3 3v-5.5",
-            "m17 22 3-3",
-            "M7 9a2 2 0 1 0 4 0a2 2 0 1 0 -4 0",
+            "screenshot",
+            "M4 13.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7.5",
+            "M8 9 16.1 17.4",
+            "M16 9 7.9 17.4",
+            "M4.5 18.8a2 2 0 1 0 4 0a2 2 0 1 0 -4 0",
+            "M15.5 18.8a2 2 0 1 0 4 0a2 2 0 1 0 -4 0",
         )
     }
 
