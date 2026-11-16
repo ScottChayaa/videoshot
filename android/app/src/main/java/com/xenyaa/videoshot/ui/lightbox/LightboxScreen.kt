@@ -416,6 +416,7 @@ fun LightboxScreen(
             )
         }
 
+        CaptureCoverOverlay(flight, origin, Modifier.matchParentSize())
         CaptureFlightOverlay(flight, origin, Modifier.matchParentSize())
     }
 }
@@ -433,7 +434,11 @@ private suspend fun capture(
     feedback: () -> Unit,
 ) = coroutineScope {
     if (showingVideo) feedback()
-    val jpeg = controller?.capture(shot.id)
+    val jpeg = try {
+        controller?.capture(shot.id, onSwitching = flight::coverWith)
+    } finally {
+        flight.uncover()
+    }
     val fly = jpeg?.let {
         launch {
             val image = withContext(Dispatchers.Default) {

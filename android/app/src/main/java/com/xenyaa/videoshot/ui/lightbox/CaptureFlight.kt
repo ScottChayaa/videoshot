@@ -1,5 +1,6 @@
 package com.xenyaa.videoshot.ui.lightbox
 
+import android.graphics.BitmapFactory
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -11,6 +12,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -20,15 +22,18 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** 快門白光淡掉要多久。 */
 private const val FLASH_MS = 150
@@ -58,6 +63,9 @@ class CaptureFlight {
     internal val progress = Animatable(0f)
     internal var frame by mutableStateOf<ImageBitmap?>(null)
 
+    /** 換最高畫質時蓋住影片的那一格（換的時候影片會黑一下）；null＝不蓋。 */
+    internal var cover by mutableStateOf<ImageBitmap?>(null)
+
     /** 鈕的縮放（彈一下）。 */
     val bounce = Animatable(1f)
 
@@ -65,11 +73,27 @@ class CaptureFlight {
     var saved by mutableStateOf(false)
         private set
 
+    /**
+     * 用 [jpeg]（當下畫質的那一格）蓋住影片，等它真的畫上畫面才回來——之後才換畫質，換的時候黑掉的影片被蓋住。
+     * [fly] 或 [uncover] 拿掉。
+     */
+    suspend fun coverWith(jpeg: ByteArray) {
+        cover = withContext(Dispatchers.Default) { BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size)?.asImageBitmap() }
+        // 兩幀：第一幀排版，第二幀確定畫出來了
+        withFrameNanos {}
+        withFrameNanos {}
+    }
+
+    fun uncover() {
+        cover = null
+    }
+
     /** 快門白光（只蓋影片那一格，不蓋左右留白）同時開始飛。 */
     suspend fun fly(image: ImageBitmap) = coroutineScope {
         progress.snapTo(0f)
         flash.snapTo(0.8f)
         frame = image
+        cover = null
         launch { flash.animateTo(0f, tween(FLASH_MS)) }
         progress.animateTo(1f, tween(FLY_MS, easing = FastOutSlowInEasing))
         frame = null
@@ -81,6 +105,20 @@ class CaptureFlight {
         bounce.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
         delay(CHECK_MS)
         saved = false
+    }
+}
+
+/** 換最高畫質時蓋住影片的那一格（照 Fit 置中畫在 [CaptureFlight.area]）。放在影片上面、控制層下面。 */
+@Composable
+fun CaptureCoverOverlay(flight: CaptureFlight, origin: Offset, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val image = flight.cover ?: return@Canvas
+        val box = fitIn(flight.area, image.width.toFloat() / image.height)
+        drawImage(
+            image,
+            dstOffset = IntOffset((box.left - origin.x).toInt(), (box.top - origin.y).toInt()),
+            dstSize = IntSize(box.width.toInt().coerceAtLeast(1), box.height.toInt().coerceAtLeast(1)),
+        )
     }
 }
 

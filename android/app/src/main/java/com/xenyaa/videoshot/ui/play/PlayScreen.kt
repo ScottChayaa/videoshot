@@ -58,6 +58,7 @@ import com.xenyaa.videoshot.ui.theme.OnDarkColors
  * 原片播放（規格第六節）：直式影片一進來就全螢幕、鎖直立；橫式影片維持直拿，影片寬滿 16:9 置中，
  * 正下方的【全螢幕】才轉橫向全螢幕（返回鍵或控制層的離開全螢幕鈕回直拿）。
  * 上緣是【←】＋影片標題＋⋯（【繼續取圖】、【重新取圖】）：全螢幕時跟控制層一起出現、一起收起，直拿時一直顯示。
+ * 控制層【聲音】鈕左邊有【截圖】（直拿、全螢幕都有），存到手機相簿，效果同 Lightbox。
  * 返回（【←】或系統返回）回到 Lightbox，由呼叫端處理。
  */
 @Composable
@@ -69,6 +70,7 @@ fun PlayScreen(
     onRetryPlayer: () -> Unit,
     onContinueCapture: () -> Unit,
     onRecapture: () -> Unit,
+    onCapture: suspend (jpeg: ByteArray?, sec: Double) -> Boolean,
     modifier: Modifier = Modifier,
 ) {
     val fullscreen = LocalPlayerFullscreen.current
@@ -136,6 +138,7 @@ fun PlayScreen(
                     showFullscreenButton = landscapeFullscreen,
                     topBar = if (inline) null else topBar,
                     holdControls = menuOpen,
+                    onCapture = onCapture,
                 )
                 if (inline) {
                     Box(Modifier.align(Alignment.TopStart).fillMaxWidth()) { topBar() }

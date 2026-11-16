@@ -71,10 +71,10 @@ class LightboxClipController(
         scope.launch { p.pause() }
     }
 
-    /** 截 [shotId] 那一張的影片畫面（原尺寸 JPEG）。畫面還沒出來（仍是縮圖）或截不到回 null。 */
-    suspend fun capture(shotId: Long): ByteArray? {
+    /** 截 [shotId] 那一張的影片畫面（原尺寸 JPEG）。畫面還沒出來（仍是縮圖）或截不到回 null。[onSwitching] 同 [ClipPlayer.frame]。 */
+    suspend fun capture(shotId: Long, onSwitching: suspend (ByteArray) -> Unit = {}): ByteArray? {
         if (_showing.value != shotId) return null
-        return player.value?.frame()
+        return player.value?.frame(onSwitching)
     }
 
     private fun reset() {

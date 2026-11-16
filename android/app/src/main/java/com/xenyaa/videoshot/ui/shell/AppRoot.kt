@@ -726,6 +726,14 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
                 onPlayerReady = vm::attachPlayer,
                 onPlayerReleased = vm::detachPlayer,
                 onRetryPlayer = vm::loadPlayerInfo,
+                onCapture = { jpeg, sec ->
+                    val saved = jpeg?.let { container.saveImage(it, "${dest.videoId}_${sec.toInt()}s.jpg") } != null
+                    when {
+                        jpeg == null -> scope.launch { snackbarHostState.showSnackbar("截不到畫面，請再試一次") }
+                        !saved -> scope.launch { snackbarHostState.showSnackbar("存到相簿失敗，請再試一次") }
+                    }
+                    saved
+                },
                 // 不刪舊收藏，直接開精靈第二步（已收藏的格子鎖定，行為同第一步點最近影片）；
                 // 原片播放與 Lightbox 一樣收掉，離開精靈回到照片清單、看得到新加的圖
                 onContinueCapture = {

@@ -33,6 +33,9 @@ interface ClipPlayer {
 
     suspend fun status(): ClipStatus
 
-    /** 目前停住的那一格，原尺寸 JPEG（Lightbox【截圖】）；截不到回 null。 */
-    suspend fun frame(): ByteArray?
+    /**
+     * 目前停住的那一格，最高畫質的原尺寸 JPEG（Lightbox【截圖】）；截不到回 null。
+     * 要換畫質時先把當下畫質的那一格交給 [onSwitching]（換的時候影片會黑一下，拿它蓋住）。
+     */
+    suspend fun frame(onSwitching: suspend (ByteArray) -> Unit = {}): ByteArray?
 }

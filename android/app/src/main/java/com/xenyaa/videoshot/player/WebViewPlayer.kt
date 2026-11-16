@@ -1,6 +1,7 @@
 package com.xenyaa.videoshot.player
 
 import android.annotation.SuppressLint
+import android.graphics.BitmapFactory
 import android.view.ViewGroup
 import android.webkit.WebChromeClient
 import android.webkit.WebView
@@ -11,6 +12,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -20,24 +23,41 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.xenyaa.videoshot.capture.captureMaxQualityJpeg
 import com.xenyaa.videoshot.core.player.isLandscapeVideo
 import com.xenyaa.videoshot.core.player.playerMaxHeightDp
+import com.xenyaa.videoshot.ui.icons.VsIcons
+import com.xenyaa.videoshot.ui.lightbox.CaptureCoverOverlay
+import com.xenyaa.videoshot.ui.lightbox.CaptureFlight
+import com.xenyaa.videoshot.ui.lightbox.CaptureFlightOverlay
+import com.xenyaa.videoshot.ui.theme.OnDarkColors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
+import kotlinx.coroutines.withContext
 
 /**
  * 播放器要載哪一個網址（規格第二節第 5 點，POC 實測的結論）。
@@ -95,6 +115,9 @@ class WebViewPlayer(private val webView: WebView) : Player {
     suspend fun setMuted(muted: Boolean) {
         eval(playerMuteJs(muted))
     }
+
+    /** 【截圖】（原片播放）：先切到最高畫質再截那一格的原尺寸 JPEG；截不到回 null。影片要先停住。[onSwitching] 同 `ClipPlayer.frame`。 */
+    suspend fun frame(onSwitching: suspend (ByteArray) -> Unit = {}): ByteArray? = captureMaxQualityJpeg(::eval, onSwitching)
 
     /**
      * 給 `capture` 用的執行入口。
@@ -302,6 +325,8 @@ internal fun WebView.applyPlayerViewSettings() {
  *        讀到影片實際寬高後告訴呼叫端是不是橫的（進場時是用縮圖比例猜的）
  * @param showFullscreenButton 原封不動交給 [PlayerControls]
  * @param topBar／holdControls 原封不動交給 [PlayerControls]
+ * @param onCapture 有給就在【聲音】鈕左邊多一顆【截圖】（原片播放）：按下時暫停、截最高畫質的那一格，
+ *        交給它存相簿（給 null 表示截不到），回傳存成功沒有；原本在播的截完接著播。動畫同 Lightbox
  */
 @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
 @Composable
@@ -317,6 +342,7 @@ fun PlayerSurface(
     showFullscreenButton: Boolean = true,
     topBar: (@Composable () -> Unit)? = null,
     holdControls: Boolean = false,
+    onCapture: (suspend (jpeg: ByteArray?, sec: Double) -> Boolean)? = null,
 ) {
     val url = remember(videoId, playableInEmbed) { playerUrl(videoId, playableInEmbed) }
 
@@ -368,7 +394,41 @@ fun PlayerSurface(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    Box(modifier) {
+    val flight = remember { CaptureFlight() }
+    var origin by remember { mutableStateOf(Offset.Zero) }
+    var capturing by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
+    val captureButton: (@Composable () -> Unit)? = onCapture?.let { save ->
+        {
+            IconButton(
+                onClick = {
+                    val p = player
+                    if (p != null && !capturing) {
+                        capturing = true
+                        scope.launch {
+                            try {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                captureFrame(p, playing = !status.paused, flight, save)
+                            } finally {
+                                capturing = false
+                            }
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .onGloballyPositioned { flight.button = it.boundsInRoot() }
+                    .graphicsLayer { scaleX = flight.bounce.value; scaleY = flight.bounce.value },
+            ) {
+                Icon(
+                    if (flight.saved) VsIcons.Check else VsIcons.Screenshot,
+                    contentDescription = "截圖",
+                    tint = OnDarkColors.primary,
+                )
+            }
+        }
+    }
+
+    Box(modifier.onGloballyPositioned { origin = it.positionInRoot(); flight.area = it.boundsInRoot() }) {
         AndroidView(
             modifier = Modifier.matchParentSize(),
             factory = { context ->
@@ -413,6 +473,8 @@ fun PlayerSurface(
                 webView.destroy()
             },
         )
+        // 換最高畫質時蓋住影片，在控制層下面
+        CaptureCoverOverlay(flight, origin, Modifier.matchParentSize())
         PlayerControls(
             status = status,
             fallbackDurationSec = durationSec.toDouble(),
@@ -431,8 +493,38 @@ fun PlayerSurface(
             showFullscreenButton = showFullscreenButton,
             topBar = topBar,
             holdVisible = holdControls,
+            captureButton = captureButton,
         )
+        CaptureFlightOverlay(flight, origin, Modifier.matchParentSize())
     }
+}
+
+/** 【截圖】：暫停在按下的那一格、截圖，截到就閃快門飛進按鈕，同時存相簿；存成功鈕上換成勾勾。原本在播的接著播。 */
+private suspend fun captureFrame(
+    player: WebViewPlayer,
+    playing: Boolean,
+    flight: CaptureFlight,
+    save: suspend (ByteArray?, Double) -> Boolean,
+) = coroutineScope {
+    player.pause()
+    val sec = player.currentTime()
+    val jpeg = try {
+        player.frame(onSwitching = flight::coverWith)
+    } finally {
+        flight.uncover()
+    }
+    val fly = jpeg?.let {
+        launch {
+            val image = withContext(Dispatchers.Default) {
+                BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap()
+            }
+            image?.let { flight.fly(it) }
+        }
+    }
+    val saved = save(jpeg, sec)
+    if (playing) player.play()
+    fly?.join()
+    if (saved) flight.confirm()
 }
 
 /** 控制層讀播放狀態的間隔，同第二步縮圖牆外框的輪詢。 */

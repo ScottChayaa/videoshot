@@ -58,7 +58,7 @@ class FakeClipPlayer : ClipPlayer {
         return ClipStatus(time, ready)
     }
 
-    override suspend fun frame(): ByteArray? {
+    override suspend fun frame(onSwitching: suspend (ByteArray) -> Unit): ByteArray? {
         calls += "frame"
         return frameJpeg
     }

@@ -3,6 +3,8 @@ package com.xenyaa.videoshot.capture
 import android.graphics.Bitmap
 import android.util.Base64
 import com.xenyaa.videoshot.core.capture.isBlackFrame
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 
 /**
@@ -89,6 +91,26 @@ class WebViewCapture(
 }
 
 /**
+ * 先切到這支影片的最高畫質、等那一格換好，再截原尺寸 JPEG（Lightbox 與原片播放的【截圖】，規格第六節）。
+ * 網路慢、[MAX_QUALITY_WAIT_MS] 內等不到就截當下的畫質；截不到回 null。影片要先停在那一格。
+ *
+ * 換畫質時影片會黑約半秒，所以要換之前先截一張當下畫質的交給 [onSwitching]，讓畫面拿它蓋住影片，
+ * 它回來之後才真的換。已經是最高畫質時不會呼叫。
+ */
+suspend fun captureMaxQualityJpeg(
+    eval: suspend (String) -> String,
+    onSwitching: suspend (ByteArray) -> Unit = {},
+): ByteArray? {
+    capturedJpegOf(eval(SNAPSHOT_BEFORE_MAX_QUALITY_JS))?.let { onSwitching(it) }
+    if (eval(MAX_QUALITY_JS).contains("switching")) {
+        withTimeoutOrNull(MAX_QUALITY_WAIT_MS) {
+            while (!eval(MAX_QUALITY_READY_JS).contains("1")) delay(100)
+        }
+    }
+    return capturedJpegOf(eval(CAPTURE_JS))
+}
+
+/**
  * [CAPTURE_JS] 的回應取出原尺寸 JPEG（Lightbox【截圖】存到手機相簿用，規格第六節）；截不到回 null。
  * 不縮圖、不判黑畫面——Lightbox 只在影片畫面已經停在那一格時才截。
  */
@@ -110,3 +132,52 @@ private fun base64Of(dataUrl: String): ByteArray? {
     if (comma < 0 || comma == dataUrl.lastIndex) return null
     return runCatching { Base64.decode(dataUrl.substring(comma + 1), Base64.DEFAULT) }.getOrNull()
 }
+
+/** 【截圖】等最高畫質最多等多久（2026-11-16 實機：1080p 半秒內就換好）。 */
+private const val MAX_QUALITY_WAIT_MS = 3_000L
+
+/** YouTube 播放器物件（有 `getAvailableQualityLevels` 等方法的那個元素）。 */
+private const val YT_PLAYER = "(document.getElementById('movie_player')||document.querySelector('.html5-video-player'))"
+
+/**
+ * 【截圖】前把畫質固定在這支影片的最高一級（2026-11-16 scott）：YouTube 自動挑的畫質看播放器大小，
+ * Lightbox 的直片只給到 720p，來源明明有 1080p。固定後跳回同一個時間點，讓那一格重新以高畫質解出來。
+ * 回 `ready`（已經是最高）、`switching`（換畫質中，要等 [MAX_QUALITY_READY_JS]）或 `none`（拿不到播放器）。
+ */
+internal const val MAX_QUALITY_JS = """
+(function(){
+  var p = $YT_PLAYER, v = document.querySelector('video');
+  if (!p || !v || !p.getAvailableQualityLevels || !p.setPlaybackQualityRange) return 'none';
+  var q = p.getAvailableQualityLevels().filter(function(l){ return l !== 'auto'; })[0];
+  if (!q) return 'none';
+  if (p.getPlaybackQuality() === q) return 'ready';
+  window.__vsMaxQ = {q: q, side: Math.min(v.videoWidth, v.videoHeight)};
+  var t = v.currentTime;
+  p.setPlaybackQualityRange(q, q);
+  v.currentTime = t;
+  return 'switching';
+})()
+"""
+
+/** 還不是最高畫質時，先用 [CAPTURE_JS] 截一張當下的（換畫質前蓋住影片用）；已經是最高回空字串。 */
+internal const val SNAPSHOT_BEFORE_MAX_QUALITY_JS = """
+(function(){
+  var p = $YT_PLAYER;
+  if (!p || !p.getAvailableQualityLevels || !p.getPlaybackQuality) return '';
+  var q = p.getAvailableQualityLevels().filter(function(l){ return l !== 'auto'; })[0];
+  if (!q || p.getPlaybackQuality() === q) return '';
+  var shot = $CAPTURE_JS;
+  return shot;
+})()
+"""
+
+/** 換好了沒：畫質是目標、那一格解好了，而且畫面尺寸真的變了（只看畫質標籤會截到還沒換的舊畫面）。好了回 `1`。 */
+internal const val MAX_QUALITY_READY_JS = """
+(function(){
+  var p = $YT_PLAYER, v = document.querySelector('video'), s = window.__vsMaxQ;
+  if (!p || !v || !s) return '1';
+  var ok = p.getPlaybackQuality() === s.q && v.readyState >= 2 && !v.seeking
+    && Math.min(v.videoWidth, v.videoHeight) !== s.side;
+  return ok ? '1' : '0';
+})()
+"""

@@ -15,12 +15,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.xenyaa.videoshot.capture.CAPTURE_JS
-import com.xenyaa.videoshot.capture.capturedJpegOf
+import com.xenyaa.videoshot.capture.captureMaxQualityJpeg
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 
 /**
@@ -57,15 +54,8 @@ class WebViewClipPlayer(private val webView: WebView) : ClipPlayer {
     override suspend fun hold(startSec: Double) { eval(clipHoldJs(startSec)) }
     override suspend fun pause() { eval(PAUSE_VIDEO_JS) }
     override suspend fun status(): ClipStatus = parseClipStatus(eval(CLIP_STATUS_JS))
-    override suspend fun frame(): ByteArray? {
-        // 先切到這支影片的最高畫質再截；網路慢、等不到就截當下的畫質
-        if (eval(MAX_QUALITY_JS).contains("switching")) {
-            withTimeoutOrNull(MAX_QUALITY_WAIT_MS) {
-                while (!eval(MAX_QUALITY_READY_JS).contains("1")) delay(100)
-            }
-        }
-        return capturedJpegOf(eval(CAPTURE_JS))
-    }
+    override suspend fun frame(onSwitching: suspend (ByteArray) -> Unit): ByteArray? =
+        captureMaxQualityJpeg(::eval, onSwitching)
 
     private suspend fun eval(js: String): String = suspendCancellableCoroutine { cont ->
         webView.post { webView.evaluateJavascript(js) { if (cont.isActive) cont.resume(it ?: "") } }
@@ -113,43 +103,6 @@ internal fun clipCueJs(startSec: Double): String =
 /** 緩衝好了：停住、跳回起點，仍然靜音。 */
 internal fun clipHoldJs(startSec: Double): String =
     "(function(){var v=document.querySelector('video'); if(!v) return 'none'; v.pause(); v.currentTime = $startSec; return 'ok';})()"
-
-/** 【截圖】等最高畫質最多等多久（2026-11-16 實機：1080p 半秒內就換好）。 */
-private const val MAX_QUALITY_WAIT_MS = 3_000L
-
-/** YouTube 播放器物件（有 `getAvailableQualityLevels` 等方法的那個元素）。 */
-private const val YT_PLAYER = "(document.getElementById('movie_player')||document.querySelector('.html5-video-player'))"
-
-/**
- * 【截圖】前把畫質固定在這支影片的最高一級（2026-11-16 scott）：YouTube 自動挑的畫質看播放器大小，
- * Lightbox 的直片只給到 720p，來源明明有 1080p。固定後跳回同一個時間點，讓那一格重新以高畫質解出來。
- * 回 `ready`（已經是最高）、`switching`（換畫質中，要等 [MAX_QUALITY_READY_JS]）或 `none`（拿不到播放器）。
- */
-internal const val MAX_QUALITY_JS = """
-(function(){
-  var p = $YT_PLAYER, v = document.querySelector('video');
-  if (!p || !v || !p.getAvailableQualityLevels || !p.setPlaybackQualityRange) return 'none';
-  var q = p.getAvailableQualityLevels().filter(function(l){ return l !== 'auto'; })[0];
-  if (!q) return 'none';
-  if (p.getPlaybackQuality() === q) return 'ready';
-  window.__vsMaxQ = {q: q, side: Math.min(v.videoWidth, v.videoHeight)};
-  var t = v.currentTime;
-  p.setPlaybackQualityRange(q, q);
-  v.currentTime = t;
-  return 'switching';
-})()
-"""
-
-/** 換好了沒：畫質是目標、那一格解好了，而且畫面尺寸真的變了（只看畫質標籤會截到還沒換的舊畫面）。好了回 `1`。 */
-internal const val MAX_QUALITY_READY_JS = """
-(function(){
-  var p = $YT_PLAYER, v = document.querySelector('video'), s = window.__vsMaxQ;
-  if (!p || !v || !s) return '1';
-  var ok = p.getPlaybackQuality() === s.q && v.readyState >= 2 && !v.seeking
-    && Math.min(v.videoWidth, v.videoHeight) !== s.side;
-  return ok ? '1' : '0';
-})()
-"""
 
 /** currentTime, readyState，逗號隔開（同 `STATUS_JS` 的理由）。 */
 internal const val CLIP_STATUS_JS =
