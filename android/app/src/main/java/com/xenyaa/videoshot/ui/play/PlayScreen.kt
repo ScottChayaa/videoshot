@@ -2,6 +2,7 @@ package com.xenyaa.videoshot.ui.play
 
 import android.app.Activity
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -41,10 +42,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import com.xenyaa.videoshot.R
 import com.xenyaa.videoshot.player.LocalPlayerFullscreen
 import com.xenyaa.videoshot.player.Player
 import com.xenyaa.videoshot.player.PlayerSurface
@@ -57,7 +60,7 @@ import com.xenyaa.videoshot.ui.theme.OnDarkColors
 /**
  * 原片播放（規格第六節）：直式影片一進來就全螢幕、鎖直立；橫式影片維持直拿，影片寬滿 16:9 置中，
  * 正下方的【全螢幕】才轉橫向全螢幕（返回鍵或控制層的離開全螢幕鈕回直拿）。
- * 上緣是【←】＋影片標題＋⋯（【繼續取圖】、【重新取圖】）：全螢幕時跟控制層一起出現、一起收起，直拿時一直顯示。
+ * 上緣是【←】＋影片標題＋⋯（【繼續取圖】、【重新取圖】、【以 YouTube 開啟】）：全螢幕時跟控制層一起出現、一起收起，直拿時一直顯示。
  * 返回（【←】或系統返回）回到 Lightbox，由呼叫端處理。
  */
 @Composable
@@ -69,6 +72,7 @@ fun PlayScreen(
     onRetryPlayer: () -> Unit,
     onContinueCapture: () -> Unit,
     onRecapture: () -> Unit,
+    onOpenInYoutube: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val fullscreen = LocalPlayerFullscreen.current
@@ -116,6 +120,7 @@ fun PlayScreen(
             onBack = onBack,
             onContinueCapture = { menuOpen = false; onContinueCapture() },
             onRecapture = { menuOpen = false; confirming = true },
+            onOpenInYoutube = { menuOpen = false; onOpenInYoutube() },
         )
     }
 
@@ -211,6 +216,7 @@ private fun PlayTopBar(
     onBack: () -> Unit,
     onContinueCapture: () -> Unit,
     onRecapture: () -> Unit,
+    onOpenInYoutube: () -> Unit,
 ) {
     Row(
         Modifier
@@ -244,6 +250,11 @@ private fun PlayTopBar(
                     text = { Text("重新取圖") },
                     leadingIcon = { Icon(VsIcons.RotateCcw, contentDescription = null) },
                     onClick = onRecapture,
+                )
+                DropdownMenuItem(
+                    text = { Text("以 YouTube 開啟") },
+                    leadingIcon = { Image(painterResource(R.drawable.ic_youtube), contentDescription = null) },
+                    onClick = onOpenInYoutube,
                 )
             }
         }
