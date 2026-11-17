@@ -10,6 +10,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -24,6 +25,8 @@ import com.xenyaa.videoshot.ui.shell.AppRoot
 import com.xenyaa.videoshot.ui.shell.FrameStallGuard
 import com.xenyaa.videoshot.ui.theme.Palettes
 import com.xenyaa.videoshot.ui.theme.VideoshotTheme
+import com.xenyaa.videoshot.wizard.EXTRA_SHARED_VIDEO_ID
+import com.xenyaa.videoshot.wizard.SharedVideo
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -41,8 +44,13 @@ class MainActivity : ComponentActivity() {
     internal var openClipSignal by mutableIntStateOf(0)
         private set
 
-    private fun noteOpenClip(intent: Intent?) {
+    /** 從別的 app 分享進來的影片（[com.xenyaa.videoshot.wizard.ShareReceiverActivity] 轉來），[AppRoot] 拿去開取圖。 */
+    internal var sharedVideo by mutableStateOf<SharedVideo?>(null)
+        private set
+
+    private fun noteIntent(intent: Intent?) {
         if (intent?.getBooleanExtra(EXTRA_OPEN_CLIP, false) == true) openClipSignal++
+        intent?.getStringExtra(EXTRA_SHARED_VIDEO_ID)?.let { sharedVideo = SharedVideo(it) }
     }
 
     /** MIUI 13 會吞掉 surface 建出來之前的 Compose 幀請求，取得焦點時補要一幀（見 [FrameStallGuard]）。 */
@@ -54,7 +62,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        noteOpenClip(intent)
+        noteIntent(intent)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,7 +73,7 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
         )
         // 只看第一次建立：系統因為程序被殺而重建時，getIntent() 還是當初那個，不能再切一次剪輯頁
-        if (savedInstanceState == null) noteOpenClip(intent)
+        if (savedInstanceState == null) noteIntent(intent)
         val app = application as VideoshotApp
         setContent {
             // 色系存在 DataStore，這裡是唯一的套用點；沒有深色模式，不看系統的淺色／深色設定。
@@ -83,7 +91,7 @@ class MainActivity : ComponentActivity() {
                     LocalPlayerSound provides playerSound,
                 ) {
                     FullscreenSystemEffect(playerFullscreen)
-                    AppRoot(container = app.container, onExitApp = { finish() }, openClipSignal = openClipSignal)
+                    AppRoot(container = app.container, onExitApp = { finish() }, openClipSignal = openClipSignal, sharedVideo = sharedVideo)
                 }
             }
         }

@@ -29,6 +29,7 @@ import com.xenyaa.videoshot.capture.encodeManualWebp
 import com.xenyaa.videoshot.player.Player
 import com.xenyaa.videoshot.wizard.frames.FrameSource
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -191,6 +192,9 @@ class WizardViewModel(
     /** ViewModel 跟著 app 啟動一起建；這之後才建或才動過的草稿目錄，啟動時的清理不碰。 */
     private val startedAt = System.currentTimeMillis()
 
+    /** 磁碟上的草稿讀完了沒（[sharedOpen] 要等它：冷啟動時還沒讀到，會誤以為沒有草稿）。 */
+    private val draftLoaded = CompletableDeferred<Unit>()
+
     private fun loadDraft() {
         viewModelScope.launch {
             val text = runCatching { data.currentDraft() }.getOrNull()
@@ -200,6 +204,7 @@ class WizardViewModel(
                 pendingDraft = payload
                 if (entered) resumeDraft()
             }
+            draftLoaded.complete(Unit)
             // 順手清掉沒有草稿指著的影片目錄（換影片、當掉、儀器測試留下的）。
             // 目前的草稿與正在開的影片不刪；清不掉就算了，下次啟動再清
             runCatching {
@@ -421,6 +426,18 @@ class WizardViewModel(
         val video = _loaded.value
         if (hasDraft && video != null && video.videoId != videoId) return OtherDraft(video.page.meta?.title)
         return null
+    }
+
+    /**
+     * 從別的 app 分享進來的 [videoId] 要怎麼開（YouTube 的【分享】）。等磁碟上的草稿讀完才判斷。
+     * 開的時候跟剪輯一樣走 [openFromClip]。
+     */
+    suspend fun sharedOpen(videoId: String): SharedOpen {
+        draftLoaded.await()
+        otherDraft(videoId)?.let { return SharedOpen.AskDiscard(it) }
+        val payload = pendingDraft ?: resuming
+        val same = payload?.videoId == videoId || (hasDraft && _loaded.value?.videoId == videoId)
+        return if (same) SharedOpen.Resume else SharedOpen.Open
     }
 
     /**

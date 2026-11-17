@@ -29,8 +29,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -123,11 +126,15 @@ import com.xenyaa.videoshot.player.ClipSource
 import com.xenyaa.videoshot.player.LocalPlayerFullscreen
 import com.xenyaa.videoshot.ui.play.PlayScreen
 import com.xenyaa.videoshot.ui.play.PlayViewModel
+import com.xenyaa.videoshot.ui.theme.AppTheme
 import com.xenyaa.videoshot.ui.theme.ClipTheme
 import com.xenyaa.videoshot.wizard.DatePickerSheet
 import com.xenyaa.videoshot.wizard.DescriptionPickerSheet
 import com.xenyaa.videoshot.wizard.DetailField
+import com.xenyaa.videoshot.wizard.OtherDraft
 import com.xenyaa.videoshot.wizard.PlacePickerSheet
+import com.xenyaa.videoshot.wizard.SharedOpen
+import com.xenyaa.videoshot.wizard.SharedVideo
 import com.xenyaa.videoshot.wizard.TagPickerSheet
 import com.xenyaa.videoshot.wizard.WizardScreen
 import com.xenyaa.videoshot.wizard.WizardViewModel
@@ -149,9 +156,10 @@ private val NavSaver = Saver<NavState, String>(
  * @param onExitApp 已經在最外層還按返回 —— 交還給系統（結束 Activity）
  * @param openClipSignal 「切到剪輯頁」的訊號：點輸出通知時 `MainActivity` 把它加一（冷啟動帶著就是 1），
  *   每次變成大於 0 的新值就回到剪輯分頁的根畫面。用累加的整數而不是布林，連點兩次通知才都會觸發。
+ * @param sharedVideo 從別的 app 分享進來的影片：切到取圖、直接開第二步（有別支草稿時先問）
  */
 @Composable
-fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Unit) {
+fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, sharedVideo: SharedVideo? = null, onExitApp: () -> Unit) {
     // app 每次回到前景（STARTED）：把沒有輸出工作的未完成任務補排（被殺、重開機、之前系統不讓開前景服務——
     // 例如每日上傳上限在 app 背景時重置，接回去的上傳開不了前景服務，Activity 還活著時點通知或從桌面回來也要接著傳；
     // 已經排著的不動，重複呼叫是安全的）。第一次再刪掉 app 裡對不到任務的成品資料夾（規格第十九節「資料」）。
@@ -448,6 +456,22 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
         val toClip = nav.select(Tab.CLIP)
         nav = toClip.copy(stacks = toClip.stacks + (Tab.CLIP to listOf(Dest.Root)))
     }
+
+    // 分享進來的影片（YouTube 的【分享】）：先切到取圖，有別支草稿時精靈照常續做它、上面疊一個確認框，
+    // 選【放棄並繼續】才換成分享的這支；同一支影片的草稿就直接續做
+    var shareAsk by remember { mutableStateOf<Pair<String, OtherDraft>?>(null) }
+    LaunchedEffect(sharedVideo) {
+        val videoId = sharedVideo?.videoId ?: return@LaunchedEffect
+        shareAsk = null
+        val open = wizardVm.sharedOpen(videoId)
+        nav = nav.select(Tab.CAPTURE)
+        when (open) {
+            SharedOpen.Resume -> Unit
+            SharedOpen.Open -> scope.launch { wizardVm.openFromClip(videoId) }
+            is SharedOpen.AskDiscard -> shareAsk = videoId to open.other
+        }
+    }
+
     // 就地編輯存檔完成的次數：Lightbox 的標籤列靠它重讀（標籤不在 ShotRow 裡，比不出差異）
     var shotEdits by remember { mutableIntStateOf(0) }
 
@@ -1336,6 +1360,20 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, onExitApp: () -> Un
                 }
             }
         } }
+    }
+
+    shareAsk?.let { (videoId, other) ->
+        AlertDialog(
+            onDismissRequest = { shareAsk = null },
+            title = { Text(other.title?.let { "取圖還有未完成的「$it」，要放棄它嗎？" } ?: "取圖還有未完成的影片，要放棄它嗎？") },
+            confirmButton = {
+                TextButton(onClick = {
+                    shareAsk = null
+                    scope.launch { wizardVm.openFromClip(videoId) }
+                }) { Text("放棄並繼續", color = AppTheme.colors.danger) }
+            },
+            dismissButton = { TextButton(onClick = { shareAsk = null }) { Text("取消") } },
+        )
     }
 
     // 剪輯頁【新增剪輯】的選方向抽屜：掛在 nav 的 when 外面（剪輯分頁在 AppShell 分支裡，

@@ -55,6 +55,25 @@
         </activity>
 
         <!--
+            「分享」清單裡的 videoshot：YouTube 分享影片網址進來，轉給 MainActivity 開取圖第二步。
+            taskAffinity 留空：跟 app 同一個 affinity 的話，app 開著時系統只會把 app 叫到前景，這裡根本不會執行
+        -->
+        <activity
+            android:name=".wizard.ShareReceiverActivity"
+            android:exported="true"
+            android:taskAffinity=""
+            android:label="@string/app_name"
+            android:theme="@android:style/Theme.NoDisplay"
+            android:excludeFromRecents="true"
+            android:noHistory="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <!--
             關掉 WorkManager 的自動初始化(androidx.startup)。VideoshotApp 實作了
             Configuration.Provider——若不關掉,WorkManager 的預設初始化 Provider 會在
             attachInfo()/onCreate() 階段(比 Application.onCreate() 更早)就去讀

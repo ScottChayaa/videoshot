@@ -115,6 +115,16 @@ data class Finished(val eventDate: String, val count: Int)
 /** 精靈手上別支影片的草稿（剪輯開新影片前要先問要不要放棄它）；[title] 是 null＝舊草稿沒存影片資訊。 */
 data class OtherDraft(val title: String?)
 
+/** 分享進來的影片怎麼開（[WizardViewModel.sharedOpen]）。 */
+sealed interface SharedOpen {
+    /** 這支影片本來就有草稿：照【取圖】續做。 */
+    data object Resume : SharedOpen
+    /** 沒有草稿擋著：直接開第二步。 */
+    data object Open : SharedOpen
+    /** 有別支影片的草稿：先問要不要放棄它。 */
+    data class AskDiscard(val other: OtherDraft) : SharedOpen
+}
+
 /**
  * 截圖失敗的原因。**不是一個 boolean** —— 畫面要講得出為什麼：
  * 廣告是「等一下再試」、黑畫面是「這一格截不到，改用相簿」，兩者的處置完全不同。

@@ -153,4 +153,31 @@ class WizardFromClipTest {
         assertEquals(Step1Status.Error("沒有網路連線，請連上網路後再試"), vm.status.value)
         assertFalse(data.log.any { it.startsWith("save:") })
     }
+
+    @Test
+    fun 分享進來沒有草稿時直接開() = runTest(dispatcher) {
+        val vm = vmWith(FakeData(null))
+        val open = async { vm.sharedOpen("x9") }
+        advanceUntilIdle()
+        assertEquals(SharedOpen.Open, open.await())
+    }
+
+    @Test
+    fun 分享進來有別支草稿時先問() = runTest(dispatcher) {
+        val payload = DraftPayload("v1", step = 2, level = 3, frameCount = 4, meta = meta)
+        val vm = vmWith(FakeData(DraftCodec.encode(payload)))
+        // 不先 advanceUntilIdle：冷啟動時草稿還沒讀完，要等它讀完才判斷
+        val open = async { vm.sharedOpen("x9") }
+        advanceUntilIdle()
+        assertEquals(SharedOpen.AskDiscard(OtherDraft("宜蘭兩天一夜")), open.await())
+    }
+
+    @Test
+    fun 分享進來是同一支影片的草稿時續做() = runTest(dispatcher) {
+        val payload = DraftPayload("v1", step = 2, level = 3, frameCount = 4, meta = meta)
+        val vm = vmWith(FakeData(DraftCodec.encode(payload)))
+        val open = async { vm.sharedOpen("v1") }
+        advanceUntilIdle()
+        assertEquals(SharedOpen.Resume, open.await())
+    }
 }
