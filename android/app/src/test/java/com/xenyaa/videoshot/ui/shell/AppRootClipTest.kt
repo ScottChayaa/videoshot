@@ -517,13 +517,17 @@ class AppRootClipTest {
     }
 
     @Test
-    fun 播放中按刪除_刪掉畫面上正在播的那一段() {
+    fun 播放中選取一段按刪除_先暫停再刪掉選取的那一段() {
         val clip = FakeClipDeps(full).withDraft()
         clip.openEditorPlayingAt(4_500)
+        compose.onNodeWithContentDescription("第 2 段，照片，0:03").performClick()
+        compose.waitForIdle()
+        val pausesBefore = clip.preview.pauseCalls
 
         compose.onNodeWithText("刪除").performClick()
         compose.waitForIdle()
 
+        assertTrue(clip.preview.pauseCalls > pausesBefore)
         assertEquals(listOf(Triple(1L, 0L, 3000L), Triple(3L, 0L, 3000L)), clip.cacheRepo.segments())
     }
 
