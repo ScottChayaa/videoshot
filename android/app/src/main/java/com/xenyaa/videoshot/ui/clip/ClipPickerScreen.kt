@@ -31,8 +31,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -82,6 +84,7 @@ private val GridGap = 2.dp
  * 只吃狀態與回呼：權限請求與開系統設定的 Intent 都在 [AppRoot] 那一層，這裡才能在 Robolectric 測。
  * [onRequestAccess] 同時給 DENIED 的【允許存取】與 PARTIAL 橫幅的【選取更多】用——
  * 兩者都是「再叫一次系統的權限視窗」。[canAskAgain] 為 false（被永久拒絕）時，DENIED 改成【前往設定】。
+ * [gridState] 由 [AppRoot] 保管：預覽時這個畫面離開組合，回來才停在原本捲到的位置。
  */
 @Composable
 fun ClipPickerScreen(
@@ -99,6 +102,7 @@ fun ClipPickerScreen(
     canAskAgain: Boolean,
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
+    gridState: LazyGridState = rememberLazyGridState(),
 ) {
     Column(modifier.fillMaxSize().background(AppTheme.colors.bg).statusBarsPadding()) {
         var autoPickOpen by rememberSaveable { mutableStateOf(false) }
@@ -135,6 +139,7 @@ fun ClipPickerScreen(
                 else -> LazyVerticalGrid(
                     columns = GridCells.Fixed(4),
                     modifier = Modifier.fillMaxSize(),
+                    state = gridState,
                     horizontalArrangement = Arrangement.spacedBy(GridGap),
                     verticalArrangement = Arrangement.spacedBy(GridGap),
                 ) {

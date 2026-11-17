@@ -28,6 +28,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.SnackbarHost
@@ -343,6 +344,8 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, sharedVideo: Shared
     // 選素材的 VM：只在選素材畫面存在（建構時就會讀 MediaStore，不必在每次開 app 都讀）。
     // 選完【下一步】選素材就從堆疊換掉（replaceTop），所以編輯畫面用不到它；key 固定，重新從選方向進來靠 reset() 清掉
     val clipOpen = nav.current is Dest.ClipPicker
+    // 選素材的捲動位置放這層：點格子預覽時選素材離開組合，返回後要停在原本的位置
+    val clipGridState = rememberLazyGridState()
     val clipVm: ClipPickerViewModel? = if (clipOpen) {
         viewModel(
             factory = object : ViewModelProvider.Factory {
@@ -828,6 +831,7 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, sharedVideo: Shared
         // 選素材與編輯畫面：全螢幕、沒有底部導覽（同 Dest.Play）。剪輯分頁的畫面一律用剪輯暗色（ClipTheme）
         is Dest.ClipPicker -> ClipTheme { ClipPickerRoute(
             vm = clipVm!!,
+            gridState = clipGridState,
             orientation = dest.orientation,
             clipDeps = container.clipDeps,
             entryPending = clipEntryPending,
@@ -1409,6 +1413,7 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, sharedVideo: Shared
 @Composable
 private fun ClipPickerRoute(
     vm: ClipPickerViewModel,
+    gridState: LazyGridState,
     orientation: ClipOrientation,
     clipDeps: ClipDeps,
     entryPending: Boolean,
@@ -1432,6 +1437,7 @@ private fun ClipPickerRoute(
         if (!entryPending) return@LaunchedEffect
         onEntryHandled()
         vm.reset()
+        gridState.requestScrollToItem(0)
         // 不在這裡重判權限：ON_RESUME 的重判（下面）在進入畫面時已經跑過，access 是新的
         // 只有「完全沒權限」才自動跳系統視窗；部分允許的人靠清單上方的【選取更多】擴充，不要每次進來都打擾
         if (vm.state.value.access == MediaAccess.DENIED) launcher.launch(permissions)
@@ -1447,7 +1453,7 @@ private fun ClipPickerRoute(
         orientation = orientation,
         thumbLoader = clipDeps.mediaThumbLoader,
         onBack = onBack,
-        onFilter = vm::setFilter,
+        onFilter = { gridState.requestScrollToItem(0); vm.setFilter(it) },
         onToggle = vm::toggle,
         onPreview = onPreview,
         onAutoPick = vm::autoPick,
@@ -1463,6 +1469,7 @@ private fun ClipPickerRoute(
         },
         canAskAgain = canAskAgain,
         onNext = onNext,
+        gridState = gridState,
     )
 }
 
