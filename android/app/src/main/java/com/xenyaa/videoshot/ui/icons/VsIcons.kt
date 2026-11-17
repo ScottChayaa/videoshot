@@ -364,22 +364,6 @@ object VsIcons {
         )
     }
 
-    /** AI 分析（規格第九節：星芒＝AI 分析）。原型 `sparkles`；中心圓改寫成兩段弧線。 */
-    val Sparkles: ImageVector by lazy {
-        strokeIcon(
-            "sparkles",
-            "M12 3v4",
-            "M12 17v4",
-            "M3 12h4",
-            "M17 12h4",
-            "M7.5 7.5 5 5",
-            "M19 19l-2.5-2.5",
-            "M16.5 7.5 19 5",
-            "M5 19l2.5-2.5",
-            "M9.5 12a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0",
-        )
-    }
-
     /** 描述（取圖第三步的欄位按鈕與縮圖圖示）。Lucide `text`：三行長短不一的字。 */
     val Notes: ImageVector by lazy { strokeIcon("notes", "M17 6.1H3", "M21 12.1H3", "M15.1 18H3") }
 

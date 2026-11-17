@@ -13,17 +13,13 @@ import kotlinx.coroutines.flow.Flow
 
 /**
  * 帳號頁用得到的組裝點。窄介面的理由同 `WizardData`／`ShellSettings`：帳號頁要用到的設定值
- * （Gemini 金鑰、AI 分析區間、儲存用量、標籤管理）比 `ShellSettings` 給 `AppRoot` 其餘畫面的
+ * （Gemini 金鑰、儲存用量、標籤管理）比 `ShellSettings` 給 `AppRoot` 其餘畫面的
  * 還多，但那些不是別的畫面用得到的東西，不該塞進 `ShellSettings` 讓它變成什麼都放的抽屜
  * （`ShellSettings` 的 KDoc 原本就把這些留給階段 11 另開一個介面）。
  */
 interface AccountDeps {
     val filterStrength: Flow<FilterStrength>
     suspend fun setFilterStrength(value: FilterStrength)
-
-    val aiRangeBeforeSec: Flow<Int>
-    val aiRangeAfterSec: Flow<Int>
-    suspend fun setAiRange(beforeSec: Int, afterSec: Int)
 
     /** 金鑰**存在與否**，不是金鑰本身——畫面不需要、也不該把明文金鑰握在 Compose 狀態裡。 */
     val geminiKeySet: Flow<Boolean>

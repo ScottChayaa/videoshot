@@ -21,10 +21,6 @@ open class FakeAccountDeps : AccountDeps {
     override val filterStrength = MutableStateFlow(FilterStrength.MEDIUM)
     override suspend fun setFilterStrength(value: FilterStrength) = Unit
 
-    override val aiRangeBeforeSec = MutableStateFlow(10)
-    override val aiRangeAfterSec = MutableStateFlow(20)
-    override suspend fun setAiRange(beforeSec: Int, afterSec: Int) = Unit
-
     override val geminiKeySet = MutableStateFlow(false)
     override suspend fun setGeminiKey(plain: String) = Unit
     override suspend fun clearGeminiKey() = Unit

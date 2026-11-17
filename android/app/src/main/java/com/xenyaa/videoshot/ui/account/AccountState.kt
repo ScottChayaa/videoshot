@@ -28,8 +28,6 @@ data class AccountState(
     val error: String? = null,
     val stats: AccountStats = AccountStats(0, 0, 0),
     val filterStrength: FilterStrength = FilterStrength.MEDIUM,
-    val aiRangeBeforeSec: Int = 10,
-    val aiRangeAfterSec: Int = 20,
     val geminiKeySet: Boolean = false,
     val storageUsageBytes: Long = 0L,
     /** 縮圖牆手機寬度每列張數；首頁、查詢結果、資料夾內容都讀這一格（`AppRoot`）。 */

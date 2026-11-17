@@ -51,8 +51,6 @@ class AccountViewModel(
 
     init {
         viewModelScope.launch { deps.filterStrength.collect { v -> _state.value = _state.value.copy(filterStrength = v) } }
-        viewModelScope.launch { deps.aiRangeBeforeSec.collect { v -> _state.value = _state.value.copy(aiRangeBeforeSec = v) } }
-        viewModelScope.launch { deps.aiRangeAfterSec.collect { v -> _state.value = _state.value.copy(aiRangeAfterSec = v) } }
         viewModelScope.launch { deps.thumbColumns.collect { v -> _state.update { it.copy(thumbColumns = v) } } }
         viewModelScope.launch { deps.geminiKeySet.collect { v -> _state.value = _state.value.copy(geminiKeySet = v) } }
         viewModelScope.launch {
@@ -90,9 +88,6 @@ class AccountViewModel(
     fun setFilterStrength(value: FilterStrength) = launchGuarded { deps.setFilterStrength(value) }
 
     fun setThumbColumns(value: Int) = launchGuarded { deps.setThumbColumns(value) }
-
-    fun setAiRange(beforeSec: Int, afterSec: Int) =
-        launchGuarded { deps.setAiRange(beforeSec.coerceAtLeast(0), afterSec.coerceAtLeast(0)) }
 
     /** 空白輸入不送出——沒有「清空金鑰」這個操作，清除要按明確的【清除】按鈕（[clearGeminiKey]）。 */
     fun saveGeminiKey(plain: String) {

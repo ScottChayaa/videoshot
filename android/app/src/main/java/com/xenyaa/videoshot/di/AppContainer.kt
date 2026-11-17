@@ -341,11 +341,6 @@ class AppContainer(context: Context) : AppRootDeps {
             override val filterStrength = settings.filterStrength
             override suspend fun setFilterStrength(value: FilterStrength) = settings.setFilterStrength(value)
 
-            override val aiRangeBeforeSec = settings.aiRangeBeforeSec
-            override val aiRangeAfterSec = settings.aiRangeAfterSec
-            override suspend fun setAiRange(beforeSec: Int, afterSec: Int) =
-                settings.setAiRange(beforeSec, afterSec)
-
             override val geminiKeySet = settings.geminiKey.map { it != null }
             override suspend fun setGeminiKey(plain: String) = settings.setGeminiKey(plain)
             override suspend fun clearGeminiKey() = settings.clearGeminiKey()

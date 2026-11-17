@@ -103,13 +103,6 @@ fun AccountScreen(
                     // 階段 17：描述查詢下架，「查詢 · Gemini 金鑰」這一列先藏起來——
                     // AccountSection.GEMINI 與 GeminiKeyScreen 都留著，日後重新開放時把這一列接回即可
                     VsListRow(
-                        "AI 分析",
-                        subtitle = "往前 ${state.aiRangeBeforeSec} 秒／往後 ${state.aiRangeAfterSec} 秒",
-                        icon = VsIcons.Sparkles,
-                        onClick = { onOpenSection(AccountSection.AI) },
-                    )
-                    VsSettingDivider()
-                    VsListRow(
                         "地點管理",
                         subtitle = "${state.places.size} 個地點",
                         icon = VsIcons.MapPin,

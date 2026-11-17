@@ -43,12 +43,6 @@ class AccountViewModelTest {
         var lastFilterStrength: FilterStrength? = null
         override suspend fun setFilterStrength(value: FilterStrength) { lastFilterStrength = value; filterStrengthFlow.value = value }
 
-        val beforeFlow = MutableStateFlow(10)
-        val afterFlow = MutableStateFlow(20)
-        override val aiRangeBeforeSec: Flow<Int> get() = beforeFlow
-        override val aiRangeAfterSec: Flow<Int> get() = afterFlow
-        override suspend fun setAiRange(beforeSec: Int, afterSec: Int) { beforeFlow.value = beforeSec; afterFlow.value = afterSec }
-
         val geminiFlow = MutableStateFlow(false)
         override val geminiKeySet: Flow<Boolean> get() = geminiFlow
         var savedKey: String? = null
@@ -237,19 +231,6 @@ class AccountViewModelTest {
 
         assertEquals(2, deps.thumbColumnsFlow.value)
         assertEquals(2, viewModel.state.value.thumbColumns)
-    }
-
-    @Test
-    fun AI分析區間設定會夾在零以上並流回state() = runTest {
-        val deps = FakeDeps()
-        val viewModel = vm(deps)
-        dispatcher.scheduler.advanceUntilIdle()
-
-        viewModel.setAiRange(5, 15)
-        dispatcher.scheduler.advanceUntilIdle()
-
-        assertEquals(5, viewModel.state.value.aiRangeBeforeSec)
-        assertEquals(15, viewModel.state.value.aiRangeAfterSec)
     }
 
     @Test

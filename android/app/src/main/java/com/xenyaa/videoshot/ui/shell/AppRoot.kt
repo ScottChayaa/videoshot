@@ -64,7 +64,6 @@ import com.xenyaa.videoshot.data.repo.model.ShotRow
 import com.xenyaa.videoshot.data.repo.model.UploadPrivacy
 import com.xenyaa.videoshot.ui.account.AccountScreen
 import com.xenyaa.videoshot.ui.account.AccountViewModel
-import com.xenyaa.videoshot.ui.account.AiRangeScreen
 import com.xenyaa.videoshot.ui.account.BackupScreen
 import com.xenyaa.videoshot.ui.account.CaptureSettingScreen
 import com.xenyaa.videoshot.ui.account.GeminiKeyScreen
@@ -1254,12 +1253,6 @@ fun AppRoot(container: AppRootDeps, openClipSignal: Int = 0, sharedVideo: Shared
                                 onBack = { nav = nav.pop() ?: nav },
                                 onSave = accountVm::saveGeminiKey,
                                 onClear = accountVm::clearGeminiKey,
-                            )
-                            AccountSection.AI -> AiRangeScreen(
-                                beforeSec = accountState.aiRangeBeforeSec,
-                                afterSec = accountState.aiRangeAfterSec,
-                                onBack = { nav = nav.pop() ?: nav },
-                                onChange = accountVm::setAiRange,
                             )
                             AccountSection.PLACES -> PlaceManagementScreen(
                                 state = accountState,
