@@ -26,5 +26,6 @@
 
 ## 備註
 - 每個檔案都有 SVG 向量母檔，PNG 是透明背景的點陣輸出。
-- 字標以 Poppins Medium（SIL OFL）排版，已轉成外框路徑。
+- 字標以 Nunito Bold（SIL OFL，Google Fonts 免費下載）排版，字距 −0.5%，V 與 i 之間另收緊 0.1 em（Nunito 的 V 斜筆離 i 太遠），已轉成外框路徑，不需要安裝字型。字高、基線與邊界沿用原本 Poppins 版，寬度跟著文字變窄。
+- `VideoShot-brand-guidelines.pdf` 還是 Poppins 版（字標圖與「字標」那一格的說明都還沒改）；其他檔案都已換成 Nunito。
 - 正式註冊或大量使用前，建議先做專業的商標檢索。
