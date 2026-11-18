@@ -18,14 +18,14 @@ body {
 
 .hero { background: var(--charcoal); color: var(--cream); padding: 64px 0 56px; }
 .hero h1 { margin: 0; line-height: 0; }
-.hero h1 img { width: min(340px, 80vw); height: auto; }
+.hero h1 img { width: min(326px, 80vw); height: auto; }
 .lead { font-size: 1.35rem; line-height: 1.45; margin: 24px 0 28px; max-width: 30em; }
 .pill { display: inline-block; padding: 8px 20px; border: 1px solid #5A534A; border-radius: 999px; color: #E9E1D3; font-weight: 400; font-size: .9rem; }
 .pill:hover { border-color: var(--yellow); color: var(--cream); background: none; }
 
 .bar { background: var(--charcoal); padding: 14px 0; }
 .bar .wrap { display: flex; align-items: center; justify-content: space-between; }
-.bar img { display: block; width: 150px; height: auto; }
+.bar img { display: block; width: 144px; height: auto; }
 .bar a { color: var(--on-dark-muted); font-size: .85rem; font-weight: 400; border: 0; }
 .bar a:hover { background: none; color: var(--cream); }
 

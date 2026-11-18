@@ -11,7 +11,7 @@
 
 ## 資料夾
 - `01-symbol/`：符號（yellow／charcoal／black／white），以及 32 px 以下用的 `symbol-small*`
-- `02-horizontal/`：橫式圖文組合（預設版本）
+- `02-horizontal/`：橫式圖文組合（預設版本）；`logo-horizontal-compact-*` 是精簡版，符號只有字高的 1.8 倍（預設版約 2.4 倍），給網頁標頭這類扁長的位置
 - `03-stacked/`：直式圖文組合
 - `04-wordmark/`：字標
 - `05-app-and-web-icons/`：App 圖示、favicon.ico／svg、apple-touch-icon、PWA 圖示、`site.webmanifest`、`head-snippet.html`
