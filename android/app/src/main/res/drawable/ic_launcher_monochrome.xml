@@ -3,15 +3,8 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Android 13 主題圖示：系統只看形狀、自己上色。同前景，後山改半透明來分前後（單色時分不出顏色）。 -->
-    <group android:scaleX="0.8" android:scaleY="0.8" android:translateX="13.2" android:translateY="11.6">
-        <group android:pivotX="51" android:pivotY="49.75" android:scaleX="1.09" android:scaleY="1.09" android:translateY="5.25">
-            <path android:pathData="M66.75,28a5.25,5.25 0 1,0 10.5,0a5.25,5.25 0 1,0 -10.5,0Z" android:fillColor="#FFFFFF" />
-            <path android:pathData="M24.49,58.22L41.21,29.97A3.5,3.5 0 0,1 47.17,29.86L65.25,58.11A3.5,3.5 0 0,1 62.30,63.50L27.50,63.50A3.5,3.5 0 0,1 24.49,58.22Z" android:fillColor="#FFFFFF" android:fillAlpha="0.45" />
-            <path android:pathData="M48.36,60.00L62.09,40.78L73.98,60.00Z" android:fillColor="#FFFFFF" android:strokeColor="#FFFFFF" android:strokeWidth="7" android:strokeLineJoin="round" />
-            <path android:pathData="M24.75,60h52.5a1.75,1.75 0 0,1 0,3.5h-52.5a1.75,1.75 0 0,1 0,-3.5Z" android:fillColor="#FFFFFF" />
-            <path android:pathData="M28.75,66.5h38.5a1.75,1.75 0 0,1 0,3.5h-38.5a1.75,1.75 0 0,1 0,-3.5Z" android:fillColor="#FFFFFF" />
-            <path android:pathData="M41.75,73h24.5a1.75,1.75 0 0,1 0,3.5h-24.5a1.75,1.75 0 0,1 0,-3.5Z" android:fillColor="#FFFFFF" />
-        </group>
+    <!-- Android 13 主題圖示：系統只看形狀、自己上色。同前景的符號。 -->
+    <group android:scaleX="0.208125" android:scaleY="0.208125" android:translateX="27.36" android:translateY="27.36">
+        <path android:pathData="M72,28H184a16,16 0 0,1 16,16V217.6A6,6 0 0,1 191,222.8L132,188.7A8,8 0 0,0 124,188.7L65,222.8A6,6 0 0,1 56,217.6V44a16,16 0 0,1 16,-16ZM108,87.3V132.7A10,10 0 0,0 123,141.35L162.3,118.65A10,10 0 0,0 162.3,101.35L123,78.65A10,10 0 0,0 108,87.3Z" android:fillColor="#FFFFFF" android:fillType="evenOdd" />
     </group>
 </vector>
