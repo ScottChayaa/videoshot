@@ -1,0 +1,151 @@
+<!doctype html>
+<!-- 使用規範 PDF 的原始檔。改完重新輸出：用 Chrome 開這頁、列印成 PDF（A4、邊界無、勾選背景圖形）。 -->
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>VideoShot 標誌使用規範</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&family=Noto+Sans+TC:wght@400;700&display=block">
+<style>
+@page { size: A4; margin: 0; }
+:root { --char: #1D1A17; --yellow: #FFBE3D; --cream: #FFF7EA; --muted: #7A746C; --line: #E6E1D8; --paper: #F5F2EC; }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { width: 210mm; height: 297mm; padding: 13mm 13mm 10mm; color: var(--char); background: #fff;
+  font: 7.3pt/1.55 "Nunito", "Noto Sans TC", "Noto Sans CJK TC", sans-serif;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact; display: flex; flex-direction: column; gap: 3.2mm; }
+h1 { font-size: 18pt; line-height: 1.2; margin: 0; }
+.sub { color: var(--muted); margin: 1mm 0 1mm; }
+h2 { font-size: 8.6pt; margin: 0 0 1.6mm; letter-spacing: .08em; }
+h3 { font-size: 8.6pt; margin: 0 0 1mm; }
+.row { display: grid; gap: 3.5mm; }
+.card { border: 1px solid var(--line); border-radius: 3mm; padding: 3.5mm 4.5mm; }
+.card p { margin: 0; }
+ul { margin: 0; padding-left: 4mm; } li { margin: .6mm 0; }
+img { display: block; }
+.concept { display: grid; grid-template-columns: 22mm 1fr; gap: 6mm; align-items: center; }
+.ver { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3mm; height: 36mm; font-size: 6.8pt; color: var(--muted); }
+.ver.dark { background: var(--char); color: #CFC8BD; }
+.sw { border-radius: 3mm; padding: 3.5mm 4.5mm; line-height: 1.7; }
+.sw b { display: block; font-size: 8.6pt; margin-bottom: .5mm; }
+.safe { display: grid; grid-template-columns: 26mm 1fr; gap: 6mm; align-items: center; }
+.wm { display: grid; grid-template-columns: 50mm 1fr; gap: 6mm; align-items: center; }
+.dont { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3mm; }
+.dont div { position: relative; height: 19mm; border-radius: 2mm; background: var(--paper); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.dont div::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top right, transparent calc(50% - .5px), #D9483B calc(50% - .5px), #D9483B calc(50% + .5px), transparent calc(50% + .5px)); }
+.dont span { display: block; text-align: center; color: var(--muted); font-size: 6.8pt; margin-top: 1mm; }
+.foot { margin: auto 0 0; color: var(--muted); font-size: 6.5pt; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>VideoShot 標誌使用規範</h1>
+  <p class="sub">v1.1 · 2026-11-18 · 把線上影片裡的瞬間，收成你自己的相簿</p>
+</header>
+
+<div class="row" style="grid-template-columns: 1.2fr 1fr">
+  <div class="card concept">
+    <img src="01-symbol/symbol-charcoal.svg" alt="" style="width: 22mm">
+    <div>
+      <h3>概念</h3>
+      <p>「書籤那一秒」：把讓你停下來的那一秒存成書籤。書籤裡是播放鍵，代表一切都來自影片，點開就能回到原影片那一秒；書籤底部的缺口是 VideoShot 的 V。轉角都做了圓角處理，傳達舒適、簡單上手的感覺。</p>
+    </div>
+  </div>
+  <div class="card">
+    <h3>字標</h3>
+    <p>以 Nunito Bold（SIL Open Font License，可用於標誌）排版，字距 −0.5%，V 與 i 之間另收緊 0.1 em；已轉成外框路徑，不需要安裝字型。Nunito 的圓頭筆畫呼應書籤的圓角。介面與文案建議搭配 Nunito（英文）和 Noto Sans TC（中文），都可從 Google Fonts 免費下載。</p>
+  </div>
+</div>
+
+<section>
+  <h2>標誌版本</h2>
+  <div class="row" style="grid-template-columns: 1.8fr 1fr 1fr">
+    <div class="card ver"><img src="02-horizontal/logo-horizontal-charcoal.svg" alt="" style="width: 62mm">橫式：預設版本，用於網站、簡報、文件</div>
+    <div class="card ver"><img src="03-stacked/logo-stacked-charcoal.svg" alt="" style="width: 26mm">直式：方形空間、海報</div>
+    <div class="card ver dark"><img src="01-symbol/symbol-yellow.svg" alt="" style="width: 19mm">App 圖示</div>
+  </div>
+</section>
+
+<section>
+  <h2>色彩</h2>
+  <div class="row" style="grid-template-columns: 1fr 1fr 1fr 1.35fr">
+    <div class="sw" style="background: var(--char); color: var(--cream)"><b>暖炭 Warm Charcoal</b>HEX #1D1A17<br>RGB 29・26・23<br>CMYK 0・10・21・89<br>Pantone ≈ Black 4 C</div>
+    <div class="sw" style="background: var(--yellow)"><b>暖黃 Warm Yellow</b>HEX #FFBE3D<br>RGB 255・190・61<br>CMYK 0・25・76・0<br>Pantone ≈ 1235 C</div>
+    <div class="sw" style="background: var(--cream); border: 1px solid var(--line)"><b>奶油白 Cream</b>HEX #FFF7EA<br>RGB 255・247・234<br>CMYK 0・3・8・0<br>深色底上的字標顏色</div>
+    <div class="card"><p>暖黃配暖炭的對比為 <b>10.5:1</b>，奶油白配暖炭為 <b>16.3:1</b>，兩者都符合 WCAG AAA。CMYK 與 Pantone 都是換算值，正式印刷前請用實體色票確認。黃色不要直接放在白色或淺色背景上，因為對比不足。</p></div>
+  </div>
+</section>
+
+<div class="row" style="grid-template-columns: 1fr 1fr">
+  <div class="card">
+    <h2>安全空間</h2>
+    <div class="safe">
+      <!-- 書籤外框 x 56–200、y 28–222.8（寬 144）；X = 72，往四周各留 X -->
+      <svg viewBox="-24 -52 304 354.8" style="width: 26mm; height: 30.3mm">
+        <rect x="-16" y="-44" width="288" height="338.8" fill="none" stroke="#E8A13A" stroke-width="3" stroke-dasharray="8 6"/>
+        <line x1="-16" y1="-30" x2="56" y2="-30" stroke="#D9483B" stroke-width="4"/>
+        <text x="20" y="-36" font-size="22" text-anchor="middle" fill="#D9483B" font-weight="700">X</text>
+        <path fill="#1D1A17" fill-rule="evenodd" d="M72 28H184a16 16 0 0 1 16 16V217.6A6 6 0 0 1 191 222.8L132 188.7A8 8 0 0 0 124 188.7L65 222.8A6 6 0 0 1 56 217.6V44a16 16 0 0 1 16-16ZM108 87.3V132.7A10 10 0 0 0 123 141.35L162.3 118.65A10 10 0 0 0 162.3 101.35L123 78.65A10 10 0 0 0 108 87.3Z"/>
+      </svg>
+      <p>標誌四周至少保留 <b>X</b>，X 等於書籤寬度的 1/2（也大約是播放鍵的高度）。這個範圍內不要放其他文字、圖形或畫面邊緣。</p>
+    </div>
+  </div>
+  <div class="card">
+    <h2>最小尺寸</h2>
+    <ul>
+      <li>符號：螢幕 16 px／印刷 5 mm</li>
+      <li>32 px 以下請改用「小尺寸版」（symbol-small、app-icon-small），播放鍵加大</li>
+      <li>橫式：螢幕 120 px 寬／印刷 25 mm 寬</li>
+      <li>直式：螢幕 64 px 寬／印刷 15 mm 寬</li>
+    </ul>
+  </div>
+</div>
+
+<div class="row" style="grid-template-columns: 1.5fr 1fr">
+  <div class="card">
+    <h2>影片與照片浮水印</h2>
+    <div class="wm">
+      <svg viewBox="0 0 320 180" style="width: 50mm; height: 28.1mm; border-radius: 2mm">
+        <defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7FA8A8"/><stop offset="1" stop-color="#4F7F84"/></linearGradient></defs>
+        <rect width="320" height="180" fill="url(#sky)"/>
+        <circle cx="236" cy="52" r="20" fill="#F3E9CF"/>
+        <path d="M0 118Q70 86 150 112T320 100V180H0Z" fill="#3E6A70"/>
+        <path d="M0 146Q90 120 180 142T320 136V180H0Z" fill="#2C4F55"/>
+        <image href="02-horizontal/logo-horizontal-white.svg" x="250" y="154" width="54" height="15.6" opacity=".85"/>
+      </svg>
+      <ul>
+        <li>使用<b>白色單色版</b>（深色畫面）或<b>黑色單色版</b>（淺色畫面），不透明度 70–90%</li>
+        <li>放在右下角，距離畫面邊緣至少 X</li>
+        <li>浮水印寬度約為畫面寬度的 12–18%；行動裝置上可以只放符號</li>
+        <li>彩色版只用在乾淨的純色背景上</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card">
+    <h2>背景搭配</h2>
+    <ul>
+      <li><b>深色背景</b>：黃色符號＋奶油白字標（on-dark）</li>
+      <li><b>淺色背景</b>：暖炭色符號＋暖炭色字標（charcoal）</li>
+      <li><b>照片／影片</b>：白色或黑色單色版</li>
+      <li><b>單色印刷</b>：黑色版或白色反白版</li>
+    </ul>
+  </div>
+</div>
+
+<section>
+  <h2>請勿</h2>
+  <div class="dont">
+    <figure style="margin: 0"><div><img src="01-symbol/symbol-charcoal.svg" alt="" style="width: 14mm; transform: scale(1.7, .75)"></div><span>拉長或壓扁</span></figure>
+    <figure style="margin: 0"><div><img src="01-symbol/symbol-charcoal.svg" alt="" style="width: 14mm; transform: rotate(22deg)"></div><span>旋轉</span></figure>
+    <figure style="margin: 0"><div><svg viewBox="0 0 256 256" style="width: 14mm"><path fill="#E5483C" fill-rule="evenodd" d="M72 28H184a16 16 0 0 1 16 16V217.6A6 6 0 0 1 191 222.8L132 188.7A8 8 0 0 0 124 188.7L65 222.8A6 6 0 0 1 56 217.6V44a16 16 0 0 1 16-16ZM108 87.3V132.7A10 10 0 0 0 123 141.35L162.3 118.65A10 10 0 0 0 162.3 101.35L123 78.65A10 10 0 0 0 108 87.3Z"/></svg></div><span>更改顏色</span></figure>
+    <figure style="margin: 0"><div><img src="01-symbol/symbol-charcoal.svg" alt="" style="width: 14mm; filter: drop-shadow(1.5mm 1.5mm 1.2mm rgba(0,0,0,.45))"></div><span>加陰影或特效</span></figure>
+    <figure style="margin: 0"><div style="background: #fff; border: 1px solid var(--line)"><img src="01-symbol/symbol-yellow.svg" alt="" style="width: 14mm"></div><span>黃色放在白底</span></figure>
+    <figure style="margin: 0"><div><b style="font: 700 12pt Georgia, 'Times New Roman', serif">VideoShot</b></div><span>更改字體</span></figure>
+  </div>
+</section>
+
+<p class="foot">檔案說明：01-symbol 符號｜02-horizontal 橫式｜03-stacked 直式｜04-wordmark 字標｜05-app-and-web-icons App 與網頁圖示（含 favicon.ico、site.webmanifest、head-snippet.html）｜06-presentation 應用示意簡報。正式使用前，建議先委託專業人士做商標檢索。</p>
+
+</body>
+</html>
